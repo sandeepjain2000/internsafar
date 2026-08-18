@@ -1,0 +1,554 @@
+/**
+ * Employer offers — gemini-tsx-handoff/mocks/redesigned_employer_offers.html (content only; PortalShell topbar kept).
+ */
+.ip-emp-offers {
+  --ip-indigo: #4f46e5;
+  --ip-indigo-700: #4338ca;
+  max-width: 80rem;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  font-family: 'Plus Jakarta Sans', Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #0f172a;
+}
+
+.ip-emp-offers .ip-eo-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+@media (min-width: 640px) {
+  .ip-emp-offers .ip-eo-banner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.ip-emp-offers .ip-eo-banner h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #0f172a;
+}
+
+.ip-emp-offers .ip-eo-banner p {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.ip-emp-offers .ip-eo-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ip-emp-offers .ip-eo-conv {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 0.75rem;
+  padding: 0.375rem 0.75rem;
+  width: fit-content;
+}
+
+.ip-emp-offers .ip-eo-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--ip-indigo);
+  border: none;
+  border-radius: 0.75rem;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.ip-emp-offers .ip-eo-btn-primary:hover {
+  background: var(--ip-indigo-700);
+  color: #fff;
+}
+
+.ip-emp-offers .ip-eo-metrics {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .ip-emp-offers .ip-eo-metrics {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.ip-emp-offers .ip-eo-metric {
+  background: #fff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ip-emp-offers .ip-eo-metric p {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.ip-emp-offers .ip-eo-metric h3 {
+  margin: 0.25rem 0 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ip-emp-offers .ip-eo-metric-sub {
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.ip-emp-offers .ip-eo-metric-sub--ok {
+  color: #059669;
+}
+
+.ip-emp-offers .ip-eo-metric-sub--warn {
+  color: #d97706;
+}
+
+.ip-emp-offers .ip-eo-metric-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ip-emp-offers .ip-eo-metric-icon--brand {
+  background: #eef2ff;
+  color: var(--ip-indigo);
+}
+
+.ip-emp-offers .ip-eo-metric-icon--ok {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.ip-emp-offers .ip-eo-metric-icon--warn {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.ip-emp-offers .ip-eo-panel {
+  background: #fff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.ip-emp-offers .ip-eo-toolbar {
+  padding: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: rgba(248, 250, 252, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .ip-emp-offers .ip-eo-toolbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.ip-emp-offers .ip-eo-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ip-emp-offers .ip-eo-tab {
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+}
+
+.ip-emp-offers .ip-eo-tab:hover {
+  background: #f1f5f9;
+}
+
+.ip-emp-offers .ip-eo-tab--on {
+  background: var(--ip-indigo);
+  color: #fff;
+  border-color: var(--ip-indigo);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.ip-emp-offers .ip-eo-tab--on:hover {
+  background: var(--ip-indigo-700);
+  color: #fff;
+}
+
+.ip-emp-offers .ip-eo-search {
+  position: relative;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .ip-emp-offers .ip-eo-search {
+    width: 18rem;
+  }
+}
+
+.ip-emp-offers .ip-eo-search svg {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.ip-emp-offers .ip-eo-search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 1rem 0.5rem 2.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #1e293b;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  outline: none;
+}
+
+.ip-emp-offers .ip-eo-search input:focus {
+  border-color: var(--ip-indigo);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+.ip-emp-offers .ip-eo-table-wrap {
+  overflow-x: auto;
+}
+
+.ip-emp-offers table.ip-eo-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.ip-emp-offers .ip-eo-table thead tr {
+  border-bottom: 1px solid #e2e8f0;
+  background: rgba(248, 250, 252, 0.8);
+}
+
+.ip-emp-offers .ip-eo-table th {
+  padding: 0.875rem 1.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ip-emp-offers .ip-eo-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ip-emp-offers .ip-eo-table tbody tr:hover {
+  background: rgba(248, 250, 252, 0.8);
+}
+
+.ip-emp-offers .ip-eo-table td {
+  padding: 1rem 1.5rem;
+  font-size: 0.75rem;
+  vertical-align: middle;
+}
+
+.ip-emp-offers .ip-eo-empty {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.ip-emp-offers .ip-eo-cand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ip-emp-offers .ip-eo-avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  background: #e0e7ff;
+  color: #4338ca;
+  font-weight: 700;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ip-emp-offers .ip-eo-cand h4 {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.ip-emp-offers .ip-eo-cand p {
+  margin: 0.125rem 0 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--ip-indigo);
+}
+
+.ip-emp-offers .ip-eo-cand p span {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.ip-emp-offers .ip-eo-stipend {
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.ip-emp-offers .ip-eo-date {
+  color: #475569;
+  font-weight: 500;
+}
+
+.ip-emp-offers .ip-eo-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.ip-emp-offers .ip-eo-badge--ok {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.ip-emp-offers .ip-eo-badge--warn {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+.ip-emp-offers .ip-eo-badge--bad {
+  background: #fff1f2;
+  color: #be123c;
+  border-color: #fecdd3;
+}
+
+.ip-emp-offers .ip-eo-badge--muted {
+  background: #f8fafc;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
+.ip-emp-offers .ip-eo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.ip-emp-offers .ip-eo-btn-letter {
+  padding: 0.375rem 0.75rem;
+  background: #eef2ff;
+  color: #4338ca;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border: 1px solid #c7d2fe;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.ip-emp-offers .ip-eo-btn-letter:hover {
+  background: #e0e7ff;
+}
+
+.ip-emp-offers .ip-eo-btn-remind {
+  padding: 0.375rem 0.75rem;
+  background: #f1f5f9;
+  color: #334155;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.ip-emp-offers .ip-eo-btn-remind:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.ip-emp-offers .ip-eo-btn-remind:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ip-emp-offers .ip-eo-btn-ghost {
+  padding: 0.375rem 0.75rem;
+  background: #fff;
+  color: #475569;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.ip-emp-offers .ip-eo-btn-ghost:hover {
+  background: #f8fafc;
+}
+
+.ip-emp-offers .ip-eo-alert {
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.ip-emp-offers .ip-eo-alert--err {
+  background: #fff1f2;
+  color: #9f1239;
+  border: 1px solid #fecdd3;
+}
+
+.ip-emp-offers .ip-eo-alert--ok {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.ip-emp-offers .ip-eo-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.ip-emp-offers .ip-eo-modal {
+  width: 100%;
+  max-width: 28rem;
+  background: #fff;
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+  padding: 1.25rem;
+}
+
+.ip-emp-offers .ip-eo-modal h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ip-emp-offers .ip-eo-modal p {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  color: #475569;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.ip-emp-offers .ip-eo-modal label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 0.25rem;
+}
+
+.ip-emp-offers .ip-eo-modal input,
+.ip-emp-offers .ip-eo-modal textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  color: #0f172a;
+}
+
+.ip-emp-offers .ip-eo-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.ip-emp-offers .ip-eo-stars {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.ip-emp-offers .ip-eo-stars button {
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.ip-emp-offers .ip-eo-stars button.on {
+  color: #f59e0b;
+}
+
+.ip-emp-offers .ip-eo-stars button.off {
+  color: #cbd5e1;
+}

@@ -1,0 +1,586 @@
+/**
+ * Employer profile main content — matches gemini-tsx-handoff/mocks/placementhub_employer_profile.html
+ * (content area only; PortalShell keeps live sidebar/topbar).
+ * Unlayered so it beats globals @layer base / shadcn defaults.
+ */
+.ip-emp-profile {
+  --ip-indigo: #4f46e5;
+  --ip-indigo-700: #4338ca;
+  max-width: 56rem;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #0f172a;
+}
+
+.ip-emp-profile .ip-ep-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.ip-emp-profile .ip-ep-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.ip-emp-profile .ip-ep-header p {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.ip-emp-profile .ip-ep-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.ip-emp-profile .ip-ep-badge--ok {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #4338ca;
+}
+
+.ip-emp-profile .ip-ep-alert {
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #334155;
+}
+
+.ip-emp-profile .ip-ep-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  padding: 1.5rem;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .ip-emp-profile .ip-ep-card {
+    padding: 2rem;
+  }
+}
+
+.ip-emp-profile .ip-ep-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ip-emp-profile .ip-ep-card__head--plain {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 1rem;
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.ip-emp-profile .ip-ep-card__title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ip-emp-profile .ip-ep-card__desc {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.ip-emp-profile .ip-ep-pill {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.ip-emp-profile .ip-ep-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ip-emp-profile .ip-ep-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .ip-emp-profile .ip-ep-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.ip-emp-profile .ip-ep-span-2 {
+  grid-column: 1 / -1;
+}
+
+.ip-emp-profile .ip-ep-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.ip-emp-profile .ip-ep-label {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: #334155;
+}
+
+.ip-emp-profile .ip-ep-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.ip-emp-profile .ip-ep-input,
+.ip-emp-profile .ip-ep-select,
+.ip-emp-profile .ip-ep-textarea {
+  display: block;
+  width: 100%;
+  border-radius: 0.375rem;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #0f172a;
+  box-shadow: none;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  font-family: inherit;
+  margin: 0;
+}
+
+.ip-emp-profile .ip-ep-input,
+.ip-emp-profile .ip-ep-select {
+  height: 2.25rem;
+  appearance: none;
+}
+
+.ip-emp-profile .ip-ep-textarea {
+  min-height: 5rem;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.ip-emp-profile .ip-ep-input:focus,
+.ip-emp-profile .ip-ep-select:focus,
+.ip-emp-profile .ip-ep-textarea:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.ip-emp-profile .ip-ep-input:disabled,
+.ip-emp-profile .ip-ep-select:disabled,
+.ip-emp-profile .ip-ep-textarea:disabled {
+  cursor: not-allowed;
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.ip-emp-profile .ip-ep-select-wrap {
+  position: relative;
+}
+
+.ip-emp-profile .ip-ep-select-wrap .ip-ep-select {
+  padding-right: 2rem;
+}
+
+.ip-emp-profile .ip-ep-select-wrap__chevron {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: flex;
+  align-items: center;
+  padding-right: 0.5rem;
+  pointer-events: none;
+  color: #64748b;
+}
+
+.ip-emp-profile .ip-ep-logo-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.ip-emp-profile .ip-ep-logo-box {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 0.5rem;
+  border: 2px dashed #cbd5e1;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  cursor: pointer;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+}
+
+.ip-emp-profile .ip-ep-logo-box:hover {
+  border-color: #818cf8;
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.ip-emp-profile .ip-ep-logo-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #ffffff;
+}
+
+.ip-emp-profile .ip-ep-logo-box span {
+  font-size: 0.625rem;
+  font-weight: 500;
+  margin-top: 0.25rem;
+}
+
+.ip-emp-profile .ip-ep-logo-fields {
+  flex: 1;
+  min-width: 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.ip-emp-profile .ip-ep-prefs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 0.25rem;
+}
+
+.ip-emp-profile .ip-ep-check {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #334155;
+  line-height: 1.4;
+}
+
+.ip-emp-profile .ip-ep-check:hover {
+  color: #0f172a;
+}
+
+.ip-emp-profile .ip-ep-check input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #4f46e5;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.ip-emp-profile .ip-ep-ethics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.ip-emp-profile .ip-ep-ethic {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.ip-emp-profile .ip-ep-ethic:hover {
+  background: #f8fafc;
+}
+
+.ip-emp-profile .ip-ep-ethic--on {
+  border-color: #c7d2fe;
+  background: rgba(238, 242, 255, 0.45);
+}
+
+.ip-emp-profile .ip-ep-ethic input[type='checkbox'] {
+  margin-top: 0.125rem;
+  width: 1rem;
+  height: 1rem;
+  accent-color: #4f46e5;
+  flex-shrink: 0;
+}
+
+.ip-emp-profile .ip-ep-ethic span {
+  font-size: 0.875rem;
+  line-height: 1.625;
+  color: #334155;
+}
+
+.ip-emp-profile .ip-ep-ethic--on span {
+  color: #1e1b4b;
+  font-weight: 500;
+}
+
+.ip-emp-profile .ip-ep-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+}
+
+.ip-emp-profile .ip-ep-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.25rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  margin: 0;
+}
+
+.ip-emp-profile .ip-ep-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.ip-emp-profile .ip-ep-btn--primary {
+  background: #4f46e5;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.ip-emp-profile .ip-ep-btn--primary:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+.ip-emp-profile .ip-ep-btn--outline {
+  background: #ffffff;
+  color: #4f46e5;
+  border: 1px solid #e2e8f0;
+}
+
+.ip-emp-profile .ip-ep-btn--outline:hover:not(:disabled) {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+}
+
+.ip-emp-profile .ip-ep-btn--secondary {
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+}
+
+.ip-emp-profile .ip-ep-btn--secondary:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.ip-emp-profile .ip-ep-doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.ip-emp-profile .ip-ep-doc {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  transition: border-color 0.15s;
+}
+
+.ip-emp-profile .ip-ep-doc:hover {
+  border-color: #c7d2fe;
+}
+
+.ip-emp-profile .ip-ep-doc__main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.ip-emp-profile .ip-ep-doc__icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.25rem;
+  background: #eef2ff;
+  color: #4f46e5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ip-emp-profile .ip-ep-doc__title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ip-emp-profile .ip-ep-doc__link {
+  font-size: 0.75rem;
+  color: #4f46e5;
+  text-decoration: none;
+}
+
+.ip-emp-profile .ip-ep-doc__link:hover {
+  text-decoration: underline;
+}
+
+.ip-emp-profile .ip-ep-doc__meta {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.ip-emp-profile .ip-ep-upload-panel {
+  padding: 1.25rem;
+  border-radius: 0.5rem;
+  border: 1px dashed #cbd5e1;
+  background: rgba(248, 250, 252, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ip-emp-profile .ip-ep-upload-panel h3 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.ip-emp-profile .ip-ep-upload-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .ip-emp-profile .ip-ep-upload-row {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .ip-emp-profile .ip-ep-upload-row .ip-ep-select-wrap {
+    width: 12.5rem;
+    flex-shrink: 0;
+  }
+}
+
+.ip-emp-profile .ip-ep-or {
+  position: relative;
+  padding: 0.5rem 0;
+  text-align: center;
+}
+
+.ip-emp-profile .ip-ep-or::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px solid #e2e8f0;
+}
+
+.ip-emp-profile .ip-ep-or span {
+  position: relative;
+  background: #f8fafc;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.ip-emp-profile .ip-ep-upload-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* Force shadcn IpUploadButton into mock chrome */
+.ip-emp-profile .ip-ep-upload-wrap button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  height: 2.25rem !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 0.375rem !important;
+  background: #ffffff !important;
+  color: #4f46e5 !important;
+  border: 1px solid #e2e8f0 !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+.ip-emp-profile .ip-ep-upload-wrap button:hover:not(:disabled) {
+  border-color: #c7d2fe !important;
+  background: #eef2ff !important;
+}
+
+.ip-emp-profile .ip-ep-upload-wrap p,
+.ip-emp-profile .ip-ep-upload-wrap [data-slot='field-description'] {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #dc2626;
+}

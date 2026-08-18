@@ -1,0 +1,536 @@
+/**
+ * Notifications inbox — redesigned_candidate_notifications_dashboard.html (content only).
+ * Prototype "View: Empty / With Notifications" toggle is intentionally omitted.
+ * Shared by candidate + employer via IpNotificationsInbox.
+ */
+.ip-notif {
+  --ip-indigo: #4f46e5;
+  --ip-indigo-50: #eef2ff;
+  --ip-indigo-100: #e0e7ff;
+  --ip-indigo-200: #c7d2fe;
+  --ip-indigo-600: #4f46e5;
+  --ip-indigo-700: #4338ca;
+  max-width: 64rem;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #0f172a;
+}
+
+.ip-notif .ip-nf-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .ip-notif .ip-nf-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.ip-notif .ip-nf-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.ip-notif .ip-nf-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #0f172a;
+}
+
+.ip-notif .ip-nf-new {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--ip-indigo-50);
+  color: var(--ip-indigo-700);
+  border: 1px solid rgba(199, 210, 254, 0.6);
+}
+
+.ip-notif .ip-nf-header > div > p {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.ip-notif .ip-nf-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #334155;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: background 0.15s ease;
+}
+
+.ip-notif .ip-nf-mark:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.ip-notif .ip-nf-mark:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ip-notif .ip-nf-mark svg {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  color: #64748b;
+}
+
+.ip-notif .ip-nf-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+@media (min-width: 640px) {
+  .ip-notif .ip-nf-toolbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.ip-notif .ip-nf-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 0.75rem;
+  background: rgba(241, 245, 249, 0.8);
+  overflow-x: auto;
+}
+
+.ip-notif .ip-nf-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.ip-notif .ip-nf-tab:hover {
+  color: #0f172a;
+}
+
+.ip-notif .ip-nf-tab.is-active {
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.ip-notif .ip-nf-tab-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: #6366f1;
+}
+
+.ip-notif .ip-nf-search {
+  position: relative;
+  min-width: 13.75rem;
+}
+
+.ip-notif .ip-nf-search svg.ip-nf-search-ico {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0.875rem;
+  height: 0.875rem;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.ip-notif .ip-nf-search input {
+  width: 100%;
+  padding: 0.375rem 2rem 0.375rem 2.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 0.75rem;
+  font-family: inherit;
+  color: #1e293b;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.ip-notif .ip-nf-search input:focus {
+  background: #fff;
+  border-color: var(--ip-indigo-600);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+.ip-notif .ip-nf-search-clear {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.ip-notif .ip-nf-search-clear:hover {
+  color: #475569;
+}
+
+.ip-notif .ip-nf-search-clear svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.ip-notif .ip-nf-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ip-notif .ip-nf-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: rgba(255, 255, 255, 0.7);
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+@media (min-width: 640px) {
+  .ip-notif .ip-nf-card {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
+.ip-notif .ip-nf-card.is-unread {
+  background: #fff;
+  border-color: rgba(199, 210, 254, 0.85);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.08);
+}
+
+.ip-notif .ip-nf-card:hover {
+  background: #fff;
+}
+
+.ip-notif .ip-nf-card-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.ip-notif .ip-nf-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.ip-notif .ip-nf-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.ip-notif .ip-nf-icon--application {
+  background: #eff6ff;
+  color: #2563eb;
+  border-color: #bfdbfe;
+}
+
+.ip-notif .ip-nf-icon--referral {
+  background: #fffbeb;
+  color: #d97706;
+  border-color: #fde68a;
+}
+
+.ip-notif .ip-nf-icon--system {
+  background: #faf5ff;
+  color: #9333ea;
+  border-color: #e9d5ff;
+}
+
+.ip-notif .ip-nf-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.ip-notif .ip-nf-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.ip-notif .ip-nf-card.is-unread .ip-nf-card-title {
+  color: #0f172a;
+}
+
+.ip-notif .ip-nf-unread-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--ip-indigo-600);
+  flex-shrink: 0;
+}
+
+.ip-notif .ip-nf-desc {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: #475569;
+  max-width: 42rem;
+}
+
+.ip-notif .ip-nf-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+.ip-notif .ip-nf-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ip-indigo-600);
+  text-decoration: none;
+}
+
+.ip-notif .ip-nf-cta:hover {
+  color: var(--ip-indigo-700);
+  text-decoration: underline;
+}
+
+.ip-notif .ip-nf-cta svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.ip-notif .ip-nf-sep {
+  color: #cbd5e1;
+  font-size: 0.75rem;
+}
+
+.ip-notif .ip-nf-time {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.ip-notif .ip-nf-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  align-self: flex-end;
+}
+
+@media (min-width: 640px) {
+  .ip-notif .ip-nf-actions {
+    align-self: flex-start;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .ip-notif .ip-nf-card:hover .ip-nf-actions {
+    opacity: 1;
+  }
+}
+
+.ip-notif .ip-nf-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.ip-notif .ip-nf-action:hover {
+  color: #475569;
+  background: #f1f5f9;
+}
+
+.ip-notif .ip-nf-action svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.ip-notif .ip-nf-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  border-radius: 1rem;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+.ip-notif .ip-nf-empty-ico {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ip-notif .ip-nf-empty-ico svg {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.ip-notif .ip-nf-empty h3 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.ip-notif .ip-nf-empty p {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+  max-width: 20rem;
+}
+
+.ip-notif .ip-nf-empty-btn {
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: #f1f5f9;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #334155;
+  cursor: pointer;
+}
+
+.ip-notif .ip-nf-empty-btn:hover {
+  background: #e2e8f0;
+}
+
+.ip-notif .ip-nf-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.5rem 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.ip-notif .ip-nf-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #1e293b;
+  background: #0f172a;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.25);
+  animation: ip-nf-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ip-notif .ip-nf-toast-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.ip-notif .ip-nf-toast-ico svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+@keyframes ip-nf-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

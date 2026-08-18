@@ -1,0 +1,528 @@
+/**
+ * Refer & earn — redesigned_candidate_referral_dashboard.html (content only).
+ * Prototype View toggle omitted. Shared candidate/employer.
+ */
+.ip-refer {
+  --ip-indigo: #4f46e5;
+  max-width: 72rem;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  font-family: 'Plus Jakarta Sans', Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #0f172a;
+}
+
+.ip-refer .ip-rf-top {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .ip-refer .ip-rf-top {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.ip-refer .ip-rf-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid rgba(199, 210, 254, 0.6);
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.ip-refer .ip-rf-top h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #0f172a;
+}
+
+.ip-refer .ip-rf-top > div > p {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.ip-refer .ip-rf-balance {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  padding: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  flex-shrink: 0;
+}
+
+.ip-refer .ip-rf-balance__icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.75rem;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: #d97706;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ip-refer .ip-rf-balance__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ip-refer .ip-rf-balance__value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.ip-refer .ip-rf-stats {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .ip-refer .ip-rf-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .ip-refer .ip-rf-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.ip-refer .ip-rf-stat {
+  background: #fff;
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.ip-refer .ip-rf-stat__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ip-refer .ip-rf-stat__value {
+  margin-top: 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ip-refer .ip-rf-stat__sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.ip-refer .ip-rf-stat__sub .ok {
+  color: #059669;
+  font-weight: 600;
+}
+
+.ip-refer .ip-rf-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.ip-refer .ip-rf-card__head {
+  padding: 1.5rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ip-refer .ip-rf-card__head h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ip-refer .ip-rf-card__head p {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.ip-refer .ip-rf-card__body {
+  padding: 1.5rem;
+  background: rgba(248, 250, 252, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ip-refer .ip-rf-link-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .ip-refer .ip-rf-link-row {
+    flex-direction: row;
+    align-items: stretch;
+  }
+}
+
+.ip-refer .ip-rf-link {
+  position: relative;
+  flex: 1;
+}
+
+.ip-refer .ip-rf-link__icon {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: flex;
+  align-items: center;
+  padding-left: 0.875rem;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.ip-refer .ip-rf-link input {
+  width: 100%;
+  height: 2.75rem;
+  padding: 0.625rem 1rem 0.625rem 2.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font-size: 0.875rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #1e293b;
+  outline: none;
+}
+
+.ip-refer .ip-rf-link input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.ip-refer .ip-rf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.75rem;
+  padding: 0 1.25rem;
+  border-radius: 0.75rem;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  background: #4f46e5;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.ip-refer .ip-rf-btn:hover {
+  background: #4338ca;
+}
+
+.ip-refer .ip-rf-btn.is-copied {
+  background: #059669;
+}
+
+.ip-refer .ip-rf-btn--soft {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.5rem;
+  min-width: 7.5rem;
+  padding: 0 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.ip-refer .ip-rf-btn--soft:hover {
+  background: #f1f5f9;
+}
+
+.ip-refer .ip-rf-share-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.75rem;
+}
+
+.ip-refer .ip-rf-share {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.ip-refer .ip-rf-link-row .ip-rf-btn {
+  flex-shrink: 0;
+}
+
+.ip-refer .ip-rf-steps {
+  padding: 1.25rem 1.5rem;
+  border-top: 1px solid #f1f5f9;
+  background: #fff;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .ip-refer .ip-rf-steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.ip-refer .ip-rf-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.ip-refer .ip-rf-step__n {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-weight: 700;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.ip-refer .ip-rf-step h4 {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.ip-refer .ip-rf-step p {
+  margin: 0.125rem 0 0;
+  font-size: 0.6875rem;
+  color: #64748b;
+}
+
+.ip-refer .ip-rf-hist-head {
+  padding: 1.5rem;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ip-refer .ip-rf-hist-head h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.ip-refer .ip-rf-hist-head p {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.ip-refer .ip-rf-hist-count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.625rem;
+  background: #f1f5f9;
+  color: #334155;
+  border-radius: 0.5rem;
+}
+
+.ip-refer .ip-rf-empty {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ip-refer .ip-rf-empty svg {
+  color: #cbd5e1;
+}
+
+.ip-refer .ip-rf-empty p {
+  margin: 0;
+  max-width: 26rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.ip-refer .ip-rf-empty .ip-rf-btn--soft {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #4338ca;
+}
+
+.ip-refer table.ip-rf-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.ip-refer .ip-rf-table thead {
+  background: rgba(248, 250, 252, 0.9);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.ip-refer .ip-rf-table th,
+.ip-refer .ip-rf-table td {
+  padding: 0.875rem 1.5rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ip-refer .ip-rf-user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ip-refer .ip-rf-avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ip-refer .ip-rf-user strong {
+  display: block;
+  font-size: 0.75rem;
+  color: #0f172a;
+}
+
+.ip-refer .ip-rf-user span {
+  font-size: 0.6875rem;
+  color: #94a3b8;
+}
+
+.ip-refer .ip-rf-badge {
+  display: inline-flex;
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.ip-refer .ip-rf-badge--ok {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.ip-refer .ip-rf-badge--pending {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.ip-refer .ip-rf-pts {
+  text-align: right;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.ip-refer .ip-rf-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 50;
+  background: #0f172a;
+  color: #fff;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.ip-refer .ip-rf-pager {
+  padding: 0.75rem 1.5rem;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.ip-refer .ip-rf-pager button {
+  height: 2rem;
+  padding: 0 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.ip-refer .ip-rf-pager button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1,0 +1,801 @@
+/**
+ * Shared SuperAdmin queue chrome — employer approvals / manual requests / form registrations.
+ * Content-only; PortalShell sidebar stays.
+ */
+.ip-sa-q {
+  --ip-indigo: #4f46e5;
+  --ip-indigo-700: #4338ca;
+  max-width: 72rem;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  font-family: 'Plus Jakarta Sans', Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #0f172a;
+}
+
+.ip-sa-q .ip-saq-head {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .ip-sa-q .ip-saq-head {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
+.ip-sa-q .ip-saq-head__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ip-sa-q .ip-saq-head h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #0f172a !important;
+}
+
+.ip-sa-q .ip-saq-head p {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+  max-width: 36rem;
+}
+
+.ip-sa-q .ip-saq-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.ip-sa-q .ip-saq-pill--warn {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.ip-sa-q .ip-saq-pill--ok {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.ip-sa-q .ip-saq-pill--danger {
+  background: #fff1f2;
+  color: #be123c;
+  border-color: #fecdd3;
+}
+
+.ip-sa-q .ip-saq-pill--brand {
+  background: #eef2ff;
+  color: #4338ca;
+  border-color: #c7d2fe;
+}
+
+.ip-sa-q .ip-saq-pill--blue {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #bfdbfe;
+}
+
+.ip-sa-q .ip-saq-pill--slate {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #e2e8f0;
+}
+
+.ip-sa-q .ip-saq-pill--amber {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.ip-sa-q .ip-saq-pill--emerald {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.ip-sa-q .ip-saq-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #334155;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.ip-sa-q .ip-saq-btn:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.ip-sa-q .ip-saq-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ip-sa-q .ip-saq-btn--emerald {
+  background: #059669;
+  border-color: #059669;
+  color: #fff;
+}
+
+.ip-sa-q .ip-saq-btn--emerald:hover:not(:disabled) {
+  background: #047857;
+}
+
+.ip-sa-q .ip-saq-btn--emerald:disabled {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+  opacity: 1;
+}
+
+.ip-sa-q .ip-saq-btn--rose {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #be123c;
+}
+
+.ip-sa-q .ip-saq-btn--rose:hover:not(:disabled) {
+  background: #ffe4e6;
+}
+
+.ip-sa-q .ip-saq-btn--icon {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+}
+
+.ip-sa-q .ip-saq-btn--sm {
+  padding: 0.375rem 0.625rem;
+  font-size: 0.6875rem;
+}
+
+.ip-sa-q .ip-saq-metrics {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .ip-sa-q .ip-saq-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .ip-sa-q .ip-saq-metrics {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.ip-sa-q .ip-saq-metric {
+  background: #fff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.ip-sa-q .ip-saq-metric__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.ip-sa-q .ip-saq-metric__top span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.ip-sa-q .ip-saq-metric__ico {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ip-sa-q .ip-saq-metric__ico--amber {
+  background: #fffbeb;
+  color: #d97706;
+}
+.ip-sa-q .ip-saq-metric__ico--green {
+  background: #ecfdf5;
+  color: #059669;
+}
+.ip-sa-q .ip-saq-metric__ico--rose {
+  background: #fff1f2;
+  color: #e11d48;
+}
+.ip-sa-q .ip-saq-metric__ico--blue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+.ip-sa-q .ip-saq-metric__ico--indigo {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.ip-sa-q .ip-saq-metric__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ip-sa-q .ip-saq-metric__row strong {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.ip-sa-q .ip-saq-metric__sub {
+  margin: 0.375rem 0 0;
+  font-size: 0.6875rem;
+  color: #64748b;
+}
+
+.ip-sa-q .ip-saq-panel {
+  background: #fff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.ip-sa-q .ip-saq-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 768px) {
+  .ip-sa-q .ip-saq-toolbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.ip-sa-q .ip-saq-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  padding: 0.25rem;
+  background: #f1f5f9;
+  border-radius: 0.875rem;
+}
+
+.ip-sa-q .ip-saq-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.4rem 0.75rem;
+  border: none;
+  border-radius: 0.65rem;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ip-sa-q .ip-saq-tab--on {
+  background: #fff;
+  color: var(--ip-indigo-700);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.ip-sa-q .ip-saq-search {
+  position: relative;
+  width: 100%;
+  max-width: 18rem;
+}
+
+.ip-sa-q .ip-saq-search svg {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.ip-sa-q .ip-saq-search input,
+.ip-sa-q .ip-saq-select,
+.ip-sa-q .ip-saq-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.4rem 0.75rem 0.4rem 2.25rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  outline: none;
+  color: #0f172a;
+}
+
+.ip-sa-q .ip-saq-select,
+.ip-sa-q .ip-saq-textarea {
+  border-radius: 0.75rem;
+  padding-left: 0.75rem;
+}
+
+.ip-sa-q .ip-saq-textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+.ip-sa-q .ip-saq-search input:focus,
+.ip-sa-q .ip-saq-select:focus,
+.ip-sa-q .ip-saq-textarea:focus {
+  border-color: var(--ip-indigo);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.ip-sa-q .ip-saq-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 0.75rem;
+}
+
+.ip-sa-q table.ip-saq-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.75rem;
+}
+
+.ip-sa-q .ip-saq-table thead {
+  background: #f8fafc;
+  color: #64748b;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.6875rem;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.ip-sa-q .ip-saq-table th,
+.ip-sa-q .ip-saq-table td {
+  padding: 0.75rem 0.875rem;
+  vertical-align: middle;
+}
+
+.ip-sa-q .ip-saq-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ip-sa-q .ip-saq-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.ip-sa-q .ip-saq-co {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.ip-sa-q .ip-saq-avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.ip-sa-q .ip-saq-id {
+  display: inline-block;
+  margin-left: 0.375rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #94a3b8;
+  background: #f1f5f9;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  vertical-align: middle;
+}
+
+.ip-sa-q .ip-saq-tab__n {
+  margin-left: 0.25rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 9999px;
+  font-size: 0.625rem;
+  font-weight: 800;
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.ip-sa-q .ip-saq-tab--on .ip-saq-tab__n {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.ip-sa-q .ip-saq-alertchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ip-sa-q .ip-saq-alertchip--bad {
+  background: #fff1f2;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+}
+
+.ip-sa-q .ip-saq-alertchip--ok {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.ip-sa-q .ip-saq-subdate {
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.ip-sa-q .ip-saq-subdate small {
+  display: block;
+  font-size: 0.6875rem;
+  color: #94a3b8;
+}
+
+.ip-sa-q .ip-saq-banner {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #9f1239;
+  font-size: 0.75rem;
+}
+
+.ip-sa-q .ip-saq-banner strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: #881337;
+}
+
+.ip-sa-q .ip-saq-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+}
+
+.ip-sa-q .ip-saq-grid > div span {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 0.125rem;
+}
+
+.ip-sa-q .ip-saq-grid > div strong {
+  font-size: 0.8125rem;
+  color: #0f172a;
+}
+
+.ip-sa-q .ip-saq-grid a {
+  color: var(--ip-indigo);
+  font-weight: 600;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.ip-sa-q .ip-saq-grid a:hover {
+  text-decoration: underline;
+}
+
+.ip-sa-q .ip-saq-statusnote {
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+}
+
+.ip-sa-q .ip-saq-statusnote--ok {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+}
+
+.ip-sa-q .ip-saq-statusnote--off {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.ip-sa-q .ip-saq-co strong {
+  display: block;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.ip-sa-q .ip-saq-co span {
+  display: block;
+  color: #64748b;
+  font-size: 0.6875rem;
+}
+
+.ip-sa-q .ip-saq-co strong .ip-saq-id {
+  display: inline-block;
+}
+
+.ip-sa-q .ip-saq-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.375rem;
+}
+
+.ip-sa-q .ip-saq-empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: #64748b;
+}
+
+.ip-sa-q .ip-saq-empty h4 {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: #0f172a !important;
+}
+
+.ip-sa-q .ip-saq-empty p {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.ip-sa-q .ip-saq-error {
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #9f1239;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.ip-sa-q .ip-saq-toast {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 60;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: #0f172a;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+}
+
+.ip-sa-q .ip-saq-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--ip-indigo);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ip-sa-q .ip-saq-link:hover {
+  text-decoration: underline;
+}
+
+.ip-sa-q .ip-saq-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.ip-sa-q .ip-saq-modal {
+  width: min(32rem, 100%);
+  max-height: min(90vh, 40rem);
+  overflow: auto;
+  background: #fff;
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
+}
+
+.ip-sa-q .ip-saq-modal--wide {
+  width: min(40rem, 100%);
+}
+
+.ip-sa-q .ip-saq-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ip-sa-q .ip-saq-modal__title {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.ip-sa-q .ip-saq-modal__ico {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+  background: #eef2ff;
+  color: #4f46e5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ip-sa-q .ip-saq-modal__ico--rose {
+  background: #fff1f2;
+  color: #e11d48;
+}
+
+.ip-sa-q .ip-saq-modal h3 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: #0f172a !important;
+}
+
+.ip-sa-q .ip-saq-modal__title span {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.6875rem;
+  color: #64748b;
+}
+
+.ip-sa-q .ip-saq-modal-close {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 0.5rem;
+}
+
+.ip-sa-q .ip-saq-modal-close:hover {
+  background: #f1f5f9;
+}
+
+.ip-sa-q .ip-saq-modal-body {
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ip-sa-q .ip-saq-modal-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.75rem;
+}
+
+.ip-sa-q .ip-saq-modal-row span {
+  color: #64748b;
+}
+
+.ip-sa-q .ip-saq-modal-row strong {
+  color: #0f172a;
+  text-align: right;
+}
+
+.ip-sa-q .ip-saq-modal-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.875rem 1.25rem 1.15rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.ip-sa-q .ip-saq-doc {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  font-size: 0.75rem;
+}
+
+.ip-sa-q .ip-saq-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.ip-sa-q .ip-saq-preset {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 9999px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+}
+
+.ip-sa-q .ip-saq-preset--on {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.ip-sa-q .ip-saq-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ip-sa-q input[type='checkbox'] {
+  width: 0.95rem;
+  height: 0.95rem;
+  accent-color: var(--ip-indigo);
+}

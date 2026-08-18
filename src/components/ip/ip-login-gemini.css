@@ -1,0 +1,540 @@
+/**
+ * Scoped styles for Internship Portal Gemini login redesign.
+ * MUST stay unlayered so they beat:
+ * - globals.css @layer base (*, h2, a resets)
+ * - legacy unlayered form/link rules
+ * - shadcn Input/Button defaults when those slip back in
+ *
+ * Source of truth: gemini-tsx-handoff/mocks/ip-login-split-hero-redesign.html (Split Hero form)
+ */
+.ip-gemini-login {
+  --ip-gemini-accent: #5825e6;
+  --ip-gemini-indigo: #4f46e5;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  background: #fafafc;
+}
+
+.ip-gemini-login .ip-gemini-hero {
+  background: linear-gradient(135deg, #4f46e5 0%, #5825e6 72%, #6d28d9 100%);
+}
+
+.ip-gemini-login .ip-gemini-hero__glow {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 70%);
+}
+
+.ip-gemini-login .ip-gemini-hero__glow--tl {
+  top: -8rem;
+  left: -8rem;
+  width: 24rem;
+  height: 24rem;
+}
+
+.ip-gemini-login .ip-gemini-hero__glow--br {
+  right: -5rem;
+  bottom: -5rem;
+  width: 20rem;
+  height: 20rem;
+}
+
+.ip-gemini-login .ip-gemini-hero__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ip-gemini-login .ip-gemini-hero__dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: #34d399;
+}
+
+.ip-gemini-login .ip-gemini-hero__title {
+  margin: 0 0 1rem;
+  font-size: 2.35rem;
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.ip-gemini-login .ip-gemini-hero__lede {
+  margin: 0;
+  max-width: 28rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: rgba(224, 231, 255, 0.92);
+}
+
+.ip-gemini-login .ip-gemini-hero__list {
+  margin: 0;
+  padding: 1rem 0 0;
+  list-style: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.ip-gemini-login .ip-gemini-hero__list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.ip-gemini-login .ip-gemini-hero__check {
+  display: flex;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.ip-gemini-login .ip-gemini-hero__foot {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding-top: 2rem;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(199, 210, 254, 0.85);
+}
+
+.ip-gemini-login .ip-gemini-page-foot {
+  margin: 2rem 0 0;
+  text-align: center;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.ip-gemini-login .ip-login-brand__lockup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ip-gemini-login .ip-login-brand__sub {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #c7d2fe;
+}
+
+/* Brand — light chip behind icon on dark left panel (dark-on-dark fix) */
+.ip-gemini-login .ip-login-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ip-gemini-login .ip-login-brand__mark {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.28);
+}
+
+.ip-gemini-login .ip-login-brand__mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ip-gemini-login .ip-login-brand__text {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  color: #0f172a;
+}
+
+.ip-gemini-login .ip-login-brand__text .hub {
+  color: var(--ip-gemini-accent);
+  margin-left: 0.125rem;
+}
+
+.ip-gemini-login .ip-login-brand--on-dark .ip-login-brand__mark {
+  background: #ffffff;
+  padding: 0.2rem;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.85),
+    0 10px 28px rgba(15, 23, 42, 0.35);
+}
+
+.ip-gemini-login .ip-login-brand--on-dark .ip-login-brand__mark img {
+  border-radius: 0.55rem;
+}
+
+.ip-gemini-login .ip-login-brand--on-dark .ip-login-brand__text {
+  color: #ffffff;
+}
+
+.ip-gemini-login .ip-login-brand--on-dark .ip-login-brand__text .hub {
+  color: #a5b4fc;
+}
+
+.ip-gemini-login .ip-gemini-form-col {
+  background: #fafafc;
+}
+
+.ip-gemini-login .ip-gemini-form-col h2 {
+  margin: 0;
+  font-size: 1.875rem;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: #0f172a;
+}
+
+@media (min-width: 640px) {
+  .ip-gemini-login .ip-gemini-form-col h2 {
+    font-size: 1.875rem;
+  }
+}
+
+.ip-gemini-login .ip-gemini-form-col .ip-gemini-sub {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.ip-gemini-login .ip-gemini-form-col a.ip-gemini-link,
+.ip-gemini-login .ip-gemini-form-col button.ip-gemini-link {
+  color: var(--ip-gemini-accent);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.75rem;
+  transition: color 150ms ease;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.ip-gemini-login .ip-gemini-form-col a.ip-gemini-link:hover,
+.ip-gemini-login .ip-gemini-form-col button.ip-gemini-link:hover {
+  color: #4338ca;
+  text-decoration: underline;
+}
+
+.ip-gemini-login .ip-gemini-form-col a.ip-gemini-link-strong {
+  color: var(--ip-gemini-accent);
+  font-weight: 600;
+  font-size: inherit;
+  text-decoration: none;
+}
+
+.ip-gemini-login .ip-gemini-form-col a.ip-gemini-link-strong:hover {
+  text-decoration: underline;
+  color: #4338ca;
+}
+
+.ip-gemini-login .ip-gemini-roles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding: 0.25rem;
+  border-radius: 0.5rem;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.ip-gemini-login .ip-gemini-roles button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  margin: 0;
+  padding: 0.5rem 0.25rem;
+  border-radius: 0.375rem;
+  text-align: center;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+
+.ip-gemini-login .ip-gemini-roles button:hover {
+  color: #0f172a;
+}
+
+.ip-gemini-login .ip-gemini-roles button[aria-selected='true'] {
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.ip-gemini-login .ip-gemini-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.ip-gemini-login .ip-gemini-field label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+  margin: 0;
+}
+
+.ip-gemini-login .ip-gemini-input-wrap {
+  position: relative;
+}
+
+.ip-gemini-login .ip-gemini-input-wrap .ip-gemini-icon-left {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 0.75rem;
+  pointer-events: none;
+  color: #94a3b8;
+}
+
+.ip-gemini-login .ip-gemini-input-wrap .ip-gemini-icon-right {
+  position: absolute;
+  inset-block: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  padding-right: 0.75rem;
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.ip-gemini-login .ip-gemini-input-wrap .ip-gemini-icon-right:hover {
+  color: #475569;
+}
+
+.ip-gemini-login .ip-gemini-input {
+  display: block;
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+  appearance: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  padding: 0.625rem 0.75rem 0.625rem 2.25rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.ip-gemini-login .ip-gemini-input--plain {
+  padding-left: 0.875rem;
+}
+
+.ip-gemini-login .ip-gemini-input--password {
+  padding-right: 2.5rem;
+}
+
+.ip-gemini-login .ip-gemini-input::placeholder {
+  color: #94a3b8;
+}
+
+.ip-gemini-login .ip-gemini-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+:is(.ip-gemini-login, .ip-gemini-register, .ip-cand-reg) .ip-gemini-security {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+:is(.ip-gemini-login, .ip-gemini-register, .ip-cand-reg) .ip-gemini-security__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+:is(.ip-gemini-login, .ip-gemini-register, .ip-cand-reg) .ip-gemini-security__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+:is(.ip-gemini-login, .ip-gemini-register, .ip-cand-reg) .ip-gemini-security__refresh {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  margin: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 11px;
+  font-weight: 500;
+  color: #4f46e5;
+  cursor: pointer;
+}
+
+:is(.ip-gemini-login, .ip-gemini-register, .ip-cand-reg) .ip-gemini-security__refresh:hover {
+  color: #3730a3;
+}
+
+:is(.ip-gemini-login, .ip-gemini-register, .ip-cand-reg) .ip-gemini-security__refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+:is(.ip-gemini-login, .ip-gemini-register, .ip-cand-reg) .ip-gemini-security__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+:is(.ip-gemini-login, .ip-gemini-register, .ip-cand-reg) .ip-gemini-security__badge {
+  flex-shrink: 0;
+  user-select: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid #e0e7ff;
+  background: rgba(238, 242, 255, 0.8);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #312e81;
+}
+
+:is(.ip-gemini-login, .ip-gemini-register, .ip-cand-reg) .ip-gemini-security__answer {
+  display: block;
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+  appearance: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  background: #ffffff;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+:is(.ip-gemini-login, .ip-gemini-register, .ip-cand-reg) .ip-gemini-security__answer:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.ip-gemini-login .ip-gemini-remember {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.ip-gemini-login .ip-gemini-remember input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--ip-gemini-accent);
+  border-radius: 0.25rem;
+}
+
+.ip-gemini-login .ip-gemini-remember label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+}
+
+.ip-gemini-login .ip-gemini-submit {
+  appearance: none;
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 0.75rem;
+  background: #4f46e5;
+  color: #ffffff;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.25);
+  transition: background 150ms ease, opacity 150ms ease;
+}
+
+.ip-gemini-login .ip-gemini-submit:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+.ip-gemini-login .ip-gemini-submit:active:not(:disabled) {
+  background: #3730a3;
+}
+
+.ip-gemini-login .ip-gemini-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.ip-gemini-login .ip-gemini-register-callout {
+  margin: 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f1f5f9;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #64748b;
+}

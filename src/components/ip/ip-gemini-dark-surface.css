@@ -1,0 +1,44 @@
+/**
+ * Unlayered — beats globals.css @layer base h1–h6 { color: --text-primary } on dark Gemini surfaces.
+ * Imported from root layout after globals.css (candidate + employer + shared IP pages).
+ */
+
+/* Employer dark gradient heroes / banners */
+:is(
+  .ip-emp-vir .ip-ev-hero,
+  .ip-emp-ref .ip-er-hero,
+  .ip-emp-dash .ip-ed-banner
+) :is(h1, h2, h3, h4, h5, h6) {
+  color: #ffffff !important;
+}
+
+:is(
+  .ip-emp-vir .ip-ev-hero,
+  .ip-emp-ref .ip-er-hero,
+  .ip-emp-dash .ip-ed-banner
+) p {
+  color: #c7d2fe !important;
+}
+
+:is(
+  .ip-emp-vir .ip-ev-hero,
+  .ip-emp-ref .ip-er-hero,
+  .ip-emp-dash .ip-ed-banner
+) p strong {
+  color: #ffffff !important;
+}
+
+.ip-emp-vir .ip-ev-hero-reward strong,
+.ip-emp-ref .ip-er-hero-balance__val {
+  color: #ffffff !important;
+}
+
+/* Register employer/candidate shell header on dark plate */
+.ip-gemini-register .ip-reg-shell__head :is(h1, h2, h3, h4, h5, h6) {
+  color: #ffffff !important;
+}
+
+/* Login split hero — left dark panel (Tailwind text-white can lose to base h1/h4) */
+.ip-gemini-login .bg-gradient-to-br :is(h1, h2, h3, h4, h5, h6):not([class*='text-transparent']) {
+  color: #ffffff !important;
+}

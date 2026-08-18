@@ -1,0 +1,451 @@
+/**
+ * Employer postings — gemini-tsx-handoff/mocks/placementhub_employer_postings.html (content only).
+ * Unlayered so it beats globals @layer base / shadcn defaults.
+ */
+.ip-emp-postings {
+  --ip-indigo: #4f46e5;
+  --ip-indigo-700: #4338ca;
+  max-width: 72rem;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #0f172a;
+}
+
+.ip-emp-postings .ip-epo-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .ip-emp-postings .ip-epo-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.ip-emp-postings .ip-epo-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: #0f172a !important;
+  line-height: 1.25;
+}
+
+.ip-emp-postings .ip-epo-header p {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.ip-emp-postings .ip-epo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.25rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  margin: 0;
+}
+
+.ip-emp-postings .ip-epo-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ip-emp-postings .ip-epo-btn--primary {
+  background: #4f46e5;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.ip-emp-postings .ip-epo-btn--primary:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+.ip-emp-postings .ip-epo-btn--outline {
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  height: 2rem;
+  padding: 0 0.75rem;
+  font-size: 0.75rem;
+}
+
+.ip-emp-postings .ip-epo-btn--outline:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.ip-emp-postings .ip-epo-btn--icon {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  background: transparent;
+  color: #475569;
+  border: none;
+}
+
+.ip-emp-postings .ip-epo-btn--icon:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #4f46e5;
+}
+
+.ip-emp-postings .ip-epo-btn--icon.ip-epo-pause:hover:not(:disabled) {
+  color: #d97706;
+}
+
+.ip-emp-postings .ip-epo-btn--icon.ip-epo-play:hover:not(:disabled) {
+  color: #059669;
+}
+
+.ip-emp-postings .ip-epo-stats {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .ip-emp-postings .ip-epo-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.ip-emp-postings .ip-epo-stat {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  padding: 1.25rem;
+}
+
+.ip-emp-postings .ip-epo-stat span {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ip-emp-postings .ip-epo-stat strong {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.ip-emp-postings .ip-epo-stat strong.ip-epo-stat--green {
+  color: #059669;
+}
+
+.ip-emp-postings .ip-epo-stat strong.ip-epo-stat--indigo {
+  color: #4f46e5;
+}
+
+.ip-emp-postings .ip-epo-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.ip-emp-postings .ip-epo-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  background: #ffffff;
+}
+
+.ip-emp-postings .ip-epo-toolbar h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a !important;
+}
+
+.ip-emp-postings .ip-epo-toolbar p {
+  margin: 0.125rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.ip-emp-postings .ip-epo-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ip-emp-postings .ip-epo-search {
+  position: relative;
+  flex: 1;
+  min-width: 12.5rem;
+  max-width: 24rem;
+}
+
+.ip-emp-postings .ip-epo-search svg {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.ip-emp-postings .ip-epo-search input,
+.ip-emp-postings .ip-epo-select {
+  display: block;
+  height: 2.25rem;
+  width: 100%;
+  border-radius: 0.375rem;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  outline: none;
+  font-family: inherit;
+  margin: 0;
+}
+
+.ip-emp-postings .ip-epo-search input {
+  padding-left: 2.25rem;
+}
+
+.ip-emp-postings .ip-epo-select {
+  width: 8.125rem;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1rem;
+  padding-right: 1.75rem;
+}
+
+.ip-emp-postings .ip-epo-search input:focus,
+.ip-emp-postings .ip-epo-select:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 1px #6366f1;
+}
+
+.ip-emp-postings .ip-epo-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  min-height: 12rem;
+}
+
+.ip-emp-postings table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.ip-emp-postings thead {
+  font-size: 0.75rem;
+  color: #64748b;
+  background: rgba(248, 250, 252, 0.8);
+  text-transform: uppercase;
+  font-weight: 600;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ip-emp-postings th {
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.ip-emp-postings th.ip-epo-actions-h {
+  text-align: right;
+  width: 12rem;
+}
+
+.ip-emp-postings tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.15s;
+}
+
+.ip-emp-postings tbody tr:last-child {
+  border-bottom: none;
+}
+
+.ip-emp-postings tbody tr:hover {
+  background: rgba(248, 250, 252, 0.85);
+}
+
+.ip-emp-postings td {
+  padding: 1rem 1.5rem;
+  vertical-align: middle;
+  color: #334155;
+}
+
+.ip-emp-postings td.ip-epo-num {
+  color: #94a3b8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+}
+
+.ip-emp-postings .ip-epo-title {
+  font-weight: 600;
+  color: #0f172a;
+  text-decoration: none;
+}
+
+.ip-emp-postings tbody tr:hover .ip-epo-title {
+  color: #4f46e5;
+}
+
+.ip-emp-postings .ip-epo-date {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.ip-emp-postings .ip-epo-apps {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.375rem;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ip-emp-postings .ip-epo-apps:hover {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.ip-emp-postings .ip-epo-apps svg {
+  width: 1rem;
+  height: 1rem;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.ip-emp-postings .ip-epo-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  border: 1px solid;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.ip-emp-postings .ip-epo-badge--active {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: rgba(167, 243, 208, 0.8);
+}
+
+.ip-emp-postings .ip-epo-badge--paused {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: rgba(253, 230, 138, 0.8);
+}
+
+.ip-emp-postings .ip-epo-badge--draft,
+.ip-emp-postings .ip-epo-badge--closed {
+  background: #f8fafc;
+  color: #334155;
+  border-color: #e2e8f0;
+}
+
+.ip-emp-postings .ip-epo-badge--closed {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: rgba(254, 202, 202, 0.8);
+}
+
+.ip-emp-postings .ip-epo-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.ip-emp-postings .ip-epo-empty {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: #64748b;
+}
+
+.ip-emp-postings .ip-epo-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #f1f5f9;
+  background: rgba(248, 250, 252, 0.6);
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.ip-emp-postings .ip-epo-foot-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ip-emp-postings .ip-epo-foot-nav span {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #334155;
+  padding: 0 0.5rem;
+}
+
+.ip-emp-postings .ip-epo-alert {
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #334155;
+}
+
+.ip-emp-postings .ip-epo-alert--err {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}

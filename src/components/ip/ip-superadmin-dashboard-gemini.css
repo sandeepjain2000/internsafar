@@ -1,0 +1,633 @@
+/**
+ * SuperAdmin dashboard — redesigned_superadmin_dashboard_workspace.html (content only; PortalShell kept).
+ */
+.ip-sa-dash {
+  --ip-indigo: #4f46e5;
+  --ip-indigo-700: #4338ca;
+  max-width: 72rem;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  font-family: 'Plus Jakarta Sans', Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #0f172a;
+}
+
+.ip-sa-dash .ip-sad-head {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+@media (min-width: 640px) {
+  .ip-sa-dash .ip-sad-head {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.ip-sa-dash .ip-sad-head h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #0f172a !important;
+}
+
+.ip-sa-dash .ip-sad-head p {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.ip-sa-dash .ip-sad-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #334155;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.ip-sa-dash .ip-sad-btn:hover {
+  background: #f8fafc;
+}
+
+.ip-sa-dash .ip-sad-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ip-sa-dash .ip-sad-metrics {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .ip-sa-dash .ip-sad-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .ip-sa-dash .ip-sad-metrics {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.ip-sa-dash .ip-sad-metric {
+  background: #fff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.ip-sa-dash .ip-sad-metric__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.ip-sa-dash .ip-sad-metric__top span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.ip-sa-dash .ip-sad-metric__ico {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ip-sa-dash .ip-sad-metric__ico--blue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.ip-sa-dash .ip-sad-metric__ico--amber {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.ip-sa-dash .ip-sad-metric__ico--green {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.ip-sa-dash .ip-sad-metric__ico--purple {
+  background: #faf5ff;
+  color: #9333ea;
+}
+
+.ip-sa-dash .ip-sad-metric__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ip-sa-dash .ip-sad-metric__row strong {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.ip-sa-dash .ip-sad-pill {
+  display: inline-flex;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.ip-sa-dash .ip-sad-pill--ok {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.ip-sa-dash .ip-sad-pill--warn {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.ip-sa-dash .ip-sad-pill--brand {
+  background: #eef2ff;
+  color: #4338ca;
+  border-color: #c7d2fe;
+}
+
+.ip-sa-dash .ip-sad-pill--slate {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #e2e8f0;
+}
+
+.ip-sa-dash .ip-sad-pill--blue {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #bfdbfe;
+}
+
+.ip-sa-dash .ip-sad-pill--purple {
+  background: #f3e8ff;
+  color: #6b21a8;
+  border-color: #e9d5ff;
+}
+
+.ip-sa-dash .ip-sad-metric__sub {
+  margin: 0.375rem 0 0;
+  font-size: 0.6875rem;
+  color: #64748b;
+}
+
+.ip-sa-dash .ip-sad-alert {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+@media (min-width: 640px) {
+  .ip-sa-dash .ip-sad-alert {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.ip-sa-dash .ip-sad-alert__main {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.ip-sa-dash .ip-sad-alert__ico {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  background: #fef3c7;
+  color: #92400e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ip-sa-dash .ip-sad-alert h4 {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #78350f;
+}
+
+.ip-sa-dash .ip-sad-alert p {
+  margin: 0.125rem 0 0;
+  font-size: 0.6875rem;
+  color: #92400e;
+}
+
+.ip-sa-dash .ip-sad-alert-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  background: #d97706;
+  border: none;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ip-sa-dash .ip-sad-alert-btn:hover {
+  background: #b45309;
+}
+
+.ip-sa-dash .ip-sad-card {
+  background: #fff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.ip-sa-dash .ip-sad-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+@media (min-width: 640px) {
+  .ip-sa-dash .ip-sad-card-head {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.ip-sa-dash .ip-sad-card-head h2 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #0f172a !important;
+}
+
+.ip-sa-dash .ip-sad-card-head p {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.ip-sa-dash .ip-sad-search {
+  position: relative;
+  width: 100%;
+  max-width: 16rem;
+}
+
+.ip-sa-dash .ip-sad-search svg {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.ip-sa-dash .ip-sad-search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.375rem 0.75rem 0.375rem 2.25rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  outline: none;
+}
+
+.ip-sa-dash .ip-sad-search input:focus {
+  border-color: var(--ip-indigo);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.ip-sa-dash .ip-sad-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 0.75rem;
+}
+
+.ip-sa-dash table.ip-sad-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.75rem;
+}
+
+.ip-sa-dash .ip-sad-table thead {
+  background: #f8fafc;
+  color: #64748b;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.6875rem;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.ip-sa-dash .ip-sad-table th,
+.ip-sa-dash .ip-sad-table td {
+  padding: 0.875rem 1rem;
+  vertical-align: middle;
+}
+
+.ip-sa-dash .ip-sad-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ip-sa-dash .ip-sad-table tbody tr:hover {
+  background: rgba(248, 250, 252, 0.8);
+}
+
+.ip-sa-dash .ip-sad-area {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.ip-sa-dash .ip-sad-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--ip-indigo);
+  flex-shrink: 0;
+}
+
+.ip-sa-dash .ip-sad-desc {
+  color: #475569;
+  max-width: 28rem;
+}
+
+.ip-sa-dash .ip-sad-action {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ip-sa-dash .ip-sad-action a,
+.ip-sa-dash .ip-sad-action button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #334155;
+  background: #f1f5f9;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.ip-sa-dash .ip-sad-action a:hover,
+.ip-sa-dash .ip-sad-action button:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.ip-sa-dash .ip-sad-empty {
+  padding: 2rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.ip-sa-dash .ip-sad-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 60;
+  background: #0f172a;
+  color: #fff;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.25);
+}
+
+.ip-sa-dash .ip-sad-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(2, 6, 23, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.ip-sa-dash .ip-sad-modal {
+  width: 100%;
+  max-width: 28rem;
+  background: #fff;
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  padding: 1.5rem;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+}
+
+.ip-sa-dash .ip-sad-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ip-sa-dash .ip-sad-modal__title {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.ip-sa-dash .ip-sad-modal__ico {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.75rem;
+  background: #fef3c7;
+  color: #b45309;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ip-sa-dash .ip-sad-modal h3 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: #0f172a !important;
+}
+
+.ip-sa-dash .ip-sad-modal__title span {
+  display: block;
+  font-size: 0.6875rem;
+  color: #64748b;
+}
+
+.ip-sa-dash .ip-sad-modal-close {
+  padding: 0.25rem;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  border-radius: 0.5rem;
+}
+
+.ip-sa-dash .ip-sad-modal-close:hover {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.ip-sa-dash .ip-sad-modal-body {
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+}
+
+.ip-sa-dash .ip-sad-modal-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ip-sa-dash .ip-sad-modal-row span {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.ip-sa-dash .ip-sad-modal-row strong {
+  color: #0f172a;
+  font-weight: 700;
+  text-align: right;
+}
+
+.ip-sa-dash .ip-sad-modal-hint {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.75rem;
+  font-size: 0.6875rem;
+  color: #1e3a8a;
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.ip-sa-dash .ip-sad-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.ip-sa-dash .ip-sad-btn-reject {
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #be123c;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 0.75rem;
+  cursor: pointer;
+}
+
+.ip-sa-dash .ip-sad-btn-reject:hover {
+  background: #ffe4e6;
+}
+
+.ip-sa-dash .ip-sad-btn-approve {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  background: #059669;
+  border: none;
+  border-radius: 0.75rem;
+  cursor: pointer;
+}
+
+.ip-sa-dash .ip-sad-btn-approve:hover {
+  background: #047857;
+}
+
+.ip-sa-dash .ip-sad-btn-approve:disabled,
+.ip-sa-dash .ip-sad-btn-reject:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ip-sa-dash .ip-sad-loading {
+  padding: 2rem;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.ip-sa-dash .ip-sad-error {
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 0.75rem;
+  font-weight: 600;
+}

@@ -1,0 +1,528 @@
+/**
+ * Employer search candidates — gemini-tsx-handoff/mocks/redesigned_employer_candidate_search.html (content only).
+ */
+.ip-emp-cand {
+  --ip-indigo: #4f46e5;
+  --ip-indigo-700: #4338ca;
+  max-width: 80rem;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  font-family: 'Plus Jakarta Sans', Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #0f172a;
+}
+
+.ip-emp-cand .ip-ec-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+@media (min-width: 640px) {
+  .ip-emp-cand .ip-ec-banner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.ip-emp-cand .ip-ec-banner h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #0f172a !important;
+}
+
+.ip-emp-cand .ip-ec-banner p {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.ip-emp-cand .ip-ec-privacy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 0.75rem;
+  padding: 0.375rem 0.75rem;
+  width: fit-content;
+  white-space: nowrap;
+}
+
+.ip-emp-cand .ip-ec-toolbar {
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ip-emp-cand .ip-ec-search-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .ip-emp-cand .ip-ec-search-row {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+.ip-emp-cand .ip-ec-search {
+  position: relative;
+  flex: 1;
+  width: 100%;
+}
+
+.ip-emp-cand .ip-ec-search svg {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1.125rem;
+  height: 1.125rem;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.ip-emp-cand .ip-ec-search input,
+.ip-emp-cand .ip-ec-select {
+  display: block;
+  width: 100%;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #1e293b;
+  font-family: inherit;
+  outline: none;
+  margin: 0;
+}
+
+.ip-emp-cand .ip-ec-search input {
+  padding-left: 2.5rem;
+}
+
+.ip-emp-cand .ip-ec-search input:focus,
+.ip-emp-cand .ip-ec-select:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  background: #ffffff;
+}
+
+.ip-emp-cand .ip-ec-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  padding-right: 2rem;
+}
+
+.ip-emp-cand .ip-ec-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border: none;
+  border-radius: 0.75rem;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.75rem;
+  cursor: pointer;
+  margin: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.ip-emp-cand .ip-ec-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ip-emp-cand .ip-ec-btn--primary {
+  background: #4f46e5;
+  color: #ffffff;
+  height: 2.5rem;
+  padding: 0 1.25rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .ip-emp-cand .ip-ec-btn--primary {
+    width: auto;
+  }
+}
+
+.ip-emp-cand .ip-ec-btn--primary:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+.ip-emp-cand .ip-ec-btn--outline {
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  padding: 0.5rem 0.875rem;
+}
+
+.ip-emp-cand .ip-ec-btn--outline:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.ip-emp-cand .ip-ec-btn--sm {
+  padding: 0.5rem 0.875rem;
+}
+
+.ip-emp-cand .ip-ec-match-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.ip-emp-cand .ip-ec-match-row label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.ip-emp-cand .ip-ec-match-row .ip-ec-select {
+  max-width: 20rem;
+  height: 2.25rem;
+  background: #ffffff;
+}
+
+.ip-emp-cand .ip-ec-hint {
+  font-size: 0.6875rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.ip-emp-cand .ip-ec-skills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f1f5f9;
+  font-size: 0.75rem;
+}
+
+.ip-emp-cand .ip-ec-skills > span {
+  color: #94a3b8;
+  font-weight: 600;
+  padding-right: 0.25rem;
+}
+
+.ip-emp-cand .ip-ec-pill {
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  background: #f1f5f9;
+  color: #475569;
+  margin: 0;
+}
+
+.ip-emp-cand .ip-ec-pill:hover {
+  background: #e2e8f0;
+}
+
+.ip-emp-cand .ip-ec-pill--on {
+  background: #4f46e5;
+  color: #ffffff;
+}
+
+.ip-emp-cand .ip-ec-grid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .ip-emp-cand .ip-ec-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.ip-emp-cand .ip-ec-card {
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1rem;
+  transition: border-color 0.15s;
+}
+
+.ip-emp-cand .ip-ec-card:hover {
+  border-color: #a5b4fc;
+}
+
+.ip-emp-cand .ip-ec-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ip-emp-cand .ip-ec-person {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.ip-emp-cand .ip-ec-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  background: #e0e7ff;
+  color: #4338ca;
+  font-weight: 700;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.ip-emp-cand .ip-ec-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ip-emp-cand .ip-ec-person h3 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #0f172a !important;
+}
+
+.ip-emp-cand .ip-ec-person p {
+  margin: 0.125rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4f46e5;
+}
+
+.ip-emp-cand .ip-ec-match {
+  flex-shrink: 0;
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  white-space: nowrap;
+}
+
+.ip-emp-cand .ip-ec-meta {
+  font-size: 0.75rem;
+  color: #64748b;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ip-emp-cand .ip-ec-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ip-emp-cand .ip-ec-meta-row svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.ip-emp-cand .ip-ec-meta-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.ip-emp-cand .ip-ec-meta-bottom strong {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.ip-emp-cand .ip-ec-avail {
+  font-weight: 600;
+  color: #059669;
+  font-size: 0.75rem;
+}
+
+.ip-emp-cand .ip-ec-about {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.ip-emp-cand .ip-ec-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.ip-emp-cand .ip-ec-tag {
+  padding: 0.125rem 0.5rem;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.625rem;
+  font-weight: 600;
+  border-radius: 0.375rem;
+}
+
+.ip-emp-cand .ip-ec-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.ip-emp-cand .ip-ec-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.875rem;
+  padding: 2rem;
+}
+
+.ip-emp-cand .ip-ec-alert {
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #334155;
+}
+
+.ip-emp-cand .ip-ec-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.ip-emp-cand .ip-ec-foot-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ip-emp-cand .ip-ec-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.ip-emp-cand .ip-ec-modal {
+  background: #ffffff;
+  border-radius: 1rem;
+  max-width: 32rem;
+  width: 100%;
+  max-height: min(90vh, 44rem);
+  overflow-y: auto;
+  padding: 1.5rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ip-emp-cand .ip-ec-modal h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a !important;
+}
+
+.ip-emp-cand .ip-ec-modal label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 0.375rem;
+}
+
+.ip-emp-cand .ip-ec-modal textarea {
+  width: 100%;
+  min-height: 4.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.ip-emp-cand .ip-ec-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ip-emp-cand .ip-ec-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 60;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+}

@@ -1,0 +1,348 @@
+/**
+ * Messages inbox — candidate_messages_workspace.html (content only).
+ * Shared for candidate + employer.
+ */
+.ip-msg {
+  --ip-indigo: #4f46e5;
+  max-width: 72rem;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #0f172a;
+}
+
+.ip-msg .ip-msg-header h1 {
+  margin: 0;
+  font-size: 1.875rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.ip-msg .ip-msg-header p {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.ip-msg .ip-msg-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.ip-msg .ip-msg-toolbar {
+  padding: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(248, 250, 252, 0.5);
+}
+
+.ip-msg .ip-msg-toolbar__left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.ip-msg .ip-msg-search {
+  position: relative;
+  width: 16rem;
+  max-width: 100%;
+}
+
+.ip-msg .ip-msg-search__icon {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: flex;
+  align-items: center;
+  padding-left: 0.75rem;
+  pointer-events: none;
+  color: #94a3b8;
+}
+
+.ip-msg .ip-msg-search input,
+.ip-msg .ip-msg-select {
+  height: 2.25rem;
+  border-radius: 0.375rem;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font-size: 0.875rem;
+  color: #0f172a;
+  outline: none;
+  font-family: inherit;
+}
+
+.ip-msg .ip-msg-search input {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+}
+
+.ip-msg .ip-msg-search input:focus,
+.ip-msg .ip-msg-select:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+}
+
+.ip-msg .ip-msg-select-wrap {
+  position: relative;
+}
+
+.ip-msg .ip-msg-select {
+  appearance: none;
+  width: 8.5rem;
+  padding: 0.375rem 2rem 0.375rem 0.75rem;
+  cursor: pointer;
+}
+
+.ip-msg .ip-msg-select-wrap__chevron {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: flex;
+  align-items: center;
+  padding-right: 0.5rem;
+  pointer-events: none;
+  color: #64748b;
+}
+
+.ip-msg .ip-msg-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 0.5rem;
+}
+
+.ip-msg .ip-msg-switch {
+  position: relative;
+  width: 2.5rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+.ip-msg .ip-msg-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ip-msg .ip-msg-switch span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background: #e2e8f0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.ip-msg .ip-msg-switch span::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  background: #fff;
+  border: 4px solid #e2e8f0;
+  box-sizing: border-box;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.ip-msg .ip-msg-switch input:checked + span {
+  background: #4f46e5;
+}
+
+.ip-msg .ip-msg-switch input:checked + span::after {
+  transform: translateX(1.25rem);
+  border-color: #4f46e5;
+}
+
+.ip-msg .ip-msg-switch input:focus-visible + span {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #e0e7ff;
+}
+
+.ip-msg .ip-msg-toggle label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+}
+
+.ip-msg .ip-msg-count {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.ip-msg .ip-msg-table-wrap {
+  overflow-x: auto;
+}
+
+.ip-msg table.ip-msg-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.ip-msg .ip-msg-table thead {
+  background: #f8fafc;
+}
+
+.ip-msg .ip-msg-table th {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ip-msg .ip-msg-table td {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.ip-msg .ip-msg-table tbody tr {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ip-msg .ip-msg-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.ip-msg .ip-msg-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ip-msg .ip-msg-num {
+  color: #94a3b8;
+}
+
+.ip-msg .ip-msg-internship {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.ip-msg .ip-msg-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+  background: #4f46e5;
+  box-shadow: 0 0 8px rgba(79, 70, 229, 0.5);
+}
+
+.ip-msg .ip-msg-dot--empty {
+  background: transparent;
+  box-shadow: none;
+}
+
+.ip-msg .ip-msg-internship a,
+.ip-msg .ip-msg-internship span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #475569;
+  text-decoration: none;
+}
+
+.ip-msg .ip-msg-table tr.is-unread .ip-msg-internship a,
+.ip-msg .ip-msg-table tr.is-unread .ip-msg-internship span,
+.ip-msg .ip-msg-table tr.is-unread .ip-msg-employer,
+.ip-msg .ip-msg-table tr.is-unread .ip-msg-subject,
+.ip-msg .ip-msg-table tr.is-unread .ip-msg-date {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.ip-msg .ip-msg-internship a:hover {
+  color: #4f46e5;
+}
+
+.ip-msg .ip-msg-employer {
+  color: #475569;
+}
+
+.ip-msg .ip-msg-subject {
+  color: #475569;
+  max-width: 28rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ip-msg .ip-msg-date {
+  text-align: right;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.ip-msg .ip-msg-empty {
+  padding: 2rem 1.5rem;
+  text-align: center;
+  color: #64748b;
+}
+
+.ip-msg .ip-msg-pager {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #64748b;
+  background: rgba(248, 250, 252, 0.5);
+}
+
+.ip-msg .ip-msg-pager__btns {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ip-msg .ip-msg-btn {
+  height: 2rem;
+  padding: 0 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.ip-msg .ip-msg-btn:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.ip-msg .ip-msg-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

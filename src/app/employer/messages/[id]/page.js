@@ -1,0 +1,20 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+
+/** Deep links → split-pane inbox with thread selected. */
+export default function EmployerMessageThreadRedirect() {
+  const { id } = useParams();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (id) {
+      router.replace(`/employer/messages?thread=${encodeURIComponent(id)}`);
+    } else {
+      router.replace('/employer/messages');
+    }
+  }, [id, router]);
+
+  return <div className="p-8 text-muted-foreground">Opening conversation…</div>;
+}

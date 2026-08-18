@@ -1,0 +1,784 @@
+/**
+ * Candidate messages inbox — placementhub_candidate_browse_workspace (4).html.
+ * Unlayered so globals.css / shadcn do not flatten native controls.
+ */
+.ip-cand-msg {
+  --ip-indigo: #4f46e5;
+  --ip-indigo-700: #4338ca;
+  max-width: 80rem;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #0f172a;
+}
+
+.ip-cand-msg .ip-cm-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.ip-cand-msg .ip-cm-banner h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #0f172a !important;
+}
+
+.ip-cand-msg .ip-cm-banner p {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.ip-cand-msg .ip-cm-policy {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(238, 242, 255, 0.8);
+  border: 1px solid #c7d2fe;
+  border-radius: 0.75rem;
+  padding: 0.875rem;
+  font-size: 0.75rem;
+  color: #312e81;
+}
+
+.ip-cand-msg .ip-cm-policy-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.5rem;
+  background: var(--ip-indigo);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.ip-cand-msg .ip-cm-policy strong {
+  font-weight: 800;
+}
+
+.ip-cand-msg .ip-cm-split {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 43.75rem;
+}
+
+@media (min-width: 768px) {
+  .ip-cand-msg .ip-cm-split {
+    flex-direction: row;
+  }
+}
+
+.ip-cand-msg .ip-cm-list {
+  width: 100%;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  background: rgba(248, 250, 252, 0.4);
+  min-height: 18rem;
+}
+
+@media (min-width: 768px) {
+  .ip-cand-msg .ip-cm-list {
+    width: 20rem;
+    border-bottom: none;
+    border-right: 1px solid #e2e8f0;
+    flex-shrink: 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .ip-cand-msg .ip-cm-list {
+    width: 24rem;
+  }
+}
+
+.ip-cand-msg .ip-cm-list-head {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.ip-cand-msg .ip-cm-search {
+  position: relative;
+}
+
+.ip-cand-msg .ip-cm-search svg {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.ip-cand-msg .ip-cm-search input {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.375rem 0.75rem 0.375rem 2.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+  color: #0f172a;
+  background: #fff;
+  outline: none;
+}
+
+.ip-cand-msg .ip-cm-search input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+}
+
+.ip-cand-msg .ip-cm-tabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 0.625rem;
+}
+
+.ip-cand-msg .ip-cm-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  overflow-x: auto;
+}
+
+.ip-cand-msg .ip-cm-tab,
+.ip-cand-msg .ip-cm-sort {
+  appearance: none;
+  margin: 0;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #475569;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ip-cand-msg .ip-cm-tab:hover {
+  background: #f1f5f9;
+}
+
+.ip-cand-msg .ip-cm-tab--on {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.ip-cand-msg .ip-cm-sort {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0.25rem 0.375rem;
+  flex-shrink: 0;
+}
+
+.ip-cand-msg .ip-cm-list-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.ip-cand-msg .ip-cm-item {
+  appearance: none;
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 0;
+  padding: 0.875rem;
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  border-left: 4px solid transparent;
+}
+
+.ip-cand-msg .ip-cm-item:hover {
+  background: rgba(241, 245, 249, 0.7);
+}
+
+.ip-cand-msg .ip-cm-item--on {
+  background: rgba(238, 242, 255, 0.6);
+  border-left-color: var(--ip-indigo);
+}
+
+.ip-cand-msg .ip-cm-item-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ip-cand-msg .ip-cm-item-who {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.ip-cand-msg .ip-cm-avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: var(--ip-indigo);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ip-cand-msg .ip-cm-item-who h4 {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.ip-cand-msg .ip-cm-item-who h4 span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ip-cand-msg .ip-cm-verified {
+  color: #059669;
+  font-weight: 800;
+  font-size: 0.625rem;
+}
+
+.ip-cand-msg .ip-cm-item-who p {
+  margin: 0;
+  font-size: 0.6875rem;
+  color: #64748b;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ip-cand-msg .ip-cm-item-meta {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.ip-cand-msg .ip-cm-item-meta time {
+  display: block;
+  font-size: 0.625rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.ip-cand-msg .ip-cm-unread {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--ip-indigo);
+  margin-top: 0.25rem;
+}
+
+.ip-cand-msg .ip-cm-preview {
+  margin: 0.5rem 0 0;
+  font-size: 0.6875rem;
+  color: #475569;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ip-cand-msg .ip-cm-item-foot {
+  margin-top: 0.625rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid rgba(241, 245, 249, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ip-cand-msg .ip-cm-pill {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 800;
+  border-radius: 0.375rem;
+  border: 1px solid;
+  flex-shrink: 0;
+}
+
+.ip-cand-msg .ip-cm-pill--interview {
+  background: #eef2ff;
+  color: #4338ca;
+  border-color: #c7d2fe;
+}
+
+.ip-cand-msg .ip-cm-pill--offer {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+
+.ip-cand-msg .ip-cm-pill--waiting {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.ip-cand-msg .ip-cm-pill--muted {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #e2e8f0;
+}
+
+.ip-cand-msg .ip-cm-row-archive {
+  appearance: none;
+  border: none;
+  background: none;
+  color: #94a3b8;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  margin: 0;
+  padding: 0.125rem 0.375rem;
+}
+
+.ip-cand-msg .ip-cm-row-archive:hover {
+  color: #475569;
+}
+
+.ip-cand-msg .ip-cm-empty-list {
+  padding: 1.5rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.ip-cand-msg .ip-cm-thread {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #fff;
+  min-height: 24rem;
+}
+
+.ip-cand-msg .ip-cm-thread-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.ip-cand-msg .ip-cm-thread-head {
+  padding: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  background: rgba(248, 250, 252, 0.5);
+}
+
+.ip-cand-msg .ip-cm-thread-person {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.ip-cand-msg .ip-cm-thread-person .ip-cm-avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.ip-cand-msg .ip-cm-thread-person h3 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: #0f172a !important;
+}
+
+.ip-cand-msg .ip-cm-thread-person p {
+  margin: 0.125rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.ip-cand-msg .ip-cm-verified-chip {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 800;
+  background: #d1fae5;
+  color: #065f46;
+  border-radius: 9999px;
+  vertical-align: middle;
+}
+
+.ip-cand-msg .ip-cm-thread-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ip-cand-msg .ip-cm-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  margin: 0;
+  border-radius: 0.5rem;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.ip-cand-msg .ip-cm-btn--ghost {
+  padding: 0.375rem 0.75rem;
+  color: #334155;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+}
+
+.ip-cand-msg .ip-cm-btn--icon {
+  padding: 0.5rem;
+  color: #64748b;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+}
+
+.ip-cand-msg .ip-cm-btn--primary {
+  padding: 0.625rem 1rem;
+  color: #fff;
+  background: var(--ip-indigo);
+  border: none;
+  font-weight: 700;
+}
+
+.ip-cand-msg .ip-cm-btn--primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ip-cand-msg .ip-cm-btn--meet {
+  padding: 0.375rem 0.75rem;
+  color: #fff;
+  background: var(--ip-indigo);
+  border: none;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.ip-cand-msg .ip-cm-btn--cal {
+  padding: 0.375rem 0.75rem;
+  color: #3730a3;
+  background: #fff;
+  border: 1px solid #a5b4fc;
+  font-weight: 600;
+}
+
+.ip-cand-msg .ip-cm-btn--offer {
+  padding: 0.375rem 1rem;
+  color: #fff;
+  background: #059669;
+  border: none;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.ip-cand-msg .ip-cm-interview {
+  background: rgba(238, 242, 255, 0.7);
+  border-bottom: 1px solid #c7d2fe;
+  padding: 0.875rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .ip-cand-msg .ip-cm-interview {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.ip-cand-msg .ip-cm-interview strong {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: #312e81;
+  font-weight: 800;
+}
+
+.ip-cand-msg .ip-cm-interview p {
+  margin: 0.125rem 0 0;
+  color: #3730a3;
+  font-weight: 500;
+}
+
+.ip-cand-msg .ip-cm-interview-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.ip-cand-msg .ip-cm-offer {
+  background: #ecfdf5;
+  border-bottom: 1px solid #a7f3d0;
+  padding: 0.875rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+}
+
+.ip-cand-msg .ip-cm-offer strong {
+  color: #064e3b;
+}
+
+.ip-cand-msg .ip-cm-offer p {
+  margin: 0.125rem 0 0;
+  color: #065f46;
+  font-size: 0.6875rem;
+}
+
+.ip-cand-msg .ip-cm-alert {
+  margin: 0 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+.ip-cand-msg .ip-cm-feed {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: rgba(248, 250, 252, 0.2);
+}
+
+.ip-cand-msg .ip-cm-bubble-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ip-cand-msg .ip-cm-bubble-row--me {
+  align-items: flex-end;
+}
+
+.ip-cand-msg .ip-cm-bubble-row--them {
+  align-items: flex-start;
+}
+
+.ip-cand-msg .ip-cm-bubble-meta {
+  font-size: 0.625rem;
+  color: #94a3b8;
+  font-weight: 500;
+  padding: 0 0.25rem;
+}
+
+.ip-cand-msg .ip-cm-bubble {
+  max-width: 28rem;
+  padding: 0.875rem;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.ip-cand-msg .ip-cm-bubble p {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ip-cand-msg .ip-cm-bubble--me {
+  background: var(--ip-indigo);
+  color: #fff;
+  border-top-right-radius: 0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.ip-cand-msg .ip-cm-bubble--them {
+  background: #fff;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  border-top-left-radius: 0;
+}
+
+.ip-cand-msg .ip-cm-file {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: 0.6875rem;
+}
+
+.ip-cand-msg .ip-cm-bubble--them .ip-cm-file {
+  border-top-color: #f1f5f9;
+}
+
+.ip-cand-msg .ip-cm-file a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.ip-cand-msg .ip-cm-attach-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: #f1f5f9;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.75rem;
+  color: #334155;
+}
+
+.ip-cand-msg .ip-cm-attach-bar button {
+  appearance: none;
+  border: none;
+  background: none;
+  color: #e11d48;
+  font-weight: 800;
+  font-size: 0.75rem;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+}
+
+.ip-cand-msg .ip-cm-composer {
+  padding: 1rem;
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.ip-cand-msg .ip-cm-composer-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ip-cand-msg .ip-cm-attach {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.ip-cand-msg .ip-cm-attach:hover {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.ip-cand-msg .ip-cm-composer input[type='file'] {
+  display: none;
+}
+
+.ip-cand-msg .ip-cm-composer input[type='text'] {
+  flex: 1;
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+  color: #0f172a;
+  outline: none;
+}
+
+.ip-cand-msg .ip-cm-composer input[type='text']:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+}
+
+.ip-cand-msg .ip-cm-archived {
+  padding: 0.75rem;
+  background: #f1f5f9;
+  border-radius: 0.5rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.ip-cand-msg .ip-cm-toast {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 60;
+  background: #0f172a;
+  color: #fff;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+}

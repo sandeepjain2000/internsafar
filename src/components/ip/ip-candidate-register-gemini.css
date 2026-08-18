@@ -1,0 +1,524 @@
+/**
+ * Candidate registration — placementhub_candidate_registration.html
+ * Unlayered so globals.css / shadcn do not flatten native controls.
+ */
+.ip-cand-reg {
+  --ip-navy: #000737;
+  --ip-primary: #4a18d9;
+  --ip-hover: #3d10b8;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  background: #fafafc;
+  color: #0f172a;
+}
+
+.ip-cand-reg .ip-crg-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+@media (min-width: 640px) {
+  .ip-cand-reg .ip-crg-topbar {
+    padding: 0.875rem 3rem;
+  }
+}
+
+.ip-cand-reg .ip-crg-topbar-signin {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.ip-cand-reg .ip-crg-topbar-signin span {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .ip-cand-reg .ip-crg-topbar-signin span {
+    display: inline;
+  }
+}
+
+.ip-cand-reg a.ip-crg-signin {
+  display: inline-flex;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(199, 210, 254, 0.7);
+  background: #eef2ff;
+  color: #4a18d9;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ip-cand-reg a.ip-crg-signin:hover {
+  background: #e0e7ff;
+}
+
+.ip-cand-reg .ip-crg-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem;
+}
+
+.ip-cand-reg .ip-crg-card {
+  width: 100%;
+  max-width: 28rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+}
+
+.ip-cand-reg .ip-crg-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: #000737;
+  color: #fff;
+}
+
+.ip-cand-reg a.ip-crg-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #c7d2fe;
+  text-decoration: none;
+}
+
+.ip-cand-reg a.ip-crg-back:hover {
+  color: #fff;
+}
+
+.ip-cand-reg .ip-crg-head h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.ip-cand-reg .ip-crg-head p {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: #c7d2fe;
+}
+
+.ip-cand-reg .ip-crg-head-ico {
+  display: flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.ip-cand-reg .ip-crg-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .ip-cand-reg .ip-crg-body {
+    padding: 2rem;
+  }
+}
+
+.ip-cand-reg .ip-crg-notice {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e0e7ff;
+  background: rgba(238, 242, 255, 0.8);
+  font-size: 0.75rem;
+}
+
+.ip-cand-reg .ip-crg-notice h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #000737;
+}
+
+.ip-cand-reg .ip-crg-notice h3 svg {
+  width: 1rem;
+  height: 1rem;
+  color: #4a18d9;
+  flex-shrink: 0;
+}
+
+.ip-cand-reg .ip-crg-notice > p {
+  margin: 0.35rem 0 0;
+  color: #334155;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.ip-cand-reg .ip-crg-notice-warn {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e0e7ff;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  font-size: 11px;
+  font-weight: 500;
+  color: #92400e;
+}
+
+.ip-cand-reg .ip-crg-notice-warn svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: #d97706;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.ip-cand-reg .ip-crg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.ip-cand-reg .ip-crg-field label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #000737;
+}
+
+.ip-cand-reg .ip-crg-field .req {
+  color: #f43f5e;
+}
+
+.ip-cand-reg .ip-crg-field .opt {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.ip-cand-reg .ip-crg-input-wrap {
+  position: relative;
+}
+
+.ip-cand-reg .ip-crg-input-wrap svg {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.ip-cand-reg .ip-crg-input-wrap input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.625rem 0.875rem 0.625rem 2.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: #fff;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  color: #0f172a;
+}
+
+.ip-cand-reg .ip-crg-input-wrap input:focus {
+  outline: none;
+  border-color: #4a18d9;
+  box-shadow: 0 0 0 3px rgba(74, 24, 217, 0.18);
+}
+
+.ip-cand-reg .ip-crg-hint {
+  margin: 0;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.ip-cand-reg .ip-crg-domain-err {
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #9f1239;
+  font-size: 11px;
+}
+
+.ip-cand-reg .ip-crg-domain-err strong {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: #4c0519;
+}
+
+.ip-cand-reg .ip-crg-ref-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ip-cand-reg .ip-crg-ref-badge {
+  font-size: 10px;
+  font-weight: 800;
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.375rem;
+}
+
+.ip-cand-reg .ip-crg-submit {
+  appearance: none;
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  margin-top: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: #4a18d9;
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(74, 24, 217, 0.22);
+}
+
+.ip-cand-reg .ip-crg-submit:hover:not(:disabled) {
+  background: #3d10b8;
+}
+
+.ip-cand-reg .ip-crg-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.ip-cand-reg .ip-crg-legal {
+  margin: 0.25rem 0 0;
+  text-align: center;
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.ip-cand-reg .ip-crg-done {
+  text-align: center;
+}
+
+.ip-cand-reg .ip-crg-done-ico {
+  width: 3.5rem;
+  height: 3.5rem;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  border: 1px solid #a7f3d0;
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.ip-cand-reg .ip-crg-done-ico svg {
+  width: 2rem;
+  height: 2rem;
+}
+
+.ip-cand-reg .ip-crg-done h2 {
+  margin: 0.75rem 0 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #000737;
+}
+
+.ip-cand-reg .ip-crg-done > p {
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  color: #475569;
+}
+
+.ip-cand-reg .ip-crg-summary {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  text-align: left;
+  font-size: 0.75rem;
+}
+
+.ip-cand-reg .ip-crg-summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ip-cand-reg .ip-crg-summary-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.ip-cand-reg .ip-crg-summary-row span:first-child {
+  color: #64748b;
+}
+
+.ip-cand-reg .ip-crg-summary-row strong {
+  color: #000737;
+}
+
+.ip-cand-reg .ip-crg-mail {
+  margin-top: 1rem;
+  padding: 0.875rem;
+  border-radius: 0.75rem;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  text-align: left;
+  font-size: 0.75rem;
+}
+
+.ip-cand-reg .ip-crg-mail h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #000737;
+}
+
+.ip-cand-reg .ip-crg-mail p {
+  margin: 0.35rem 0 0;
+  color: #334155;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ip-cand-reg .ip-crg-points {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #c7d2fe;
+  background: linear-gradient(135deg, #faf5ff, #eef2ff);
+  text-align: left;
+  font-size: 11px;
+}
+
+.ip-cand-reg .ip-crg-points-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-weight: 800;
+  color: #000737;
+}
+
+.ip-cand-reg .ip-crg-points-pill {
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  background: #4a18d9;
+  color: #fff;
+  font-size: 11px;
+}
+
+.ip-cand-reg .ip-crg-points ul {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: #334155;
+}
+
+.ip-cand-reg .ip-crg-points li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+}
+
+.ip-cand-reg a.ip-crg-submit {
+  text-decoration: none;
+  margin-top: 1.25rem;
+}
+
+.ip-cand-reg .ip-crg-foot {
+  padding: 1rem;
+  text-align: center;
+  font-size: 11px;
+  color: #64748b;
+  border-top: 1px solid rgba(226, 232, 240, 0.8);
+  background: #fff;
+}
+
+.ip-cand-reg .ip-reg-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+}
+
+.ip-cand-reg .ip-reg-brand__mark {
+  position: relative;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 0.75rem;
+}
+
+.ip-cand-reg .ip-reg-brand__lockup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.ip-cand-reg .ip-reg-brand__text {
+  font-size: 1.125rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  color: #000737;
+}
+
+.ip-cand-reg .ip-reg-brand__text .hub {
+  color: #5a1ff3;
+  margin-left: 0.125rem;
+}
+
+.ip-cand-reg .ip-reg-brand__sub {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4a18d9;
+}

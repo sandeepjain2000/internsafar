@@ -1,0 +1,562 @@
+/**
+ * Scoped Internship Portal Gemini registration chrome.
+ * Unlayered so it beats globals.css @layer base + legacy rules.
+ * Source: gemini-tsx-handoff/mocks/ip-register-role-select-redesign.html
+ * Live auth rules stay in page components (Gmail, emailed password, domain/form).
+ */
+.ip-gemini-register {
+  --ip-gemini-accent: #5825e6;
+  --ip-gemini-indigo: #4f46e5;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(to bottom, rgba(238, 242, 255, 0.4), #f8fafc 40%, #f1f5f9);
+  color: #0f172a;
+}
+
+.ip-gemini-register a.ip-reg-link {
+  color: #4f46e5;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ip-gemini-register a.ip-reg-link:hover {
+  text-decoration: underline;
+  color: #4338ca;
+}
+
+.ip-gemini-register .ip-reg-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ip-gemini-register .ip-reg-brand__mark {
+  position: relative;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.2);
+}
+
+.ip-gemini-register .ip-reg-brand__lockup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.ip-gemini-register .ip-reg-brand__text {
+  font-size: 1.125rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  color: #000737;
+}
+
+.ip-gemini-register .ip-reg-brand__text .hub {
+  color: var(--ip-gemini-accent);
+  margin-left: 0.125rem;
+}
+
+.ip-gemini-register .ip-reg-brand__sub {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4a18d9;
+}
+
+.ip-gemini-register .ip-reg-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+@media (min-width: 640px) {
+  .ip-gemini-register .ip-reg-topbar {
+    padding: 1rem 3rem;
+  }
+}
+
+.ip-gemini-register .ip-reg-topbar-signin {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: #475569;
+}
+
+.ip-gemini-register .ip-reg-topbar-signin span {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .ip-gemini-register .ip-reg-topbar-signin span {
+    display: inline;
+  }
+}
+
+.ip-gemini-register a.ip-reg-signin-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(199, 210, 254, 0.7);
+  background: #eef2ff;
+  color: #4a18d9;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ip-gemini-register a.ip-reg-signin-btn:hover {
+  background: #e0e7ff;
+}
+
+.ip-gemini-register .ip-reg-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem 2rem;
+}
+
+.ip-gemini-register .ip-reg-hero {
+  text-align: center;
+  max-width: 36rem;
+  margin-bottom: 2rem;
+}
+
+.ip-gemini-register .ip-reg-hero h1 {
+  margin: 0.75rem 0 0;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+@media (min-width: 640px) {
+  .ip-gemini-register .ip-reg-hero h1 {
+    font-size: 1.875rem;
+  }
+}
+
+.ip-gemini-register .ip-reg-hero p {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.ip-gemini-register .ip-reg-cards {
+  display: grid;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 48rem;
+}
+
+@media (min-width: 768px) {
+  .ip-gemini-register .ip-reg-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.ip-gemini-register a.ip-reg-card,
+.ip-gemini-register button.ip-reg-card {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: left;
+  margin: 0;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(148, 163, 184, 0.18);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  font: inherit;
+}
+
+@media (min-width: 640px) {
+  .ip-gemini-register a.ip-reg-card,
+  .ip-gemini-register button.ip-reg-card {
+    padding: 2rem;
+  }
+}
+
+.ip-gemini-register a.ip-reg-card:hover,
+.ip-gemini-register button.ip-reg-card:hover {
+  border-color: #6366f1;
+  box-shadow: 0 16px 40px rgba(99, 102, 241, 0.16);
+}
+
+.ip-gemini-register a.ip-reg-card--employer:hover,
+.ip-gemini-register button.ip-reg-card--employer:hover {
+  border-color: var(--ip-gemini-accent);
+}
+
+.ip-gemini-register .ip-reg-card__icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e0e7ff;
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.ip-gemini-register .ip-reg-card__icon--employer {
+  border-color: #ede9fe;
+  background: #faf5ff;
+  color: var(--ip-gemini-accent);
+}
+
+.ip-gemini-register .ip-reg-card__badge {
+  display: inline-flex;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid #e0e7ff;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.ip-gemini-register .ip-reg-card__badge--employer {
+  border-color: #ede9fe;
+  background: #faf5ff;
+  color: var(--ip-gemini-accent);
+}
+
+.ip-gemini-register .ip-reg-card h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.ip-gemini-register .ip-reg-card .ip-reg-card__desc {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.ip-gemini-register .ip-reg-card ul {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0.75rem 0 0;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ip-gemini-register .ip-reg-card li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #475569;
+}
+
+.ip-gemini-register .ip-reg-card__cta {
+  margin-top: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: #4a18d9;
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(74, 24, 217, 0.18);
+}
+
+.ip-gemini-register a.ip-reg-card:hover .ip-reg-card__cta {
+  background: #3d10b8;
+}
+
+.ip-gemini-register .ip-reg-card--employer .ip-reg-card__cta {
+  color: #fff;
+}
+
+.ip-gemini-register .ip-reg-footer-note {
+  margin-top: 2rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.ip-gemini-register .ip-reg-shell {
+  width: 100%;
+  max-width: 32rem;
+  margin: 1.5rem auto;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  box-shadow: 0 20px 50px rgba(148, 163, 184, 0.22);
+  overflow: hidden;
+}
+
+.ip-gemini-register .ip-reg-shell__head {
+  padding: 1.5rem;
+  background: #0f172a;
+  color: #ffffff;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ip-gemini-register .ip-reg-shell__head--employer {
+  background: linear-gradient(to right, #0f172a, #1e1b4b);
+}
+
+.ip-gemini-register .ip-reg-shell__head h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.ip-gemini-register .ip-reg-shell__head p {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.ip-gemini-register .ip-reg-back {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  margin: 0 0 0.25rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.ip-gemini-register .ip-reg-back:hover {
+  color: #ffffff;
+}
+
+.ip-gemini-register .ip-reg-shell__body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .ip-gemini-register .ip-reg-shell__body {
+    padding: 2rem;
+  }
+}
+
+.ip-gemini-register .ip-reg-social {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+.ip-gemini-register .ip-reg-social--two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.ip-gemini-register .ip-reg-social button {
+  appearance: none;
+  margin: 0;
+  box-sizing: border-box;
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+}
+
+.ip-gemini-register .ip-reg-social button:hover {
+  background: #f8fafc;
+}
+
+.ip-gemini-register .ip-reg-divider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.ip-gemini-register .ip-reg-divider::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  border-top: 1px solid #e2e8f0;
+}
+
+.ip-gemini-register .ip-reg-divider span {
+  position: relative;
+  background: #ffffff;
+  padding: 0 0.75rem;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.ip-gemini-register .ip-reg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.ip-gemini-register .ip-reg-field label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.ip-gemini-register .ip-reg-field .hint {
+  margin: 0;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.ip-gemini-register .ip-reg-input,
+.ip-gemini-register .ip-reg-textarea {
+  display: block;
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+  appearance: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.ip-gemini-register .ip-reg-textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.ip-gemini-register .ip-reg-input:focus,
+.ip-gemini-register .ip-reg-textarea:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.ip-gemini-register .ip-reg-submit {
+  appearance: none;
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 0.5rem;
+  background: #4f46e5;
+  color: #ffffff;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.25);
+}
+
+.ip-gemini-register .ip-reg-submit:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+.ip-gemini-register .ip-reg-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.ip-gemini-register .ip-reg-submit--accent {
+  background: var(--ip-gemini-accent);
+  box-shadow: 0 4px 14px rgba(88, 37, 230, 0.25);
+}
+
+.ip-gemini-register .ip-reg-submit--accent:hover:not(:disabled) {
+  background: #4c1d95;
+}
+
+.ip-gemini-register .ip-reg-submit--outline {
+  background: #ffffff;
+  color: #4f46e5;
+  border: 1px solid #e2e8f0;
+  box-shadow: none;
+}
+
+.ip-gemini-register .ip-reg-submit--outline:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.ip-gemini-register .ip-reg-panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ip-gemini-register .ip-reg-panel h3 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.ip-gemini-register .ip-reg-site-footer {
+  padding: 1rem;
+  text-align: center;
+  font-size: 11px;
+  color: #64748b;
+  border-top: 1px solid rgba(226, 232, 240, 0.8);
+  background: #ffffff;
+}

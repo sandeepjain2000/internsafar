@@ -1,0 +1,514 @@
+/**
+ * My applications — placementhub_candidate_browse_workspace (1).html applications view.
+ * Content pane only; PortalShell keeps live sidebar/topbar.
+ */
+.ip-apps {
+  --ip-brand: #4f46e5;
+  --ip-brand-700: #4338ca;
+  max-width: 72rem;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #1e293b;
+}
+
+.ip-apps h1,
+.ip-apps h2,
+.ip-apps h3,
+.ip-apps p {
+  margin: 0;
+}
+
+.ip-apps .ip-ap-hero,
+.ip-apps .ip-ap-metric,
+.ip-apps .ip-ap-toolbar,
+.ip-apps .ip-ap-sheet {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.ip-apps .ip-ap-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .ip-apps .ip-ap-hero {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.ip-apps .ip-ap-hero__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ip-apps .ip-ap-hero h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: #0f172a;
+}
+
+.ip-apps .ip-ap-hero p {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.ip-apps .ip-ap-chip {
+  display: inline-flex;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4338ca;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+}
+
+.ip-apps .ip-ap-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .ip-apps .ip-ap-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.ip-apps .ip-ap-metric {
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ip-apps .ip-ap-metric span {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.ip-apps .ip-ap-metric strong {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ip-apps .ip-ap-metric strong.is-amber { color: #d97706; }
+.ip-apps .ip-ap-metric strong.is-brand { color: var(--ip-brand); }
+.ip-apps .ip-ap-metric strong.is-ok { color: #059669; }
+
+.ip-apps .ip-ap-metric__ico {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ip-apps .ip-ap-metric__ico svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.ip-apps .ip-ap-metric__ico.is-slate { background: #f1f5f9; color: #475569; }
+.ip-apps .ip-ap-metric__ico.is-amber { background: #fffbeb; color: #d97706; }
+.ip-apps .ip-ap-metric__ico.is-brand { background: #eef2ff; color: var(--ip-brand); }
+.ip-apps .ip-ap-metric__ico.is-ok { background: #ecfdf5; color: #059669; }
+
+.ip-apps .ip-ap-toolbar {
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ip-apps .ip-ap-toolbar__row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .ip-apps .ip-ap-toolbar__row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.ip-apps .ip-ap-search {
+  position: relative;
+  width: 100%;
+  max-width: 20rem;
+}
+
+.ip-apps .ip-ap-search svg {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  width: 1rem;
+  height: 1rem;
+  color: #94a3b8;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.ip-apps .ip-ap-search input,
+.ip-apps .ip-ap-sort select {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
+  font-size: 0.75rem;
+  font-family: inherit;
+  color: #0f172a;
+  outline: none;
+}
+
+.ip-apps .ip-ap-search input {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+}
+
+.ip-apps .ip-ap-search input:focus,
+.ip-apps .ip-ap-sort select:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.ip-apps .ip-ap-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  align-self: flex-end;
+}
+
+.ip-apps .ip-ap-sort select {
+  background: #f8fafc;
+  padding: 0.375rem 0.625rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.ip-apps .ip-ap-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.ip-apps .ip-ap-tabs button {
+  border: none;
+  background: transparent;
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.ip-apps .ip-ap-tabs button:hover { background: #f1f5f9; }
+.ip-apps .ip-ap-tabs button.is-on {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.ip-apps .ip-ap-sheet { overflow: hidden; }
+
+.ip-apps .ip-ap-table-wrap { overflow-x: auto; }
+
+.ip-apps .ip-ap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  color: #475569;
+}
+
+.ip-apps .ip-ap-table th {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.ip-apps .ip-ap-table td {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: top;
+}
+
+.ip-apps .ip-ap-num {
+  width: 2.5rem;
+  color: #94a3b8;
+}
+
+.ip-apps .ip-ap-title {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #0f172a;
+  text-decoration: none;
+}
+
+.ip-apps .ip-ap-title:hover { color: var(--ip-brand); text-decoration: underline; }
+
+.ip-apps .ip-ap-company {
+  margin-top: 0.125rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.ip-apps .ip-ap-verified {
+  margin-left: 0.25rem;
+  color: #059669;
+  font-weight: 700;
+}
+
+.ip-apps .ip-ap-match-chip {
+  margin-top: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #4338ca;
+}
+
+.ip-apps .ip-ap-stipend {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.ip-apps .ip-ap-muted { color: #64748b; }
+
+.ip-apps .ip-ap-next {
+  max-width: 16rem;
+  font-weight: 500;
+  color: #334155;
+}
+
+.ip-apps .ip-ap-badge {
+  display: inline-flex;
+  padding: 0.2rem 0.625rem;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  font-size: 0.625rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ip-apps .ip-ap-badge.is-applied { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.ip-apps .ip-ap-badge.is-review { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+.ip-apps .ip-ap-badge.is-interview { background: #eef2ff; color: #3730a3; border-color: #c7d2fe; }
+.ip-apps .ip-ap-badge.is-offer { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.ip-apps .ip-ap-badge.is-rejected { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+.ip-apps .ip-ap-badge.is-withdrawn { background: #fff1f2; color: #be123c; border-color: #fecdd3; }
+.ip-apps .ip-ap-badge.is-other { background: #f8fafc; color: #334155; }
+
+.ip-apps .ip-ap-actions { text-align: right; }
+.ip-apps .ip-ap-actions__row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ip-apps .ip-ap-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ip-apps .ip-ap-btn--primary { background: var(--ip-brand); color: #fff; }
+.ip-apps .ip-ap-btn--primary:hover { background: var(--ip-brand-700); }
+.ip-apps .ip-ap-btn--ghost {
+  background: #f1f5f9;
+  color: #334155;
+}
+.ip-apps .ip-ap-btn--ghost:hover { background: #e2e8f0; }
+.ip-apps .ip-ap-btn--danger { background: #fff1f2; color: #be123c; }
+.ip-apps .ip-ap-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ip-apps .ip-ap-icon {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ip-apps .ip-ap-icon svg { width: 1rem; height: 1rem; }
+.ip-apps .ip-ap-icon:hover { background: #f1f5f9; color: #0f172a; }
+.ip-apps .ip-ap-icon.is-withdraw:hover { color: #be123c; }
+.ip-apps .ip-ap-icon:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.ip-apps .ip-ap-empty {
+  padding: 2rem 1.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ip-apps .ip-ap-empty h3 { font-size: 0.875rem; font-weight: 700; color: #0f172a; }
+.ip-apps .ip-ap-empty p { font-size: 0.75rem; color: #64748b; max-width: 24rem; }
+
+.ip-apps .ip-ap-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid #f1f5f9;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.ip-apps .ip-ap-pager__btns {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ip-apps .ip-ap-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.ip-apps .ip-ap-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: rgba(15, 23, 42, 0.45);
+  cursor: pointer;
+}
+
+.ip-apps .ip-ap-modal__card {
+  position: relative;
+  width: min(36rem, 100%);
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+}
+
+.ip-apps .ip-ap-modal__head,
+.ip-apps .ip-ap-modal__foot {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1.15rem;
+}
+
+.ip-apps .ip-ap-modal__head {
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ip-apps .ip-ap-modal__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ip-apps .ip-ap-modal__head h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.ip-apps .ip-ap-modal__head p {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.ip-apps .ip-ap-modal__body {
+  padding: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.ip-apps .ip-ap-modal__body dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.ip-apps .ip-ap-modal__body dt {
+  font-size: 0.6875rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ip-apps .ip-ap-modal__body dd {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.ip-apps .ip-ap-modal__foot {
+  border-top: 1px solid #f1f5f9;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
