@@ -30,6 +30,8 @@ const SIZE_OPTIONS = [
   { value: '1000+', label: '1000+ employees' },
 ];
 
+const COUNTRY_OPTIONS = ['India', 'Bangladesh', 'Sri Lanka', 'Indonesia'];
+
 function Field({ label, children, span2, hint }) {
   return (
     <div className={`ip-ep-field${span2 ? ' ip-ep-span-2' : ''}`}>
@@ -346,6 +348,15 @@ export default function EmployerProfilePage() {
               placeholder="e.g. Pune"
               required
             />
+          </Field>
+          <Field label="HQ Country">
+            <SelectInput value={form.hq_country || 'India'} onChange={(e) => set('hq_country', e.target.value)}>
+              {COUNTRY_OPTIONS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </SelectInput>
           </Field>
           <Field label="HQ State / Province">
             <input

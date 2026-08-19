@@ -14,10 +14,22 @@ import { ROLE_HOME } from '@/lib/roleHome';
 import './ip-login-gemini.css';
 
 const HERO_POINTS = [
-  'Direct employer matching for verified corporate roles',
-  'Verified logbooks with real-time progress tracking',
-  'Automated supervisor evaluations & carry-forward records',
-  'Comprehensive reports with integrated skill analytics',
+  {
+    bold: 'Discover verified internship opportunities',
+    rest: ' matched to your skills, interests, location, and preferred work mode',
+  },
+  {
+    bold: 'Apply with confidence',
+    rest: ' to opportunities from approved employers and keep track of every application in one place',
+  },
+  {
+    bold: 'Stay connected with employers',
+    rest: ' through direct messaging and timely updates throughout the application process',
+  },
+  {
+    bold: 'Track your internship journey',
+    rest: ' from selection to participation and completion, with support when you need it',
+  },
 ];
 
 function BrandMark({ variant = 'dark' }) {
@@ -25,13 +37,19 @@ function BrandMark({ variant = 'dark' }) {
   return (
     <div className={`ip-login-brand${dark ? ' ip-login-brand--on-dark' : ''}`}>
       <span className="ip-login-brand__mark">
-        <Image src="/logo-icon.png" alt="" width={88} height={88} className="size-full object-cover" priority />
+        <Image
+          src="/internsafar-icon.png"
+          alt=""
+          width={88}
+          height={88}
+          className="size-full object-contain"
+          priority
+        />
       </span>
       <span className="ip-login-brand__lockup">
         <span className="ip-login-brand__text">
-          Placement<span className="hub">Hub</span>
+          Intern<span className="hub">Safar</span>
         </span>
-        {dark ? <span className="ip-login-brand__sub">Enterprise Portal</span> : null}
       </span>
     </div>
   );
@@ -183,23 +201,24 @@ export default function IpSignInLanding() {
                 Internship &amp; Career Management
               </div>
               <h1 className="ip-gemini-hero__title">
-                Beyond Placements.
-                <br />
-                Building Industry-Ready Talent.
+                <strong>Turn opportunities into real experience.</strong>
               </h1>
               <p className="ip-gemini-hero__lede">
-                Access top-tier internship opportunities, real-time application analytics, automated verification, and
-                seamless mentor evaluations — all in one place.
+                Discover verified internships, connect with approved employers, manage every application, and stay on
+                top of your internship journey — all in one place.
               </p>
             </div>
 
             <ul className="ip-gemini-hero__list">
-              {HERO_POINTS.map((line) => (
-                <li key={line}>
+              {HERO_POINTS.map(({ bold, rest }) => (
+                <li key={bold}>
                   <span className="ip-gemini-hero__check" aria-hidden>
                     ✓
                   </span>
-                  <span>{line}</span>
+                  <span>
+                    <strong>{bold}</strong>
+                    {rest}
+                  </span>
                 </li>
               ))}
             </ul>

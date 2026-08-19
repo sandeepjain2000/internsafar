@@ -11,6 +11,8 @@ const EDITABLE_FIELDS = [
 
 const REQUIRED_FOR_COMPLETE = ['company_name', 'website', 'work_email', 'industry', 'hq_city', 'contact_name', 'contact_phone'];
 
+const COUNTRY_OPTIONS = new Set(['India', 'Bangladesh', 'Sri Lanka', 'Indonesia']);
+
 export async function GET() {
   const { session, error } = await requireSession(['employer']);
   if (error) return error;
@@ -21,6 +23,7 @@ export async function GET() {
     [session.user.id],
   );
   if (!result.rows[0]) return jsonError('Profile not found', 404);
+  result.rows[0].hq_country ||= 'India';
   const docs = await query(`SELECT * FROM ip_employer_documents WHERE employer_id = $1 ORDER BY created_at DESC`, [result.rows[0].id]);
   return jsonOk({
     profile: result.rows[0],
@@ -44,7 +47,12 @@ export async function PUT(request) {
   const params = [session.user.id];
   for (const field of EDITABLE_FIELDS) {
     if (body[field] === undefined) continue;
-    params.push(body[field]);
+    let value = body[field];
+    if (field === 'hq_country') {
+      const v = value == null ? '' : String(value).trim();
+      value = COUNTRY_OPTIONS.has(v) ? v : 'India';
+    }
+    params.push(value);
     sets.push(`${field} = $${params.length}`);
   }
 

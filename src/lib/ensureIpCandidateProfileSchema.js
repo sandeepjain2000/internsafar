@@ -9,6 +9,7 @@ export async function ensureIpCandidateProfileSchema() {
       ADD COLUMN IF NOT EXISTS first_name TEXT,
       ADD COLUMN IF NOT EXISTS middle_name TEXT,
       ADD COLUMN IF NOT EXISTS last_name TEXT,
+      ADD COLUMN IF NOT EXISTS country TEXT DEFAULT 'India',
       ADD COLUMN IF NOT EXISTS phone_country_code TEXT DEFAULT '+91',
       ADD COLUMN IF NOT EXISTS whatsapp_number TEXT,
       ADD COLUMN IF NOT EXISTS telegram_handle TEXT,

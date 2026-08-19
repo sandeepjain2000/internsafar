@@ -313,7 +313,7 @@ export default function PortalShell({
             </div>
             <div className={cn('min-w-0 flex-1', sidebarCollapsed && 'md:hidden')}>
               <div className="truncate text-sm font-semibold">{displayName}</div>
-              <div className="truncate text-xs text-sidebar-foreground/60">{session.user.email}</div>
+              <div className="truncate text-xs text-sidebar-foreground/60">{ROLE_SUBTITLE[role] || title}</div>
             </div>
             <ChevronRight
               aria-hidden="true"

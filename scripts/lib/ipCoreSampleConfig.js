@@ -13,12 +13,12 @@ const LEGACY_SUPERADMIN_EMAIL = 'superadmin@internship.local';
 const DEMO_PASSWORD = 'Admin@123';
 
 /** Primary showcase candidate — removed on reset, then re-created. */
-const CAND_BASE = 'lawsonlclintern@gmail.com';
-const CAND_BASE_NAME = 'Lawson Candidate';
+const CAND_BASE = 'lawsonlclintern+1@gmail.com';
+const CAND_BASE_NAME = 'Priya Sharma';
 
 /** Primary showcase employer — removed on reset, then re-created. */
-const EMP_BASE = 'shreekar.nyayapathi23@vit.edu';
-const EMP_BASE_NAME = 'VIT Showcase Employer';
+const EMP_BASE = 'shreekar.nyayapathi23+2@vit.edu';
+const EMP_BASE_NAME = 'Nova Labs';
 
 /** Extra candidate accounts re-seeded after reset. */
 const CAST_CANDIDATES = [

@@ -66,6 +66,11 @@ coverage/
 playwright-report/
 test-results/
 
+# Manual test checklist — local Excel helpers only (_inspect_ref.py, _gen_*.py, etc.)
+test-cases/_*.py
+test-cases/__pycache__/
+test-cases/qa-results.json
+
 # Local scratch
 tmp-screenshots/
 _tmp_*

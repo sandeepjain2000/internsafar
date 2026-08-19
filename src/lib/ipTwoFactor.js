@@ -35,6 +35,14 @@ function randomOtp() {
   return String(crypto.randomInt(100000, 999999));
 }
 
+function qaBypassEnabled() {
+  return String(process.env.IP_QA_2FA_BYPASS_FOR_TESTING || '').toLowerCase() === 'true';
+}
+
+function qaBypassCode() {
+  return String(process.env.IP_QA_2FA_BYPASS_CODE || '000000').trim();
+}
+
 /**
  * @param {'login'|'enable'|'disable'} purpose
  * @returns {{ challengeId: string, code: string, email: string }}
@@ -97,7 +105,12 @@ export async function verifyTwoFactorChallenge(challengeId, code) {
   const row = result.rows[0];
   if (!row || row.consumed_at) return null;
   if (new Date(row.expires_at).getTime() < Date.now()) return null;
-  if (row.code_hash !== hashCode(otp)) return null;
+
+  // QA automation: allow a fixed OTP in test runs, without reading Zoho email.
+  // This does *not* change challenge generation; it only relaxes verification when enabled.
+  if (!(qaBypassEnabled() && otp === qaBypassCode())) {
+    if (row.code_hash !== hashCode(otp)) return null;
+  }
 
   await query(`UPDATE ip_2fa_challenges SET consumed_at = now() WHERE id = $1`, [id]);
   return { userId: row.user_id, purpose: row.purpose };

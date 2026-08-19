@@ -180,7 +180,6 @@ export default function CandidateReferralPage() {
         <div>
           <div className="ip-cr-pills">
             <span className="ip-cr-pill">Candidate Rewards Program</span>
-            <span>• Optional workspace feature</span>
           </div>
           <h1>Refer & Earn Points</h1>
           <p>

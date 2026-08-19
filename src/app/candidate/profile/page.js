@@ -27,6 +27,8 @@ const PROFILE_TABS = [
 
 const WORK_MODES = ['Remote', 'Hybrid', 'On-site'];
 
+const COUNTRY_OPTIONS = ['India', 'Bangladesh', 'Sri Lanka', 'Indonesia'];
+
 const COMMITMENT_OPTIONS = [
   { value: '', label: 'Prefer not to say' },
   { value: 'none', label: 'No — no other commitments' },
@@ -267,6 +269,7 @@ export default function CandidateProfilePage() {
     return [
       { label: 'Full Name *', done: Boolean(form.first_name && form.last_name) },
       { label: 'Mobile Phone *', done: Boolean(form.phone) },
+      { label: 'Country *', done: Boolean(form.country) },
       { label: 'City & State *', done: Boolean(form.city && form.state) },
       { label: 'College / Edu *', done: collegeDone },
       { label: 'Resume Link *', done: Boolean(form.resume_url) },
@@ -279,6 +282,7 @@ export default function CandidateProfilePage() {
     const checks = [
       Boolean(form.first_name && form.last_name),
       Boolean(form.phone),
+      Boolean(form.country),
       Boolean(form.city),
       Boolean(form.state),
       collegeDone,
@@ -457,6 +461,15 @@ export default function CandidateProfilePage() {
                 </Field>
                 <Field label="Mobile Phone Number" required>
                   <input className="ip-cp-input" type="tel" value={form.phone || ''} onChange={(e) => set('phone', e.target.value)} />
+                </Field>
+                <Field label="Country" required>
+                  <select className="ip-cp-input" value={form.country || 'India'} onChange={(e) => set('country', e.target.value)}>
+                    {COUNTRY_OPTIONS.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
                 <Field label="Current City" required>
                   <input className="ip-cp-input" value={form.city || ''} onChange={(e) => set('city', e.target.value)} />

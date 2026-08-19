@@ -5,7 +5,7 @@ import { ToastProvider } from '@/components/ToastProvider';
 import { Providers } from '@/components/Providers';
 
 export const metadata = {
-  title: 'Internship Portal',
+  title: 'InternSafar',
   description: 'Internship Portal — candidates, employers, and SuperAdmin.',
 };
 

@@ -8,7 +8,7 @@ import { PROFILE_COMPLETE_POINTS } from '@/lib/pointsEconomy';
 const EDITABLE_FIELDS = [
   'name', 'first_name', 'middle_name', 'last_name', 'phone', 'phone_country_code',
   'whatsapp_number', 'telegram_handle', 'profile_picture_url', 'show_profile_picture', 'college', 'degree', 'specialization',
-  'study_status', 'graduation_year', 'cgpa', 'city', 'state', 'skills', 'resume_url', 'linkedin_url',
+  'study_status', 'graduation_year', 'cgpa', 'country', 'city', 'state', 'skills', 'resume_url', 'linkedin_url',
   'github_url', 'portfolio_url', 'personal_website', 'preferred_work_mode', 'preferred_locations', 'availability_date',
   'searchable', 'show_completed_internships', 'whatsapp_opt_in', 'telegram_opt_in',
   'has_wired_broadband', 'has_dedicated_laptop', 'preferred_hours_start', 'preferred_hours_end',
@@ -18,7 +18,7 @@ const EDITABLE_FIELDS = [
 
 const COMMITMENT_CHOICES = new Set(['', 'none', 'other_internship', 'offline_classes', 'part_time_work', 'other']);
 
-const REQUIRED_FOR_COMPLETE = ['name', 'phone', 'college', 'degree', 'city', 'resume_url'];
+const REQUIRED_FOR_COMPLETE = ['name', 'phone', 'college', 'degree', 'city', 'country', 'resume_url'];
 
 function normalizeOptionalBool(value) {
   if (value === null || value === undefined || value === '') return null;
@@ -46,6 +46,7 @@ export async function GET() {
     profile.middle_name = parts.join(' ');
   }
   profile.phone_country_code ||= '+91';
+  profile.country ||= 'India';
   if (profile.hide_phone_until_shortlist == null) profile.hide_phone_until_shortlist = true;
   profile.immediate_start = Boolean(profile.immediate_start);
   profile.willing_to_relocate = Boolean(profile.willing_to_relocate);
@@ -80,11 +81,17 @@ export async function PUT(request) {
     'searchable', 'show_completed_internships', 'whatsapp_opt_in', 'telegram_opt_in',
   ]);
 
+  const countryOptions = new Set(['India', 'Bangladesh', 'Sri Lanka', 'Indonesia']);
+
   const sets = [];
   const params = [session.user.id];
   for (const field of EDITABLE_FIELDS) {
     if (body[field] === undefined) continue;
     let value = body[field];
+    if (field === 'country') {
+      const v = value == null ? '' : String(value).trim();
+      value = countryOptions.has(v) ? v : 'India';
+    }
     if (optionalBools.has(field)) value = normalizeOptionalBool(value);
     if (requiredBools.has(field)) value = value === true || value === 'true';
     if (field === 'show_profile_picture') value = value !== false && value !== 'false';

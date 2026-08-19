@@ -7,7 +7,10 @@
         "build": "next build",
         "start": "next start",
         "lint": "eslint",
-        "db:migrate:ip": "node scripts/db_exec_sql_file.js db/migrations/001_ip_schema.sql"
+        "db:migrate:ip": "node scripts/db_exec_sql_file.js db/migrations/001_ip_schema.sql",
+        "qa:checklist": "node scripts/run-ip-checklist-qa.mjs",
+        "qa:checklist:apply": "node scripts/run-ip-checklist-qa.mjs --apply",
+        "qa:apply": "node scripts/apply-qa-results.mjs"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.1105.0",

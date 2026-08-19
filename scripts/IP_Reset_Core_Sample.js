@@ -13,8 +13,9 @@ const CONFIG = {
   superadminEmail: 'placementhubsupport@gmail.com',
   legacySuperadminEmail: 'superadmin@internship.local',
   demoPassword: 'Admin@123',
-  candidateBase: { email: 'lawsonlclintern@gmail.com', name: 'Lawson Candidate' },
-  employerBase: { email: 'shreekar.nyayapathi23@vit.edu', company: 'VIT Showcase Employer', status: 'approved' },
+  // Newest “primary” demo accounts (match the latest accounts doc)
+  candidateBase: { email: 'lawsonlclintern+1@gmail.com', name: 'Priya Sharma' },
+  employerBase: { email: 'shreekar.nyayapathi23+2@vit.edu', company: 'Nova Labs', status: 'approved' },
   castCandidates: [
     { email: 'lawsonlclintern+1@gmail.com', name: 'Priya Sharma', skills: ['React', 'TypeScript', 'Node'] },
     { email: 'lawsonlclintern+2@gmail.com', name: 'Arjun Mehta', skills: ['Python', 'SQL', 'ML'] },

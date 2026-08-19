@@ -235,11 +235,7 @@ export default function CandidateDashboard() {
       <div className="ip-cd-welcome">
         <div>
           <h1>Welcome, {session?.user?.name || 'candidate'}</h1>
-          <p>
-            {session?.user?.email || ''}
-            <span className="ip-cd-welcome__sep"> · </span>
-            Here is your placement summary and next steps.
-          </p>
+          <p>Here is your placement summary and next steps.</p>
         </div>
         <Link href="/candidate/internships" className="ip-cd-browse-cta">
           <Search size={16} aria-hidden />
