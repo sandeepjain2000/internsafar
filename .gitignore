@@ -66,6 +66,10 @@ coverage/
 playwright-report/
 test-results/
 
+# Local-only QA bypass helpers (kept for debugging; not committed)
+scripts/lib/ipQaAuth.mjs
+scripts/run-ip-checklist-qa.mjs
+
 # Manual test checklist — local Excel helpers only (_inspect_ref.py, _gen_*.py, etc.)
 test-cases/_*.py
 test-cases/__pycache__/
@@ -74,6 +78,7 @@ test-cases/qa-results.json
 # Local scratch
 tmp-screenshots/
 _tmp_*
+.local-qa-2fa-bypass-backup/
 *.bak
 *.bak-*
 .cursor/
