@@ -12,6 +12,7 @@ import {
   isTwoFactorEnabled,
   verifyTwoFactorChallenge,
 } from '@/lib/ipTwoFactor';
+import { consumeLoginDbFailureSimulation } from '@/lib/ipQaSimulate';
 
 /** Default session when "Remember this device" is unchecked. */
 const SESSION_SHORT_SEC = 60 * 60 * 12; // 12 hours
@@ -147,6 +148,9 @@ export const authOptions = {
 
         let result;
         try {
+          if (consumeLoginDbFailureSimulation()) {
+            throw new Error('Simulated DB connection failure');
+          }
           result = await queryWithRetry(
             `SELECT id, email, password_hash, role, name, active, profile_complete, form_approval_status
              FROM ip_users
