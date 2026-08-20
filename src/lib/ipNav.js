@@ -20,6 +20,7 @@ export const EMPLOYER_NAV = [
   { href: '/employer/messages', label: 'Messages', icon: 'mail' },
   { href: '/employer/offers', label: 'Offers', icon: 'file-text' },
   { href: '/employer/analytics', label: 'Analytics', icon: 'activity' },
+  { href: '/employer/rejection-templates', label: 'Rejection templates', icon: 'file-text' },
   { href: '/employer/referral', label: 'Refer & earn', icon: 'award' },
   { href: '/employer/viral', label: 'Viral board', icon: 'share-2' },
   { href: '/employer/notifications', label: 'Notifications', icon: 'bell' },

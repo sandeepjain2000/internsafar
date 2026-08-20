@@ -50,10 +50,23 @@ function canWithdraw(status) {
 export default function MyApplicationsPage() {
   const router = useRouter();
   const [items, setItems] = useState([]);
+  const [totalServer, setTotalServer] = useState(0);
   const [threadByInternship, setThreadByInternship] = useState({});
   const [q, setQ] = useState('');
   const [sort, setSort] = useState('latest');
-  const [tab, setTab] = useState('all');
+  const [tab, setTab] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ip_candidate_app_filters');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.tab) return parsed.tab;
+      }
+    } catch { /* ignore */ }
+    return 'all'; // intelligent default: All Applications (user can switch to actionable)
+  });
+  const [interviewFilter, setInterviewFilter] = useState('');
+  const [offerFilter, setOfferFilter] = useState('');
+  const [commFilter, setCommFilter] = useState('');
   const [detail, setDetail] = useState(null);
 
   const metrics = useMemo(() => {
@@ -91,9 +104,24 @@ export default function MyApplicationsPage() {
   }, [q, sort, tab, setPage]);
 
   async function load() {
-    const res = await fetch('/api/ip/candidate/applications');
+    const params = new URLSearchParams();
+    if (tab && tab !== 'all') params.set('status', tab);
+    if (q) params.set('q', q);
+    if (sort) params.set('sort', sort);
+    if (interviewFilter) params.set('interview', interviewFilter);
+    if (offerFilter) params.set('offer', offerFilter);
+    if (commFilter) params.set('communication', commFilter);
+    params.set('pageSize', '100');
+    const res = await fetch(`/api/ip/candidate/applications?${params}`);
     const data = await res.json();
     setItems(data.items || []);
+    setTotalServer(data.total || (data.items || []).length);
+    try {
+      localStorage.setItem(
+        'ip_candidate_app_filters',
+        JSON.stringify({ tab, sort, interviewFilter, offerFilter, commFilter }),
+      );
+    } catch { /* ignore */ }
   }
 
   async function loadThreads() {
@@ -109,7 +137,7 @@ export default function MyApplicationsPage() {
   useEffect(() => {
     load();
     loadThreads();
-  }, []);
+  }, [tab, sort, interviewFilter, offerFilter, commFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openThread(internshipId) {
     const threadId = threadByInternship[internshipId];

@@ -40,20 +40,25 @@ function postedLabel(i) {
   }
 }
 
-/** UI bucket for badges/filter (live statuses → mock labels). */
-function statusBucket(status) {
+function statusBadgeText(bucket) {
+  if (bucket === 'active') return '● Live';
+  if (bucket === 'scheduled') return '◷ Scheduled';
+  if (bucket === 'closing') return 'Closing soon';
+  if (bucket === 'paused') return '⏸ Paused';
+  if (bucket === 'closed') return 'Closed';
+  return 'Draft';
+}
+
+function statusBucket(status, lifecycleLabel) {
+  const label = String(lifecycleLabel || '').toLowerCase();
+  if (label === 'scheduled') return 'scheduled';
+  if (label === 'closing soon') return 'closing';
+  if (label === 'expired') return 'closed';
   const s = String(status || 'draft').toLowerCase();
   if (s === 'published') return 'active';
   if (s === 'paused') return 'paused';
   if (s === 'closed') return 'closed';
   return 'draft';
-}
-
-function statusBadgeText(bucket) {
-  if (bucket === 'active') return '● Active';
-  if (bucket === 'paused') return '⏸ Paused';
-  if (bucket === 'closed') return 'Closed';
-  return 'Draft';
 }
 
 export default function EmployerInternshipsPage() {
@@ -81,11 +86,11 @@ export default function EmployerInternshipsPage() {
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return items.filter((i) => {
-      const bucket = statusBucket(i.status);
+      const bucket = statusBucket(i.status, i.lifecycle_label);
       const matchesSearch = !q || String(i.title || '').toLowerCase().includes(q);
       const matchesStatus =
         statusFilter === 'all' ||
-        (statusFilter === 'active' && bucket === 'active') ||
+        (statusFilter === 'active' && (bucket === 'active' || bucket === 'scheduled')) ||
         (statusFilter === 'paused' && bucket === 'paused') ||
         (statusFilter === 'draft' && bucket === 'draft') ||
         (statusFilter === 'closed' && bucket === 'closed');
@@ -260,7 +265,7 @@ export default function EmployerInternshipsPage() {
             </thead>
             <tbody>
               {pageItems.map((i, idx) => {
-                const bucket = statusBucket(i.status);
+                const bucket = statusBucket(i.status, i.lifecycle_label);
                 const links = share(i);
                 return (
                   <tr key={i.id}>
@@ -269,14 +274,20 @@ export default function EmployerInternshipsPage() {
                       <Link href={`/employer/internships/${i.id}`} className="ip-epo-title">
                         {i.title}
                       </Link>
-                      <span className="ip-epo-date">Posted on {postedLabel(i)}</span>
+                      <span className="ip-epo-date">
+                        Posted on {postedLabel(i)}
+                        {i.capacity_label ? ` · ${i.capacity_label}` : ''}
+                        {i.lifecycle_label ? ` · ${i.lifecycle_label}` : ''}
+                      </span>
                     </td>
                     <td style={{ fontWeight: 500 }}>{stipendLabel(i)}</td>
                     <td>
                       <Link href={`/employer/internships/${i.id}`} className="ip-epo-apps">
                         <Users aria-hidden />
-                        {Number(i.applicant_count || 0)} candidate
-                        {Number(i.applicant_count || 0) === 1 ? '' : 's'}
+                        {Number(i.applicant_count || 0)} historical
+                        {i.active_applicant_count != null
+                          ? ` · ${i.active_applicant_count} active`
+                          : ''}
                       </Link>
                     </td>
                     <td>
@@ -316,6 +327,34 @@ export default function EmployerInternshipsPage() {
                             onClick={() => setStatus(i.id, 'published')}
                           >
                             <Play className="size-4" />
+                          </button>
+                        ) : null}
+                        {i.status === 'closed' || i.lifecycle_label === 'Expired' ? (
+                          <button
+                            type="button"
+                            className="ip-epo-btn ip-epo-btn--icon"
+                            title="Repost / Duplicate"
+                            aria-label="Repost Duplicate"
+                            disabled={busyId === i.id}
+                            onClick={async () => {
+                              setBusyId(i.id);
+                              try {
+                                const res = await fetch(`/api/ip/employer/internships/${i.id}`, {
+                                  method: 'PUT',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ action: 'repost' }),
+                                });
+                                const data = await res.json();
+                                if (!res.ok) throw new Error(data.error);
+                                router.push(`/employer/internships/${data.id}/edit`);
+                              } catch (e) {
+                                setError(e.message);
+                              } finally {
+                                setBusyId('');
+                              }
+                            }}
+                          >
+                            <Plus className="size-4" />
                           </button>
                         ) : null}
                         <button

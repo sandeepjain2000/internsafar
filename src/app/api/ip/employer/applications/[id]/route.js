@@ -2,7 +2,9 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { notifyUser } from '@/lib/ipNotify';
 import { ensureIpApplicationInterviewSchema } from '@/lib/ensureIpApplicationInterviewSchema';
+import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
 import { parseInterviewMeetUrl } from '@/lib/ipInterviewMeetUrl';
+import { newId } from '@/lib/ids';
 
 const ALLOWED = ['shortlisted', 'interviewing', 'rejected', 'hired', 'applied'];
 
@@ -10,6 +12,7 @@ export async function PATCH(request, { params }) {
   const { session, error } = await requireSession(['employer']);
   if (error) return error;
   await ensureIpApplicationInterviewSchema();
+  await ensureIpWorkbenchSchema();
   const { id } = await params;
   let body;
   try {
@@ -83,6 +86,17 @@ export async function PATCH(request, { params }) {
       internshipTitle: row.title,
     },
   });
+  await query(
+    `INSERT INTO ip_application_events (id, application_id, actor_user_id, event_type, payload)
+     VALUES ($1,$2,$3,$4,$5::jsonb)`,
+    [
+      newId('ip_aev'),
+      id,
+      session.user.id,
+      status,
+      JSON.stringify({ interviewAt, interviewMeetUrl }),
+    ],
+  );
   return jsonOk({
     ok: true,
     interviewAt: status === 'interviewing' ? interviewAt : null,

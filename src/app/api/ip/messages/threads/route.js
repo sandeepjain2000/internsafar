@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { decorateMessageThread } from '@/lib/ipMessagePresentation';
+import { maskEmployerName } from '@/lib/ipEmployerIdentity';
 import {
   ensureIpMessageInboxSchema,
   THREAD_JOINS,
@@ -38,7 +39,14 @@ export async function GET(request) {
     [uid],
   );
   const items = result.rows.map((row) => {
-    const decorated = decorateMessageThread(row);
+    const masked =
+      role === 'candidate'
+        ? {
+            ...row,
+            company_name: maskEmployerName(row.company_name, row.show_employer_identity !== false),
+          }
+        : row;
+    const decorated = decorateMessageThread(masked);
     if (role !== 'employer') delete decorated.candidate_resume_url;
     return decorated;
   });

@@ -178,17 +178,17 @@ export default function PortalShell({
           >
             <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-xs ring-1 ring-black/5">
               <Image
-                src="/logo-icon.png"
-                alt=""
+                src="/internsafar-icon.png"
+                alt="InternSafar"
                 width={32}
                 height={32}
-                className="size-full object-cover"
+                className="size-full object-contain"
                 priority
               />
             </div>
             <div className={cn('min-w-0 flex-1', sidebarCollapsed && 'md:hidden')}>
               <div className="truncate text-sm font-semibold tracking-tight">
-                Placement<span className="text-indigo-600">Hub</span>
+                Intern<span className="text-indigo-600">Safar</span>
               </div>
               <div className="truncate text-xs text-sidebar-foreground/60">{ROLE_SUBTITLE[role] || title}</div>
             </div>

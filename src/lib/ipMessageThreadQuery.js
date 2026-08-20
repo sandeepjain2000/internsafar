@@ -22,6 +22,7 @@ export const THREAD_SELECT_CORE = `
             i.work_mode as internship_work_mode,
             i.location as internship_location,
             i.duration_months as internship_duration_months,
+            i.show_employer_identity,
             cu.name as candidate_name,
             eu.name as employer_name,
             e.company_name,

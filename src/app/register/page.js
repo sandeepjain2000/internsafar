@@ -28,7 +28,7 @@ function RegisterChooserInner() {
       <div className="ip-reg-page">
         <div className="ip-reg-hero">
           <h1>Create your account</h1>
-          <p>Choose how you will use PlacementHub to continue.</p>
+          <p>Choose how you will use InternSafar to continue.</p>
         </div>
 
         {ref ? (
@@ -118,7 +118,7 @@ function RegisterChooserInner() {
         </p>
       </div>
 
-      <footer className="ip-reg-site-footer">PlacementHub · Confidential · © 2026</footer>
+      <footer className="ip-reg-site-footer">InternSafar · Confidential · © 2026</footer>
     </div>
   );
 }

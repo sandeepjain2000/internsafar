@@ -394,7 +394,7 @@ export default function EmployerRegisterPage() {
           </div>
         </div>
       </div>
-      <footer className="ip-reg-site-footer">PlacementHub Internship Portal © 2026. All rights reserved.</footer>
+      <footer className="ip-reg-site-footer">InternSafar Internship Portal © 2026. All rights reserved.</footer>
     </div>
   );
 }

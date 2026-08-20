@@ -8,9 +8,18 @@
         "start": "next start",
         "lint": "eslint",
         "db:migrate:ip": "node scripts/db_exec_sql_file.js db/migrations/001_ip_schema.sql",
+        "db:migrate:workbench": "node scripts/db_exec_sql_file.js db/migrations/016_ip_workbench_lifecycle.sql && node scripts/db_exec_sql_file.js db/migrations/017_ip_workbench_recruiter.sql && node scripts/db_exec_sql_file.js db/migrations/018_ip_export_jobs_schedule_reminders.sql",
+        "test:workbench": "node scripts/test-ip-workbench-unit.mjs",
+        "cron:schedule-reminders": "node scripts/process-ip-schedule-reminders.mjs",
+        "cron:export-jobs": "node scripts/process-ip-export-jobs.mjs",
+        "generate:ip-test-data": "node scripts/generate-ip-test-data.mjs",
+        "delete:ip-generated-run": "node scripts/delete-ip-generated-run.mjs",
+        "delete:ip-except-cores": "node scripts/delete-ip-generated-run.mjs --mode=except-cores",
         "qa:checklist": "node scripts/run-ip-checklist-qa.mjs",
         "qa:checklist:apply": "node scripts/run-ip-checklist-qa.mjs --apply",
-        "qa:apply": "node scripts/apply-qa-results.mjs"
+        "qa:apply": "node scripts/apply-qa-results.mjs",
+        "qa:workbench": "node scripts/run-ip-workbench-qa.mjs",
+        "qa:workbench:live": "node scripts/run-ip-workbench-qa.mjs --live"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.1105.0",
@@ -19,6 +28,7 @@
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "dotenv": "^17.4.2",
+        "jszip": "^3.10.1",
         "lucide-react": "^1.8.0",
         "next": "^16.3.0",
         "next-auth": "^4.24.15",

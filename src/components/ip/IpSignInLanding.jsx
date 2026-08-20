@@ -387,7 +387,7 @@ export default function IpSignInLanding() {
 
             <div className="ip-gemini-register-callout">
               <p>
-                New to PlacementHub?{' '}
+                New to InternSafar?{' '}
                 <Link href="/register" className="ip-gemini-link-strong">
                   Create an account
                 </Link>
@@ -395,7 +395,7 @@ export default function IpSignInLanding() {
             </div>
           </div>
 
-          <p className="ip-gemini-page-foot">PlacementHub · Confidential · © 2026</p>
+          <p className="ip-gemini-page-foot">InternSafar · Confidential · © 2026</p>
         </div>
       </div>
     </div>

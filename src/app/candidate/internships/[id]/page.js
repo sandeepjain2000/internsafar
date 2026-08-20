@@ -61,11 +61,12 @@ export default function InternshipDetailPage() {
     try {
       if (questions.length) {
         const missing = questions.some((q, idx) => {
+          if (q.required === false) return false;
           const key = q.id || `q${idx}`;
           return !String(answers[key] || '').trim();
         });
         if (missing) {
-          throw new Error('Please answer all screening questions before applying.');
+          throw new Error('Please answer all required screening questions before applying.');
         }
       }
       const res = await fetch('/api/ip/candidate/applications', {
@@ -141,7 +142,14 @@ export default function InternshipDetailPage() {
             {internship.work_hours_start && internship.work_hours_end ? (
               <Badge variant="outline">Hours: {internship.work_hours_start}–{internship.work_hours_end}</Badge>
             ) : null}
-            {internship.show_hiring_numbers ? <Badge>Actively hiring</Badge> : null}
+          {internship.application_volume_label ? (
+              <Badge variant="secondary" title="Historical applications (range)">
+                {internship.application_volume_label} applications
+              </Badge>
+            ) : null}
+            {internship.show_hiring_numbers && !internship.application_volume_label ? (
+              <Badge>Actively hiring</Badge>
+            ) : null}
           </div>
           {internship.stipend_type === 'incentive' && internship.incentive_basis ? (
             <div>
@@ -169,8 +177,25 @@ export default function InternshipDetailPage() {
                 const key = q.id || `q${idx}`;
                 return (
                   <Field key={key}>
-                    <FieldLabel>{q.prompt || q.question || `Question ${idx + 1}`}</FieldLabel>
-                    {q.type === 'textarea' ? (
+                    <FieldLabel>
+                      {q.prompt || q.question || `Question ${idx + 1}`}
+                      {q.required === false ? ' (optional)' : ''}
+                    </FieldLabel>
+                    {q.type === 'mcq' && Array.isArray(q.options) ? (
+                      <div className="space-y-1 mt-1" role="radiogroup" aria-label={q.prompt}>
+                        {q.options.map((o) => (
+                          <label key={o.id} className="flex items-center gap-2 text-sm">
+                            <input
+                              type="radio"
+                              name={`q-${key}`}
+                              checked={answers[key] === o.id}
+                              onChange={() => setAnswers((a) => ({ ...a, [key]: o.id }))}
+                            />
+                            {o.label}
+                          </label>
+                        ))}
+                      </div>
+                    ) : q.type === 'textarea' ? (
                       <Textarea rows={3} value={answers[key] || ''} onChange={(e) => setAnswers((a) => ({ ...a, [key]: e.target.value }))} />
                     ) : (
                       <Input value={answers[key] || ''} onChange={(e) => setAnswers((a) => ({ ...a, [key]: e.target.value }))} />

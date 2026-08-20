@@ -36,8 +36,35 @@ const CAST_EMPLOYERS = [
 const CAST_CANDIDATE_EMAILS = CAST_CANDIDATES.map((c) => c.email);
 const CAST_EMPLOYER_EMAILS = CAST_EMPLOYERS.map((e) => e.email);
 
-/** Accounts preserved during reset — everyone else is removed and re-seeded. */
+/** Accounts preserved during nuclear reset — everyone else is removed and re-seeded. */
 const PRESERVE_USER_EMAILS = [SUPERADMIN_EMAIL];
+
+/**
+ * Protected accounts for generate/delete-by-run-ID tooling.
+ * NEVER delete, deactivate, rename, change role/email/password of these.
+ */
+const PROTECTED_ACCOUNT_EMAILS = [
+  SUPERADMIN_EMAIL,
+  CAND_BASE,
+  EMP_BASE,
+].map((e) => String(e).trim().toLowerCase());
+
+function assertProtectedConfigValid() {
+  if (!Array.isArray(PROTECTED_ACCOUNT_EMAILS) || PROTECTED_ACCOUNT_EMAILS.length < 1) {
+    throw new Error('PROTECTED_ACCOUNT_EMAILS missing or empty in ipCoreSampleConfig');
+  }
+  for (const email of PROTECTED_ACCOUNT_EMAILS) {
+    if (!email || !email.includes('@')) {
+      throw new Error(`Invalid protected account email: ${email}`);
+    }
+  }
+  return true;
+}
+
+function isProtectedEmail(email) {
+  const e = String(email || '').trim().toLowerCase();
+  return PROTECTED_ACCOUNT_EMAILS.includes(e);
+}
 
 function allCoreSampleEmails() {
   return [
@@ -49,7 +76,6 @@ function allCoreSampleEmails() {
   ];
 }
 
-/** Pending cast employer used for SuperAdmin manual-request demo row. */
 function pendingCastEmployer() {
   return CAST_EMPLOYERS.find((e) => e.status === 'pending') || CAST_EMPLOYERS[CAST_EMPLOYERS.length - 1];
 }
@@ -67,6 +93,9 @@ module.exports = {
   CAST_CANDIDATE_EMAILS,
   CAST_EMPLOYER_EMAILS,
   PRESERVE_USER_EMAILS,
+  PROTECTED_ACCOUNT_EMAILS,
+  assertProtectedConfigValid,
+  isProtectedEmail,
   allCoreSampleEmails,
   pendingCastEmployer,
 };

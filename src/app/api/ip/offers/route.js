@@ -7,6 +7,7 @@ import { getNotifyChannels } from '@/lib/ipNotificationPreferences';
 import { ensureIpOfferRemindSchema } from '@/lib/ensureIpOfferRemindSchema';
 import { ensureIpOfferOnboardingSchema } from '@/lib/ensureIpOfferOnboardingSchema';
 import { decorateCandidateOffer } from '@/lib/ipOfferPresentation';
+import { maskEmployerName } from '@/lib/ipEmployerIdentity';
 
 function trimOrNull(value) {
   const s = String(value ?? '').trim();
@@ -31,7 +32,7 @@ export async function GET() {
     const result = await query(
       `SELECT o.*,
               i.title, i.work_mode, i.location, i.duration_months, i.stipend_inr as internship_stipend_inr,
-              i.end_date as internship_end_date,
+              i.end_date as internship_end_date, i.show_employer_identity,
               e.company_name, e.user_id as employer_user_id, e.logo_url, e.approval_status,
               e.contact_name, e.contact_designation, e.work_email, e.contact_phone,
               (SELECT t.id FROM ip_message_threads t
@@ -45,7 +46,14 @@ export async function GET() {
        ORDER BY o.created_at DESC`,
       [cand.rows[0]?.id || '', session.user.id],
     );
-    return jsonOk({ items: result.rows.map(decorateCandidateOffer) });
+    return jsonOk({
+      items: result.rows.map((row) =>
+        decorateCandidateOffer({
+          ...row,
+          company_name: maskEmployerName(row.company_name, row.show_employer_identity !== false),
+        }),
+      ),
+    });
   }
 
   await ensureIpOfferRemindSchema();

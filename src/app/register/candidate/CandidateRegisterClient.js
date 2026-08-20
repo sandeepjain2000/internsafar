@@ -151,7 +151,7 @@ export default function CandidateRegisterPage() {
                 Change account type
               </Link>
               <h1>Candidate Registration</h1>
-              <p>Join PlacementHub to start your internship search</p>
+              <p>Join InternSafar to start your internship search</p>
             </div>
             <span className="ip-crg-head-ico">
               <GraduationCap aria-hidden />
@@ -340,7 +340,7 @@ export default function CandidateRegisterPage() {
         </div>
       </main>
 
-      <footer className="ip-crg-foot">PlacementHub · Confidential · © 2026</footer>
+      <footer className="ip-crg-foot">InternSafar · Confidential · © 2026</footer>
     </div>
   );
 }

@@ -2,6 +2,10 @@ import { query } from '@/lib/db';
 import { requireSession, jsonOk } from '@/lib/apiAuth';
 import { computeValidationScore } from '@/lib/internshipValidationScore';
 import { skillMatchPercent } from '@/lib/skillMatch';
+import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
+import { CANDIDATE_VISIBLE_SQL } from '@/lib/ipInternshipVisibility';
+import { publicApplicationVolumeLabel } from '@/lib/ipApplicationVolume';
+import { maskEmployerName } from '@/lib/ipEmployerIdentity';
 
 function eligibilitySkills(eligibility) {
   let el = eligibility;
@@ -28,13 +32,33 @@ function matchesWorkMode(itemMode, filterMode) {
   return (a === 'onsite' || a === 'onsiteonly') && (b === 'onsite' || b === 'onsiteonly');
 }
 
+function cityList(item) {
+  const cities = [];
+  if (Array.isArray(item.locations)) {
+    for (const c of item.locations) {
+      const s = String(c || '').trim();
+      if (s) cities.push(s.toLowerCase());
+    }
+  }
+  const single = String(item.location || '').trim();
+  if (single) cities.push(single.toLowerCase());
+  return cities;
+}
+
 function matchesLocation(item, locFilter) {
   if (!locFilter || locFilter === 'all') return true;
-  const loc = String(item.location || '').toLowerCase();
-  const want = locFilter.toLowerCase();
-  if (loc === want) return true;
-  if (modeKey(item.work_mode) === 'remote') return true;
-  return false;
+  const wants = String(locFilter)
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (!wants.length) return true;
+  if (wants.includes('remote') && modeKey(item.work_mode) === 'remote') return true;
+  if (modeKey(item.work_mode) === 'remote' && !wants.includes('remote') && wants.length) {
+    // Remote roles still match any city filter (work can be done from selected cities)
+    return true;
+  }
+  const cities = cityList(item);
+  return wants.some((w) => cities.some((c) => c === w || c.includes(w)));
 }
 
 function matchesQuery(item, q) {
@@ -72,6 +96,7 @@ function sortItems(items, sort) {
 export async function GET(request) {
   const { session, error } = await requireSession(['candidate']);
   if (error) return error;
+  await ensureIpWorkbenchSchema();
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get('q') || '').trim().toLowerCase();
   const minStipend = Number(searchParams.get('minStipend') || 0);
@@ -100,10 +125,11 @@ export async function GET(request) {
             e.linkedin_url,
             e.ethics_acks,
             e.ethics_accepted_at,
-            e.updated_at as employer_updated_at
+            e.updated_at as employer_updated_at,
+            (SELECT count(*)::int FROM ip_applications a WHERE a.internship_id = i.id) AS historical_application_count
      FROM ip_internships i
      JOIN ip_employers e ON e.id = i.employer_id
-     WHERE i.status = 'published'
+     WHERE ${CANDIDATE_VISIBLE_SQL}
      ORDER BY i.created_at DESC
      LIMIT 200`,
   );
@@ -148,9 +174,14 @@ export async function GET(request) {
       internship: r,
     });
     const skill_tags = eligibilitySkills(r.eligibility);
+    const volume = r.show_hiring_numbers
+      ? publicApplicationVolumeLabel(r.historical_application_count)
+      : null;
     return {
       ...r,
-      company_name: r.show_employer_identity ? r.company_name : 'Confidential employer',
+      company_name: maskEmployerName(r.company_name, r.show_employer_identity !== false),
+      historical_application_count: undefined,
+      application_volume_label: volume,
       match_score: skillMatchPercent(skills, r.eligibility),
       saved: savedIds.has(r.id),
       applied: appliedIds.has(r.id),
@@ -182,5 +213,19 @@ export async function GET(request) {
   items = sortItems(items, sort);
   if (recommended) items = items.slice(0, 12);
 
-  return jsonOk({ items, counts });
+  // Work-location cities from visible postings (browse filter — independent of MCQ disable)
+  const citySet = new Map(); // lower -> display
+  for (const i of mapped) {
+    const add = (raw) => {
+      const s = String(raw || '').trim();
+      if (!s) return;
+      const key = s.toLowerCase();
+      if (!citySet.has(key)) citySet.set(key, s);
+    };
+    add(i.location);
+    if (Array.isArray(i.locations)) i.locations.forEach(add);
+  }
+  const availableCities = [...citySet.values()].sort((a, b) => a.localeCompare(b));
+
+  return jsonOk({ items, counts, availableCities });
 }

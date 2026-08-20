@@ -637,3 +637,53 @@
     display: none;
   }
 }
+
+.ip-browse .ip-br-city-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  grid-column: 1 / -1;
+}
+.ip-browse .ip-br-city-hint {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 400;
+}
+.ip-browse .ip-br-city-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-height: 1.75rem;
+}
+.ip-browse .ip-br-city-chip {
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #3730a3;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.ip-browse .ip-br-city-empty {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+.ip-browse .ip-br-city-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+  max-height: 7.5rem;
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  background: #f8fafc;
+}
+.ip-browse .ip-br-city-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #334155;
+}

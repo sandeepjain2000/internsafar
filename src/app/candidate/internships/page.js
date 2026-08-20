@@ -27,13 +27,14 @@ const MATCH_OPTIONS = [
   { value: '90', label: '90%+ Match Score' },
 ];
 
-const LOCATION_OPTIONS = [
-  { value: 'all', label: 'All Locations' },
-  { value: 'Bengaluru', label: 'Bengaluru' },
-  { value: 'Mumbai', label: 'Mumbai' },
-  { value: 'Pune', label: 'Pune' },
-  { value: 'Hyderabad', label: 'Hyderabad' },
-  { value: 'Remote', label: 'Remote' },
+const CITY_PRESETS = [
+  'Bengaluru',
+  'Mumbai',
+  'Pune',
+  'Hyderabad',
+  'Chennai',
+  'Delhi',
+  'Remote',
 ];
 
 const SORT_OPTIONS = [
@@ -62,7 +63,9 @@ export default function BrowseInternshipsPage() {
   const [q, setQ] = useState('');
   const [minStipend, setMinStipend] = useState('0');
   const [workMode, setWorkMode] = useState('all');
-  const [location, setLocation] = useState('all');
+  const [selectedCities, setSelectedCities] = useState([]);
+  const [cityQuery, setCityQuery] = useState('');
+  const [availableCities, setAvailableCities] = useState(CITY_PRESETS);
   const [minMatch, setMinMatch] = useState('0');
   const [minValidation, setMinValidation] = useState('');
   const [sort, setSort] = useState('best-match');
@@ -89,7 +92,7 @@ export default function BrowseInternshipsPage() {
     const nextQ = next.q !== undefined ? next.q : q;
     const nextStipend = next.minStipend !== undefined ? next.minStipend : minStipend;
     const nextMode = next.workMode !== undefined ? next.workMode : workMode;
-    const nextLoc = next.location !== undefined ? next.location : location;
+    const nextCities = next.selectedCities !== undefined ? next.selectedCities : selectedCities;
     const nextMatch = next.minMatch !== undefined ? next.minMatch : minMatch;
     const nextValid = next.minValidation !== undefined ? next.minValidation : minValidation;
     const nextSort = next.sort !== undefined ? next.sort : sort;
@@ -101,7 +104,7 @@ export default function BrowseInternshipsPage() {
     if (nextQ) params.set('q', nextQ);
     if (Number(nextStipend)) params.set('minStipend', nextStipend);
     if (nextMode && nextMode !== 'all') params.set('workMode', nextMode);
-    if (nextLoc && nextLoc !== 'all') params.set('location', nextLoc);
+    if (nextCities?.length) params.set('location', nextCities.join(','));
     if (Number(nextMatch)) params.set('minMatch', nextMatch);
     if (nextValid) params.set('minValidation', nextValid);
     params.set('sort', nextSort);
@@ -112,6 +115,14 @@ export default function BrowseInternshipsPage() {
     if (id !== reqRef.current) return;
     setItems(data.items || []);
     if (data.counts) setCounts(data.counts);
+    if (Array.isArray(data.availableCities) && data.availableCities.length) {
+      const merged = new Map();
+      for (const c of [...CITY_PRESETS, ...data.availableCities]) {
+        const key = String(c).toLowerCase();
+        if (!merged.has(key)) merged.set(key, c);
+      }
+      setAvailableCities([...merged.values()].sort((a, b) => a.localeCompare(b)));
+    }
     setLoading(false);
   }
 
@@ -121,7 +132,7 @@ export default function BrowseInternshipsPage() {
     }, q ? 250 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, minStipend, workMode, location, minMatch, minValidation, sort, tab]);
+  }, [q, minStipend, workMode, selectedCities, minMatch, minValidation, sort, tab]);
 
   async function toggleSave(internshipId, saved) {
     await fetch('/api/ip/candidate/saved', {
@@ -132,11 +143,20 @@ export default function BrowseInternshipsPage() {
     await load();
   }
 
+  function toggleCity(city) {
+    setSelectedCities((prev) => {
+      const has = prev.some((c) => c.toLowerCase() === city.toLowerCase());
+      if (has) return prev.filter((c) => c.toLowerCase() !== city.toLowerCase());
+      return [...prev, city];
+    });
+  }
+
   function resetFilters() {
     setQ('');
     setMinStipend('0');
     setWorkMode('all');
-    setLocation('all');
+    setSelectedCities([]);
+    setCityQuery('');
     setMinMatch('0');
     setMinValidation('');
     setSort('best-match');
@@ -145,19 +165,16 @@ export default function BrowseInternshipsPage() {
   }
 
   const filtersActive = useMemo(
-    () => Number(minStipend) > 0 || workMode !== 'all' || location !== 'all' || Number(minMatch) > 0 || Boolean(minValidation),
-    [minStipend, workMode, location, minMatch, minValidation],
+    () => Number(minStipend) > 0 || workMode !== 'all' || selectedCities.length > 0 || Number(minMatch) > 0 || Boolean(minValidation),
+    [minStipend, workMode, selectedCities, minMatch, minValidation],
   );
 
-  const extraLocations = useMemo(() => {
-    const known = new Set(LOCATION_OPTIONS.map((o) => o.value.toLowerCase()));
-    const found = new Set();
-    for (const i of items) {
-      const loc = String(i.location || '').trim();
-      if (loc && !known.has(loc.toLowerCase())) found.add(loc);
-    }
-    return [...found];
-  }, [items]);
+  const cityChoices = useMemo(() => {
+    const needle = cityQuery.trim().toLowerCase();
+    const list = availableCities.length ? availableCities : CITY_PRESETS;
+    if (!needle) return list;
+    return list.filter((c) => c.toLowerCase().includes(needle));
+  }, [availableCities, cityQuery]);
 
   const pointsLabel = points == null ? '—' : `${points} Pts Available`;
 
@@ -225,12 +242,34 @@ export default function BrowseInternshipsPage() {
                 {STIPEND_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </label>
-            <label>
-              Location Filter
-              <select value={location} onChange={(e) => setLocation(e.target.value)}>
-                {LOCATION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                {extraLocations.map((loc) => <option key={loc} value={loc}>{loc}</option>)}
-              </select>
+            <label className="ip-br-city-filter">
+              Work location (city)
+              <span className="ip-br-city-hint">Separate from screening questions — filters where the internship work takes place.</span>
+              <input
+                type="search"
+                value={cityQuery}
+                onChange={(e) => setCityQuery(e.target.value)}
+                placeholder="Search cities…"
+                aria-label="Search work-location cities"
+              />
+              <div className="ip-br-city-chips" role="group" aria-label="Selected work cities">
+                {selectedCities.length ? selectedCities.map((c) => (
+                  <button key={c} type="button" className="ip-br-city-chip is-on" onClick={() => toggleCity(c)}>
+                    {c} ×
+                  </button>
+                )) : <span className="ip-br-city-empty">All cities</span>}
+              </div>
+              <div className="ip-br-city-options">
+                {cityChoices.map((c) => {
+                  const on = selectedCities.some((s) => s.toLowerCase() === c.toLowerCase());
+                  return (
+                    <label key={c} className="ip-br-city-opt">
+                      <input type="checkbox" checked={on} onChange={() => toggleCity(c)} />
+                      {c}
+                    </label>
+                  );
+                })}
+              </div>
             </label>
             <label>
               Candidate Match %
@@ -307,6 +346,9 @@ export default function BrowseInternshipsPage() {
                   {i.match_score != null ? `${Math.round(Number(i.match_score))}% Match` : '— Match'}
                 </span>
                 <span>{[i.work_mode, i.location].filter(Boolean).join(' • ') || '—'}</span>
+                {i.application_volume_label ? (
+                  <span title="Application volume range">{i.application_volume_label} applications</span>
+                ) : null}
               </div>
 
               {i.skill_tags?.length ? (
