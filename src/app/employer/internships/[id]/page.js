@@ -358,7 +358,7 @@ export default function ApplicantsPipelinePage() {
             <option value="1">Responded</option>
           </select>
           <select className="h-9 rounded-md border px-2 text-sm" value={filters.mcqQuestionId} onChange={(e) => setFilters((f) => ({ ...f, mcqQuestionId: e.target.value, mcqAnswer: '' }))}>
-            <option value="">MCQ filter</option>
+            <option value="">Screening question</option>
             {(questions || []).filter((q) => q.type === 'mcq' || q.options).map((q) => (
               <option key={q.id} value={q.id}>{q.prompt}</option>
             ))}
@@ -382,7 +382,7 @@ export default function ApplicantsPipelinePage() {
       {mcqSummary?.length ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">MCQ response summary</CardTitle>
+            <CardTitle className="text-base">Screening response summary</CardTitle>
             <CardDescription>Option selected, count and percentage across all applications on this posting</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
@@ -419,7 +419,7 @@ export default function ApplicantsPipelinePage() {
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
           <div>
             <CardTitle className="text-base">Applicants</CardTitle>
-            <CardDescription>Greyed-out rows are screening-disabled (still inspectable). Unread / needs-response shown with text labels.</CardDescription>
+            <CardDescription>Flagged screening answers stay inspectable. Unread / needs-response shown with text labels.</CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
             <Input className="max-w-[200px]" placeholder="New list name" value={newListName} onChange={(e) => setNewListName(e.target.value)} />
@@ -444,7 +444,7 @@ export default function ApplicantsPipelinePage() {
               {applicants.map((a) => (
                 <TableRow
                   key={a.id}
-                  className={a.screening_disabled ? 'opacity-60 bg-muted/40' : undefined}
+                  className={undefined}
                   data-screening-disabled={a.screening_disabled ? 'true' : 'false'}
                 >
                   <TableCell>

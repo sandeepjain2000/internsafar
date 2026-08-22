@@ -687,3 +687,59 @@
   font-weight: 500;
   color: #334155;
 }
+
+.ip-browse .ip-br-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-top: 0.65rem;
+}
+
+.ip-browse .ip-br-qchip {
+  height: 32px;
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  border-radius: 999px;
+  padding: 0 11px;
+  color: #475467;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.ip-browse .ip-br-qchip.is-on {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #3730a3;
+  font-weight: 600;
+}
+
+.ip-browse .ip-br-emp-line {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.ip-browse .ip-br-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.75rem;
+  padding: 0.65rem 0;
+  border-top: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ip-browse .ip-br-facts span {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.ip-browse .ip-br-facts b {
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: #0f172a;
+}

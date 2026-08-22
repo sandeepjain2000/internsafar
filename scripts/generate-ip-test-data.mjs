@@ -499,28 +499,43 @@ async function modeCoreFill(pool, opts) {
       created.messages += 2;
     }
 
-    // Offer for core candidate (Offers tab)
+    // Offer for core candidate — only after an application exists for that posting
     if (livePostings[0]) {
-      const off = await pool.query(
-        `SELECT id FROM ip_offers WHERE internship_id = $1 AND candidate_id = $2 LIMIT 1`,
+      const appForOffer = await pool.query(
+        `SELECT id FROM ip_applications WHERE internship_id = $1 AND candidate_id = $2 LIMIT 1`,
         [livePostings[0].id, candRow.id],
       );
-      if (!off.rows[0]) {
+      const applicationId = appForOffer.rows[0]?.id;
+      if (applicationId) {
+        const off = await pool.query(
+          `SELECT id FROM ip_offers WHERE internship_id = $1 AND candidate_id = $2 LIMIT 1`,
+          [livePostings[0].id, candRow.id],
+        );
+        if (!off.rows[0]) {
+          await pool.query(`ALTER TABLE ip_offers ADD COLUMN IF NOT EXISTS application_id TEXT`).catch(() => {});
+          await pool.query(
+            `INSERT INTO ip_offers (id, internship_id, employer_id, candidate_id, application_id, status, stipend_inr, message)
+             VALUES ($1,$2,$3,$4,$5,'pending',20000,$6)`,
+            [
+              newId('ip_off'),
+              livePostings[0].id,
+              empRow.id,
+              candRow.id,
+              applicationId,
+              'Core-fill demo offer — please review.',
+            ],
+          );
+          created.offers += 1;
+        } else {
+          await pool.query(
+            `UPDATE ip_offers SET application_id = COALESCE(application_id, $2) WHERE id = $1`,
+            [off.rows[0].id, applicationId],
+          );
+        }
         await pool.query(
-          `INSERT INTO ip_offers (id, internship_id, employer_id, candidate_id, status, stipend_inr, message)
-           VALUES ($1,$2,$3,$4,'pending',20000,$5)`,
-          [
-            newId('ip_off'),
-            livePostings[0].id,
-            empRow.id,
-            candRow.id,
-            'Core-fill demo offer — please review.',
-          ],
-        ).catch(async (e) => {
-          // Column set may differ — try minimal
-          console.warn('[core-fill] offer insert soft-fail:', e.message);
-        });
-        created.offers += 1;
+          `UPDATE ip_applications SET status = 'offered', updated_at = now() WHERE id = $1`,
+          [applicationId],
+        );
       }
     }
 

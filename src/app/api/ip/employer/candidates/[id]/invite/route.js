@@ -24,6 +24,22 @@ export async function POST(request, { params }) {
   const candidate = await query(`SELECT user_id FROM ip_candidates WHERE id = $1 AND searchable = true`, [id]);
   if (!candidate.rows[0]) return jsonError('Candidate not found or not searchable', 404);
 
+  const alreadyApplied = await query(
+    `SELECT a.id FROM ip_applications a WHERE a.internship_id = $1 AND a.candidate_id = $2 LIMIT 1`,
+    [internshipId, id],
+  );
+  if (alreadyApplied.rows[0]) {
+    return jsonError('This candidate already applied — do not send a duplicate invite.', 409);
+  }
+  const alreadyInvited = await query(
+    `SELECT t.id FROM ip_message_threads t
+     WHERE t.candidate_user_id = $1 AND t.employer_user_id = $2 AND t.internship_id = $3 LIMIT 1`,
+    [candidate.rows[0].user_id, session.user.id, internshipId],
+  );
+  if (alreadyInvited.rows[0]) {
+    return jsonError('Invitation already sent for this internship.', 409);
+  }
+
   await notifyUser({
     userId: candidate.rows[0].user_id,
     title: `${emp.rows[0].company_name} invited you to apply`,

@@ -63,6 +63,92 @@ function roleLine(t) {
   return t.subject || 'Conversation';
 }
 
+function ThreadPartyPanel({ role, thread }) {
+  if (!thread) {
+    return (
+      <aside className="ip-msg-party">
+        <h3>{role === 'candidate' ? 'Employer in this thread' : 'Candidate in this thread'}</h3>
+        <p>Select a conversation to see details for this thread only.</p>
+      </aside>
+    );
+  }
+  if (role === 'candidate') {
+    const company = thread.company_name || thread.employer_name || 'Employer';
+    return (
+      <aside className="ip-msg-party">
+        <h3>Employer in this thread</h3>
+        <div className="ip-msg-party__card">
+          <div className="ip-msg-party__av">{initials(company)}</div>
+          <strong>{company}</strong>
+          {String(thread.employer_approval_status || '').toLowerCase() === 'approved' || thread.employer_verified ? (
+            <p>Verified employer</p>
+          ) : (
+            <p>Employer in this conversation</p>
+          )}
+        </div>
+        <div className="ip-msg-party__sec">
+          <span>Internship in this thread</span>
+          <b>{thread.internship_title || 'General conversation'}</b>
+        </div>
+        <div className="ip-msg-party__sec">
+          <span>Work details</span>
+          <b>{[thread.internship_work_mode, thread.internship_location].filter(Boolean).join(' · ') || '—'}</b>
+        </div>
+        <div className="ip-msg-party__sec">
+          <span>Stipend</span>
+          <b>{thread.internship_stipend_inr ? `₹${Number(thread.internship_stipend_inr).toLocaleString('en-IN')}/mo` : '—'}</b>
+        </div>
+        <div className="ip-msg-party__sec">
+          <span>Duration</span>
+          <b>{formatDurationMonths(thread.internship_duration_months) || '—'}</b>
+        </div>
+        <div className="ip-msg-party__sec">
+          <span>Your application</span>
+          <b>{thread.application_status || 'No application on this thread'}</b>
+        </div>
+        {thread.offer_status ? (
+          <div className="ip-msg-party__sec">
+            <span>Offer</span>
+            <b>{thread.offer_status}{thread.offer_role_title ? ` · ${thread.offer_role_title}` : ''}</b>
+          </div>
+        ) : null}
+        {thread.internship_id ? (
+          <Link className="ip-msg-party__link" href={`/candidate/internships/${thread.internship_id}`}>
+            View internship
+          </Link>
+        ) : null}
+      </aside>
+    );
+  }
+  const name = thread.candidate_name || 'Candidate';
+  return (
+    <aside className="ip-msg-party">
+      <h3>Candidate in this thread</h3>
+      <div className="ip-msg-party__card">
+        <div className="ip-msg-party__av">{initials(name)}</div>
+        <strong>{name}</strong>
+        <p>{[thread.candidate_degree, thread.candidate_specialization].filter(Boolean).join(' · ') || 'Candidate'}</p>
+      </div>
+      <div className="ip-msg-party__sec">
+        <span>College</span>
+        <b>{thread.candidate_college || '—'}</b>
+      </div>
+      <div className="ip-msg-party__sec">
+        <span>CGPA</span>
+        <b>{thread.candidate_cgpa != null ? thread.candidate_cgpa : '—'}</b>
+      </div>
+      <div className="ip-msg-party__sec">
+        <span>Internship</span>
+        <b>{thread.internship_title || '—'}</b>
+      </div>
+      <div className="ip-msg-party__sec">
+        <span>Application</span>
+        <b>{thread.application_status || '—'}</b>
+      </div>
+    </aside>
+  );
+}
+
 function subtitleLine(t, role) {
   if (role === 'employer') {
     return t.candidate_college || null;
@@ -233,8 +319,11 @@ export default function MessagesSplitPane({ role = 'employer' }) {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const rows = threads.filter((t) => {
-      if (tab === 'unread' && !(Number(t.unread_count) > 0)) return false;
-      if (tab === 'action' && !t.needs_action) return false;
+      if (tab === 'unreplied') {
+        const last = t.last_sender_user_id;
+        const me = role === 'candidate' ? t.candidate_user_id : t.employer_user_id;
+        if (!last || last !== me) return false;
+      }
       if (!q) return true;
       const hay = `${counterpartName(t, role)} ${t.internship_title || ''} ${t.subject || ''} ${t.last_message || ''} ${t.candidate_college || ''} ${t.employer_name || ''} ${t.company_name || ''}`.toLowerCase();
       return hay.includes(q);
@@ -412,6 +501,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                     ['all', 'All'],
                     ['unread', `Unread${inboxMeta.unread ? ` (${inboxMeta.unread})` : ''}`],
                     ['action', `Action Req.${inboxMeta.action ? ` (${inboxMeta.action})` : ''}`],
+                    ['unreplied', 'Awaiting reply'],
                     ['archived', 'Archived'],
                   ].map(([key, label]) => (
                     <button
@@ -679,6 +769,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
               </>
             )}
           </section>
+          <ThreadPartyPanel role={role} thread={selectedId ? thread : null} />
         </div>
       </div>
     );
@@ -732,6 +823,13 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                 onClick={() => setTab('unread')}
               >
                 Unread ({inboxMeta.unread})
+              </button>
+              <button
+                type="button"
+                className={`ip-em-tab${tab === 'unreplied' ? ' ip-em-tab--on' : ''}`}
+                onClick={() => setTab('unreplied')}
+              >
+                Awaiting reply
               </button>
             </div>
           </div>
@@ -905,6 +1003,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
             </>
           )}
         </section>
+        <ThreadPartyPanel role={role} thread={selectedId ? thread : null} />
       </div>
     </div>
   );

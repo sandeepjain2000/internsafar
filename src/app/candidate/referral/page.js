@@ -159,7 +159,7 @@ export default function CandidateReferralPage() {
   }
 
   const waHref = link
-    ? `https://api.whatsapp.com/send?text=${encodeURIComponent(inviteBody(link))}`
+    ? `https://wa.me/?text=${encodeURIComponent(inviteBody(link))}`
     : '#';
   const liHref = link
     ? `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(link)}`

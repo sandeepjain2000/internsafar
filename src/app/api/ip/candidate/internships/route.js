@@ -81,7 +81,7 @@ function sortItems(items, sort) {
     copy.sort((a, b) => (b.match_score ?? -1) - (a.match_score ?? -1));
   } else if (sort === 'highest-stipend') {
     copy.sort((a, b) => Number(b.stipend_inr || 0) - Number(a.stipend_inr || 0));
-  } else if (sort === 'earliest-start') {
+  } else if (sort === 'availability' || sort === 'earliest-start') {
     copy.sort((a, b) => {
       const da = a.start_date ? new Date(a.start_date).getTime() : Number.POSITIVE_INFINITY;
       const db = b.start_date ? new Date(b.start_date).getTime() : Number.POSITIVE_INFINITY;
@@ -106,6 +106,7 @@ export async function GET(request) {
   const minValidation = Number(searchParams.get('minValidation') || 0);
   const savedOnly = searchParams.get('savedOnly') === '1';
   const recommended = searchParams.get('recommended') === '1';
+  const chip = (searchParams.get('chip') || '').trim().toLowerCase();
   const sort = searchParams.get('sort') || (recommended ? 'best-match' : 'newest');
 
   const candResult = await query(`SELECT id, skills FROM ip_candidates WHERE user_id = $1`, [session.user.id]);
@@ -116,6 +117,9 @@ export async function GET(request) {
     `SELECT i.*,
             e.id as employer_row_id,
             e.company_name,
+            e.industry as employer_industry,
+            e.hq_city as employer_hq_city,
+            e.company_size as employer_company_size,
             e.logo_url,
             e.show_hiring_numbers,
             e.historical_hires,
@@ -207,6 +211,18 @@ export async function GET(request) {
     if (!matchesLocation(i, location)) return false;
     if (minMatch && (i.match_score ?? 0) < minMatch) return false;
     if (minValidation && (i.validation_score ?? 0) < minValidation) return false;
+    if (chip === 'starting-soon') {
+      const start = i.start_date || i.starts_at;
+      if (!start) return false;
+      const t = new Date(start).getTime();
+      if (Number.isNaN(t) || t < Date.now() || t > Date.now() + 21 * 86400000) return false;
+    }
+    if (chip === 'saved' && !i.saved) return false;
+    if (chip === 'recent') {
+      const t = new Date(i.updated_at || i.created_at).getTime();
+      if (Number.isNaN(t) || Date.now() - t > 7 * 86400000) return false;
+    }
+    if (chip === 'verified' && !i.employer_verified) return false;
     return true;
   });
 

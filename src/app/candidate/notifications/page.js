@@ -27,6 +27,10 @@ const FILTERS = [
   { id: 'offers', label: 'Offers', Icon: Award },
   { id: 'interviews', label: 'Interviews', Icon: Calendar },
   { id: 'messages', label: 'Messages', Icon: MessageSquare },
+  { id: 'timed', label: 'Time-limited', Icon: Clock },
+  { id: '24h', label: 'Last 24h', Icon: Clock },
+  { id: '7d', label: 'Last 7 days', Icon: Clock },
+  { id: '30d', label: 'Last 30 days', Icon: Clock },
   { id: 'referrals', label: 'Referrals', Icon: Share2 },
 ];
 
@@ -125,7 +129,16 @@ export default function CandidateNotificationsPage() {
     const q = search.trim().toLowerCase();
     return items.filter((n) => {
       if (filter === 'unread' && n.read_at) return false;
-      if (filter !== 'all' && filter !== 'unread' && n.bucket !== filter) return false;
+      if (filter === 'timed') {
+        const timed = n.time_sensitive || n.bucket === 'offers' || n.bucket === 'interviews' || /expir|deadline|accept/i.test(`${n.title} ${n.body}`);
+        if (!timed) return false;
+      } else if (filter === '24h' || filter === '7d' || filter === '30d') {
+        const created = new Date(n.created_at).getTime();
+        const hours = filter === '24h' ? 24 : filter === '7d' ? 24 * 7 : 24 * 30;
+        if (Number.isNaN(created) || Date.now() - created > hours * 3600000) return false;
+      } else if (filter !== 'all' && filter !== 'unread' && n.bucket !== filter) {
+        return false;
+      }
       if (!q) return true;
       return `${n.title || ''} ${n.body || ''} ${n.company || ''} ${n.bucket || ''}`.toLowerCase().includes(q);
     });

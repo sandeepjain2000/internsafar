@@ -111,43 +111,34 @@ export async function POST(request) {
     row = app.rows[0];
     if (!row || row.employer_id !== emp.rows[0].id) return jsonError('Application not found', 404);
   } else {
-    const internship = await query(
-      `SELECT id, employer_id, title FROM ip_internships WHERE id = $1 AND employer_id = $2`,
-      [internshipId, emp.rows[0].id],
+    const existingApp = await query(
+      `SELECT a.id, a.candidate_id, a.internship_id, i.employer_id, i.title,
+              c.user_id as candidate_user_id, c.name as candidate_name
+       FROM ip_applications a
+       JOIN ip_internships i ON i.id = a.internship_id
+       JOIN ip_candidates c ON c.id = a.candidate_id
+       WHERE a.internship_id = $1 AND a.candidate_id = $2 AND i.employer_id = $3`,
+      [internshipId, candidateId, emp.rows[0].id],
     );
-    if (!internship.rows[0]) return jsonError('Internship not found', 404);
-    const candidate = await query(`SELECT id, user_id, name FROM ip_candidates WHERE id = $1`, [candidateId]);
-    if (!candidate.rows[0]) return jsonError('Candidate not found', 404);
-
-    const upserted = await query(
-      `INSERT INTO ip_applications (id, internship_id, candidate_id, status)
-       VALUES ($1,$2,$3,'offered')
-       ON CONFLICT (internship_id, candidate_id) DO UPDATE SET status = 'offered', updated_at = now()
-       RETURNING id`,
-      [newId('ip_app'), internshipId, candidateId],
-    );
-    row = {
-      candidate_id: candidate.rows[0].id,
-      internship_id: internship.rows[0].id,
-      employer_id: internship.rows[0].employer_id,
-      title: internship.rows[0].title,
-      candidate_user_id: candidate.rows[0].user_id,
-      candidate_name: candidate.rows[0].name,
-      application_id: upserted.rows[0].id,
-    };
+    if (!existingApp.rows[0]) {
+      return jsonError('Offer requires an existing application. The candidate must apply first.', 400);
+    }
+    row = { ...existingApp.rows[0], application_id: existingApp.rows[0].id };
   }
 
+  const resolvedApplicationId = applicationId || row.application_id;
   const id = newId('ip_offer');
   await query(
     `INSERT INTO ip_offers (
-       id, internship_id, candidate_id, employer_id, role_title, stipend_inr, start_date, valid_until, letter_url, message,
+       id, internship_id, candidate_id, employer_id, application_id, role_title, stipend_inr, start_date, valid_until, letter_url, message,
        end_date, onboarding_instructions, mentor_name, hr_contact_email, hr_contact_phone
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
     [
       id,
       row.internship_id,
       row.candidate_id,
       row.employer_id,
+      resolvedApplicationId,
       roleTitle || row.title,
       stipendInr || null,
       startParsed?.value || null,

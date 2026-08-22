@@ -16,6 +16,18 @@ export async function GET() {
   const employer = emp.rows[0];
   if (!employer) return jsonError('Employer profile not found', 404);
 
+  const applicantTotals = await query(
+    `SELECT count(*)::int AS n
+     FROM ip_applications a
+     JOIN ip_internships i ON i.id = a.internship_id
+     WHERE i.employer_id = $1`,
+    [employer.id],
+  );
+  const liveCount = await query(
+    `SELECT count(*)::int AS n FROM ip_internships WHERE employer_id = $1 AND status = 'published'`,
+    [employer.id],
+  );
+
   const internships = await query(
     `SELECT i.id, i.title, i.status, i.work_mode, i.location, i.stipend_inr, i.stipend_type,
             i.created_at,
@@ -52,7 +64,7 @@ export async function GET() {
     `SELECT count(*)::int AS n
      FROM ip_applications a
      JOIN ip_internships i ON i.id = a.internship_id
-     WHERE i.employer_id = $1 AND a.status IN ('applied','under_review','pending')`,
+     WHERE i.employer_id = $1 AND a.status IN ('applied','under_review','pending','shortlisted')`,
     [employer.id],
   );
 
@@ -65,7 +77,8 @@ export async function GET() {
   const points = Number(employer.points || 0);
   const postingsLeft = Math.floor(points / POINTS_PER_POST);
   const published = internships.rows.filter((i) => i.status === 'published');
-  const totalApplicants = internships.rows.reduce((s, i) => s + Number(i.applicant_count || 0), 0);
+  const totalApplicants = Number(applicantTotals.rows[0]?.n || 0);
+  const activePostings = Number(liveCount.rows[0]?.n || published.length);
 
   return jsonOk({
     employer: {
@@ -77,7 +90,7 @@ export async function GET() {
       email: employer.email,
     },
     stats: {
-      activePostings: published.length,
+      activePostings,
       totalApplicants,
       applicantsThisWeek: weekApps.rows[0]?.n || 0,
       pendingReviews: pendingReviews.rows[0]?.n || 0,

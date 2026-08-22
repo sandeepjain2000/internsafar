@@ -15,6 +15,8 @@ import {
   X,
 } from 'lucide-react';
 import '@/components/ip/ip-offers-gemini.css';
+import ViewModeToggle from '@/components/ip/ViewModeToggle';
+import { useViewMode } from '@/hooks/useViewMode';
 
 function initials(name) {
   const parts = String(name || '')
@@ -53,6 +55,7 @@ export default function CandidateOffersPage() {
   const [shareFor, setShareFor] = useState(null);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
+  const [viewMode, setViewMode] = useViewMode('ip_offers_view', 'cards');
 
   function showToast(msg) {
     setToast(msg);
@@ -222,6 +225,7 @@ export default function CandidateOffersPage() {
             <span className="ip-of-count">{counts[t.id] || 0}</span>
           </button>
         ))}
+        <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       {error ? <div className="ip-of-alert">{error}</div> : null}
@@ -248,8 +252,27 @@ export default function CandidateOffersPage() {
         </div>
       ) : null}
 
-      <div className="ip-of-list">
-        {filtered.map((o) => {
+      <div className={viewMode === 'list' ? 'overflow-x-auto rounded-lg border bg-white' : 'ip-of-list'}>
+        {viewMode === 'list' ? (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-slate-500">
+                <th className="p-3">Role</th>
+                <th className="p-3">Employer</th>
+                <th className="p-3">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((o) => (
+                <tr key={o.id} className="border-b">
+                  <td className="p-3">{o.role_title || o.title}</td>
+                  <td className="p-3">{o.company_name}</td>
+                  <td className="p-3">{o.display_status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : filtered.map((o) => {
           const pending = o.display_status === 'action_required';
           const accepted = o.display_status === 'accepted';
           const role = o.role_title || o.title || 'Internship offer';

@@ -66,8 +66,30 @@ export default function EmployerDashboard() {
   const activePct =
     postings.length && stats.activePostings === postings.length ? '100% Active' : `${stats.activePostings || 0} live`;
 
-  if (loading) {
-    return <div className="p-8 text-muted-foreground">Loading…</div>;
+  if (loading && !data) {
+    return (
+      <div className="ip-emp-dash">
+        <div className="ip-ed-banner">
+          <div>
+            <span className="ip-ed-org-pill">Organization Portal</span>
+            <h1>Welcome back, {session?.user?.name || 'Employer'}!</h1>
+            <p>Loading workspace…</p>
+          </div>
+        </div>
+        <div className="ip-ed-card ip-ed-shortcuts">
+          <h2>Workspace Shortcuts</h2>
+          <p className="ip-ed-empty">Loading…</p>
+        </div>
+        <div className="ip-ed-stats">
+          {['Active Postings', 'Total Applicants', 'Pending Reviews', 'Reward Points'].map((label) => (
+            <div key={label} className="ip-ed-stat">
+              <div className="ip-ed-stat-top"><span>{label}</span></div>
+              <div className="ip-ed-stat-row"><strong>—</strong></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -94,6 +116,58 @@ export default function EmployerDashboard() {
             <span>Find Candidates</span>
           </Link>
         </div>
+      </div>
+
+      <div className="ip-ed-card ip-ed-shortcuts" style={{ marginBottom: '1.25rem' }}>
+        <h2>Workspace Shortcuts</h2>
+        <Link className="ip-ed-short" href="/employer/candidates">
+          <div className="ip-ed-short-left">
+            <span className="ip-ed-short-ico" style={{ background: '#eff6ff', color: '#2563eb' }}>
+              <Users aria-hidden />
+            </span>
+            <div>
+              <h4>Search Candidates</h4>
+              <p>Invite searchable student profiles</p>
+            </div>
+          </div>
+          <ChevronRight aria-hidden style={{ width: 14, height: 14, color: '#cbd5e1' }} />
+        </Link>
+        <Link className="ip-ed-short" href="/employer/messages">
+          <div className="ip-ed-short-left">
+            <span className="ip-ed-short-ico" style={{ background: '#ecfdf5', color: '#059669' }}>
+              <MessageSquare aria-hidden />
+            </span>
+            <div>
+              <h4>Candidate Messages</h4>
+              <p>Inbox with applicants</p>
+            </div>
+          </div>
+          <ChevronRight aria-hidden style={{ width: 14, height: 14, color: '#cbd5e1' }} />
+        </Link>
+        <Link className="ip-ed-short" href="/employer/offers">
+          <div className="ip-ed-short-left">
+            <span className="ip-ed-short-ico" style={{ background: '#fff7ed', color: '#ea580c' }}>
+              <Award aria-hidden />
+            </span>
+            <div>
+              <h4>Offers & Agreements</h4>
+              <p>Create and track offers</p>
+            </div>
+          </div>
+          <ChevronRight aria-hidden style={{ width: 14, height: 14, color: '#cbd5e1' }} />
+        </Link>
+        <Link className="ip-ed-short" href="/employer/analytics">
+          <div className="ip-ed-short-left">
+            <span className="ip-ed-short-ico" style={{ background: '#faf5ff', color: '#9333ea' }}>
+              <BarChart3 aria-hidden />
+            </span>
+            <div>
+              <h4>Analytics & Funnel</h4>
+              <p>Pipeline and stipend mix</p>
+            </div>
+          </div>
+          <ChevronRight aria-hidden style={{ width: 14, height: 14, color: '#cbd5e1' }} />
+        </Link>
       </div>
 
       <div className="ip-ed-stats">
@@ -268,58 +342,6 @@ export default function EmployerDashboard() {
         </div>
 
         <div className="ip-ed-col">
-          <div className="ip-ed-card ip-ed-shortcuts">
-            <h2>Workspace Shortcuts</h2>
-            <Link className="ip-ed-short" href="/employer/candidates">
-              <div className="ip-ed-short-left">
-                <span className="ip-ed-short-ico" style={{ background: '#eff6ff', color: '#2563eb' }}>
-                  <Users aria-hidden />
-                </span>
-                <div>
-                  <h4>Search Candidates</h4>
-                  <p>Invite searchable student profiles</p>
-                </div>
-              </div>
-              <ChevronRight aria-hidden style={{ width: 14, height: 14, color: '#cbd5e1' }} />
-            </Link>
-            <Link className="ip-ed-short" href="/employer/messages">
-              <div className="ip-ed-short-left">
-                <span className="ip-ed-short-ico" style={{ background: '#ecfdf5', color: '#059669' }}>
-                  <MessageSquare aria-hidden />
-                </span>
-                <div>
-                  <h4>Candidate Messages</h4>
-                  <p>Inbox with applicants</p>
-                </div>
-              </div>
-              <ChevronRight aria-hidden style={{ width: 14, height: 14, color: '#cbd5e1' }} />
-            </Link>
-            <Link className="ip-ed-short" href="/employer/offers">
-              <div className="ip-ed-short-left">
-                <span className="ip-ed-short-ico" style={{ background: '#fff7ed', color: '#ea580c' }}>
-                  <Award aria-hidden />
-                </span>
-                <div>
-                  <h4>Offers & Agreements</h4>
-                  <p>Create and track offers</p>
-                </div>
-              </div>
-              <ChevronRight aria-hidden style={{ width: 14, height: 14, color: '#cbd5e1' }} />
-            </Link>
-            <Link className="ip-ed-short" href="/employer/analytics">
-              <div className="ip-ed-short-left">
-                <span className="ip-ed-short-ico" style={{ background: '#faf5ff', color: '#9333ea' }}>
-                  <BarChart3 aria-hidden />
-                </span>
-                <div>
-                  <h4>Analytics & Funnel</h4>
-                  <p>Pipeline and stipend mix</p>
-                </div>
-              </div>
-              <ChevronRight aria-hidden style={{ width: 14, height: 14, color: '#cbd5e1' }} />
-            </Link>
-          </div>
-
           <div className="ip-ed-card ip-ed-rep">
             <h2>Employer Reputation</h2>
             <div className="ip-ed-stars">

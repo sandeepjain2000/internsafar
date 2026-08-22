@@ -78,3 +78,5 @@ _tmp_*
 *.bak
 *.bak-*
 .cursor/
+.vercel
+.env*

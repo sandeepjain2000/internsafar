@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { MAX_SCREENING_QUESTIONS } from '@/lib/ipScreeningQuestions';
 
-function blankMcq() {
+function blankQuestion() {
   return {
     id: `q${Date.now()}`,
     prompt: '',
@@ -44,7 +44,7 @@ export default function ScreeningQuestionsEditor({ questions = [], onChange }) {
 
   function addQuestion() {
     if (list.length >= MAX_SCREENING_QUESTIONS) return;
-    onChange([...list, blankMcq()]);
+    onChange([...list, blankQuestion()]);
   }
 
   function removeQuestion(idx) {
@@ -82,9 +82,9 @@ export default function ScreeningQuestionsEditor({ questions = [], onChange }) {
   return (
     <div className="grid gap-4">
       <p className="text-sm text-muted-foreground">
-        Up to {MAX_SCREENING_QUESTIONS} multiple-choice questions. Candidates pick one option each.
-        Optional questions may be skipped. You can mark specific answers to grey-out / disable the
-        application at source — those applications still appear in your applicant table.
+        Optional screening questions for candidates (not an exam). They pick one option each.
+        Optional questions may be skipped. You can mark specific answers so those applications are
+        flagged in your applicant table — they are still inspectable.
       </p>
       {list.map((q, idx) => (
         <div key={q.id || idx} className="rounded-md border p-3 space-y-3">
@@ -172,14 +172,11 @@ export default function ScreeningQuestionsEditor({ questions = [], onChange }) {
           ) : null}
         </div>
       ))}
-      <Button
-        type="button"
-        variant="outline"
-        onClick={addQuestion}
-        disabled={list.length >= MAX_SCREENING_QUESTIONS}
-      >
-        Add MCQ ({list.length}/{MAX_SCREENING_QUESTIONS})
-      </Button>
+      {list.length < MAX_SCREENING_QUESTIONS ? (
+        <Button type="button" variant="outline" onClick={addQuestion}>
+          {list.length ? 'Add another question?' : 'Add a question'}
+        </Button>
+      ) : null}
     </div>
   );
 }

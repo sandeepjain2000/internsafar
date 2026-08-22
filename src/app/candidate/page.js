@@ -141,6 +141,7 @@ export default function CandidateDashboard() {
   const [saved, setSaved] = useState([]);
   const [offers, setOffers] = useState([]);
   const [busySave, setBusySave] = useState('');
+  const [dashReady, setDashReady] = useState(false);
 
   const reloadLists = useCallback(async () => {
     const [rec, sav] = await Promise.all([
@@ -156,14 +157,13 @@ export default function CandidateDashboard() {
       .then((r) => r.json())
       .then((d) => setProfile(d.profile))
       .catch(() => {});
-    fetch('/api/ip/candidate/applications')
-      .then((r) => r.json())
-      .then((d) => setApps(d.items || []))
-      .catch(() => {});
-    fetch('/api/ip/offers')
-      .then((r) => r.json())
-      .then((d) => setOffers(d.items || []))
-      .catch(() => {});
+    Promise.all([
+      fetch('/api/ip/candidate/applications?pageSize=100').then((r) => r.json()).catch(() => ({})),
+      fetch('/api/ip/offers').then((r) => r.json()).catch(() => ({})),
+    ]).then(([appData, offerData]) => {
+      setApps(appData.items || []);
+      setOffers(offerData.items || []);
+    }).finally(() => setDashReady(true));
     reloadLists();
   }, [reloadLists]);
 
@@ -243,19 +243,30 @@ export default function CandidateDashboard() {
         </Link>
       </div>
 
-      {pendingItems.length ? (
-        <section className="ip-cd-pending" aria-label="Pending actions">
-          <div className="ip-cd-pending__head">
-            <div className="ip-cd-pending__title">
-              <span className="ip-cd-pending__dot" aria-hidden />
-              Pending Actions Required
-            </div>
-            <span className="ip-cd-pending__count">
-              {pendingItems.length} Item{pendingItems.length === 1 ? '' : 's'} Need Attention
-            </span>
+      <section className="ip-cd-pending" aria-label="Pending actions">
+        <div className="ip-cd-pending__head">
+          <div className="ip-cd-pending__title">
+            <span className="ip-cd-pending__dot" aria-hidden />
+            Pending Actions Required
           </div>
-          <div className="ip-cd-pending__grid">
-            {pendingItems.map((item) => (
+          <span className="ip-cd-pending__count">
+            {!dashReady
+              ? 'Loading…'
+              : `${pendingItems.length} Item${pendingItems.length === 1 ? '' : 's'} Need Attention`}
+          </span>
+        </div>
+        <div className="ip-cd-pending__grid">
+          {!dashReady ? (
+            [0, 1].map((i) => (
+              <div key={i} className="ip-cd-pending__card" aria-hidden>
+                <div>
+                  <h3>—</h3>
+                  <p>—</p>
+                </div>
+              </div>
+            ))
+          ) : pendingItems.length ? (
+            pendingItems.map((item) => (
               <div key={item.key} className="ip-cd-pending__card">
                 <div>
                   <div className="ip-cd-pending__badges">
@@ -271,10 +282,34 @@ export default function CandidateDashboard() {
                   {item.cta}
                 </Link>
               </div>
-            ))}
+            ))
+          ) : (
+            <div className="ip-cd-pending__card">
+              <div>
+                <h3>No pending actions</h3>
+                <p>Offers and interviews will show here when they need a response.</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <div className="ip-cd-features">
+        {FEATURES.map((f) => (
+          <div key={f.href} className="ip-cd-card ip-cd-feature">
+            <div>
+              <div className="ip-cd-feature__ico" aria-hidden>
+                <f.Icon size={16} />
+              </div>
+              <h2>{f.title}</h2>
+              <p>{f.desc}</p>
+            </div>
+            <Link href={f.href} className="ip-cd-open">
+              Open
+            </Link>
           </div>
-        </section>
-      ) : null}
+        ))}
+      </div>
 
       <div className="ip-cd-stats">
         <div className="ip-cd-card ip-cd-stat">
@@ -301,7 +336,7 @@ export default function CandidateDashboard() {
             </div>
           </div>
           <div className="ip-cd-stat__row">
-            <p className="ip-cd-stat__value">{used}</p>
+            <p className="ip-cd-stat__value">{dashReady ? used : '—'}</p>
             <span className="ip-cd-pill ip-cd-pill--brand">Submitted</span>
           </div>
           <p className="ip-cd-stat__sub">Active role submissions under review.</p>
@@ -439,23 +474,6 @@ export default function CandidateDashboard() {
             </div>
           )}
         </div>
-      </div>
-
-      <div className="ip-cd-features">
-        {FEATURES.map((f) => (
-          <div key={f.href} className="ip-cd-card ip-cd-feature">
-            <div>
-              <div className="ip-cd-feature__ico" aria-hidden>
-                <f.Icon size={16} />
-              </div>
-              <h2>{f.title}</h2>
-              <p>{f.desc}</p>
-            </div>
-            <Link href={f.href} className="ip-cd-open">
-              Open
-            </Link>
-          </div>
-        ))}
       </div>
 
       <div className="ip-cd-card ip-cd-ratings">

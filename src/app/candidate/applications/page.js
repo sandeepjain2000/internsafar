@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CalendarDays, ClipboardList, Hourglass, MessageSquare, Search, Target, XCircle } from 'lucide-react';
 import { useClientPagination } from '@/hooks/useClientPagination';
+import ViewModeToggle from '@/components/ip/ViewModeToggle';
+import { useViewMode } from '@/hooks/useViewMode';
 import '@/components/ip/ip-applications-gemini.css';
 
 const PAGE_SIZE = 10;
@@ -54,20 +56,12 @@ export default function MyApplicationsPage() {
   const [threadByInternship, setThreadByInternship] = useState({});
   const [q, setQ] = useState('');
   const [sort, setSort] = useState('latest');
-  const [tab, setTab] = useState(() => {
-    try {
-      const saved = localStorage.getItem('ip_candidate_app_filters');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.tab) return parsed.tab;
-      }
-    } catch { /* ignore */ }
-    return 'all'; // intelligent default: All Applications (user can switch to actionable)
-  });
+  const [tab, setTab] = useState('all');
   const [interviewFilter, setInterviewFilter] = useState('');
   const [offerFilter, setOfferFilter] = useState('');
   const [commFilter, setCommFilter] = useState('');
   const [detail, setDetail] = useState(null);
+  const [viewMode, setViewMode] = useViewMode('ip_apps_view', 'list');
 
   const metrics = useMemo(() => {
     const total = items.length;
@@ -175,6 +169,7 @@ export default function MyApplicationsPage() {
         <Link href="/candidate/internships" className="ip-ap-btn ip-ap-btn--primary">
           + Browse More Internships
         </Link>
+        <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       <div className="ip-ap-metrics">
@@ -245,6 +240,23 @@ export default function MyApplicationsPage() {
       </div>
 
       <div className="ip-ap-sheet">
+        {viewMode === 'cards' ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {pageItems.map((a) => (
+              <div key={a.id} className="rounded-lg border bg-white p-4">
+                <Link href={`/candidate/internships/${a.internship_id}`} className="font-semibold">
+                  {a.title || 'Internship'}
+                </Link>
+                <p className="text-sm text-slate-500">{a.company_name}</p>
+                <p className="mt-2 text-sm">{a.display_status}</p>
+                <button type="button" className="ip-ap-btn ip-ap-btn--ghost mt-2" onClick={() => setDetail(a)}>
+                  View Details
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {viewMode === 'list' ? (
         <div className="ip-ap-table-wrap">
           <table className="ip-ap-table">
             <thead>
@@ -316,6 +328,7 @@ export default function MyApplicationsPage() {
             </tbody>
           </table>
         </div>
+        ) : null}
 
         {!filtered.length ? (
           <div className="ip-ap-empty">

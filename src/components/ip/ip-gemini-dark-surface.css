@@ -5,31 +5,24 @@
 
 /* Employer dark gradient heroes / banners */
 :is(
-  .ip-emp-vir .ip-ev-hero,
-  .ip-emp-ref .ip-er-hero,
   .ip-emp-dash .ip-ed-banner
 ) :is(h1, h2, h3, h4, h5, h6) {
   color: #ffffff !important;
 }
 
 :is(
-  .ip-emp-vir .ip-ev-hero,
-  .ip-emp-ref .ip-er-hero,
   .ip-emp-dash .ip-ed-banner
 ) p {
   color: #c7d2fe !important;
 }
 
 :is(
-  .ip-emp-vir .ip-ev-hero,
-  .ip-emp-ref .ip-er-hero,
   .ip-emp-dash .ip-ed-banner
 ) p strong {
   color: #ffffff !important;
 }
 
-.ip-emp-vir .ip-ev-hero-reward strong,
-.ip-emp-ref .ip-er-hero-balance__val {
+.ip-emp-vir .ip-ev-hero-reward strong {
   color: #ffffff !important;
 }
 

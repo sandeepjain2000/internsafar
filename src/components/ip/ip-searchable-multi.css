@@ -1,0 +1,68 @@
+.ip-sms {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.ip-sms-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-height: 1.5rem;
+}
+.ip-sms-chip {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.ip-sms-empty {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+.ip-sms-input {
+  height: 2.25rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  padding: 0 0.65rem;
+  font-size: 0.875rem;
+  background: #fff;
+}
+.ip-sms-menu {
+  position: absolute;
+  z-index: 30;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 16rem;
+  overflow: auto;
+  margin: 0.2rem 0 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+.ip-sms-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.55rem;
+  border: 0;
+  background: transparent;
+  border-radius: 0.35rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+.ip-sms-menu button:hover,
+.ip-sms-menu button.is-on {
+  background: #eef2ff;
+}
+.ip-sms-none {
+  padding: 0.5rem;
+  font-size: 0.8125rem;
+  color: #64748b;
+}

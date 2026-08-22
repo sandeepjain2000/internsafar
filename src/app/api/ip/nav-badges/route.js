@@ -39,43 +39,9 @@ export async function GET() {
   const msgN = unreadMsgs.rows[0]?.n || 0;
 
   if (role === 'candidate') {
-    const apps = await query(
-      `SELECT count(*)::int AS n FROM ip_applications a
-       JOIN ip_candidates c ON c.id = a.candidate_id
-       WHERE c.user_id = $1 AND lower(coalesce(a.status,'')) NOT IN ('withdrawn','declined')`,
-      [userId],
-    );
-    const offers = await query(
-      `SELECT count(*)::int AS n FROM ip_offers o
-       JOIN ip_candidates c ON c.id = o.candidate_id
-       WHERE c.user_id = $1
-         AND lower(coalesce(o.status,'pending')) = 'pending'
-         AND (o.valid_until IS NULL OR o.valid_until >= CURRENT_DATE)`,
-      [userId],
-    );
-    if (apps.rows[0]?.n) badges['/candidate/applications'] = String(apps.rows[0].n);
-    if (msgN) badges['/candidate/messages'] = String(msgN);
-    if (offers.rows[0]?.n) badges['/candidate/offers'] = String(offers.rows[0].n);
     if (notifN) badges['/candidate/notifications'] = String(notifN);
-    badges['/candidate/referral'] = 'Hot';
   } else if (role === 'employer') {
-    const emp = await query(`SELECT id FROM ip_employers WHERE user_id = $1`, [userId]);
-    const employerId = emp.rows[0]?.id;
-    if (employerId) {
-      const posts = await query(
-        `SELECT count(*)::int AS n FROM ip_internships WHERE employer_id = $1 AND status = 'published'`,
-        [employerId],
-      );
-      const offers = await query(
-        `SELECT count(*)::int AS n FROM ip_offers WHERE employer_id = $1 AND lower(coalesce(status,'pending')) = 'pending'`,
-        [employerId],
-      );
-      if (posts.rows[0]?.n) badges['/employer/internships'] = `${posts.rows[0].n} Active`;
-      if (offers.rows[0]?.n) badges['/employer/offers'] = String(offers.rows[0].n);
-    }
-    if (msgN) badges['/employer/messages'] = String(msgN);
     if (notifN) badges['/employer/notifications'] = String(notifN);
-    badges['/employer/referral'] = 'Hot';
   }
 
   return jsonOk({ badges });

@@ -1,70 +1,84 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  FileText,
-  GraduationCap,
-  Search,
-  ShieldCheck,
-  UserPlus,
-  X,
-} from 'lucide-react';
+import { Search, ShieldCheck, X } from 'lucide-react';
 import { useClientPagination } from '@/hooks/useClientPagination';
+import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import '@/components/ip/ip-employer-candidates-gemini.css';
 
 const PAGE_SIZE = 10;
 const SKILL_PILLS = ['All', 'React', 'Node.js', 'Figma', 'Python'];
+const CHIPS = [
+  { id: 'all', label: 'All candidates' },
+  { id: 'available', label: 'Available soon' },
+  { id: 'shortlisted', label: 'Shortlisted' },
+  { id: 'new', label: 'Recently updated' },
+  { id: 'experience', label: 'Has experience' },
+];
 
 function initials(name) {
-  const parts = String(name || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return '?';
   if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
-function roleLine(c) {
-  if (c.specialization) return c.specialization;
-  if (c.degree) return c.degree;
-  return 'Candidate';
+function relativeUpdated(value) {
+  if (!value) return '—';
+  const t = new Date(value).getTime();
+  if (Number.isNaN(t)) return '—';
+  const days = Math.round((Date.now() - t) / 86400000);
+  if (days <= 0) return 'Updated today';
+  if (days === 1) return 'Updated yesterday';
+  return `Updated ${days}d ago`;
 }
 
-function aboutLine(c) {
-  const bits = [];
-  if (c.degree) bits.push(c.degree);
-  if (c.specialization) bits.push(c.specialization);
-  if (c.study_status) bits.push(c.study_status);
-  if (c.preferred_work_mode) bits.push(`Prefers ${c.preferred_work_mode}`);
-  if (c.immediate_start) bits.push('Immediate start');
-  if (c.willing_to_relocate) bits.push('Open to relocate');
-  if (c.city) bits.push([c.city, c.state].filter(Boolean).join(', '));
-  return bits.join(' · ') || 'Searchable profile — contact details stay private until you invite or offer.';
-}
-
-function availabilityLine(c) {
+function availLabel(c) {
+  if (c.immediate_start || c.availability_bucket === 'immediate') return 'Immediate';
+  if (c.availability_bucket === '2weeks') return '2 weeks';
+  if (c.availability_bucket === '1month') return '1 month';
   if (c.availability_date) {
     try {
-      return `Available ${new Date(c.availability_date).toLocaleDateString()}`;
+      return new Date(c.availability_date).toLocaleDateString();
     } catch {
-      /* fall through */
+      return '—';
     }
   }
-  if (c.ongoing_commitment === false) return 'Available for Immediate Joining';
-  if (c.study_status) return c.study_status;
-  return null;
+  return '—';
 }
 
-function cgpaLabel(c) {
-  if (c.cgpa == null || c.cgpa === '') return null;
-  return `${c.cgpa} CGPA`;
+function statusInfo(c) {
+  const r = c.relationship || {};
+  if (r.shortlisted) return { label: 'Shortlisted', cls: 'is-green' };
+  if (r.applied) return { label: 'Applied', cls: 'is-blue' };
+  if (r.invited) return { label: 'Invitation sent', cls: 'is-amber' };
+  return { label: 'Available', cls: 'is-gray' };
+}
+
+function relLine(c) {
+  const r = c.relationship || {};
+  if (r.applied) return 'Existing application — avoid sending a duplicate invite';
+  if (r.invited) return `Invitation sent${r.inviteInternshipTitle ? ` · ${r.inviteInternshipTitle}` : ''}`;
+  if (r.shortlisted) return 'Already shortlisted · Contact details remain protected';
+  return 'Open to outreach · No previous invitation from your company';
 }
 
 export default function CandidateSearchPage() {
   const [items, setItems] = useState([]);
+  const [summary, setSummary] = useState({ found: 0, roleMatches: 0, shortlisted: 0, invitesPending: 0 });
   const [q, setQ] = useState('');
+  const [cities, setCities] = useState([]);
+  const [cityOptions, setCityOptions] = useState([]);
+  const [degree, setDegree] = useState('');
+  const [degreeOptions, setDegreeOptions] = useState([]);
+  const [workMode, setWorkMode] = useState('');
   const [skill, setSkill] = useState('All');
+  const [chip, setChip] = useState('all');
+  const [sort, setSort] = useState('match');
+  const [experience, setExperience] = useState('');
+  const [availability, setAvailability] = useState('');
+  const [minCgpa, setMinCgpa] = useState('0');
+  const [freshnessDays, setFreshnessDays] = useState('');
   const [matchInternshipId, setMatchInternshipId] = useState('');
   const [matchReady, setMatchReady] = useState(false);
   const [postings, setPostings] = useState([]);
@@ -74,16 +88,11 @@ export default function CandidateSearchPage() {
   const [offerInternship, setOfferInternship] = useState('');
   const [offerMessage, setOfferMessage] = useState('');
   const [offerExtras, setOfferExtras] = useState({
-    startDate: '',
-    endDate: '',
-    validUntil: '',
-    letterUrl: '',
-    onboardingInstructions: '',
-    mentorName: '',
-    hrContactEmail: '',
-    hrContactPhone: '',
+    startDate: '', endDate: '', validUntil: '', letterUrl: '',
+    onboardingInstructions: '', mentorName: '', hrContactEmail: '', hrContactPhone: '',
   });
   const [profileTarget, setProfileTarget] = useState(null);
+  const [whyText, setWhyText] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
   const [toast, setToast] = useState('');
   const [busy, setBusy] = useState(false);
@@ -99,23 +108,50 @@ export default function CandidateSearchPage() {
     if (q.trim()) params.set('q', q.trim());
     if (skill && skill !== 'All') params.set('skill', skill);
     if (matchInternshipId) params.set('internshipId', matchInternshipId);
+    if (cities.length) params.set('city', cities.join(','));
+    if (degree) params.set('degree', degree);
+    if (workMode) params.set('workMode', workMode);
+    if (chip && chip !== 'all') params.set('chip', chip);
+    if (sort) params.set('sort', sort);
+    if (experience) params.set('experience', experience);
+    if (availability) params.set('availability', availability);
+    if (Number(minCgpa) > 0) params.set('minCgpa', minCgpa);
+    if (freshnessDays) params.set('freshnessDays', freshnessDays);
     const res = await fetch(`/api/ip/employer/candidates?${params.toString()}`);
     const data = await res.json();
     setItems(data.items || []);
+    setSummary(data.summary || { found: (data.items || []).length, roleMatches: 0, shortlisted: 0, invitesPending: 0 });
     setMatchReady(Boolean(data.matchReady));
     setPage(1);
   }
 
   useEffect(() => {
-    load();
+    fetch('/api/ip/ref/cities').then((r) => r.json()).then((d) => setCityOptions(d.items || [])).catch(() => {});
+    fetch('/api/ip/ref/degrees').then((r) => r.json()).then((d) => setDegreeOptions(d.items || [])).catch(() => {});
     fetch('/api/ip/employer/internships')
       .then((r) => r.json())
       .then((d) => setPostings((d.items || []).filter((i) => i.status === 'published')));
+    load();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     load();
-  }, [skill, matchInternshipId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [skill, matchInternshipId, chip, sort, cities, degree, workMode, experience, availability, minCgpa, freshnessDays]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function clearFilters() {
+    setQ('');
+    setCities([]);
+    setDegree('');
+    setWorkMode('');
+    setSkill('All');
+    setChip('all');
+    setSort('match');
+    setExperience('');
+    setAvailability('');
+    setMinCgpa('0');
+    setFreshnessDays('');
+    setMatchInternshipId('');
+  }
 
   async function invite() {
     if (!selectedInternship || !inviteTarget) return;
@@ -135,6 +171,7 @@ export default function CandidateSearchPage() {
       showToast(`Invitation sent to ${inviteTarget.name} successfully!`);
       setInviteTarget(null);
       setSelectedInternship('');
+      await load();
     } finally {
       setBusy(false);
     }
@@ -152,14 +189,7 @@ export default function CandidateSearchPage() {
           candidateId: offerTarget.id,
           internshipId: offerInternship,
           message: offerMessage,
-          startDate: offerExtras.startDate,
-          endDate: offerExtras.endDate,
-          validUntil: offerExtras.validUntil,
-          letterUrl: offerExtras.letterUrl,
-          onboardingInstructions: offerExtras.onboardingInstructions,
-          mentorName: offerExtras.mentorName,
-          hrContactEmail: offerExtras.hrContactEmail,
-          hrContactPhone: offerExtras.hrContactPhone,
+          ...offerExtras,
         }),
       });
       const data = await res.json();
@@ -169,23 +199,13 @@ export default function CandidateSearchPage() {
       }
       showToast(`Offer sent to ${offerTarget.name}!`);
       setOfferTarget(null);
-      setOfferInternship('');
-      setOfferMessage('');
-      setOfferExtras({
-        startDate: '',
-        endDate: '',
-        validUntil: '',
-        letterUrl: '',
-        onboardingInstructions: '',
-        mentorName: '',
-        hrContactEmail: '',
-        hrContactPhone: '',
-      });
+      await load();
     } finally {
       setBusy(false);
     }
   }
 
+  const postingTitle = postings.find((p) => p.id === matchInternshipId)?.title;
   const from = total ? (page - 1) * PAGE_SIZE + 1 : 0;
   const to = Math.min(page * PAGE_SIZE, total);
 
@@ -193,314 +213,307 @@ export default function CandidateSearchPage() {
     <div className="ip-emp-cand">
       {toast ? <div className="ip-ec-toast">{toast}</div> : null}
 
-      <div className="ip-ec-banner">
+      <div className="ip-ec-head">
         <div>
-          <h1>Candidate Talent Database</h1>
-          <p>
-            Browse verified student profiles, review GPAs and tech stacks, and invite top candidates
-            directly.
-          </p>
+          <h1>Search Candidates</h1>
+          <p>Find suitable candidates across the talent database, compare profiles, shortlist promising people and invite them to a specific internship.</p>
         </div>
         <div className="ip-ec-privacy">
-          <ShieldCheck className="size-4" aria-hidden />
-          Privacy Protected Profiles
+          <ShieldCheck className="size-3.5" aria-hidden />
+          Privacy-protected candidate data
         </div>
       </div>
 
-      <div className="ip-ec-toolbar">
+      <div className="ip-ec-panel">
         <div className="ip-ec-search-row">
           <div className="ip-ec-search">
             <Search aria-hidden />
             <input
-              type="search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && load()}
-              placeholder="Search by student name, college, or skill (e.g. React, Python)..."
+              placeholder="Search by name, college, skill, degree or keyword…"
               aria-label="Search candidates"
             />
           </div>
-          <button type="button" className="ip-ec-btn ip-ec-btn--primary" onClick={load}>
-            Search Profiles
-          </button>
+          <button type="button" className="ip-ec-primary" onClick={load}>Search candidates</button>
         </div>
-
-        <div className="ip-ec-match-row">
-          <label htmlFor="ip-ec-match-posting">Match vs posting</label>
-          <select
-            id="ip-ec-match-posting"
-            className="ip-ec-select"
-            value={matchInternshipId}
-            onChange={(e) => setMatchInternshipId(e.target.value)}
-          >
-            <option value="">Select a published posting…</option>
-            {postings.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.title}
-              </option>
-            ))}
+        <div className="ip-ec-filterbar">
+          <select className="ip-ec-select" value={matchInternshipId} onChange={(e) => setMatchInternshipId(e.target.value)} aria-label="Any internship">
+            <option value="">Any internship</option>
+            {postings.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
           </select>
-          <p className="ip-ec-hint">
-            {matchInternshipId
-              ? matchReady
-                ? 'Match % = skill overlap with that posting’s eligibility skills (same rule as candidate browse).'
-                : 'Could not load that posting’s eligibility.'
-              : 'Choose a posting to show a real match % on each card (not a fake number).'}
-          </p>
+          <select className="ip-ec-select" value={degree} onChange={(e) => setDegree(e.target.value)} aria-label="Education">
+            <option value="">Education</option>
+            {degreeOptions.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+          </select>
+          <select className="ip-ec-select" value={workMode} onChange={(e) => setWorkMode(e.target.value)} aria-label="Work mode">
+            <option value="">Any work mode</option>
+            <option value="remote">Remote</option>
+            <option value="hybrid">Hybrid</option>
+            <option value="on-site">On-site</option>
+          </select>
+          {CHIPS.map((c) => (
+            <button key={c.id} type="button" className={`ip-ec-chip${chip === c.id ? ' is-on' : ''}`} onClick={() => setChip(c.id)}>
+              {c.label}
+            </button>
+          ))}
+          <button type="button" className="ip-ec-clear" onClick={clearFilters}>Clear filters</button>
         </div>
-
-        <div className="ip-ec-skills">
+        <div className="ip-ec-skills-row">
           <span>Filter by skill:</span>
           {SKILL_PILLS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              className={`ip-ec-pill${skill === s ? ' ip-ec-pill--on' : ''}`}
-              onClick={() => setSkill(s)}
-            >
+            <button key={s} type="button" className={`ip-ec-chip${skill === s ? ' is-on' : ''}`} onClick={() => setSkill(s)}>
               {s}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="ip-ec-grid">
-        {pageItems.map((c) => {
-          const avail = availabilityLine(c);
-          const gpa = cgpaLabel(c);
-          const skills = Array.isArray(c.skills) ? c.skills : [];
-          return (
-            <article key={c.id} className="ip-ec-card">
-              <div className="space-y-3">
-                <div className="ip-ec-card-top">
-                  <div className="ip-ec-person">
-                    <div className="ip-ec-avatar">
-                      {c.profile_picture_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={c.profile_picture_url} alt="" />
-                      ) : (
-                        initials(c.name)
-                      )}
-                    </div>
-                    <div>
-                      <h3>{c.name}</h3>
-                      <p>{roleLine(c)}</p>
-                    </div>
-                  </div>
-                  {c.match_score != null ? (
-                    <span className="ip-ec-match">{Math.round(Number(c.match_score))}% Match</span>
-                  ) : null}
-                </div>
-
-                <div className="ip-ec-meta">
-                  <div className="ip-ec-meta-row">
-                    <GraduationCap aria-hidden />
-                    <span>{c.college || '—'}</span>
-                  </div>
-                  <div className="ip-ec-meta-bottom">
-                    <strong>{gpa || 'CGPA not listed'}</strong>
-                    {avail ? <span className="ip-ec-avail">{avail}</span> : null}
-                  </div>
-                </div>
-
-                <p className="ip-ec-about">{aboutLine(c)}</p>
-
-                {skills.length ? (
-                  <div className="ip-ec-tags">
-                    {skills.map((s) => (
-                      <span key={s} className="ip-ec-tag">
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="ip-ec-actions">
-                <button
-                  type="button"
-                  className="ip-ec-btn ip-ec-btn--outline ip-ec-btn--sm"
-                  onClick={() => setProfileTarget(c)}
-                >
-                  <FileText className="size-3.5" aria-hidden />
-                  View profile
-                </button>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    className="ip-ec-btn ip-ec-btn--outline ip-ec-btn--sm"
-                    onClick={() => {
-                      setOfferTarget(c);
-                      setOfferInternship(matchInternshipId || '');
-                      setOfferMessage('');
-                      setOfferExtras({
-                        startDate: '',
-                        endDate: '',
-                        validUntil: '',
-                        letterUrl: '',
-                        onboardingInstructions: '',
-                        mentorName: '',
-                        hrContactEmail: '',
-                        hrContactPhone: '',
-                      });
-                      setStatusMsg('');
-                    }}
-                  >
-                    Make offer
-                  </button>
-                  <button
-                    type="button"
-                    className="ip-ec-btn ip-ec-btn--primary ip-ec-btn--sm"
-                    style={{ width: 'auto', height: 'auto' }}
-                    onClick={() => {
-                      setInviteTarget(c);
-                      setSelectedInternship(matchInternshipId || '');
-                      setStatusMsg('');
-                    }}
-                  >
-                    <UserPlus className="size-3.5" aria-hidden />
-                    Invite to Apply
-                  </button>
-                </div>
-              </div>
-            </article>
-          );
-        })}
-        {!items.length ? (
-          <p className="ip-ec-empty">No searchable candidates match yet.</p>
-        ) : null}
+      <div className="ip-ec-context">
+        <div>
+          <strong>{summary.found} candidate{summary.found === 1 ? '' : 's'}</strong>
+          {postingTitle ? <span className="ip-ec-rolepill" style={{ marginLeft: 8 }}>Role matching: {postingTitle}</span> : null}
+        </div>
+        <label>
+          <span style={{ fontSize: 11, color: '#667085', marginRight: 6 }}>Sort</span>
+          <select className="ip-ec-select" value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="match">Best role match</option>
+            <option value="updated">Recently updated</option>
+            <option value="availability">Availability</option>
+            <option value="experience">Most experience</option>
+          </select>
+        </label>
       </div>
 
-      {total > 0 ? (
-        <div className="ip-ec-foot">
-          <span>
-            Showing {from}–{to} of {total}
-          </span>
-          <div className="ip-ec-foot-nav">
-            <button
-              type="button"
-              className="ip-ec-btn ip-ec-btn--outline"
-              disabled={page <= 1}
-              onClick={() => setPage(Math.max(1, page - 1))}
-            >
-              Previous
-            </button>
-            <span>
-              Page {page} / {totalPages}
-            </span>
-            <button
-              type="button"
-              className="ip-ec-btn ip-ec-btn--outline"
-              disabled={page >= totalPages}
-              onClick={() => setPage(Math.min(totalPages, page + 1))}
-            >
-              Next
-            </button>
+      <div className="ip-ec-layout">
+        <div className="ip-ec-results">
+          {pageItems.map((c) => {
+            const st = statusInfo(c);
+            const skills = Array.isArray(c.skills) ? c.skills : [];
+            const r = c.relationship || {};
+            const canInvite = !r.applied && !r.invited;
+            const canOffer = Boolean(r.applied);
+            return (
+              <article key={c.id} className="ip-ec-card">
+                <div className="ip-ec-card-main">
+                  <div className="ip-ec-avatar">
+                    {c.profile_picture_url ? <img src={c.profile_picture_url} alt="" /> : initials(c.name)}
+                  </div>
+                  <div className="ip-ec-person">
+                    <h3>
+                      {c.name}
+                      <span className={`ip-ec-status ${st.cls}`}>{st.label}</span>
+                    </h3>
+                    <div className="ip-ec-sub">
+                      {[c.degree, c.specialization, c.college, c.city].filter(Boolean).join(' · ') || 'Searchable profile'}
+                    </div>
+                    {skills.length ? (
+                      <div className="ip-ec-skills">
+                        {skills.map((s) => <span key={s} className="ip-ec-tag">{s}</span>)}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="ip-ec-match">
+                    <strong>{c.match_score != null ? `${Math.round(Number(c.match_score))}%` : '—'}</strong>
+                    <small>{matchReady ? `match for ${postingTitle || 'selected role'}` : 'Select a posting for match %'}</small>
+                    {c.match_why ? (
+                      <button type="button" onClick={() => setWhyText(c.match_why)}>Why this match?</button>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="ip-ec-facts">
+                  <div className="ip-ec-fact"><b>{c.cgpa != null ? `${c.cgpa} CGPA` : '—'}</b><span>Academic</span></div>
+                  <div className="ip-ec-fact"><b>{c.prior_experience || (c.experience_years ? `${c.experience_years} yr` : 'None listed')}</b><span>Relevant experience</span></div>
+                  <div className="ip-ec-fact"><b>{availLabel(c)}</b><span>Availability</span></div>
+                  <div className="ip-ec-fact"><b>{c.preferred_work_mode || '—'}</b><span>Work preference</span></div>
+                  <div className="ip-ec-fact"><b>{relativeUpdated(c.updated_at)}</b><span>Profile activity</span></div>
+                </div>
+                <div className="ip-ec-foot">
+                  <div className="ip-ec-rel">{relLine(c)}</div>
+                  <div className="ip-ec-actions">
+                    <button type="button" className="ip-ec-sbtn" onClick={() => setProfileTarget(c)}>View profile</button>
+                    {canOffer ? (
+                      <button
+                        type="button"
+                        className="ip-ec-sbtn"
+                        onClick={() => {
+                          setOfferTarget(c);
+                          setOfferInternship(matchInternshipId || '');
+                          setStatusMsg('');
+                        }}
+                      >
+                        Make offer
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="ip-ec-sbtn is-primary"
+                      disabled={!canInvite}
+                      onClick={() => {
+                        setInviteTarget(c);
+                        setSelectedInternship(matchInternshipId || '');
+                        setStatusMsg('');
+                      }}
+                    >
+                      {r.applied ? 'Invite unavailable' : r.invited ? 'Invite already sent' : 'Invite to apply'}
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+          {!items.length ? (
+            <div className="ip-ec-empty">
+              <strong style={{ display: 'block', color: '#344054', marginBottom: 5 }}>No candidates match these filters</strong>
+              Try removing a filter or broadening your search.
+            </div>
+          ) : null}
+          {total > 0 ? (
+            <div className="ip-ec-pager">
+              <span>Showing {from}–{to} of {total}</span>
+              <span>
+                <button type="button" className="ip-ec-sbtn" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button>
+                {' '}Page {page} / {totalPages}{' '}
+                <button type="button" className="ip-ec-sbtn" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</button>
+              </span>
+            </div>
+          ) : null}
+        </div>
+
+        <aside className="ip-ec-side">
+          <div className="ip-ec-box">
+            <h3>Refine results</h3>
+            <div className="ip-ec-fsec">
+              <span>Location</span>
+              <SearchableMultiSelect
+                options={cityOptions}
+                value={cities}
+                onChange={setCities}
+                placeholder="Search cities…"
+                ariaLabel="Cities"
+              />
+            </div>
+            <div className="ip-ec-fsec">
+              <span>Experience</span>
+              <label className="ip-ec-check"><input type="radio" name="exp" checked={experience === ''} onChange={() => setExperience('')} /> Any</label>
+              <label className="ip-ec-check"><input type="radio" name="exp" checked={experience === 'none'} onChange={() => setExperience('none')} /> No experience</label>
+              <label className="ip-ec-check"><input type="radio" name="exp" checked={experience === '1plus'} onChange={() => setExperience('1plus')} /> 1+ year</label>
+              <label className="ip-ec-check"><input type="radio" name="exp" checked={experience === '2plus'} onChange={() => setExperience('2plus')} /> 2+ years</label>
+            </div>
+            <div className="ip-ec-fsec">
+              <span>Availability</span>
+              <label className="ip-ec-check"><input type="radio" name="av" checked={availability === ''} onChange={() => setAvailability('')} /> Any</label>
+              <label className="ip-ec-check"><input type="radio" name="av" checked={availability === 'immediate'} onChange={() => setAvailability('immediate')} /> Immediate</label>
+              <label className="ip-ec-check"><input type="radio" name="av" checked={availability === '2weeks'} onChange={() => setAvailability('2weeks')} /> Within 2 weeks</label>
+              <label className="ip-ec-check"><input type="radio" name="av" checked={availability === '1month'} onChange={() => setAvailability('1month')} /> Within 1 month</label>
+            </div>
+            <div className="ip-ec-fsec">
+              <span>Academic score <em>{minCgpa || '0'}–10.0</em></span>
+              <input type="range" min="0" max="10" step="0.1" value={minCgpa} onChange={(e) => setMinCgpa(e.target.value)} />
+            </div>
+            <div className="ip-ec-fsec">
+              <span>Profile freshness</span>
+              <label className="ip-ec-check"><input type="radio" name="fr" checked={freshnessDays === ''} onChange={() => setFreshnessDays('')} /> Any</label>
+              <label className="ip-ec-check"><input type="radio" name="fr" checked={freshnessDays === '7'} onChange={() => setFreshnessDays('7')} /> Updated in 7 days</label>
+              <label className="ip-ec-check"><input type="radio" name="fr" checked={freshnessDays === '30'} onChange={() => setFreshnessDays('30')} /> Updated in 30 days</label>
+            </div>
+          </div>
+          <div className="ip-ec-box">
+            <h3>Search summary</h3>
+            <div className="ip-ec-summary">
+              <div className="ip-ec-metric"><b>{summary.found}</b><span>Profiles found</span></div>
+              <div className="ip-ec-metric"><b>{summary.roleMatches}</b><span>Role matches</span></div>
+              <div className="ip-ec-metric"><b>{summary.shortlisted}</b><span>Shortlisted</span></div>
+              <div className="ip-ec-metric"><b>{summary.invitesPending}</b><span>Invites pending</span></div>
+            </div>
+          </div>
+          <div className="ip-ec-box">
+            <h3>Privacy & outreach</h3>
+            <p>Search results only expose information allowed by the candidate&apos;s discovery settings. Private contact details stay restricted until the existing platform workflow permits access.</p>
+            <p style={{ marginBottom: 0 }}><b style={{ color: '#344054' }}>Duplicate protection:</b> existing applications, previous invitations and shortlists are shown so you do not repeatedly contact the same candidate.</p>
+          </div>
+        </aside>
+      </div>
+
+      {whyText ? (
+        <div className="ip-ec-backdrop" role="dialog" onClick={() => setWhyText('')}>
+          <div className="ip-ec-modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div className="ip-ec-mhead"><h2>Why this match?</h2><button type="button" className="ip-ec-sbtn" onClick={() => setWhyText('')}>×</button></div>
+            <div className="ip-ec-mbody"><p>{whyText}</p></div>
           </div>
         </div>
       ) : null}
 
-      {/* Public profile summary (no CV URL — privacy) */}
       {profileTarget ? (
-        <div className="ip-ec-modal-backdrop" role="dialog" aria-modal="true">
+        <div className="ip-ec-backdrop" role="dialog">
           <div className="ip-ec-modal">
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}>
+            <div className="ip-ec-mhead">
               <div>
-                <h3>{profileTarget.name}</h3>
-                <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: '#4f46e5', fontWeight: 600 }}>
-                  {roleLine(profileTarget)}
-                </p>
+                <h2>Candidate profile</h2>
+                <p style={{ margin: '4px 0 0', fontSize: 11, color: '#667085' }}>Employer-visible information permitted by the current privacy workflow</p>
               </div>
-              <button
-                type="button"
-                className="ip-ec-btn ip-ec-btn--outline"
-                aria-label="Close"
-                onClick={() => setProfileTarget(null)}
-              >
-                <X className="size-4" />
-              </button>
+              <button type="button" className="ip-ec-sbtn" onClick={() => setProfileTarget(null)} aria-label="Close"><X className="size-4" /></button>
             </div>
-            <div style={{ fontSize: '0.75rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div>
-                <strong style={{ color: '#334155' }}>Education &amp; GPA</strong>
-                <p style={{ margin: '0.25rem 0 0' }}>
-                  {profileTarget.college || '—'}
-                  {cgpaLabel(profileTarget) ? ` — ${cgpaLabel(profileTarget)}` : ''}
-                </p>
-              </div>
-              <div>
-                <strong style={{ color: '#334155' }}>About</strong>
-                <p style={{ margin: '0.25rem 0 0' }}>{aboutLine(profileTarget)}</p>
-              </div>
-              <div>
-                <strong style={{ color: '#334155' }}>Skills</strong>
-                <div className="ip-ec-tags" style={{ marginTop: '0.375rem' }}>
-                  {(profileTarget.skills || []).map((s) => (
-                    <span key={s} className="ip-ec-tag">
-                      {s}
-                    </span>
-                  ))}
-                  {!(profileTarget.skills || []).length ? <span>—</span> : null}
-                </div>
-              </div>
-              <p className="ip-ec-hint">
-                Full resume / contact stay private until an invite or offer interaction allows sharing.
-              </p>
+            <div className="ip-ec-mbody">
+              <h3>{profileTarget.name}</h3>
+              <p className="ip-ec-sub">{[profileTarget.degree, profileTarget.specialization, profileTarget.college, profileTarget.city].filter(Boolean).join(' · ')}</p>
+              <p>Academic: {profileTarget.cgpa != null ? `${profileTarget.cgpa} CGPA` : '—'}</p>
+              <p>Availability: {availLabel(profileTarget)}</p>
+              <p>Skills: {(profileTarget.skills || []).join(', ') || '—'}</p>
+              <p className="ip-ec-notice">Email, phone and resume are not shown in this discovery view.</p>
             </div>
-            <div className="ip-ec-modal-actions">
-              <button type="button" className="ip-ec-btn ip-ec-btn--outline" onClick={() => setProfileTarget(null)}>
-                Close
-              </button>
-              <button
-                type="button"
-                className="ip-ec-btn ip-ec-btn--primary"
-                style={{ width: 'auto' }}
-                onClick={() => {
-                  setInviteTarget(profileTarget);
-                  setSelectedInternship(matchInternshipId || '');
-                  setProfileTarget(null);
-                }}
-              >
-                Invite to Apply
-              </button>
+            <div className="ip-ec-mact">
+              <button type="button" className="ip-ec-sbtn" onClick={() => setProfileTarget(null)}>Close</button>
+              {!(profileTarget.relationship?.applied || profileTarget.relationship?.invited) ? (
+                <button
+                  type="button"
+                  className="ip-ec-sbtn is-primary"
+                  onClick={() => {
+                    setInviteTarget(profileTarget);
+                    setSelectedInternship(matchInternshipId || '');
+                    setProfileTarget(null);
+                  }}
+                >
+                  Invite to apply
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
       ) : null}
 
       {inviteTarget ? (
-        <div className="ip-ec-modal-backdrop" role="dialog" aria-modal="true">
-          <div className="ip-ec-modal">
-            <h3>Invite {inviteTarget.name}</h3>
-            {statusMsg ? <div className="ip-ec-alert">{statusMsg}</div> : null}
-            <div>
-              <label htmlFor="ip-ec-invite-posting">Choose a posting</label>
-              <select
-                id="ip-ec-invite-posting"
-                className="ip-ec-select"
-                value={selectedInternship}
-                onChange={(e) => setSelectedInternship(e.target.value)}
-              >
-                <option value="">Choose a posting</option>
-                {postings.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title}
-                  </option>
-                ))}
-              </select>
+        <div className="ip-ec-backdrop" role="dialog">
+          <div className="ip-ec-modal" style={{ maxWidth: 560 }}>
+            <div className="ip-ec-mhead">
+              <div>
+                <h2>Invite candidate to apply</h2>
+                <p style={{ margin: '4px 0 0', fontSize: 11, color: '#667085' }}>Choose the exact internship before sending the invitation.</p>
+              </div>
+              <button type="button" className="ip-ec-sbtn" onClick={() => setInviteTarget(null)}>×</button>
             </div>
-            <div className="ip-ec-modal-actions">
-              <button type="button" className="ip-ec-btn ip-ec-btn--outline" onClick={() => setInviteTarget(null)}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="ip-ec-btn ip-ec-btn--primary"
-                style={{ width: 'auto' }}
-                disabled={!selectedInternship || busy}
-                onClick={invite}
-              >
-                {busy ? 'Sending…' : 'Send invite'}
+            <div className="ip-ec-mbody">
+              {statusMsg ? <div className="ip-ec-alert">{statusMsg}</div> : (
+                <div className="ip-ec-notice">The candidate will receive the internship title, employer identity and invitation message. Duplicate outreach is blocked when an application or invite already exists.</div>
+              )}
+              <label>Candidate</label>
+              <div style={{ fontWeight: 800, marginBottom: 14 }}>{inviteTarget.name}</div>
+              <label htmlFor="ip-ec-invite-posting">Internship</label>
+              <select id="ip-ec-invite-posting" value={selectedInternship} onChange={(e) => setSelectedInternship(e.target.value)}>
+                <option value="">Choose a posting</option>
+                {postings.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+              </select>
+              {selectedInternship ? (
+                <div className="ip-ec-notice">
+                  Invitation preview: We think your profile could be a good fit for {postings.find((p) => p.id === selectedInternship)?.title}. Review the role and choose whether you would like to apply.
+                </div>
+              ) : null}
+            </div>
+            <div className="ip-ec-mact">
+              <button type="button" className="ip-ec-sbtn" onClick={() => setInviteTarget(null)}>Cancel</button>
+              <button type="button" className="ip-ec-sbtn is-primary" disabled={!selectedInternship || busy} onClick={invite}>
+                {busy ? 'Sending…' : 'Send invitation'}
               </button>
             </div>
           </div>
@@ -508,125 +521,31 @@ export default function CandidateSearchPage() {
       ) : null}
 
       {offerTarget ? (
-        <div className="ip-ec-modal-backdrop" role="dialog" aria-modal="true">
+        <div className="ip-ec-backdrop" role="dialog">
           <div className="ip-ec-modal">
-            <h3>Make offer to {offerTarget.name}</h3>
-            {statusMsg ? <div className="ip-ec-alert">{statusMsg}</div> : null}
-            <div>
-              <label htmlFor="ip-ec-offer-posting">Choose an internship</label>
-              <select
-                id="ip-ec-offer-posting"
-                className="ip-ec-select"
-                value={offerInternship}
-                onChange={(e) => setOfferInternship(e.target.value)}
-              >
+            <div className="ip-ec-mhead">
+              <h2>Make offer to {offerTarget.name}</h2>
+              <button type="button" className="ip-ec-sbtn" onClick={() => setOfferTarget(null)}>×</button>
+            </div>
+            <div className="ip-ec-mbody">
+              {statusMsg ? <div className="ip-ec-alert">{statusMsg}</div> : (
+                <div className="ip-ec-notice">Offers require an existing application for that internship.</div>
+              )}
+              <label htmlFor="ip-ec-offer-posting">Internship</label>
+              <select id="ip-ec-offer-posting" value={offerInternship} onChange={(e) => setOfferInternship(e.target.value)}>
                 <option value="">Choose an internship</option>
-                {postings.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title}
-                  </option>
-                ))}
+                {postings.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
               </select>
-            </div>
-            <div>
               <label htmlFor="ip-ec-offer-msg">Message (optional)</label>
-              <textarea
-                id="ip-ec-offer-msg"
-                value={offerMessage}
-                onChange={(e) => setOfferMessage(e.target.value)}
-                placeholder="Message to include with the offer"
-              />
+              <textarea id="ip-ec-offer-msg" value={offerMessage} onChange={(e) => setOfferMessage(e.target.value)} />
+              <label>Start date</label>
+              <input type="date" value={offerExtras.startDate} onChange={(e) => setOfferExtras((f) => ({ ...f, startDate: e.target.value }))} />
+              <label>Valid until</label>
+              <input type="date" value={offerExtras.validUntil} onChange={(e) => setOfferExtras((f) => ({ ...f, validUntil: e.target.value }))} />
             </div>
-            <div>
-              <label htmlFor="ip-ec-offer-start">Start date</label>
-              <input
-                id="ip-ec-offer-start"
-                type="date"
-                className="ip-ec-select"
-                value={offerExtras.startDate}
-                onChange={(e) => setOfferExtras((f) => ({ ...f, startDate: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label htmlFor="ip-ec-offer-end">End date</label>
-              <input
-                id="ip-ec-offer-end"
-                type="date"
-                className="ip-ec-select"
-                value={offerExtras.endDate}
-                onChange={(e) => setOfferExtras((f) => ({ ...f, endDate: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label htmlFor="ip-ec-offer-until">Valid until</label>
-              <input
-                id="ip-ec-offer-until"
-                type="date"
-                className="ip-ec-select"
-                value={offerExtras.validUntil}
-                onChange={(e) => setOfferExtras((f) => ({ ...f, validUntil: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label htmlFor="ip-ec-offer-letter">Offer letter URL</label>
-              <input
-                id="ip-ec-offer-letter"
-                className="ip-ec-select"
-                value={offerExtras.letterUrl}
-                onChange={(e) => setOfferExtras((f) => ({ ...f, letterUrl: e.target.value }))}
-                placeholder="https://…"
-              />
-            </div>
-            <div>
-              <label htmlFor="ip-ec-offer-onboard">Onboarding instructions</label>
-              <textarea
-                id="ip-ec-offer-onboard"
-                value={offerExtras.onboardingInstructions}
-                onChange={(e) => setOfferExtras((f) => ({ ...f, onboardingInstructions: e.target.value }))}
-                placeholder="First-day time, location, documents…"
-              />
-            </div>
-            <div>
-              <label htmlFor="ip-ec-offer-mentor">Assigned mentor / tech lead</label>
-              <input
-                id="ip-ec-offer-mentor"
-                className="ip-ec-select"
-                value={offerExtras.mentorName}
-                onChange={(e) => setOfferExtras((f) => ({ ...f, mentorName: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label htmlFor="ip-ec-offer-hr-email">HR contact email</label>
-              <input
-                id="ip-ec-offer-hr-email"
-                type="email"
-                className="ip-ec-select"
-                value={offerExtras.hrContactEmail}
-                onChange={(e) => setOfferExtras((f) => ({ ...f, hrContactEmail: e.target.value }))}
-                placeholder="Uses company email if blank"
-              />
-            </div>
-            <div>
-              <label htmlFor="ip-ec-offer-hr-phone">HR contact phone</label>
-              <input
-                id="ip-ec-offer-hr-phone"
-                className="ip-ec-select"
-                value={offerExtras.hrContactPhone}
-                onChange={(e) => setOfferExtras((f) => ({ ...f, hrContactPhone: e.target.value }))}
-                placeholder="Uses company phone if blank"
-              />
-            </div>
-            <div className="ip-ec-modal-actions">
-              <button type="button" className="ip-ec-btn ip-ec-btn--outline" onClick={() => setOfferTarget(null)}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="ip-ec-btn ip-ec-btn--primary"
-                style={{ width: 'auto' }}
-                disabled={!offerInternship || busy}
-                onClick={sendOffer}
-              >
+            <div className="ip-ec-mact">
+              <button type="button" className="ip-ec-sbtn" onClick={() => setOfferTarget(null)}>Cancel</button>
+              <button type="button" className="ip-ec-sbtn is-primary" disabled={!offerInternship || busy} onClick={sendOffer}>
                 {busy ? 'Sending…' : 'Send offer'}
               </button>
             </div>

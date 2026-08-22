@@ -955,3 +955,10 @@
   font-weight: 600;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
 }
+
+@media (max-width: 767px) {
+  .ip-cand-ref .ip-cr-metrics {
+    display: none;
+  }
+}
+

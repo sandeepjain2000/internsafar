@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PageHeader from '@/components/ip/PageHeader';
 import ScreeningQuestionsEditor from '@/components/ip/ScreeningQuestionsEditor';
 import InternshipCandidatePreview from '@/components/ip/InternshipCandidatePreview';
+import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 
 const QUALITY_CHECKS = [
   { key: 'title', label: 'Clear title' },
@@ -23,8 +24,8 @@ const QUALITY_CHECKS = [
 export default function NewInternshipPage() {
   const router = useRouter();
   const [form, setForm] = useState({
-    title: '', description: '', location: '', workMode: 'Remote', stipendInr: '', durationMonths: '',
-    startDate: '', endDate: '', skills: '', degree: '', minCgpa: '',
+    title: '', description: '', location: '', locationCities: [], workMode: 'Remote', stipendInr: '', durationMonths: '',
+    startDate: '', endDate: '', skills: '', degree: '', degrees: [], minCgpa: '',
     workHoursStart: '', workHoursEnd: '', engagementType: '', weeklyHours: '',
     stipendType: '', incentiveBasis: '',
     startsAt: '', applyEndsAt: '',
@@ -39,6 +40,13 @@ export default function NewInternshipPage() {
   const [warning, setWarning] = useState('');
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [cityOptions, setCityOptions] = useState([]);
+  const [degreeOptions, setDegreeOptions] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/ip/ref/cities').then((r) => r.json()).then((d) => setCityOptions(d.items || [])).catch(() => {});
+    fetch('/api/ip/ref/degrees').then((r) => r.json()).then((d) => setDegreeOptions(d.items || [])).catch(() => {});
+  }, []);
 
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -72,11 +80,12 @@ export default function NewInternshipPage() {
           remindBeforeEnd: form.remindBeforeEnd,
           remindStartHours: form.remindStartHours ? Number(form.remindStartHours) : 24,
           remindEndHours: form.remindEndHours ? Number(form.remindEndHours) : 24,
-          locations: form.location ? [form.location] : [],
+          locations: (form.locationCities || []).length ? form.locationCities : (form.location ? [form.location] : []),
           status,
           eligibility: {
             skills: form.skills.split(',').map((s) => s.trim()).filter(Boolean),
-            degree: form.degree || undefined,
+            degree: (form.degrees || []).join(', ') || form.degree || undefined,
+            degrees: form.degrees || [],
             minCgpa: form.minCgpa || undefined,
           },
           questions: screeningQuestions,
@@ -157,7 +166,19 @@ export default function NewInternshipPage() {
               <TabsContent value="details" className="grid gap-4 sm:grid-cols-2">
                 <Field className="sm:col-span-2"><FieldLabel>Title</FieldLabel><Input required value={form.title} onChange={(e) => set('title', e.target.value)} /></Field>
                 <Field className="sm:col-span-2"><FieldLabel>Description</FieldLabel><Textarea rows={4} value={form.description} onChange={(e) => set('description', e.target.value)} /></Field>
-                <Field><FieldLabel>Location (work city)</FieldLabel><Input value={form.location} onChange={(e) => set('location', e.target.value)} placeholder="e.g. Bengaluru" /></Field>
+                <Field className="sm:col-span-2">
+                  <FieldLabel>Locations (work city)</FieldLabel>
+                  <SearchableMultiSelect
+                    options={cityOptions}
+                    value={form.locationCities || []}
+                    onChange={(next) => {
+                      set('locationCities', next);
+                      set('location', next[0] || '');
+                    }}
+                    placeholder="Search cities…"
+                    ariaLabel="Work cities"
+                  />
+                </Field>
                 <Field><FieldLabel>Work mode</FieldLabel><Input value={form.workMode} onChange={(e) => set('workMode', e.target.value)} placeholder="Remote / Hybrid / On-site" /></Field>
                 <Field><FieldLabel>Duration (months)</FieldLabel><Input type="number" value={form.durationMonths} onChange={(e) => set('durationMonths', e.target.value)} /></Field>
                 <Field><FieldLabel>Internship start date</FieldLabel><Input type="date" value={form.startDate} onChange={(e) => set('startDate', e.target.value)} /></Field>
@@ -254,7 +275,19 @@ export default function NewInternshipPage() {
               </TabsContent>
 
               <TabsContent value="eligibility" className="grid gap-4 sm:grid-cols-2">
-                <Field><FieldLabel>Eligibility: degree</FieldLabel><Input value={form.degree} onChange={(e) => set('degree', e.target.value)} /></Field>
+                <Field className="sm:col-span-2">
+                  <FieldLabel>Eligibility: degree</FieldLabel>
+                  <SearchableMultiSelect
+                    options={degreeOptions}
+                    value={form.degrees || []}
+                    onChange={(next) => {
+                      set('degrees', next);
+                      set('degree', next.join(', '));
+                    }}
+                    placeholder="Search degrees…"
+                    ariaLabel="Eligibility degrees"
+                  />
+                </Field>
                 <Field><FieldLabel>Eligibility: min CGPA</FieldLabel><Input value={form.minCgpa} onChange={(e) => set('minCgpa', e.target.value)} /></Field>
                 <Field className="sm:col-span-2"><FieldLabel>Preferred skills (comma separated)</FieldLabel><Input value={form.skills} onChange={(e) => set('skills', e.target.value)} /></Field>
               </TabsContent>

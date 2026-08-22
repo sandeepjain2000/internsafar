@@ -98,12 +98,12 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  background: linear-gradient(90deg, var(--ip-brand-950), var(--ip-brand-900), #312e81);
-  border: 1px solid #3730a3;
+  background: #fff;
+  border: 1px solid #e2e8f0;
   border-radius: 1rem;
   padding: 1.5rem;
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(30, 27, 75, 0.25);
+  color: #0f172a;
+  box-shadow: none;
 }
 
 @media (min-width: 768px) {
@@ -118,12 +118,12 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.1);
+  background: #eef2ff;
   border-radius: 0.375rem;
   padding: 0.25rem 0.625rem;
   font-size: 0.6875rem;
   font-weight: 700;
-  color: #c7d2fe;
+  color: #4338ca;
 }
 
 .ip-emp-ref .ip-er-hero h1 {
@@ -131,14 +131,14 @@
   font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: -0.025em;
-  color: #ffffff !important;
+  color: #0f172a !important;
 }
 
 .ip-emp-ref .ip-er-hero p {
   margin: 0.375rem 0 0;
   font-size: 0.75rem;
   line-height: 1.5;
-  color: #c7d2fe;
+  color: #475569;
   max-width: 42rem;
 }
 
@@ -815,4 +815,10 @@
   margin-top: 0.75rem;
   font-size: 0.75rem;
   color: #64748b;
+}
+
+@media (max-width: 767px) {
+  .ip-emp-ref .ip-er-metrics {
+    display: none;
+  }
 }

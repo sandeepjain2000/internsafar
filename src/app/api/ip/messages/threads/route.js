@@ -25,6 +25,7 @@ export async function GET(request) {
             (SELECT sent_at FROM ip_messages m WHERE m.thread_id = t.id ORDER BY sent_at DESC LIMIT 1) as last_message_at,
             (SELECT u.name FROM ip_messages m JOIN ip_users u ON u.id = m.sender_user_id
               WHERE m.thread_id = t.id ORDER BY sent_at DESC LIMIT 1) as last_sender_name,
+            (SELECT m.sender_user_id FROM ip_messages m WHERE m.thread_id = t.id ORDER BY sent_at DESC LIMIT 1) as last_sender_user_id,
             (SELECT count(*) FROM ip_messages m WHERE m.thread_id = t.id) as message_count,
             (SELECT count(*) FROM ip_messages m WHERE m.thread_id = t.id AND m.sender_user_id != $1 AND m.read_at IS NULL) as unread_count,
             (t.${archiveCol} IS NOT NULL) as archived

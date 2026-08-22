@@ -3,9 +3,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bookmark, Search, SlidersHorizontal, Star } from 'lucide-react';
-import ValidationScoreButton from '@/components/ip/ValidationScoreButton';
+import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
+import ViewModeToggle from '@/components/ip/ViewModeToggle';
+import { useViewMode } from '@/hooks/useViewMode';
 import { POINTS_PER_APPLICATION } from '@/lib/pointsEconomy';
+import ValidationScoreButton from '@/components/ip/ValidationScoreButton';
 import '@/components/ip/ip-browse-internships-gemini.css';
+
+const QUICK_CHIPS = [
+  { id: '', label: 'All listings' },
+  { id: 'starting-soon', label: 'Starting soon' },
+  { id: 'saved', label: 'Saved' },
+  { id: 'recent', label: 'Recently updated' },
+  { id: 'verified', label: 'Verified employers' },
+];
 
 const WORK_MODES = [
   { value: 'all', label: 'All Modes' },
@@ -50,6 +61,18 @@ function stipendLabel(i) {
   return 'Unpaid';
 }
 
+function durationLabel(i) {
+  if (i.duration_months) return `${i.duration_months} month${Number(i.duration_months) === 1 ? '' : 's'}`;
+  return 'Duration not listed';
+}
+
+function startLabel(i) {
+  if (!i.start_date) return 'Flexible start';
+  const d = new Date(i.start_date);
+  if (Number.isNaN(d.getTime())) return 'Flexible start';
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 function companyInitials(name) {
   if (!name || name === 'Confidential employer') return 'CE';
   const parts = String(name).trim().split(/\s+/);
@@ -70,9 +93,12 @@ export default function BrowseInternshipsPage() {
   const [minValidation, setMinValidation] = useState('');
   const [sort, setSort] = useState('best-match');
   const [tab, setTab] = useState('all');
+  const [chip, setChip] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [points, setPoints] = useState(null);
+  const [cityOptions, setCityOptions] = useState([]);
+  const [viewMode, setViewMode] = useViewMode('ip_browse_view', 'cards');
   const reqRef = useRef(0);
 
   useEffect(() => {
@@ -82,6 +108,10 @@ export default function BrowseInternshipsPage() {
     } catch {
       /* ignore */
     }
+    fetch('/api/ip/ref/cities')
+      .then((r) => r.json())
+      .then((d) => setCityOptions(d.items || []))
+      .catch(() => {});
     fetch('/api/ip/candidate/profile')
       .then((r) => r.json())
       .then((d) => setPoints(d.profile?.points ?? null))
@@ -97,6 +127,7 @@ export default function BrowseInternshipsPage() {
     const nextValid = next.minValidation !== undefined ? next.minValidation : minValidation;
     const nextSort = next.sort !== undefined ? next.sort : sort;
     const nextTab = next.tab !== undefined ? next.tab : tab;
+    const nextChip = next.chip !== undefined ? next.chip : chip;
 
     const id = ++reqRef.current;
     setLoading(true);
@@ -110,6 +141,7 @@ export default function BrowseInternshipsPage() {
     params.set('sort', nextSort);
     if (nextTab === 'saved') params.set('savedOnly', '1');
     if (nextTab === 'recommended') params.set('minMatch', String(Math.max(Number(nextMatch) || 0, 85)));
+    if (nextChip) params.set('chip', nextChip);
     const res = await fetch(`/api/ip/candidate/internships?${params.toString()}`);
     const data = await res.json();
     if (id !== reqRef.current) return;
@@ -132,7 +164,7 @@ export default function BrowseInternshipsPage() {
     }, q ? 250 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, minStipend, workMode, selectedCities, minMatch, minValidation, sort, tab]);
+  }, [q, minStipend, workMode, selectedCities, minMatch, minValidation, sort, tab, chip]);
 
   async function toggleSave(internshipId, saved) {
     await fetch('/api/ip/candidate/saved', {
@@ -161,6 +193,7 @@ export default function BrowseInternshipsPage() {
     setMinValidation('');
     setSort('best-match');
     setTab('all');
+    setChip('');
     setFiltersOpen(false);
   }
 
@@ -244,32 +277,14 @@ export default function BrowseInternshipsPage() {
             </label>
             <label className="ip-br-city-filter">
               Work location (city)
-              <span className="ip-br-city-hint">Separate from screening questions — filters where the internship work takes place.</span>
-              <input
-                type="search"
-                value={cityQuery}
-                onChange={(e) => setCityQuery(e.target.value)}
-                placeholder="Search cities…"
-                aria-label="Search work-location cities"
+              <span className="ip-br-city-hint">Searchable multi-select of work cities (separate from screening questions).</span>
+              <SearchableMultiSelect
+                options={cityOptions.length ? cityOptions : CITY_PRESETS.map((c) => ({ value: c, label: c }))}
+                value={selectedCities}
+                onChange={setSelectedCities}
+                placeholder="Type to search cities…"
+                ariaLabel="Work location cities"
               />
-              <div className="ip-br-city-chips" role="group" aria-label="Selected work cities">
-                {selectedCities.length ? selectedCities.map((c) => (
-                  <button key={c} type="button" className="ip-br-city-chip is-on" onClick={() => toggleCity(c)}>
-                    {c} ×
-                  </button>
-                )) : <span className="ip-br-city-empty">All cities</span>}
-              </div>
-              <div className="ip-br-city-options">
-                {cityChoices.map((c) => {
-                  const on = selectedCities.some((s) => s.toLowerCase() === c.toLowerCase());
-                  return (
-                    <label key={c} className="ip-br-city-opt">
-                      <input type="checkbox" checked={on} onChange={() => toggleCity(c)} />
-                      {c}
-                    </label>
-                  );
-                })}
-              </div>
             </label>
             <label>
               Candidate Match %
@@ -305,10 +320,58 @@ export default function BrowseInternshipsPage() {
             </button>
           </div>
           <button type="button" className="ip-br-reset" onClick={resetFilters}>Reset All Filters</button>
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+        </div>
+
+        <div className="ip-br-chips" role="tablist" aria-label="Quick filters">
+          {QUICK_CHIPS.map((c) => (
+            <button
+              key={c.id || 'all'}
+              type="button"
+              className={`ip-br-qchip${chip === c.id ? ' is-on' : ''}`}
+              onClick={() => setChip(c.id)}
+            >
+              {c.label}
+            </button>
+          ))}
         </div>
       </div>
 
       {items.length ? (
+        viewMode === 'list' ? (
+          <div className="overflow-x-auto rounded-lg border bg-white">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-slate-500">
+                  <th className="p-3">Role</th>
+                  <th className="p-3">Employer</th>
+                  <th className="p-3">Location</th>
+                  <th className="p-3">Start</th>
+                  <th className="p-3">Duration</th>
+                  <th className="p-3">Stipend</th>
+                  <th className="p-3">Match</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((i) => (
+                  <tr key={i.id} className="border-b">
+                    <td className="p-3">
+                      <button type="button" className="font-medium text-indigo-700" onClick={() => router.push(`/candidate/internships/${i.id}`)}>
+                        {i.title}
+                      </button>
+                    </td>
+                    <td className="p-3">{i.company_name}</td>
+                    <td className="p-3">{[i.work_mode, i.location].filter(Boolean).join(' • ') || '—'}</td>
+                    <td className="p-3">{startLabel(i)}</td>
+                    <td className="p-3">{durationLabel(i)}</td>
+                    <td className="p-3">{stipendLabel(i)}</td>
+                    <td className="p-3">{i.match_score != null ? `${Math.round(Number(i.match_score))}%` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
         <div className="ip-br-grid">
           {items.map((i) => (
             <article key={i.id} className="ip-br-card">
@@ -325,8 +388,13 @@ export default function BrowseInternshipsPage() {
                     </h2>
                     <p>
                       {i.company_name}
-                      {i.employer_verified ? <span className="ip-br-verified">Verified</span> : null}
+                      {i.employer_verified ? <span className="ip-br-verified">Verified employer</span> : null}
                     </p>
+                    {i.company_name !== 'Confidential employer' ? (
+                      <p className="ip-br-emp-line">
+                        {[i.employer_industry, i.employer_hq_city, i.employer_company_size].filter(Boolean).join(' · ') || 'Employer on this listing'}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
                 <button
@@ -338,6 +406,25 @@ export default function BrowseInternshipsPage() {
                 >
                   <Bookmark fill={i.saved ? 'currentColor' : 'none'} />
                 </button>
+              </div>
+
+              <div className="ip-br-facts">
+                <div>
+                  <span>Employer</span>
+                  <b>{i.company_name}</b>
+                </div>
+                <div>
+                  <span>Starts</span>
+                  <b>{startLabel(i)}</b>
+                </div>
+                <div>
+                  <span>Duration</span>
+                  <b>{durationLabel(i)}</b>
+                </div>
+                <div>
+                  <span>Work</span>
+                  <b>{[i.work_mode, i.location].filter(Boolean).join(' · ') || '—'}</b>
+                </div>
               </div>
 
               <div className="ip-br-meta">
@@ -384,6 +471,7 @@ export default function BrowseInternshipsPage() {
             </article>
           ))}
         </div>
+        )
       ) : !loading ? (
         <div className="ip-br-empty">
           <div className="ip-br-empty__icon" aria-hidden>

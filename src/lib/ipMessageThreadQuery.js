@@ -26,6 +26,7 @@ export const THREAD_SELECT_CORE = `
             cu.name as candidate_name,
             eu.name as employer_name,
             e.company_name,
+            e.logo_url as employer_logo_url,
             e.approval_status as employer_approval_status,
             c.college as candidate_college,
             c.cgpa as candidate_cgpa,

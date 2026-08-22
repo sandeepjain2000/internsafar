@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import '@/components/ip/ip-employer-notifications-gemini.css';
 
-const TABS = ['All', 'Unread', 'Applications', 'Offers', 'Rewards'];
+const TABS = ['All', 'Unread', 'Applications', 'Offers', 'Rewards', 'Time-limited', 'Last 24h', 'Last 7 days'];
 
 function formatWhen(value) {
   if (!value) return '—';
@@ -156,7 +156,15 @@ export default function EmployerNotificationsPage() {
       if (tab === 'Unread' && n.read_at) return false;
       if (tab === 'Applications' && bucket !== 'applications') return false;
       if (tab === 'Offers' && bucket !== 'offers') return false;
-      if (tab === 'Rewards' && bucket !== 'rewards') return false;
+      if (tab === 'Time-limited') {
+        const timed = bucket === 'offers' || /expir|deadline|accept/i.test(`${n.title} ${n.body}`);
+        if (!timed) return false;
+      }
+      if (tab === 'Last 24h' || tab === 'Last 7 days') {
+        const created = new Date(n.created_at).getTime();
+        const hours = tab === 'Last 24h' ? 24 : 24 * 7;
+        if (Number.isNaN(created) || Date.now() - created > hours * 3600000) return false;
+      }
       if (!q) return true;
       return `${n.title || ''} ${n.body || ''}`.toLowerCase().includes(q);
     });

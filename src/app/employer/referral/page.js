@@ -114,7 +114,7 @@ export default function EmployerReferralPage() {
     ? `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(link)}`
     : '#';
   const waHref = link
-    ? `https://api.whatsapp.com/send?text=${encodeURIComponent(
+    ? `https://wa.me/?text=${encodeURIComponent(
         `Join PlacementHub to post internships and hire verified talent: ${link}`,
       )}`
     : '#';
