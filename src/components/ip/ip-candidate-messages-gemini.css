@@ -77,12 +77,12 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  min-height: 43.75rem;
+  min-height: 0;
 }
 
 @media (min-width: 768px) {
   .ip-cand-msg .ip-cm-split {
-    flex-direction: row;
+    flex-direction: column;
   }
 }
 
@@ -97,16 +97,12 @@
 
 @media (min-width: 768px) {
   .ip-cand-msg .ip-cm-list {
-    width: 20rem;
-    border-bottom: none;
-    border-right: 1px solid #e2e8f0;
+    width: 100%;
+    border-bottom: 1px solid #e2e8f0;
+    border-right: none;
     flex-shrink: 0;
-  }
-}
-
-@media (min-width: 1024px) {
-  .ip-cand-msg .ip-cm-list {
-    width: 24rem;
+    max-height: 16rem;
+    overflow: auto;
   }
 }
 
@@ -803,11 +799,12 @@
 @media (min-width: 1050px) {
   .ip-cand-msg .ip-cm-split {
     display: grid;
-    grid-template-columns: 20rem minmax(0, 1fr) 16.25rem;
-    flex-wrap: unset;
+    grid-template-columns: minmax(0, 1fr) 16.25rem;
+    grid-template-rows: auto minmax(16rem, 1fr);
   }
   .ip-cand-msg .ip-cm-list {
-    width: auto;
+    grid-column: 1 / -1;
+    width: 100%;
   }
   .ip-cand-msg .ip-msg-party {
     flex: unset;
@@ -875,4 +872,38 @@
   font-weight: 700;
   color: #4338ca;
   text-decoration: none;
+}
+
+.ip-cand-msg .ip-msg-table,
+.ip-emp-msg .ip-msg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  background: #fff;
+}
+.ip-cand-msg .ip-msg-table th,
+.ip-emp-msg .ip-msg-table th {
+  text-align: left;
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+.ip-cand-msg .ip-msg-table td,
+.ip-emp-msg .ip-msg-table td {
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #0f172a;
+  cursor: pointer;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ip-cand-msg .ip-msg-table tr.is-on td,
+.ip-emp-msg .ip-msg-table tr.is-on td {
+  background: #eef2ff;
 }

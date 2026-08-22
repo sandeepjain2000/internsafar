@@ -70,12 +70,12 @@
   overflow: hidden;
   display: grid;
   grid-template-columns: 1fr;
-  min-height: 37.5rem;
+  min-height: 0;
 }
 
 @media (min-width: 1024px) {
   .ip-emp-msg .ip-em-split {
-    grid-template-columns: 5fr 7fr;
+    grid-template-columns: 1fr;
   }
 }
 
@@ -84,7 +84,8 @@
   flex-direction: column;
   background: rgba(248, 250, 252, 0.5);
   border-bottom: 1px solid #e2e8f0;
-  max-height: 24rem;
+  max-height: 16rem;
+  overflow: auto;
 }
 
 @media (min-width: 1024px) {
@@ -678,4 +679,30 @@
   font-weight: 700;
   color: #4338ca;
   text-decoration: none;
+}
+
+.ip-emp-msg .ip-msg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  background: #fff;
+}
+.ip-emp-msg .ip-msg-table th {
+  text-align: left;
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+.ip-emp-msg .ip-msg-table td {
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #0f172a;
+  cursor: pointer;
+}
+.ip-emp-msg .ip-msg-table tr.is-on td {
+  background: #eef2ff;
 }

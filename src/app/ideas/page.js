@@ -18,6 +18,8 @@ import {
   X,
 } from 'lucide-react';
 import '@/components/ip/ip-candidate-ideas-gemini.css';
+import ViewModeToggle from '@/components/ip/ViewModeToggle';
+import { useViewMode } from '@/hooks/useViewMode';
 
 const STATUS_TABS = [
   { id: 'all', label: 'All Ideas' },
@@ -72,6 +74,7 @@ export default function FeatureIdeasPage() {
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useViewMode('ip_ideas_view', 'cards');
   const [filter, setFilter] = useState('all');
   const [categoryId, setCategoryId] = useState('all');
   const [sortBy, setSortBy] = useState('most_voted');
@@ -274,6 +277,7 @@ export default function FeatureIdeasPage() {
             Suggest an Idea
           </button>
         ) : null}
+        <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       <div className="ip-ci-toolbar">
@@ -348,6 +352,32 @@ export default function FeatureIdeasPage() {
           <p>Loading ideas…</p>
         </div>
       ) : filtered.length ? (
+        viewMode === 'list' ? (
+          <div className="overflow-x-auto rounded-lg border bg-white">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-slate-500">
+                  <th className="p-3">Idea</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Votes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((idea) => (
+                  <tr key={idea.id} className="border-b">
+                    <td className="p-3">
+                      <button type="button" className="font-medium text-indigo-700" onClick={() => openDetail(idea)}>
+                        {idea.title}
+                      </button>
+                    </td>
+                    <td className="p-3">{statusLabel(roadmapBucket(idea.status))}</td>
+                    <td className="p-3">{idea.vote_count || 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
         <ul className="ip-ci-list">
           {filtered.map((idea) => {
             const bucket = roadmapBucket(idea.status);
@@ -403,6 +433,7 @@ export default function FeatureIdeasPage() {
             );
           })}
         </ul>
+        )
       ) : (
         <div className="ip-ci-empty">
           <div className="ip-ci-empty__icon">

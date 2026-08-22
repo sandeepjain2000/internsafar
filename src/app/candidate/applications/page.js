@@ -62,6 +62,7 @@ export default function MyApplicationsPage() {
   const [commFilter, setCommFilter] = useState('');
   const [detail, setDetail] = useState(null);
   const [viewMode, setViewMode] = useViewMode('ip_apps_view', 'list');
+  const [loadError, setLoadError] = useState('');
 
   const metrics = useMemo(() => {
     const total = items.length;
@@ -99,15 +100,21 @@ export default function MyApplicationsPage() {
 
   async function load() {
     const params = new URLSearchParams();
-    if (tab && tab !== 'all') params.set('status', tab);
     if (q) params.set('q', q);
     if (sort) params.set('sort', sort);
     if (interviewFilter) params.set('interview', interviewFilter);
     if (offerFilter) params.set('offer', offerFilter);
     if (commFilter) params.set('communication', commFilter);
-    params.set('pageSize', '100');
-    const res = await fetch(`/api/ip/candidate/applications?${params}`);
-    const data = await res.json();
+    params.set('pageSize', '200');
+    const res = await fetch(`/api/ip/candidate/applications?${params}`, { cache: 'no-store' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setItems([]);
+      setTotalServer(0);
+      setLoadError(data.error || 'Could not load applications');
+      return;
+    }
+    setLoadError('');
     setItems(data.items || []);
     setTotalServer(data.total || (data.items || []).length);
     try {
@@ -172,36 +179,7 @@ export default function MyApplicationsPage() {
         <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </div>
 
-      <div className="ip-ap-metrics">
-        <div className="ip-ap-metric">
-          <div>
-            <span>Total Submitted</span>
-            <strong>{metrics.total}</strong>
-          </div>
-          <span className="ip-ap-metric__ico is-slate"><ClipboardList /></span>
-        </div>
-        <div className="ip-ap-metric">
-          <div>
-            <span>In Review</span>
-            <strong className="is-amber">{metrics.review}</strong>
-          </div>
-          <span className="ip-ap-metric__ico is-amber"><Hourglass /></span>
-        </div>
-        <div className="ip-ap-metric">
-          <div>
-            <span>Interviews Scheduled</span>
-            <strong className="is-brand">{metrics.interview}</strong>
-          </div>
-          <span className="ip-ap-metric__ico is-brand"><CalendarDays /></span>
-        </div>
-        <div className="ip-ap-metric">
-          <div>
-            <span>Offers Received</span>
-            <strong className="is-ok">{metrics.offers}</strong>
-          </div>
-          <span className="ip-ap-metric__ico is-ok"><Target /></span>
-        </div>
-      </div>
+      {loadError ? <p className="ip-ap-empty" style={{ margin: '0.75rem 0' }}>{loadError}</p> : null}
 
       <div className="ip-ap-toolbar">
         <div className="ip-ap-toolbar__row">
@@ -358,6 +336,37 @@ export default function MyApplicationsPage() {
             </div>
           </div>
         ) : null}
+      </div>
+
+      <div className="ip-ap-metrics">
+        <div className="ip-ap-metric">
+          <div>
+            <span>Total Submitted</span>
+            <strong>{metrics.total}</strong>
+          </div>
+          <span className="ip-ap-metric__ico is-slate"><ClipboardList /></span>
+        </div>
+        <div className="ip-ap-metric">
+          <div>
+            <span>In Review</span>
+            <strong className="is-amber">{metrics.review}</strong>
+          </div>
+          <span className="ip-ap-metric__ico is-amber"><Hourglass /></span>
+        </div>
+        <div className="ip-ap-metric">
+          <div>
+            <span>Interviews Scheduled</span>
+            <strong className="is-brand">{metrics.interview}</strong>
+          </div>
+          <span className="ip-ap-metric__ico is-brand"><CalendarDays /></span>
+        </div>
+        <div className="ip-ap-metric">
+          <div>
+            <span>Offers Received</span>
+            <strong className="is-ok">{metrics.offers}</strong>
+          </div>
+          <span className="ip-ap-metric__ico is-ok"><Target /></span>
+        </div>
       </div>
 
       {detail ? (

@@ -158,7 +158,7 @@ export default function CandidateDashboard() {
       .then((d) => setProfile(d.profile))
       .catch(() => {});
     Promise.all([
-      fetch('/api/ip/candidate/applications?pageSize=100').then((r) => r.json()).catch(() => ({})),
+      fetch('/api/ip/candidate/applications?pageSize=200', { cache: 'no-store' }).then((r) => r.json()).catch(() => ({})),
       fetch('/api/ip/offers').then((r) => r.json()).catch(() => ({})),
     ]).then(([appData, offerData]) => {
       setApps(appData.items || []);

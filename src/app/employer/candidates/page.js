@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { Search, ShieldCheck, X } from 'lucide-react';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
+import ViewModeToggle from '@/components/ip/ViewModeToggle';
+import { useViewMode } from '@/hooks/useViewMode';
 import '@/components/ip/ip-employer-candidates-gemini.css';
 
 const PAGE_SIZE = 10;
@@ -97,6 +99,7 @@ export default function CandidateSearchPage() {
   const [toast, setToast] = useState('');
   const [busy, setBusy] = useState(false);
   const { page, setPage, totalPages, total, pageItems } = useClientPagination(items, PAGE_SIZE);
+  const [viewMode, setViewMode] = useViewMode('ip_emp_cand_view', 'cards');
 
   function showToast(msg) {
     setToast(msg);
@@ -284,11 +287,33 @@ export default function CandidateSearchPage() {
             <option value="experience">Most experience</option>
           </select>
         </label>
+        <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       <div className="ip-ec-layout">
         <div className="ip-ec-results">
-          {pageItems.map((c) => {
+          {viewMode === 'list' ? (
+            <div className="overflow-x-auto rounded-lg border bg-white">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-slate-500">
+                    <th className="p-3">Candidate</th>
+                    <th className="p-3">College</th>
+                    <th className="p-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageItems.map((c) => (
+                    <tr key={c.id} className="border-b">
+                      <td className="p-3">{c.name}</td>
+                      <td className="p-3">{c.college || '—'}</td>
+                      <td className="p-3">{statusInfo(c).label}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : pageItems.map((c) => {
             const st = statusInfo(c);
             const skills = Array.isArray(c.skills) ? c.skills : [];
             const r = c.relationship || {};

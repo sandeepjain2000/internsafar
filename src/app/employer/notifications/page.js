@@ -21,6 +21,8 @@ import {
   X,
 } from 'lucide-react';
 import '@/components/ip/ip-employer-notifications-gemini.css';
+import ViewModeToggle from '@/components/ip/ViewModeToggle';
+import { useViewMode } from '@/hooks/useViewMode';
 
 const TABS = ['All', 'Unread', 'Applications', 'Offers', 'Rewards', 'Time-limited', 'Last 24h', 'Last 7 days'];
 
@@ -104,6 +106,7 @@ export default function EmployerNotificationsPage() {
   const [search, setSearch] = useState('');
   const [toastMsg, setToastMsg] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useViewMode('ip_emp_notif_view', 'cards');
 
   async function load() {
     const [notifRes, refRes] = await Promise.all([
@@ -212,6 +215,7 @@ export default function EmployerNotificationsPage() {
           </div>
           <p>Stay updated on candidate applications, offer sign-offs, and platform reward milestones.</p>
         </div>
+        <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       <div className="ip-en-filters">
@@ -259,6 +263,28 @@ export default function EmployerNotificationsPage() {
           <p>New applications, offer responses, and reward updates will show up here.</p>
         </div>
       ) : filtered.length ? (
+        viewMode === 'list' ? (
+          <div className="overflow-x-auto rounded-lg border bg-white">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-slate-500">
+                  <th className="p-3">Title</th>
+                  <th className="p-3">When</th>
+                  <th className="p-3">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((n) => (
+                  <tr key={n.id} className="border-b">
+                    <td className="p-3">{n.title}</td>
+                    <td className="p-3">{formatWhen(n.created_at)}</td>
+                    <td className="p-3">{n.read_at ? 'Read' : 'Unread'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
         <>
           <ul className="ip-en-list">
             {filtered.map((n) => {
@@ -323,6 +349,7 @@ export default function EmployerNotificationsPage() {
             <span>Updated when you open this page</span>
           </div>
         </>
+        )
       ) : (
         <div className="ip-en-empty">
           <div className="ip-en-empty__icon ip-en-empty__icon--muted">

@@ -529,53 +529,40 @@ export default function MessagesSplitPane({ role = 'employer' }) {
               {loadingList ? (
                 <p className="ip-cm-empty-list">Loading…</p>
               ) : filtered.length ? (
-                filtered.map((t) => {
-                  const unread = Number(t.unread_count) > 0;
-                  const on = t.id === selectedId;
-                  const name = counterpartName(t, role);
-                  return (
-                    <div
-                      key={t.id}
-                      className={`ip-cm-item${on ? ' ip-cm-item--on' : ''}`}
-                      onClick={() => selectThread(t.id)}
-                    >
-                      <div className="ip-cm-item-top">
-                        <div className="ip-cm-item-who">
-                          <div className="ip-cm-avatar">{initials(name)}</div>
-                          <div>
-                            <h4>
-                              <span>{name}</span>
-                              {t.employer_verified ? (
-                                <span className="ip-cm-verified" title="Verified recruiter">✓</span>
-                              ) : null}
-                            </h4>
-                            <p>{roleLine(t)}</p>
-                          </div>
-                        </div>
-                        <div className="ip-cm-item-meta">
-                          <time>{formatWhen(t.last_message_at || t.updated_at)}</time>
-                          {unread ? <span className="ip-cm-unread" aria-label="Unread" /> : null}
-                        </div>
-                      </div>
-                      <p className="ip-cm-preview">{t.last_message || t.subject || 'No messages yet'}</p>
-                      <div className="ip-cm-item-foot">
-                        <span className={`ip-cm-pill ip-cm-pill--${t.action_tone || 'muted'}`}>
-                          {t.action_status || 'Waiting for employer'}
-                        </span>
-                        <button
-                          type="button"
-                          className="ip-cm-row-archive"
-                          onClick={(ev) => {
-                            ev.stopPropagation();
-                            setArchived(t.id, !t.archived);
-                          }}
+                <table className="ip-msg-table">
+                  <thead>
+                    <tr>
+                      <th>From</th>
+                      <th>Internship</th>
+                      <th>Preview</th>
+                      <th>When</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((t) => {
+                      const unread = Number(t.unread_count) > 0;
+                      const on = t.id === selectedId;
+                      const name = counterpartName(t, role);
+                      return (
+                        <tr
+                          key={t.id}
+                          className={on ? 'is-on' : undefined}
+                          onClick={() => selectThread(t.id)}
                         >
-                          {t.archived ? 'Unarchive' : 'Archive'}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
+                          <td>
+                            <strong>{name}</strong>
+                            {unread ? <span className="ip-cm-unread" aria-label="Unread" /> : null}
+                          </td>
+                          <td>{roleLine(t)}</td>
+                          <td className="ip-msg-table__preview">{t.last_message || t.subject || '—'}</td>
+                          <td>{formatWhen(t.last_message_at || t.updated_at)}</td>
+                          <td>{t.application_status || (Number(t.message_count) ? 'Open' : 'New')}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               ) : (
                 <div className="ip-cm-empty-list">
                   <p style={{ fontWeight: 800, color: '#334155', margin: 0 }}>No conversations found</p>
@@ -838,34 +825,40 @@ export default function MessagesSplitPane({ role = 'employer' }) {
             {loadingList ? (
               <p className="ip-em-empty-list">Loading…</p>
             ) : filtered.length ? (
-              filtered.map((t) => {
-                const unread = Number(t.unread_count) > 0;
-                const on = t.id === selectedId;
-                const name = counterpartName(t, role);
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    className={`ip-em-item${on ? ' ip-em-item--on' : ''}`}
-                    onClick={() => selectThread(t.id)}
-                  >
-                    <div className="ip-em-avatar">
-                      {initials(name)}
-                      {unread ? <span className="ip-em-unread-dot" aria-hidden /> : null}
-                    </div>
-                    <div className="ip-em-item-main">
-                      <div className="ip-em-item-top">
-                        <strong>{name}</strong>
-                        <span>{formatWhen(t.last_message_at || t.updated_at)}</span>
-                      </div>
-                      <p className="ip-em-item-role">{roleLine(t)}</p>
-                      <p className="ip-em-item-preview">
-                        {t.last_message || t.subject || 'No messages yet'}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })
+              <table className="ip-msg-table">
+                <thead>
+                  <tr>
+                    <th>Candidate</th>
+                    <th>Internship</th>
+                    <th>Preview</th>
+                    <th>When</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((t) => {
+                    const unread = Number(t.unread_count) > 0;
+                    const on = t.id === selectedId;
+                    const name = counterpartName(t, role);
+                    return (
+                      <tr
+                        key={t.id}
+                        className={on ? 'is-on' : undefined}
+                        onClick={() => selectThread(t.id)}
+                      >
+                        <td>
+                          <strong>{name}</strong>
+                          {unread ? <span className="ip-em-unread-dot" aria-hidden /> : null}
+                        </td>
+                        <td>{roleLine(t)}</td>
+                        <td>{t.last_message || t.subject || '—'}</td>
+                        <td>{formatWhen(t.last_message_at || t.updated_at)}</td>
+                        <td>{t.application_status || 'Open'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             ) : (
               <p className="ip-em-empty-list">No conversations match.</p>
             )}

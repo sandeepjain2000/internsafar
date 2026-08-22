@@ -19,6 +19,8 @@ import {
   X,
 } from 'lucide-react';
 import '@/components/ip/ip-candidate-notifications-gemini.css';
+import ViewModeToggle from '@/components/ip/ViewModeToggle';
+import { useViewMode } from '@/hooks/useViewMode';
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -70,6 +72,7 @@ export default function CandidateNotificationsPage() {
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useViewMode('ip_cand_notif_view', 'cards');
 
   function showToast(msg) {
     setToast(msg);
@@ -176,6 +179,7 @@ export default function CandidateNotificationsPage() {
           <CheckCheck aria-hidden />
           Mark all as read
         </button>
+        <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       <div className="ip-cn-toolbar">
@@ -233,6 +237,28 @@ export default function CandidateNotificationsPage() {
           <p>Loading notifications…</p>
         </div>
       ) : filtered.length ? (
+        viewMode === 'list' ? (
+          <div className="overflow-x-auto rounded-lg border bg-white">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-slate-500">
+                  <th className="p-3">Title</th>
+                  <th className="p-3">When</th>
+                  <th className="p-3">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((n) => (
+                  <tr key={n.id} className="border-b">
+                    <td className="p-3">{n.title}</td>
+                    <td className="p-3">{relativeTime(n.created_at)}</td>
+                    <td className="p-3">{n.isUnread || !n.read_at ? 'Unread' : 'Read'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
         <ul className="ip-cn-list">
           {filtered.map((n) => {
             const unread = n.isUnread || !n.read_at;
@@ -299,6 +325,7 @@ export default function CandidateNotificationsPage() {
             );
           })}
         </ul>
+        )
       ) : (
         <div className="ip-cn-empty">
           <div className="ip-cn-empty__icon">

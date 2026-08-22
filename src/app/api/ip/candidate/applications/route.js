@@ -19,13 +19,16 @@ import {
 import { withApplicationCapacityLock } from '@/lib/ipApplicationCapacity';
 import { maskEmployerName } from '@/lib/ipEmployerIdentity';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request) {
   const { session, error } = await requireSession(['candidate']);
   if (error) return error;
+  try {
   await ensureIpApplicationInterviewSchema();
   await ensureIpWorkbenchSchema();
   const cand = await query(`SELECT id FROM ip_candidates WHERE user_id = $1`, [session.user.id]);
-  if (!cand.rows[0]) return jsonOk({ items: [], total: 0 });
+  if (!cand.rows[0]) return jsonOk({ items: [], total: 0, page: 1, pageSize: 20 });
 
   const { searchParams } = new URL(request.url);
   const status = (searchParams.get('status') || '').trim();
@@ -38,7 +41,7 @@ export async function GET(request) {
   const updatedFrom = searchParams.get('updatedFrom') || '';
   const updatedTo = searchParams.get('updatedTo') || '';
   const page = Math.max(1, Number(searchParams.get('page') || 1));
-  const pageSize = Math.min(50, Math.max(5, Number(searchParams.get('pageSize') || 20)));
+  const pageSize = Math.min(200, Math.max(5, Number(searchParams.get('pageSize') || 20)));
   const sort = searchParams.get('sort') || 'latest';
 
   const params = [cand.rows[0].id, session.user.id];
@@ -82,9 +85,15 @@ export async function GET(request) {
     where.push(`a.interview_at IS NULL`);
   }
   if (offer === 'yes') {
-    where.push(`EXISTS (SELECT 1 FROM ip_offers o WHERE o.application_id = a.id)`);
+    where.push(`EXISTS (
+      SELECT 1 FROM ip_offers o
+      WHERE o.internship_id = a.internship_id AND o.candidate_id = a.candidate_id
+    )`);
   } else if (offer === 'no') {
-    where.push(`NOT EXISTS (SELECT 1 FROM ip_offers o WHERE o.application_id = a.id)`);
+    where.push(`NOT EXISTS (
+      SELECT 1 FROM ip_offers o
+      WHERE o.internship_id = a.internship_id AND o.candidate_id = a.candidate_id
+    )`);
   }
   if (communication === 'unread') {
     where.push(`EXISTS (
@@ -124,7 +133,9 @@ export async function GET(request) {
               JOIN ip_messages m ON m.thread_id = t.id
               WHERE t.internship_id = a.internship_id AND t.candidate_user_id = $2
             ) AS last_message_at,
-            (SELECT o.status FROM ip_offers o WHERE o.application_id = a.id ORDER BY o.created_at DESC LIMIT 1) AS offer_status,
+            (SELECT o.status FROM ip_offers o
+              WHERE o.internship_id = a.internship_id AND o.candidate_id = a.candidate_id
+              ORDER BY o.created_at DESC LIMIT 1) AS offer_status,
             EXISTS (
               SELECT 1 FROM ip_message_threads t
               JOIN ip_messages m ON m.thread_id = t.id
@@ -151,6 +162,10 @@ export async function GET(request) {
   });
 
   return jsonOk({ items, total, page, pageSize });
+  } catch (e) {
+    console.error('[ip/candidate/applications GET]', e);
+    return jsonError(e.message || 'Failed to load applications', 500);
+  }
 }
 
 export async function POST(request) {
