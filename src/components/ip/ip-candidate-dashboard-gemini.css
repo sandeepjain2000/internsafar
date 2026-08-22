@@ -57,28 +57,30 @@
   gap: 0.5rem;
   margin: 0;
   box-sizing: border-box;
-  border: none;
+  border: 1px solid #cbd5e1;
   border-radius: 0.65rem;
-  background: var(--ip-indigo);
-  color: #fff !important;
+  background: #ffffff;
+  color: #0f172a !important;
   padding: 0.65rem 1rem;
   font-size: 0.8125rem;
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  box-shadow: none;
 }
 
 .ip-cand-dash .ip-cd-browse-cta:hover {
-  background: #3d10b8;
+  background: #f8fafc;
+  border-color: #94a3b8;
 }
 
 .ip-cand-dash .ip-cd-pending {
-  border-radius: 0.9rem;
+  border-radius: 1rem;
   padding: 1.15rem 1.25rem;
-  color: #fff;
-  background: linear-gradient(90deg, #312e81 0%, #3730a3 45%, #1e1b4b 100%);
-  box-shadow: 0 8px 24px rgba(49, 46, 129, 0.25);
+  color: #0f172a;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .ip-cand-dash .ip-cd-pending__head {
@@ -88,7 +90,7 @@
   gap: 0.75rem;
   padding-bottom: 0.75rem;
   margin-bottom: 0.85rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .ip-cand-dash .ip-cd-pending__title {
@@ -99,20 +101,20 @@
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #fcd34d;
+  color: #92400e;
 }
 
 .ip-cand-dash .ip-cd-pending__dot {
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 9999px;
-  background: #f59e0b;
-  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.25);
+  background: #d97706;
+  box-shadow: none;
 }
 
 .ip-cand-dash .ip-cd-pending__count {
   font-size: 0.75rem;
-  color: #c7d2fe;
+  color: #64748b;
 }
 
 .ip-cand-dash .ip-cd-pending__grid {
@@ -134,8 +136,8 @@
   gap: 0.75rem;
   padding: 0.85rem;
   border-radius: 0.75rem;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
 }
 
 .ip-cand-dash .ip-cd-pending__badges {
@@ -152,33 +154,37 @@
   border-radius: 0.35rem;
   font-size: 0.625rem;
   font-weight: 800;
-  color: #fff;
+  border: 1px solid transparent;
 }
 
 .ip-cand-dash .ip-cd-pending__badge--offer {
-  background: rgba(244, 63, 94, 0.85);
+  background: #fff1f2;
+  color: #be123c;
+  border-color: #fecdd3;
 }
 
 .ip-cand-dash .ip-cd-pending__badge--interview {
-  background: rgba(245, 158, 11, 0.85);
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
 }
 
 .ip-cand-dash .ip-cd-pending__when {
   font-size: 0.75rem;
-  color: #c7d2fe;
+  color: #64748b;
 }
 
 .ip-cand-dash .ip-cd-pending__card h3 {
   margin: 0;
   font-size: 0.875rem;
   font-weight: 800;
-  color: #fff !important;
+  color: #0f172a !important;
 }
 
 .ip-cand-dash .ip-cd-pending__card p {
   margin: 0.2rem 0 0;
   font-size: 0.75rem;
-  color: #c7d2fe;
+  color: #64748b;
 }
 
 .ip-cand-dash .ip-cd-pending__cta {
@@ -188,10 +194,10 @@
   align-items: center;
   justify-content: center;
   margin: 0;
-  border: none;
+  border: 1px solid #cbd5e1;
   border-radius: 0.5rem;
-  background: #fff;
-  color: #312e81 !important;
+  background: #ffffff;
+  color: #0f172a !important;
   padding: 0.45rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 700;
@@ -200,7 +206,8 @@
 }
 
 .ip-cand-dash .ip-cd-pending__cta:hover {
-  background: #eef2ff;
+  background: #f8fafc;
+  border-color: #94a3b8;
 }
 
 .ip-cand-dash .ip-cd-stats {
@@ -250,20 +257,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f5f3ff;
-  border: 1px solid #ede9fe;
-  color: var(--ip-indigo);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
 }
 
 .ip-cand-dash .ip-cd-stat__ico--indigo {
-  background: #eef2ff;
-  border-color: #e0e7ff;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #475569;
 }
 
 .ip-cand-dash .ip-cd-stat__ico--green {
-  background: #ecfdf5;
-  border-color: #a7f3d0;
-  color: #059669;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #475569;
 }
 
 .ip-cand-dash .ip-cd-stat__row {
@@ -370,9 +378,9 @@
   display: inline-flex;
   padding: 0.2rem 0.55rem;
   border-radius: 9999px;
-  background: #f5f3ff;
-  border: 1px solid #ddd6fe;
-  color: var(--ip-indigo);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
   font-size: 0.625rem;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -400,7 +408,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #f59e0b, var(--ip-indigo));
+  background: #64748b;
 }
 
 .ip-cand-dash .ip-cd-ready__list {
@@ -602,7 +610,7 @@
   padding: 0;
   font-size: 0.75rem;
   font-weight: 800;
-  color: var(--ip-indigo);
+  color: #1e293b;
   text-decoration: none;
   cursor: pointer;
 }
@@ -613,17 +621,7 @@
 
 .ip-cand-dash .ip-cd-saved {
   position: relative;
-  border: 2px solid rgba(237, 233, 254, 0.95);
-}
-
-.ip-cand-dash .ip-cd-saved::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--ip-indigo), var(--ip-accent));
+  border: 1px solid #e2e8f0;
 }
 
 .ip-cand-dash .ip-cd-saved__title {
@@ -639,9 +637,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #f5f3ff;
-  border: 1px solid #ddd6fe;
-  color: var(--ip-indigo);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
 }
 
 .ip-cand-dash .ip-cd-saved-row {
@@ -693,9 +691,9 @@
 }
 
 .ip-cand-dash .ip-cd-feature:hover {
-  border-color: #ddd6fe;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+  border-color: #cbd5e1;
+  transform: none;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .ip-cand-dash .ip-cd-feature__ico {
@@ -712,9 +710,9 @@
 }
 
 .ip-cand-dash .ip-cd-feature:hover .ip-cd-feature__ico {
-  background: #f5f3ff;
-  border-color: #ddd6fe;
-  color: var(--ip-indigo);
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #334155;
 }
 
 .ip-cand-dash .ip-cd-feature h2 {
