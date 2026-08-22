@@ -252,9 +252,9 @@ export default function CandidateOffersPage() {
         </div>
       ) : null}
 
-      <div className={viewMode === 'list' ? 'overflow-x-auto rounded-lg border bg-white' : 'ip-of-list'}>
+      <div className={viewMode === 'list' ? 'ip-ph-list-wrap' : 'ip-of-list'}>
         {viewMode === 'list' ? (
-          <table className="w-full text-sm">
+          <table className="ip-ph-list">
             <thead>
               <tr className="border-b text-left text-slate-500">
                 <th className="p-3">Role</th>

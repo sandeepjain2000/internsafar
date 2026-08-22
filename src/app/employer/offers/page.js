@@ -345,7 +345,7 @@ export default function EmployerOffersPage() {
         </div>
 
         <div className="ip-eo-table-wrap">
-          <table className="ip-eo-table">
+          <table className="ip-ph-list ip-eo-table">
             <thead>
               <tr>
                 <th>Candidate & Role</th>

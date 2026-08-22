@@ -339,33 +339,33 @@ export default function BrowseInternshipsPage() {
 
       {items.length ? (
         viewMode === 'list' ? (
-          <div className="overflow-x-auto rounded-lg border bg-white">
-            <table className="w-full text-sm">
+          <div className="ip-ph-list-wrap">
+            <table className="ip-ph-list">
               <thead>
-                <tr className="border-b text-left text-slate-500">
-                  <th className="p-3">Role</th>
-                  <th className="p-3">Employer</th>
-                  <th className="p-3">Location</th>
-                  <th className="p-3">Start</th>
-                  <th className="p-3">Duration</th>
-                  <th className="p-3">Stipend</th>
-                  <th className="p-3">Match</th>
+                <tr>
+                  <th>Role</th>
+                  <th>Employer</th>
+                  <th>Location</th>
+                  <th>Start</th>
+                  <th>Duration</th>
+                  <th>Stipend</th>
+                  <th>Match</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((i) => (
-                  <tr key={i.id} className="border-b">
-                    <td className="p-3">
-                      <button type="button" className="font-medium text-indigo-700" onClick={() => router.push(`/candidate/internships/${i.id}`)}>
+                  <tr key={i.id}>
+                    <td>
+                      <button type="button" className="ip-ph-role" onClick={() => router.push(`/candidate/internships/${i.id}`)}>
                         {i.title}
                       </button>
                     </td>
-                    <td className="p-3">{i.company_name}</td>
-                    <td className="p-3">{[i.work_mode, i.location].filter(Boolean).join(' • ') || '—'}</td>
-                    <td className="p-3">{startLabel(i)}</td>
-                    <td className="p-3">{durationLabel(i)}</td>
-                    <td className="p-3">{stipendLabel(i)}</td>
-                    <td className="p-3">{i.match_score != null ? `${Math.round(Number(i.match_score))}%` : '—'}</td>
+                    <td>{i.company_name}</td>
+                    <td>{[i.work_mode, i.location].filter(Boolean).join(' • ') || '—'}</td>
+                    <td>{startLabel(i)}</td>
+                    <td>{durationLabel(i)}</td>
+                    <td>{stipendLabel(i)}</td>
+                    <td>{i.match_score != null ? `${Math.round(Number(i.match_score))}%` : '—'}</td>
                   </tr>
                 ))}
               </tbody>

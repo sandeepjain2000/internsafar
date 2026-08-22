@@ -7852,3 +7852,100 @@ a.company-name-link:hover {
   background-color: var(--bg-secondary);
 }
 
+/* Placement Hub–style list tables (candidate / employer / SuperAdmin). */
+.ip-ph-list-wrap {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  overflow-x: auto;
+}
+.ip-ph-list,
+.ip-ap-table,
+.ip-msg-table,
+.ip-eo-table,
+.ip-epo-table,
+.ip-saq-table,
+.ip-sad-table,
+.ip-er-table,
+.ip-rf-table,
+.ip-en-table {
+  width: 100%;
+  min-width: max-content;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  background: #fff;
+}
+.ip-ph-list thead,
+.ip-ap-table thead,
+.ip-msg-table thead,
+.ip-eo-table thead,
+.ip-epo-table thead,
+.ip-saq-table thead,
+.ip-sad-table thead,
+.ip-er-table thead,
+.ip-rf-table thead {
+  background: #f8fafc;
+}
+.ip-ph-list th,
+.ip-ap-table th,
+.ip-msg-table th,
+.ip-eo-table th,
+.ip-epo-table th,
+.ip-saq-table th,
+.ip-sad-table th,
+.ip-er-table th,
+.ip-rf-table th {
+  padding: 0.875rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: #334155;
+  white-space: nowrap;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+.ip-ph-list td,
+.ip-ap-table td,
+.ip-msg-table td,
+.ip-eo-table td,
+.ip-epo-table td,
+.ip-saq-table td,
+.ip-sad-table td,
+.ip-er-table td,
+.ip-rf-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  color: #0f172a;
+  vertical-align: middle;
+}
+.ip-ph-list tbody tr:hover td,
+.ip-ap-table tbody tr:hover td,
+.ip-msg-table tbody tr:hover td,
+.ip-eo-table tbody tr:hover td,
+.ip-saq-table tbody tr:hover td,
+.ip-sad-table tbody tr:hover td,
+.ip-epo-table tbody tr:hover td {
+  background: #f8fafc;
+}
+.ip-ph-list tbody tr:last-child td,
+.ip-ap-table tbody tr:last-child td,
+.ip-msg-table tbody tr:last-child td,
+.ip-eo-table tbody tr:last-child td,
+.ip-saq-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.ip-ph-role {
+  display: inline-flex;
+  align-items: center;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: #334155 !important;
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  text-decoration: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+

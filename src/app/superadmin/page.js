@@ -374,7 +374,7 @@ export default function SuperAdminDashboard() {
           <div className="ip-sad-empty">No matching operational queues.</div>
         ) : (
           <div className="ip-sad-table-wrap">
-            <table className="ip-sad-table">
+            <table className="ip-ph-list ip-sad-table">
               <thead>
                 <tr>
                   <th>Operational Area</th>

@@ -4,7 +4,6 @@ import { newId } from '@/lib/ids';
 import { notifyUser } from '@/lib/ipNotify';
 import { sendMail } from '@/lib/mail';
 import { FIRST_APPLICATION_BONUS, POINTS_PER_APPLICATION } from '@/lib/pointsEconomy';
-import { ensureIpApplicationInterviewSchema } from '@/lib/ensureIpApplicationInterviewSchema';
 import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
 import { decorateCandidateApplication } from '@/lib/ipApplicationPresentation';
 import { maybeAwardFirstApplicationBonus } from '@/lib/ipReferralCredit';
@@ -21,147 +20,82 @@ import { maskEmployerName } from '@/lib/ipEmployerIdentity';
 
 export const dynamic = 'force-dynamic';
 
+async function resolveCandidateId(session) {
+  const uid = session.user.id;
+  const email = String(session.user.email || '').trim();
+  const byUser = await query(`SELECT id FROM ip_candidates WHERE user_id = $1 LIMIT 1`, [uid]);
+  if (byUser.rows[0]?.id) return byUser.rows[0].id;
+  if (email) {
+    const byEmail = await query(
+      `SELECT c.id FROM ip_candidates c
+       JOIN ip_users u ON u.id = c.user_id
+       WHERE lower(u.email) = lower($1) OR lower(c.email) = lower($1)
+       LIMIT 1`,
+      [email],
+    );
+    if (byEmail.rows[0]?.id) return byEmail.rows[0].id;
+  }
+  return null;
+}
+
 export async function GET(request) {
   const { session, error } = await requireSession(['candidate']);
   if (error) return error;
   try {
-  await ensureIpApplicationInterviewSchema();
-  await ensureIpWorkbenchSchema();
-  const cand = await query(`SELECT id FROM ip_candidates WHERE user_id = $1`, [session.user.id]);
-  if (!cand.rows[0]) return jsonOk({ items: [], total: 0, page: 1, pageSize: 20 });
+    const candidateId = await resolveCandidateId(session);
+    if (!candidateId) return jsonOk({ items: [], total: 0, page: 1, pageSize: 20 });
 
-  const { searchParams } = new URL(request.url);
-  const status = (searchParams.get('status') || '').trim();
-  const q = (searchParams.get('q') || '').trim().toLowerCase();
-  const communication = (searchParams.get('communication') || '').trim();
-  const interview = (searchParams.get('interview') || '').trim();
-  const offer = (searchParams.get('offer') || '').trim();
-  const dateFrom = searchParams.get('dateFrom') || '';
-  const dateTo = searchParams.get('dateTo') || '';
-  const updatedFrom = searchParams.get('updatedFrom') || '';
-  const updatedTo = searchParams.get('updatedTo') || '';
-  const page = Math.max(1, Number(searchParams.get('page') || 1));
-  const pageSize = Math.min(200, Math.max(5, Number(searchParams.get('pageSize') || 20)));
-  const sort = searchParams.get('sort') || 'latest';
+    const { searchParams } = new URL(request.url);
+    const q = (searchParams.get('q') || '').trim().toLowerCase();
+    const sort = searchParams.get('sort') || 'latest';
+    const page = Math.max(1, Number(searchParams.get('page') || 1));
+    const pageSize = Math.min(200, Math.max(1, Number(searchParams.get('pageSize') || 50)));
 
-  const params = [cand.rows[0].id, session.user.id];
-  const where = ['a.candidate_id = $1'];
-
-  if (status && status !== 'all') {
-    if (status === 'review') {
-      where.push(`a.status IN ('shortlisted', 'reviewed')`);
-    } else if (status === 'interview') {
-      where.push(`a.status = 'interviewing'`);
-    } else if (status === 'offer') {
-      where.push(`a.status IN ('offered', 'hired', 'accepted')`);
-    } else {
-      params.push(status);
-      where.push(`a.status = $${params.length}`);
+    const params = [candidateId];
+    const where = ['a.candidate_id = $1'];
+    if (q) {
+      params.push(`%${q}%`);
+      where.push(`(lower(coalesce(i.title,'')) LIKE $${params.length} OR lower(coalesce(e.company_name,'')) LIKE $${params.length})`);
     }
-  }
-  if (q) {
-    params.push(`%${q}%`);
-    where.push(`(lower(i.title) LIKE $${params.length} OR lower(e.company_name) LIKE $${params.length})`);
-  }
-  if (dateFrom) {
-    params.push(dateFrom);
-    where.push(`a.created_at >= $${params.length}::timestamptz`);
-  }
-  if (dateTo) {
-    params.push(dateTo);
-    where.push(`a.created_at <= $${params.length}::timestamptz`);
-  }
-  if (updatedFrom) {
-    params.push(updatedFrom);
-    where.push(`a.updated_at >= $${params.length}::timestamptz`);
-  }
-  if (updatedTo) {
-    params.push(updatedTo);
-    where.push(`a.updated_at <= $${params.length}::timestamptz`);
-  }
-  if (interview === 'scheduled') {
-    where.push(`a.interview_at IS NOT NULL`);
-  } else if (interview === 'none') {
-    where.push(`a.interview_at IS NULL`);
-  }
-  if (offer === 'yes') {
-    where.push(`EXISTS (
-      SELECT 1 FROM ip_offers o
-      WHERE o.internship_id = a.internship_id AND o.candidate_id = a.candidate_id
-    )`);
-  } else if (offer === 'no') {
-    where.push(`NOT EXISTS (
-      SELECT 1 FROM ip_offers o
-      WHERE o.internship_id = a.internship_id AND o.candidate_id = a.candidate_id
-    )`);
-  }
-  if (communication === 'unread') {
-    where.push(`EXISTS (
-      SELECT 1 FROM ip_message_threads t
-      JOIN ip_messages m ON m.thread_id = t.id
-      WHERE t.candidate_user_id = $2
-        AND t.internship_id = a.internship_id
-        AND m.sender_user_id <> t.candidate_user_id
-        AND m.read_at IS NULL
-    )`);
-  }
 
-  let orderBy = 'a.created_at DESC';
-  if (sort === 'oldest') orderBy = 'a.created_at ASC';
-  else if (sort === 'status') orderBy = 'a.status ASC, a.created_at DESC';
-  else if (sort === 'match') orderBy = 'a.match_score DESC NULLS LAST';
-  else if (sort === 'updated') orderBy = 'a.updated_at DESC';
+    let orderBy = 'a.created_at DESC NULLS LAST';
+    if (sort === 'oldest') orderBy = 'a.created_at ASC NULLS LAST';
+    else if (sort === 'status') orderBy = 'a.status ASC, a.created_at DESC';
+    else if (sort === 'match') orderBy = 'a.match_score DESC NULLS LAST';
 
-  const countRes = await query(
-    `SELECT count(*)::int AS n
-     FROM ip_applications a
-     JOIN ip_internships i ON i.id = a.internship_id
-     JOIN ip_employers e ON e.id = i.employer_id
-     WHERE ${where.join(' AND ')}`,
-    params,
-  );
-  const total = Number(countRes.rows[0]?.n || 0);
-  const offset = (page - 1) * pageSize;
-  params.push(pageSize);
-  params.push(offset);
+    const countRes = await query(
+      `SELECT count(*)::int AS n
+       FROM ip_applications a
+       LEFT JOIN ip_internships i ON i.id = a.internship_id
+       LEFT JOIN ip_employers e ON e.id = i.employer_id
+       WHERE ${where.join(' AND ')}`,
+      params,
+    );
+    const total = Number(countRes.rows[0]?.n || 0);
+    const offset = (page - 1) * pageSize;
+    params.push(pageSize, offset);
 
-  const result = await query(
-    `SELECT a.*, i.title, i.stipend_inr, i.work_mode, i.location, i.status as internship_status,
-            i.show_employer_identity,
-            e.company_name, e.approval_status,
-            (SELECT max(m.sent_at) FROM ip_message_threads t
-              JOIN ip_messages m ON m.thread_id = t.id
-              WHERE t.internship_id = a.internship_id AND t.candidate_user_id = $2
-            ) AS last_message_at,
-            (SELECT o.status FROM ip_offers o
-              WHERE o.internship_id = a.internship_id AND o.candidate_id = a.candidate_id
-              ORDER BY o.created_at DESC LIMIT 1) AS offer_status,
-            EXISTS (
-              SELECT 1 FROM ip_message_threads t
-              JOIN ip_messages m ON m.thread_id = t.id
-              WHERE t.internship_id = a.internship_id
-                AND t.candidate_user_id = $2
-                AND m.sender_user_id <> t.candidate_user_id
-                AND m.read_at IS NULL
-            ) AS has_unread_messages
-     FROM ip_applications a
-     JOIN ip_internships i ON i.id = a.internship_id
-     JOIN ip_employers e ON e.id = i.employer_id
-     WHERE ${where.join(' AND ')}
-     ORDER BY ${orderBy}
-     LIMIT $${params.length - 1} OFFSET $${params.length}`,
-    params,
-  );
+    const result = await query(
+      `SELECT a.id, a.internship_id, a.candidate_id, a.status, a.match_score, a.created_at, a.updated_at,
+              i.title, i.stipend_inr, i.work_mode, i.location, i.show_employer_identity,
+              e.company_name, e.approval_status
+       FROM ip_applications a
+       LEFT JOIN ip_internships i ON i.id = a.internship_id
+       LEFT JOIN ip_employers e ON e.id = i.employer_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY ${orderBy}
+       LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params,
+    );
 
-  const items = result.rows.map((row) => {
-    const masked = {
-      ...row,
-      company_name: maskEmployerName(row.company_name, row.show_employer_identity !== false),
-    };
-    return decorateCandidateApplication(masked);
-  });
+    const items = result.rows.map((row) =>
+      decorateCandidateApplication({
+        ...row,
+        company_name: maskEmployerName(row.company_name, row.show_employer_identity !== false),
+      }),
+    );
 
-  return jsonOk({ items, total, page, pageSize });
+    return jsonOk({ items, total, page, pageSize });
   } catch (e) {
     console.error('[ip/candidate/applications GET]', e);
     return jsonError(e.message || 'Failed to load applications', 500);

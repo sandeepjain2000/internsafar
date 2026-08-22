@@ -251,8 +251,8 @@ export default function EmployerInternshipsPage() {
           </div>
         </div>
 
-        <div className="ip-epo-table-wrap">
-          <table>
+        <div className="ip-ph-list-wrap ip-epo-table-wrap">
+          <table className="ip-ph-list ip-epo-table">
             <thead>
               <tr>
                 <th style={{ width: '3rem' }}>#</th>

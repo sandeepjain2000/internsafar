@@ -155,7 +155,7 @@ export default function MessagesInbox({ role }) {
         </div>
 
         <div className="ip-msg-table-wrap">
-          <table className="ip-msg-table">
+          <table className="ip-ph-list ip-msg-table">
             <thead>
               <tr>
                 <th style={{ width: '3rem' }}>#</th>

@@ -264,8 +264,8 @@ export default function EmployerNotificationsPage() {
         </div>
       ) : filtered.length ? (
         viewMode === 'list' ? (
-          <div className="overflow-x-auto rounded-lg border bg-white">
-            <table className="w-full text-sm">
+          <div className="ip-ph-list-wrap">
+            <table className="ip-ph-list">
               <thead>
                 <tr className="border-b text-left text-slate-500">
                   <th className="p-3">Title</th>

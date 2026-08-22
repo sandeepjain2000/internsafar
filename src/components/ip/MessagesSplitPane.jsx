@@ -529,7 +529,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
               {loadingList ? (
                 <p className="ip-cm-empty-list">Loading…</p>
               ) : filtered.length ? (
-                <table className="ip-msg-table">
+                <table className="ip-ph-list ip-msg-table">
                   <thead>
                     <tr>
                       <th>From</th>
@@ -825,7 +825,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
             {loadingList ? (
               <p className="ip-em-empty-list">Loading…</p>
             ) : filtered.length ? (
-              <table className="ip-msg-table">
+              <table className="ip-ph-list ip-msg-table">
                 <thead>
                   <tr>
                     <th>Candidate</th>

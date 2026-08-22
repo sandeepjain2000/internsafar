@@ -232,7 +232,7 @@ export default function LoginReportPage() {
         ) : (
           <>
             <div className="ip-saq-table-wrap">
-              <table className="ip-saq-table">
+              <table className="ip-ph-list ip-saq-table">
                 <thead>
                   <tr>
                     <th>#</th>

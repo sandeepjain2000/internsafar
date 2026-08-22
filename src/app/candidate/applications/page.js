@@ -92,21 +92,18 @@ export default function MyApplicationsPage() {
     return rows;
   }, [items, q, sort, tab]);
 
-  const { page, setPage, totalPages, total, pageItems, serialOffset } = useClientPagination(filtered, PAGE_SIZE);
+  const { page, setPage, totalPages, total, pageItems } = useClientPagination(filtered, PAGE_SIZE);
 
   useEffect(() => {
     setPage(1);
   }, [q, sort, tab, setPage]);
 
   async function load() {
-    const params = new URLSearchParams();
-    if (q) params.set('q', q);
-    if (sort) params.set('sort', sort);
-    if (interviewFilter) params.set('interview', interviewFilter);
-    if (offerFilter) params.set('offer', offerFilter);
-    if (commFilter) params.set('communication', commFilter);
-    params.set('pageSize', '200');
-    const res = await fetch(`/api/ip/candidate/applications?${params}`, { cache: 'no-store' });
+    setLoadError('');
+    const res = await fetch('/api/ip/candidate/applications?pageSize=200', {
+      cache: 'no-store',
+      credentials: 'include',
+    });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       setItems([]);
@@ -114,15 +111,9 @@ export default function MyApplicationsPage() {
       setLoadError(data.error || 'Could not load applications');
       return;
     }
-    setLoadError('');
-    setItems(data.items || []);
-    setTotalServer(data.total || (data.items || []).length);
-    try {
-      localStorage.setItem(
-        'ip_candidate_app_filters',
-        JSON.stringify({ tab, sort, interviewFilter, offerFilter, commFilter }),
-      );
-    } catch { /* ignore */ }
+    const list = Array.isArray(data.items) ? data.items : [];
+    setItems(list);
+    setTotalServer(Number(data.total) || list.length);
   }
 
   async function loadThreads() {
@@ -138,7 +129,7 @@ export default function MyApplicationsPage() {
   useEffect(() => {
     load();
     loadThreads();
-  }, [tab, sort, interviewFilter, offerFilter, commFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openThread(internshipId) {
     const threadId = threadByInternship[internshipId];
@@ -235,47 +226,39 @@ export default function MyApplicationsPage() {
           </div>
         ) : null}
         {viewMode === 'list' ? (
-        <div className="ip-ap-table-wrap">
-          <table className="ip-ap-table">
+        <div className="ip-ph-list-wrap">
+          <table className="ip-ph-list">
             <thead>
               <tr>
-                <th className="ip-ap-num">#</th>
-                <th>Internship Role &amp; Employer</th>
-                <th>Stipend &amp; Location</th>
-                <th>Applied Date</th>
-                <th>Current Status</th>
-                <th>What Happens Next</th>
-                <th className="ip-ap-actions">Actions</th>
+                <th>Role</th>
+                <th>Employer</th>
+                <th>Stipend</th>
+                <th>Location</th>
+                <th>Applied</th>
+                <th>Status</th>
+                <th>Next</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {pageItems.map((a, idx) => (
+              {pageItems.map((a) => (
                 <tr key={a.id}>
-                  <td className="ip-ap-num">{serialOffset + idx + 1}</td>
                   <td>
-                    <Link href={`/candidate/internships/${a.internship_id}`} className="ip-ap-title">
+                    <Link href={`/candidate/internships/${a.internship_id}`} className="ip-ph-role">
                       {a.title || 'Internship'}
                     </Link>
-                    <div className="ip-ap-company">
-                      {a.company_name || '—'}
-                      {a.employer_verified ? <span className="ip-ap-verified" title="Verified employer">✓</span> : null}
-                    </div>
-                    {a.match_score != null ? (
-                      <div className="ip-ap-match-chip">★ {Math.round(Number(a.match_score))}% match</div>
-                    ) : null}
                   </td>
-                  <td>
-                    <div className="ip-ap-stipend">{stipendLabel(a)}</div>
-                    <div className="ip-ap-muted">{[a.work_mode, a.location].filter(Boolean).join(' • ') || '—'}</div>
-                  </td>
-                  <td className="ip-ap-muted">{appliedDate(a.created_at)}</td>
+                  <td>{a.company_name || '—'}</td>
+                  <td>{stipendLabel(a)}</td>
+                  <td>{[a.work_mode, a.location].filter(Boolean).join(' • ') || '—'}</td>
+                  <td>{appliedDate(a.created_at)}</td>
                   <td>
                     <span className={`ip-ap-badge ${statusClass(a.status)}`}>
                       {a.display_status || 'Applied'}
                     </span>
                   </td>
-                  <td className="ip-ap-next">{a.next_step || '—'}</td>
-                  <td className="ip-ap-actions">
+                  <td>{a.next_step || '—'}</td>
+                  <td>
                     <div className="ip-ap-actions__row">
                       <button type="button" className="ip-ap-btn ip-ap-btn--ghost" onClick={() => setDetail(a)}>
                         View Details
