@@ -46,6 +46,11 @@ export async function GET(request, { params }) {
   const minHistCompleted = Number(searchParams.get('minHistCompleted') || 0);
   const minHistOngoing = Number(searchParams.get('minHistOngoing') || 0);
   const includeMcqSummary = searchParams.get('mcqSummary') === '1';
+  const sort = searchParams.get('sort') || 'match';
+  let orderBy = 'a.screening_disabled ASC, a.match_score DESC NULLS LAST, a.created_at ASC';
+  if (sort === 'newest') orderBy = 'a.created_at DESC';
+  if (sort === 'name') orderBy = 'lower(c.name) ASC';
+  if (sort === 'status') orderBy = 'a.status ASC, a.match_score DESC NULLS LAST';
 
   const qParams = [id];
   const where = ['a.internship_id = $1'];
@@ -163,7 +168,7 @@ export async function GET(request, { params }) {
               JOIN ip_employer_lists l ON l.id = lm.list_id WHERE lm.application_id = a.id) AS list_names
      FROM ip_applications a JOIN ip_candidates c ON c.id = a.candidate_id
      WHERE ${where.join(' AND ')}
-     ORDER BY a.screening_disabled ASC, a.match_score DESC NULLS LAST, a.created_at ASC
+     ORDER BY ${orderBy}
      LIMIT $${qParams.length - 1} OFFSET $${qParams.length}`,
     qParams,
   );

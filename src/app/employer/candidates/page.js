@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Search, ShieldCheck, X } from 'lucide-react';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
+import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import '@/components/ip/ip-employer-candidates-gemini.css';
 
 const PAGE_SIZE = 10;
@@ -93,13 +96,38 @@ export default function CandidateSearchPage() {
     startDate: '', endDate: '', validUntil: '', letterUrl: '',
     onboardingInstructions: '', mentorName: '', hrContactEmail: '', hrContactPhone: '',
   });
-  const [profileTarget, setProfileTarget] = useState(null);
   const [whyText, setWhyText] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
   const [toast, setToast] = useState('');
   const [busy, setBusy] = useState(false);
   const { page, setPage, totalPages, total, pageItems } = useClientPagination(items, PAGE_SIZE);
   const [viewMode, setViewMode] = useViewMode('ip_emp_cand_view', 'cards');
+
+  const snapshot = useMemo(() => ({
+    filters: {
+      q, cities, degree, workMode, skill, chip, experience, availability, minCgpa, freshnessDays, matchInternshipId,
+    },
+    sort,
+  }), [q, cities, degree, workMode, skill, chip, experience, availability, minCgpa, freshnessDays, matchInternshipId, sort]);
+  const prefs = useListPrefsSync({
+    tableKey: 'employer.candidates',
+    snapshot,
+    applySnapshot: (s) => {
+      const f = s.filters || {};
+      if (f.q != null) setQ(f.q);
+      if (Array.isArray(f.cities)) setCities(f.cities);
+      if (f.degree != null) setDegree(f.degree);
+      if (f.workMode != null) setWorkMode(f.workMode);
+      if (f.skill != null) setSkill(f.skill);
+      if (f.chip != null) setChip(f.chip);
+      if (f.experience != null) setExperience(f.experience);
+      if (f.availability != null) setAvailability(f.availability);
+      if (f.minCgpa != null) setMinCgpa(String(f.minCgpa));
+      if (f.freshnessDays != null) setFreshnessDays(f.freshnessDays);
+      if (f.matchInternshipId != null) setMatchInternshipId(f.matchInternshipId);
+      if (s.sort) setSort(s.sort);
+    },
+  });
 
   function showToast(msg) {
     setToast(msg);
@@ -134,12 +162,12 @@ export default function CandidateSearchPage() {
     fetch('/api/ip/employer/internships')
       .then((r) => r.json())
       .then((d) => setPostings((d.items || []).filter((i) => i.status === 'published')));
-    load();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    if (!prefs.ready) return;
     load();
-  }, [skill, matchInternshipId, chip, sort, cities, degree, workMode, experience, availability, minCgpa, freshnessDays]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [prefs.ready, skill, matchInternshipId, chip, sort, cities, degree, workMode, experience, availability, minCgpa, freshnessDays]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function clearFilters() {
     setQ('');
@@ -263,6 +291,7 @@ export default function CandidateSearchPage() {
           ))}
           <button type="button" className="ip-ec-clear" onClick={clearFilters}>Clear filters</button>
         </div>
+        <ListPresetsBar {...prefs} />
         <div className="ip-ec-skills-row">
           <span>Filter by skill:</span>
           {SKILL_PILLS.map((s) => (
@@ -327,7 +356,7 @@ export default function CandidateSearchPage() {
                   </div>
                   <div className="ip-ec-person">
                     <h3>
-                      {c.name}
+                      <Link href={`/employer/candidates/${c.id}?from=${encodeURIComponent('/employer/candidates')}`}>{c.name}</Link>
                       <span className={`ip-ec-status ${st.cls}`}>{st.label}</span>
                     </h3>
                     <div className="ip-ec-sub">
@@ -357,7 +386,7 @@ export default function CandidateSearchPage() {
                 <div className="ip-ec-foot">
                   <div className="ip-ec-rel">{relLine(c)}</div>
                   <div className="ip-ec-actions">
-                    <button type="button" className="ip-ec-sbtn" onClick={() => setProfileTarget(c)}>View profile</button>
+                    <Link className="ip-ec-sbtn" href={`/employer/candidates/${c.id}?from=${encodeURIComponent('/employer/candidates')}`}>View profile</Link>
                     {canOffer ? (
                       <button
                         type="button"
@@ -466,44 +495,6 @@ export default function CandidateSearchPage() {
           <div className="ip-ec-modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
             <div className="ip-ec-mhead"><h2>Why this match?</h2><button type="button" className="ip-ec-sbtn" onClick={() => setWhyText('')}>×</button></div>
             <div className="ip-ec-mbody"><p>{whyText}</p></div>
-          </div>
-        </div>
-      ) : null}
-
-      {profileTarget ? (
-        <div className="ip-ec-backdrop" role="dialog">
-          <div className="ip-ec-modal">
-            <div className="ip-ec-mhead">
-              <div>
-                <h2>Candidate profile</h2>
-                <p style={{ margin: '4px 0 0', fontSize: 11, color: '#667085' }}>Employer-visible information permitted by the current privacy workflow</p>
-              </div>
-              <button type="button" className="ip-ec-sbtn" onClick={() => setProfileTarget(null)} aria-label="Close"><X className="size-4" /></button>
-            </div>
-            <div className="ip-ec-mbody">
-              <h3>{profileTarget.name}</h3>
-              <p className="ip-ec-sub">{[profileTarget.degree, profileTarget.specialization, profileTarget.college, profileTarget.city].filter(Boolean).join(' · ')}</p>
-              <p>Academic: {profileTarget.cgpa != null ? `${profileTarget.cgpa} CGPA` : '—'}</p>
-              <p>Availability: {availLabel(profileTarget)}</p>
-              <p>Skills: {(profileTarget.skills || []).join(', ') || '—'}</p>
-              <p className="ip-ec-notice">Email, phone and resume are not shown in this discovery view.</p>
-            </div>
-            <div className="ip-ec-mact">
-              <button type="button" className="ip-ec-sbtn" onClick={() => setProfileTarget(null)}>Close</button>
-              {!(profileTarget.relationship?.applied || profileTarget.relationship?.invited) ? (
-                <button
-                  type="button"
-                  className="ip-ec-sbtn is-primary"
-                  onClick={() => {
-                    setInviteTarget(profileTarget);
-                    setSelectedInternship(matchInternshipId || '');
-                    setProfileTarget(null);
-                  }}
-                >
-                  Invite to apply
-                </button>
-              ) : null}
-            </div>
           </div>
         </div>
       ) : null}

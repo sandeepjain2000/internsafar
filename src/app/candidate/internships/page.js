@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Bookmark, Search, SlidersHorizontal, Star } from 'lucide-react';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
+import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useViewMode } from '@/hooks/useViewMode';
 import { POINTS_PER_APPLICATION } from '@/lib/pointsEconomy';
 import ValidationScoreButton from '@/components/ip/ValidationScoreButton';
@@ -53,6 +55,7 @@ const SORT_OPTIONS = [
   { value: 'highest-stipend', label: 'Highest Stipend' },
   { value: 'newest', label: 'Newest Listed' },
   { value: 'earliest-start', label: 'Earliest Start Date' },
+  { value: 'fewest-applicants', label: 'Fewest Applicants (Best Odds)' },
 ];
 
 function stipendLabel(i) {
@@ -100,6 +103,29 @@ export default function BrowseInternshipsPage() {
   const [cityOptions, setCityOptions] = useState([]);
   const [viewMode, setViewMode] = useViewMode('ip_browse_view', 'cards');
   const reqRef = useRef(0);
+
+  const snapshot = useMemo(() => ({
+    filters: {
+      q, minStipend, workMode, selectedCities, minMatch, minValidation, tab, chip,
+    },
+    sort,
+  }), [q, minStipend, workMode, selectedCities, minMatch, minValidation, tab, chip, sort]);
+  const prefs = useListPrefsSync({
+    tableKey: 'candidate.internships',
+    snapshot,
+    applySnapshot: (s) => {
+      const f = s.filters || {};
+      if (f.q != null) setQ(f.q);
+      if (f.minStipend != null) setMinStipend(String(f.minStipend));
+      if (f.workMode != null) setWorkMode(f.workMode);
+      if (Array.isArray(f.selectedCities)) setSelectedCities(f.selectedCities);
+      if (f.minMatch != null) setMinMatch(String(f.minMatch));
+      if (f.minValidation != null) setMinValidation(f.minValidation);
+      if (f.tab != null) setTab(f.tab);
+      if (f.chip != null) setChip(f.chip);
+      if (s.sort) setSort(s.sort);
+    },
+  });
 
   useEffect(() => {
     try {
@@ -159,12 +185,13 @@ export default function BrowseInternshipsPage() {
   }
 
   useEffect(() => {
+    if (!prefs.ready) return undefined;
     const t = setTimeout(() => {
       load();
     }, q ? 250 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, minStipend, workMode, selectedCities, minMatch, minValidation, sort, tab, chip]);
+  }, [prefs.ready, q, minStipend, workMode, selectedCities, minMatch, minValidation, sort, tab, chip]);
 
   async function toggleSave(internshipId, saved) {
     await fetch('/api/ip/candidate/saved', {
@@ -259,6 +286,9 @@ export default function BrowseInternshipsPage() {
               </select>
             </label>
           </div>
+        </div>
+        <div className="mt-3">
+          <ListPresetsBar {...prefs} />
         </div>
 
         {filtersOpen ? (

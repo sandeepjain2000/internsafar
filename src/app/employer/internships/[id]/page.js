@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import PageHeader from '@/components/ip/PageHeader';
+import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { StandardTableIconAction } from '@/components/ui/StandardTableIconAction';
 
 const STATUS_OPTIONS = ['applied', 'shortlisted', 'interviewing', 'rejected', 'hired', 'completed'];
@@ -55,20 +58,12 @@ export default function ApplicantsPipelinePage() {
   const [page, setPage] = useState(1);
   const pageSize = 20;
   const [selected, setSelected] = useState(() => new Set());
-  const [filters, setFilters] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`ip_applicant_filters_${id}`);
-      if (saved) return { ...DEFAULT_FILTERS, ...JSON.parse(saved) };
-    } catch { /* ignore */ }
-    return {
-      ...DEFAULT_FILTERS,
-      status: searchParams.get('status') || '',
-      unread: searchParams.get('unread') === '1',
-    };
+  const [filters, setFilters] = useState({
+    ...DEFAULT_FILTERS,
+    status: searchParams.get('status') || '',
+    unread: searchParams.get('unread') === '1',
   });
-  const [drawer, setDrawer] = useState(null);
-  const [notes, setNotes] = useState([]);
-  const [timeline, setTimeline] = useState([]);
+  const [sort, setSort] = useState('match');
   const [bulkMsg, setBulkMsg] = useState('');
   const [bulkMsgOpen, setBulkMsgOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -86,8 +81,20 @@ export default function ApplicantsPipelinePage() {
   const [newListName, setNewListName] = useState('');
   const [bulkResult, setBulkResult] = useState(null);
   const [mcqSummary, setMcqSummary] = useState([]);
-  const [reminderNote, setReminderNote] = useState('');
-  const [reminderAt, setReminderAt] = useState('');
+
+  const snapshot = useMemo(() => ({ filters, sort }), [filters, sort]);
+  const prefs = useListPrefsSync({
+    tableKey: id ? `employer.applicants.${id}` : '',
+    snapshot,
+    applySnapshot: (s) => {
+      const next = { ...DEFAULT_FILTERS, ...(s.filters || {}) };
+      const st = searchParams.get('status');
+      if (st) next.status = st;
+      if (searchParams.get('unread') === '1') next.unread = true;
+      setFilters(next);
+      setSort(s.sort || 'match');
+    },
+  });
 
   const loadMeta = useCallback(async () => {
     const [int, ls, tpls] = await Promise.all([
@@ -118,6 +125,7 @@ export default function ApplicantsPipelinePage() {
     if (filters.minHistTotal) params.set('minHistTotal', filters.minHistTotal);
     if (filters.minHistCompleted) params.set('minHistCompleted', filters.minHistCompleted);
     if (filters.minHistOngoing) params.set('minHistOngoing', filters.minHistOngoing);
+    if (sort) params.set('sort', sort);
     params.set('mcqSummary', '1');
     params.set('page', String(page));
     params.set('pageSize', String(pageSize));
@@ -127,13 +135,10 @@ export default function ApplicantsPipelinePage() {
     setCapacity(apps.capacity || null);
     setQuestions(apps.questions || []);
     setMcqSummary(apps.mcqSummary || []);
-    try {
-      localStorage.setItem(`ip_applicant_filters_${id}`, JSON.stringify(filters));
-    } catch { /* ignore */ }
-  }, [id, filters, page]);
+  }, [id, filters, page, sort]);
 
   useEffect(() => { loadMeta(); }, [loadMeta]);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (prefs.ready) load(); }, [load, prefs.ready]);
 
   const activeChips = useMemo(() => {
     const chips = [];
@@ -153,8 +158,8 @@ export default function ApplicantsPipelinePage() {
 
   function clearFilters() {
     setFilters({ ...DEFAULT_FILTERS });
+    setSort('match');
     setPage(1);
-    try { localStorage.removeItem(`ip_applicant_filters_${id}`); } catch { /* ignore */ }
   }
 
   function toggleSelect(appId) {
@@ -230,27 +235,6 @@ export default function ApplicantsPipelinePage() {
     await load();
   }
 
-  async function openDrawer(a) {
-    setDrawer(a);
-    const [n, t] = await Promise.all([
-      fetch(`/api/ip/employer/applications/${a.id}/notes`).then((r) => r.json()).catch(() => ({ items: [] })),
-      fetch(`/api/ip/employer/applications/${a.id}/events`).then((r) => r.json()).catch(() => ({ items: [] })),
-    ]);
-    setNotes(n.items || []);
-    setTimeline(t.items || []);
-  }
-
-  async function addNote(body) {
-    if (!drawer || !body.trim()) return;
-    await fetch(`/api/ip/employer/applications/${drawer.id}/notes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body }),
-    });
-    const n = await fetch(`/api/ip/employer/applications/${drawer.id}/notes`).then((r) => r.json());
-    setNotes(n.items || []);
-  }
-
   async function createList() {
     if (!newListName.trim()) return;
     const res = await fetch('/api/ip/employer/lists', {
@@ -265,23 +249,6 @@ export default function ApplicantsPipelinePage() {
     }
     setNewListName('');
     await loadMeta();
-  }
-
-  async function saveReminder() {
-    if (!drawer || !reminderAt) return;
-    await fetch('/api/ip/employer/reminders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        applicationId: drawer.id,
-        internshipId: id,
-        remindAt: new Date(reminderAt).toISOString(),
-        note: reminderNote,
-      }),
-    });
-    setReminderAt('');
-    setReminderNote('');
-    window.alert('Reminder saved');
   }
 
   function openOffer(a) {
@@ -376,6 +343,15 @@ export default function ApplicantsPipelinePage() {
           <Input className="max-w-[110px]" type="number" min={0} placeholder="Min ongoing" value={filters.minHistOngoing} onChange={(e) => setFilters((f) => ({ ...f, minHistOngoing: e.target.value }))} title="Min ongoing internships" />
           <Button size="sm" onClick={() => { setPage(1); load(); }}>Apply filters</Button>
           <Button size="sm" variant="outline" onClick={clearFilters}>Reset</Button>
+          <select className="h-9 rounded-md border px-2 text-sm" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort applicants">
+            <option value="match">Best match</option>
+            <option value="newest">Newest</option>
+            <option value="name">Name A–Z</option>
+            <option value="status">Status</option>
+          </select>
+          <div className="w-full">
+            <ListPresetsBar {...prefs} />
+          </div>
         </CardContent>
       </Card>
 
@@ -451,9 +427,12 @@ export default function ApplicantsPipelinePage() {
                     <input type="checkbox" aria-label={`Select ${a.name}`} checked={selected.has(a.id)} onChange={() => toggleSelect(a.id)} />
                   </TableCell>
                   <TableCell className="font-medium">
-                    <button type="button" className="text-left underline-offset-2 hover:underline" onClick={() => openDrawer(a)}>
+                    <Link
+                      href={`/employer/candidates/${a.candidate_id}?applicationId=${a.id}&internshipId=${id}&from=${encodeURIComponent(`/employer/internships/${id}`)}`}
+                      className="text-left underline-offset-2 hover:underline"
+                    >
                       {a.name}
-                    </button>
+                    </Link>
                     {a.screening_disabled ? (
                       <div className="text-xs font-medium text-muted-foreground" role="status">
                         Screening disabled
@@ -477,11 +456,7 @@ export default function ApplicantsPipelinePage() {
                   <TableCell>{a.match_score != null ? `${a.match_score}%` : '—'}</TableCell>
                   <TableCell className="max-w-[180px] text-xs text-muted-foreground">
                     {a.answers && Object.keys(a.answers).length
-                      ? Object.entries(a.answers).map(([k, v]) => {
-                          const snap = (a.questions_snapshot || questions || []).find((qq) => qq.id === k);
-                          const label = snap?.options?.find((o) => o.id === v)?.label || v;
-                          return <div key={k}><strong>{snap?.prompt || k}:</strong> {String(label)}</div>;
-                        })
+                      ? `${Object.keys(a.answers).length} answer(s)`
                       : '—'}
                   </TableCell>
                   <TableCell className="text-xs">
@@ -684,34 +659,6 @@ export default function ApplicantsPipelinePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(drawer)} onOpenChange={(open) => !open && setDrawer(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto max-w-lg">
-          <DialogHeader><DialogTitle>{drawer?.name}</DialogTitle></DialogHeader>
-          {drawer ? (
-            <div className="space-y-3 text-sm">
-              <div>{drawer.college} · {drawer.degree}</div>
-              <div>Skills: {(drawer.skills || []).join(', ') || '—'}</div>
-              <PrivateNotes notes={notes} onAdd={addNote} />
-              <div>
-                <div className="font-medium mb-1">Timeline</div>
-                <ul className="space-y-1 text-xs text-muted-foreground">
-                  {timeline.map((ev) => (
-                    <li key={ev.id}>{new Date(ev.created_at).toLocaleString()} — {ev.event_type}</li>
-                  ))}
-                  {!timeline.length ? <li>No events yet</li> : null}
-                </ul>
-              </div>
-              <div className="space-y-2 border-t pt-2">
-                <div className="font-medium">Follow-up reminder</div>
-                <Input type="datetime-local" value={reminderAt} onChange={(e) => setReminderAt(e.target.value)} />
-                <Input placeholder="Note" value={reminderNote} onChange={(e) => setReminderNote(e.target.value)} />
-                <Button size="sm" onClick={saveReminder}>Save reminder</Button>
-              </div>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={Boolean(interviewFor)} onOpenChange={(open) => !open && setInterviewFor(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Schedule interview — {interviewFor?.name}</DialogTitle></DialogHeader>
@@ -755,23 +702,6 @@ export default function ApplicantsPipelinePage() {
           </AlertDescription>
         </Alert>
       ) : null}
-    </div>
-  );
-}
-
-function PrivateNotes({ notes, onAdd }) {
-  const [text, setText] = useState('');
-  return (
-    <div>
-      <div className="font-medium mb-1">Private notes (employer only)</div>
-      <ul className="space-y-1 text-xs mb-2">
-        {notes.map((n) => (
-          <li key={n.id} className="border rounded p-1">{n.body}</li>
-        ))}
-        {!notes.length ? <li className="text-muted-foreground">No notes</li> : null}
-      </ul>
-      <Textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="Add note…" />
-      <Button size="sm" className="mt-1" onClick={() => { onAdd(text); setText(''); }}>Add note</Button>
     </div>
   );
 }

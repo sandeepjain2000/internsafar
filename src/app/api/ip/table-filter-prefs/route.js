@@ -11,10 +11,13 @@ export async function GET(request) {
   const tableKey = searchParams.get('tableKey') || '';
   if (!tableKey) return jsonError('tableKey required');
   const row = await query(
-    `SELECT filters FROM ip_table_filter_prefs WHERE user_id = $1 AND table_key = $2`,
+    `SELECT filters, sort FROM ip_table_filter_prefs WHERE user_id = $1 AND table_key = $2`,
     [session.user.id, tableKey],
   );
-  return jsonOk({ filters: row.rows[0]?.filters || null });
+  return jsonOk({
+    filters: row.rows[0]?.filters || null,
+    sort: row.rows[0]?.sort ?? '',
+  });
 }
 
 export async function PUT(request) {
@@ -31,11 +34,17 @@ export async function PUT(request) {
   if (!tableKey) return jsonError('tableKey required');
   const id = newId('ip_tfp');
   await query(
-    `INSERT INTO ip_table_filter_prefs (id, user_id, table_key, filters, updated_at)
-     VALUES ($1,$2,$3,$4::jsonb, now())
+    `INSERT INTO ip_table_filter_prefs (id, user_id, table_key, filters, sort, updated_at)
+     VALUES ($1,$2,$3,$4::jsonb,$5, now())
      ON CONFLICT (user_id, table_key)
-     DO UPDATE SET filters = EXCLUDED.filters, updated_at = now()`,
-    [id, session.user.id, tableKey, JSON.stringify(body.filters || {})],
+     DO UPDATE SET filters = EXCLUDED.filters, sort = EXCLUDED.sort, updated_at = now()`,
+    [
+      id,
+      session.user.id,
+      tableKey,
+      JSON.stringify(body.filters || {}),
+      body.sort != null ? String(body.sort) : '',
+    ],
   );
   return jsonOk({ ok: true });
 }

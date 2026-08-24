@@ -87,6 +87,8 @@ function sortItems(items, sort) {
       const db = b.start_date ? new Date(b.start_date).getTime() : Number.POSITIVE_INFINITY;
       return da - db;
     });
+  } else if (sort === 'fewest-applicants' || sort === 'best-odds') {
+    copy.sort((a, b) => (a._applicantCount ?? 0) - (b._applicantCount ?? 0));
   } else {
     copy.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   }
@@ -184,6 +186,7 @@ export async function GET(request) {
     return {
       ...r,
       company_name: maskEmployerName(r.company_name, r.show_employer_identity !== false),
+      _applicantCount: Number(r.historical_application_count || 0),
       historical_application_count: undefined,
       application_volume_label: volume,
       match_score: skillMatchPercent(skills, r.eligibility),
@@ -228,6 +231,7 @@ export async function GET(request) {
 
   items = sortItems(items, sort);
   if (recommended) items = items.slice(0, 12);
+  items = items.map(({ _applicantCount, ...rest }) => rest);
 
   // Work-location cities from visible postings (browse filter — independent of MCQ disable)
   const citySet = new Map(); // lower -> display
