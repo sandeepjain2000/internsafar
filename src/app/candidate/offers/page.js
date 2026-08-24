@@ -14,6 +14,8 @@ import {
   Share2,
   X,
 } from 'lucide-react';
+import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import '@/components/ip/ip-offers-gemini.css';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
@@ -56,6 +58,17 @@ export default function CandidateOffersPage() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [viewMode, setViewMode] = useViewMode('ip_offers_view', 'cards');
+
+  const snapshot = useMemo(() => ({ filters: { q, tab }, sort: '' }), [q, tab]);
+  const prefs = useListPrefsSync({
+    tableKey: 'candidate.offers',
+    snapshot,
+    applySnapshot: (s) => {
+      const f = s.filters || {};
+      if (f.q != null) setQ(f.q);
+      if (f.tab) setTab(f.tab);
+    },
+  });
 
   function showToast(msg) {
     setToast(msg);
@@ -211,6 +224,8 @@ export default function CandidateOffersPage() {
           </button>
         </div>
       </div>
+
+      <ListPresetsBar {...prefs} />
 
       <div className="ip-of-tabs">
         {TABS.map((t) => (

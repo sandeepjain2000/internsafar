@@ -75,6 +75,20 @@ function matchesQuery(item, q) {
   return hay.includes(q);
 }
 
+function sqlOrderBy(sort) {
+  if (sort === 'fewest-applicants' || sort === 'best-odds') {
+    // Real ip_applications counts (all statuses). Hidden hiring labels still sort by this count.
+    return 'COALESCE(app_counts.applicant_count, 0) ASC, i.created_at DESC';
+  }
+  if (sort === 'highest-stipend') {
+    return 'COALESCE(i.stipend_inr, 0) DESC, i.created_at DESC';
+  }
+  if (sort === 'availability' || sort === 'earliest-start') {
+    return 'i.start_date ASC NULLS LAST, i.created_at DESC';
+  }
+  return 'i.created_at DESC';
+}
+
 function sortItems(items, sort) {
   const copy = [...items];
   if (sort === 'best-match') {
@@ -132,11 +146,16 @@ export async function GET(request) {
             e.ethics_acks,
             e.ethics_accepted_at,
             e.updated_at as employer_updated_at,
-            (SELECT count(*)::int FROM ip_applications a WHERE a.internship_id = i.id) AS historical_application_count
+            COALESCE(app_counts.applicant_count, 0)::int AS historical_application_count
      FROM ip_internships i
      JOIN ip_employers e ON e.id = i.employer_id
+     LEFT JOIN (
+       SELECT internship_id, count(*)::int AS applicant_count
+       FROM ip_applications
+       GROUP BY internship_id
+     ) app_counts ON app_counts.internship_id = i.id
      WHERE ${CANDIDATE_VISIBLE_SQL}
-     ORDER BY i.created_at DESC
+     ORDER BY ${sqlOrderBy(sort)}
      LIMIT 200`,
   );
 
@@ -231,7 +250,7 @@ export async function GET(request) {
 
   items = sortItems(items, sort);
   if (recommended) items = items.slice(0, 12);
-  items = items.map(({ _applicantCount, ...rest }) => rest);
+  items = items.map(({ _applicantCount, historical_application_count, ...rest }) => rest);
 
   // Work-location cities from visible postings (browse filter — independent of MCQ disable)
   const citySet = new Map(); // lower -> display

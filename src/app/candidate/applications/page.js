@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CalendarDays, ClipboardList, Hourglass, MessageSquare, Search, Target, XCircle } from 'lucide-react';
 import { useClientPagination } from '@/hooks/useClientPagination';
+import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import '@/components/ip/ip-applications-gemini.css';
@@ -63,6 +65,24 @@ export default function MyApplicationsPage() {
   const [detail, setDetail] = useState(null);
   const [viewMode, setViewMode] = useViewMode('ip_apps_view', 'list');
   const [loadError, setLoadError] = useState('');
+
+  const snapshot = useMemo(
+    () => ({ filters: { q, tab, interviewFilter, offerFilter, commFilter }, sort }),
+    [q, tab, interviewFilter, offerFilter, commFilter, sort],
+  );
+  const prefs = useListPrefsSync({
+    tableKey: 'candidate.applications',
+    snapshot,
+    applySnapshot: (s) => {
+      const f = s.filters || {};
+      if (f.q != null) setQ(f.q);
+      if (f.tab) setTab(f.tab);
+      if (f.interviewFilter != null) setInterviewFilter(f.interviewFilter);
+      if (f.offerFilter != null) setOfferFilter(f.offerFilter);
+      if (f.commFilter != null) setCommFilter(f.commFilter);
+      if (s.sort) setSort(s.sort);
+    },
+  });
 
   const metrics = useMemo(() => {
     const total = items.length;
@@ -194,6 +214,7 @@ export default function MyApplicationsPage() {
             </select>
           </label>
         </div>
+        <ListPresetsBar {...prefs} />
         <div className="ip-ap-tabs">
           {TABS.map((t) => (
             <button

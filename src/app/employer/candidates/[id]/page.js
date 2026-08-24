@@ -92,7 +92,7 @@ export default function EmployerCandidateProfilePage() {
         title={c?.name || 'Candidate'}
         description="Employer-visible profile (contact details stay hidden until the workflow allows them)."
         actions={(
-          <Button variant="outline" size="sm" asChild={false}>
+          <Button variant="outline" size="sm" asChild>
             <Link href={from.startsWith('/') ? from : '/employer/candidates'}>Back to list</Link>
           </Button>
         )}
@@ -104,14 +104,21 @@ export default function EmployerCandidateProfilePage() {
           <Card className="lg:col-span-2">
             <CardHeader><CardTitle className="text-base">Profile</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
+              {c.profile_picture_url ? (
+                <img src={c.profile_picture_url} alt="" className="h-20 w-20 rounded-full object-cover" />
+              ) : null}
               <div className="text-muted-foreground">
-                {[c.degree, c.specialization, c.college, c.city].filter(Boolean).join(' · ') || '—'}
+                {[c.degree, c.specialization, c.college, c.city, c.state].filter(Boolean).join(' · ') || '—'}
               </div>
               <dl className="grid gap-2 sm:grid-cols-2">
                 <div><dt className="text-xs text-muted-foreground">CGPA</dt><dd>{c.cgpa != null ? c.cgpa : '—'}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Study status</dt><dd>{c.study_status || '—'}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Graduation</dt><dd>{c.graduation_year || '—'}</dd></div>
                 <div><dt className="text-xs text-muted-foreground">Work preference</dt><dd>{c.preferred_work_mode || '—'}</dd></div>
                 <div><dt className="text-xs text-muted-foreground">Availability</dt><dd>{c.immediate_start ? 'Immediate' : (c.availability_date || '—')}</dd></div>
                 <div><dt className="text-xs text-muted-foreground">Experience</dt><dd>{c.prior_experience || '—'}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Relocate</dt><dd>{c.willing_to_relocate ? 'Yes' : '—'}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Ongoing commitment</dt><dd>{c.ongoing_commitment || '—'}</dd></div>
                 <div><dt className="text-xs text-muted-foreground">Hours</dt><dd>{[c.preferred_hours_start, c.preferred_hours_end].filter(Boolean).join('–') || '—'}</dd></div>
                 <div><dt className="text-xs text-muted-foreground">Setup</dt><dd>{[c.has_wired_broadband ? 'Broadband' : null, c.has_dedicated_laptop ? 'Laptop' : null].filter(Boolean).join(' · ') || '—'}</dd></div>
                 <div><dt className="text-xs text-muted-foreground">Phone</dt><dd>{c.phone || (c.phone_hidden ? 'Hidden until shortlist/interview' : '—')}</dd></div>

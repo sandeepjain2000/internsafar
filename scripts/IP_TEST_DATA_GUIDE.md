@@ -116,6 +116,22 @@ npm run delete:ip-except-cores -- --confirm-except-cores YES
 
 ---
 
+## 3) Database integrity checker (read-only)
+
+```powershell
+npm run db:check-integrity
+```
+
+Windows double-click / cmd:
+
+```text
+C:\Users\place\Work\UIUX Migration\internship-portal\scripts\check-ip-db-integrity.cmd
+```
+
+Fails (exit 1) if offers exist without an application, or applications/messages point at missing parents.
+
+---
+
 ## Recommended workflow
 
 ```powershell
@@ -140,7 +156,7 @@ npm run delete:ip-generated-run -- --mode=run --confirm-generated-run <RUN_ID>
 | `npm run generate:ip-test-data -- --mode=core-fill` | Fill cores |
 | `npm run generate:ip-test-data -- --mode=gen-accounts` | Create +gen users |
 | `npm run delete:ip-generated-run -- --mode=run --confirm-generated-run ID` | Delete one run |
-| `npm run delete:ip-except-cores -- --confirm-except-cores YES` | Wipe all non-cores |
+| `npm run db:check-integrity` | Read-only integrity (offers ↔ applications, etc.) |
 
 ---
 

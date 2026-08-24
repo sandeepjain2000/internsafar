@@ -441,7 +441,9 @@ export default function ApplicantsPipelinePage() {
                           : ''}
                       </div>
                     ) : null}
-                    <div className="text-xs text-muted-foreground">{a.college} · {a.city || '—'}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {[a.college, a.city, a.match_score != null ? `${a.match_score}% match` : null].filter(Boolean).join(' · ') || '—'}
+                    </div>
                     {a.list_names ? <div className="text-xs text-muted-foreground">Lists: {a.list_names}</div> : null}
                   </TableCell>
                   <TableCell className="text-xs">

@@ -20,6 +20,8 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import '@/components/ip/ip-employer-notifications-gemini.css';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
@@ -107,6 +109,17 @@ export default function EmployerNotificationsPage() {
   const [toastMsg, setToastMsg] = useState(null);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useViewMode('ip_emp_notif_view', 'cards');
+
+  const snapshot = useMemo(() => ({ filters: { tab, search }, sort: '' }), [tab, search]);
+  const prefs = useListPrefsSync({
+    tableKey: 'employer.notifications',
+    snapshot,
+    applySnapshot: (s) => {
+      const f = s.filters || {};
+      if (f.tab) setTab(f.tab);
+      if (f.search != null) setSearch(f.search);
+    },
+  });
 
   async function load() {
     const [notifRes, refRes] = await Promise.all([
@@ -247,6 +260,9 @@ export default function EmployerNotificationsPage() {
               <X size={14} />
             </button>
           ) : null}
+        </div>
+        <div className="w-full pt-2">
+          <ListPresetsBar {...prefs} />
         </div>
       </div>
 

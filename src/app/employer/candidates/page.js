@@ -334,7 +334,9 @@ export default function CandidateSearchPage() {
                 <tbody>
                   {pageItems.map((c) => (
                     <tr key={c.id} className="border-b">
-                      <td className="p-3">{c.name}</td>
+                      <td className="p-3">
+                        <Link href={`/employer/candidates/${c.id}?from=${encodeURIComponent('/employer/candidates')}`}>{c.name}</Link>
+                      </td>
                       <td className="p-3">{c.college || '—'}</td>
                       <td className="p-3">{statusInfo(c).label}</td>
                     </tr>

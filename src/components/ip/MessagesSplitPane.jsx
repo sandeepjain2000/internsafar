@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Archive, Calendar, FileText, MessageSquare, Paperclip, Search, Send } from 'lucide-react';
+import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { isStoredMeetUrl, meetJoinLabel } from '@/lib/ipInterviewMeetUrl';
 import {
   formatBytes,
@@ -282,6 +284,18 @@ export default function MessagesSplitPane({ role = 'employer' }) {
   const [toast, setToast] = useState('');
   const [inboxMeta, setInboxMeta] = useState({ unread: 0, action: 0 });
 
+  const snapshot = useMemo(() => ({ filters: { tab, search }, sort }), [tab, search, sort]);
+  const prefs = useListPrefsSync({
+    tableKey: isEmployer ? 'employer.messages' : 'candidate.messages',
+    snapshot,
+    applySnapshot: (s) => {
+      const f = s.filters || {};
+      if (f.tab) setTab(f.tab);
+      if (f.search != null) setSearch(f.search);
+      if (s.sort) setSort(s.sort);
+    },
+  });
+
   function showToast(msg) {
     setToast(msg);
     setTimeout(() => setToast(''), 2800);
@@ -309,8 +323,9 @@ export default function MessagesSplitPane({ role = 'employer' }) {
   }, [tab]);
 
   useEffect(() => {
+    if (!prefs.ready) return;
     loadThreads();
-  }, [loadThreads]);
+  }, [prefs.ready, loadThreads]);
 
   useEffect(() => {
     if (threadFromUrl) setSelectedId(threadFromUrl);
@@ -523,6 +538,9 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                   <option value="newest">Newest</option>
                   <option value="oldest">Oldest</option>
                 </select>
+              </div>
+              <div className="px-3 pb-2">
+                <ListPresetsBar {...prefs} />
               </div>
             </div>
             <div className="ip-cm-list-body">

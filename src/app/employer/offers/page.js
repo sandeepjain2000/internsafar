@@ -10,6 +10,8 @@ import {
   Send,
   TrendingUp,
 } from 'lucide-react';
+import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import '@/components/ip/ip-employer-offers-gemini.css';
 
 const TABS = ['All', 'Pending', 'Accepted', 'Declined'];
@@ -100,6 +102,17 @@ export default function EmployerOffersPage() {
   const [endorseForm, setEndorseForm] = useState({ periodLabel: '', skillsEndorsed: '' });
   const [rateFor, setRateFor] = useState(null);
   const [stars, setStars] = useState(5);
+
+  const snapshot = useMemo(() => ({ filters: { tab, q }, sort: '' }), [tab, q]);
+  const prefs = useListPrefsSync({
+    tableKey: 'employer.offers',
+    snapshot,
+    applySnapshot: (s) => {
+      const f = s.filters || {};
+      if (f.tab) setTab(f.tab);
+      if (f.q != null) setQ(f.q);
+    },
+  });
 
   async function load() {
     const res = await fetch('/api/ip/offers');
@@ -342,6 +355,9 @@ export default function EmployerOffersPage() {
               aria-label="Search candidate or role"
             />
           </div>
+        </div>
+        <div className="px-4 pb-3">
+          <ListPresetsBar {...prefs} />
         </div>
 
         <div className="ip-eo-table-wrap">

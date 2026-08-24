@@ -22,6 +22,8 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useClientPagination } from '@/hooks/useClientPagination';
+import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { POINTS_PER_POST, REFERRAL_POINTS } from '@/lib/pointsEconomy';
 import '@/components/ip/ip-employer-referral-gemini.css';
 
@@ -59,6 +61,17 @@ export default function EmployerReferralPage() {
   const [filter, setFilter] = useState('All');
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+
+  const snapshot = useMemo(() => ({ filters: { q, filter }, sort: '' }), [q, filter]);
+  const prefs = useListPrefsSync({
+    tableKey: 'employer.referral',
+    snapshot,
+    applySnapshot: (s) => {
+      const f = s.filters || {};
+      if (f.q != null) setQ(f.q);
+      if (f.filter) setFilter(f.filter);
+    },
+  });
 
   const referrals = data?.referrals || [];
   const points = Number(data?.points ?? 0);
@@ -326,6 +339,7 @@ export default function EmployerReferralPage() {
         </div>
 
         {referrals.length ? (
+          <>
           <div className="ip-er-filters">
             <div className="ip-er-search">
               <Search size={14} aria-hidden />
@@ -352,6 +366,10 @@ export default function EmployerReferralPage() {
               ))}
             </div>
           </div>
+          <div className="mt-3">
+            <ListPresetsBar {...prefs} />
+          </div>
+          </>
         ) : null}
 
         {!referrals.length ? (

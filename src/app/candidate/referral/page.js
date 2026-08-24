@@ -32,6 +32,8 @@ import {
   PROFILE_COMPLETE_POINTS,
   REFERRAL_POINTS,
 } from '@/lib/pointsEconomy';
+import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import '@/components/ip/ip-candidate-referral-gemini.css';
 
 const FILTERS = [
@@ -92,6 +94,16 @@ export default function CandidateReferralPage() {
   const [toast, setToast] = useState('');
   const [filter, setFilter] = useState('all');
   const [modal, setModal] = useState(null);
+
+  const snapshot = useMemo(() => ({ filters: { filter }, sort: '' }), [filter]);
+  const prefs = useListPrefsSync({
+    tableKey: 'candidate.referral',
+    snapshot,
+    applySnapshot: (s) => {
+      const f = s.filters || {};
+      if (f.filter) setFilter(f.filter);
+    },
+  });
 
   function showToast(msg) {
     setToast(msg);
@@ -433,6 +445,7 @@ export default function CandidateReferralPage() {
             ))}
           </div>
         </div>
+        <ListPresetsBar {...prefs} />
 
         {!referrals.length ? (
           <div className="ip-cr-empty">

@@ -14,6 +14,8 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react';
+import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import UrlClaimDialog from '@/components/ip/UrlClaimDialog';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import '@/components/ip/ip-employer-postings-gemini.css';
@@ -72,6 +74,20 @@ export default function EmployerInternshipsPage() {
   const [promoteFor, setPromoteFor] = useState(null);
   const [claimOpen, setClaimOpen] = useState(false);
   const [pendingPromotion, setPendingPromotion] = useState(null);
+
+  const snapshot = useMemo(
+    () => ({ filters: { searchQuery, statusFilter }, sort: '' }),
+    [searchQuery, statusFilter],
+  );
+  const prefs = useListPrefsSync({
+    tableKey: 'employer.internships',
+    snapshot,
+    applySnapshot: (s) => {
+      const f = s.filters || {};
+      if (f.searchQuery != null) setSearchQuery(f.searchQuery);
+      if (f.statusFilter) setStatusFilter(f.statusFilter);
+    },
+  });
 
   async function load() {
     const res = await fetch('/api/ip/employer/internships');
@@ -249,6 +265,9 @@ export default function EmployerInternshipsPage() {
               <option value="closed">Closed</option>
             </select>
           </div>
+        </div>
+        <div className="px-4 pb-3">
+          <ListPresetsBar {...prefs} />
         </div>
 
         <div className="ip-ph-list-wrap ip-epo-table-wrap">

@@ -69,13 +69,35 @@ export async function ensureIpWorkbenchSchema() {
   await query(`
     CREATE TABLE IF NOT EXISTS ip_saved_applicant_views (
       id TEXT PRIMARY KEY,
-      employer_id TEXT NOT NULL REFERENCES ip_employers(id) ON DELETE CASCADE,
+      employer_id TEXT REFERENCES ip_employers(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       filters JSONB NOT NULL DEFAULT '{}'::jsonb,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      UNIQUE (employer_id, name)
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )`);
+  await query(`ALTER TABLE ip_saved_applicant_views ALTER COLUMN employer_id DROP NOT NULL`);
+  await query(`ALTER TABLE ip_saved_applicant_views ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES ip_users(id) ON DELETE CASCADE`);
+  await query(`ALTER TABLE ip_saved_applicant_views ADD COLUMN IF NOT EXISTS table_key TEXT`);
+  await query(`ALTER TABLE ip_saved_applicant_views ADD COLUMN IF NOT EXISTS sort TEXT`);
+  await query(`ALTER TABLE ip_saved_applicant_views ADD COLUMN IF NOT EXISTS is_default BOOLEAN NOT NULL DEFAULT false`);
+  await query(`ALTER TABLE ip_saved_applicant_views DROP CONSTRAINT IF EXISTS ip_saved_applicant_views_employer_id_name_key`);
+  await query(`
+    UPDATE ip_saved_applicant_views sav
+    SET user_id = e.user_id,
+        table_key = COALESCE(NULLIF(sav.table_key, ''), 'employer.applicants')
+    FROM ip_employers e
+    WHERE e.id = sav.employer_id
+      AND sav.user_id IS NULL
+  `);
+  await query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS ip_saved_views_user_table_name_uidx
+      ON ip_saved_applicant_views (user_id, table_key, name)
+      WHERE user_id IS NOT NULL AND table_key IS NOT NULL
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS ip_saved_views_user_table_idx
+      ON ip_saved_applicant_views (user_id, table_key)
+  `);
 
   await query(`
     CREATE TABLE IF NOT EXISTS ip_application_notes (
@@ -146,34 +168,38 @@ export async function ensureIpWorkbenchSchema() {
     )`);
   await query(`ALTER TABLE ip_table_filter_prefs ADD COLUMN IF NOT EXISTS sort TEXT`);
 
+  const presetsTable = await query(`SELECT to_regclass('public.ip_list_presets') AS t`);
+  if (presetsTable.rows[0]?.t) {
+    await query(`
+      INSERT INTO ip_saved_applicant_views (id, employer_id, name, filters, created_at, updated_at, user_id, table_key, sort, is_default)
+      SELECT p.id, NULL, p.name, p.filters, p.created_at, p.updated_at, p.user_id, p.table_key, p.sort, p.is_default
+      FROM ip_list_presets p
+      WHERE NOT EXISTS (SELECT 1 FROM ip_saved_applicant_views sav WHERE sav.id = p.id)
+        AND NOT EXISTS (
+          SELECT 1 FROM ip_saved_applicant_views sav
+          WHERE sav.user_id = p.user_id AND sav.table_key = p.table_key AND sav.name = p.name
+        )
+    `);
+  }
   await query(`
-    CREATE TABLE IF NOT EXISTS ip_list_presets (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES ip_users(id) ON DELETE CASCADE,
-      table_key TEXT NOT NULL,
-      name TEXT NOT NULL,
-      filters JSONB NOT NULL DEFAULT '{}'::jsonb,
-      sort TEXT,
-      is_default BOOLEAN NOT NULL DEFAULT false,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      UNIQUE (user_id, table_key, name)
-    )`);
-  await query(`
-    CREATE INDEX IF NOT EXISTS ip_list_presets_user_table_idx
-      ON ip_list_presets (user_id, table_key)
-  `);
-  await query(`
-    INSERT INTO ip_list_presets (id, user_id, table_key, name, filters, sort, is_default, created_at, updated_at)
-    SELECT sav.id, e.user_id, 'employer.applicants', sav.name, sav.filters, NULL, false, sav.created_at, sav.updated_at
+    INSERT INTO ip_saved_applicant_views (id, employer_id, name, filters, created_at, updated_at, user_id, table_key, sort, is_default)
+    SELECT sav.id || '-' || i.id, sav.employer_id, sav.name, sav.filters, sav.created_at, sav.updated_at,
+           sav.user_id, 'employer.applicants.' || i.id, sav.sort, sav.is_default
     FROM ip_saved_applicant_views sav
-    JOIN ip_employers e ON e.id = sav.employer_id
-    WHERE NOT EXISTS (SELECT 1 FROM ip_list_presets p WHERE p.id = sav.id)
+    JOIN ip_internships i ON i.employer_id = sav.employer_id
+    WHERE sav.table_key = 'employer.applicants'
+      AND sav.user_id IS NOT NULL
       AND NOT EXISTS (
-        SELECT 1 FROM ip_list_presets p
-        WHERE p.user_id = e.user_id AND p.table_key = 'employer.applicants' AND p.name = sav.name
+        SELECT 1 FROM ip_saved_applicant_views x
+        WHERE x.user_id = sav.user_id AND x.table_key = 'employer.applicants.' || i.id AND x.name = sav.name
       )
+      AND (
+        SELECT count(*) FROM ip_saved_applicant_views x
+        WHERE x.user_id = sav.user_id AND x.table_key = 'employer.applicants.' || i.id
+      ) < 5
   `);
+  await query(`DELETE FROM ip_saved_applicant_views WHERE table_key = 'employer.applicants'`);
+  await query(`DROP TABLE IF EXISTS ip_list_presets`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS ip_export_jobs (

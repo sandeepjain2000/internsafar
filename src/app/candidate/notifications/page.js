@@ -18,6 +18,8 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
+import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import '@/components/ip/ip-candidate-notifications-gemini.css';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
@@ -73,6 +75,17 @@ export default function CandidateNotificationsPage() {
   const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useViewMode('ip_cand_notif_view', 'cards');
+
+  const snapshot = useMemo(() => ({ filters: { filter, search }, sort: '' }), [filter, search]);
+  const prefs = useListPrefsSync({
+    tableKey: 'candidate.notifications',
+    snapshot,
+    applySnapshot: (s) => {
+      const f = s.filters || {};
+      if (f.filter) setFilter(f.filter);
+      if (f.search != null) setSearch(f.search);
+    },
+  });
 
   function showToast(msg) {
     setToast(msg);
@@ -230,6 +243,7 @@ export default function CandidateNotificationsPage() {
             );
           })}
         </div>
+        <ListPresetsBar {...prefs} />
       </div>
 
       {loading ? (
