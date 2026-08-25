@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { notifyUser } from '@/lib/ipNotify';
+import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
 
 async function setOne(id, status, reason, moderatorId) {
   const row = await query(
@@ -22,6 +23,7 @@ async function setOne(id, status, reason, moderatorId) {
 export async function GET(request) {
   const { error } = await requireSession(['superadmin']);
   if (error) return error;
+  await ensureIpEmployerApprovalSchema();
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status') || '';
   const withMeta = searchParams.get('meta') === '1';

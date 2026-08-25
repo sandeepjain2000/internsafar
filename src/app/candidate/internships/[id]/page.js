@@ -17,6 +17,7 @@ export default function InternshipDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const [internship, setInternship] = useState(null);
+  const [missing, setMissing] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [applying, setApplying] = useState(false);
@@ -27,6 +28,10 @@ export default function InternshipDetailPage() {
 
   useEffect(() => {
     fetch(`/api/ip/candidate/internships/${id}`).then((r) => r.json()).then((d) => {
+      if (!d.internship) {
+        setMissing(true);
+        return;
+      }
       setInternship(d.internship);
       const qs = Array.isArray(d.internship?.questions) ? d.internship.questions : [];
       const init = {};
@@ -86,6 +91,17 @@ export default function InternshipDetailPage() {
     } finally {
       setApplying(false);
     }
+  }
+
+  if (missing) {
+    return (
+      <div className="p-8">
+        <Alert>
+          <AlertTitle>Unavailable</AlertTitle>
+          <AlertDescription>This internship is no longer available.</AlertDescription>
+        </Alert>
+      </div>
+    );
   }
 
   if (!internship) return <div className="p-8 text-muted-foreground">Loading…</div>;

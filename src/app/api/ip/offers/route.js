@@ -127,6 +127,12 @@ export async function POST(request) {
   }
 
   const resolvedApplicationId = applicationId || row.application_id;
+  const existingOffer = await query(`SELECT id FROM ip_offers WHERE application_id = $1 LIMIT 1`, [
+    resolvedApplicationId,
+  ]);
+  if (existingOffer.rows[0]) {
+    return jsonError('This application already has an offer', 409);
+  }
   const id = newId('ip_offer');
   await query(
     `INSERT INTO ip_offers (

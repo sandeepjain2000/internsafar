@@ -11,6 +11,8 @@ import { ensureIpApplicationInterviewSchema } from '@/lib/ensureIpApplicationInt
 import { ensureIpCandidateProfileSchema } from '@/lib/ensureIpCandidateProfileSchema';
 import { ensureIpMessageAttachmentSchema } from '@/lib/ensureIpMessageAttachmentSchema';
 import { ensureIpOfferOnboardingSchema } from '@/lib/ensureIpOfferOnboardingSchema';
+import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
+import { ensureIpIntegrityConstraints } from '@/lib/ensureIpIntegrityConstraints';
 
 const DEMO_PASSWORD = 'Admin@123';
 /** Showcase / ops SuperAdmin login. */
@@ -32,6 +34,8 @@ export async function ensureIpBootstrap() {
   await ensureIpCandidateProfileSchema();
   await ensureIpMessageAttachmentSchema();
   await ensureIpOfferOnboardingSchema();
+  await ensureIpEmployerApprovalSchema();
+  await ensureIpIntegrityConstraints();
   let initialized = false;
   const hash = await bcrypt.hash(DEMO_PASSWORD, 10);
 

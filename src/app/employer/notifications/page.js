@@ -308,7 +308,7 @@ export default function EmployerNotificationsPage() {
               const bucket = resolveBucket(n);
               const { Icon, tone } = iconFor(bucket);
               const action = actionFor(n, bucket);
-              const href = n.link && n.link !== '#' ? n.link : null;
+              const href = n.resourceUnavailable ? null : n.link && n.link !== '#' ? n.link : null;
               const ActionIcon = action.Icon;
               return (
                 <li key={n.id} className={`ip-en-card${unread ? ' ip-en-card--unread' : ''}`}>
@@ -322,6 +322,9 @@ export default function EmployerNotificationsPage() {
                         {unread ? <span className="ip-en-dot" title="Unread" /> : null}
                       </h3>
                       {n.body ? <p className="ip-en-desc">{n.body}</p> : null}
+                      {n.resourceUnavailable ? (
+                        <p className="ip-en-desc">{n.resourceUnavailableMessage}</p>
+                      ) : null}
                       <span className="ip-en-time">{formatWhen(n.created_at)}</span>
                     </div>
                   </div>

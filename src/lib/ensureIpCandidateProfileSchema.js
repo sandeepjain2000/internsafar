@@ -16,7 +16,12 @@ export async function ensureIpCandidateProfileSchema() {
       ADD COLUMN IF NOT EXISTS prior_experience TEXT,
       ADD COLUMN IF NOT EXISTS immediate_start BOOLEAN NOT NULL DEFAULT false,
       ADD COLUMN IF NOT EXISTS willing_to_relocate BOOLEAN NOT NULL DEFAULT false,
-      ADD COLUMN IF NOT EXISTS hide_phone_until_shortlist BOOLEAN NOT NULL DEFAULT true
+      ADD COLUMN IF NOT EXISTS hide_phone_until_shortlist BOOLEAN NOT NULL DEFAULT true,
+      ADD COLUMN IF NOT EXISTS graduation_year INT,
+      ADD COLUMN IF NOT EXISTS college TEXT,
+      ADD COLUMN IF NOT EXISTS degree TEXT,
+      ADD COLUMN IF NOT EXISTS cgpa NUMERIC(4,2),
+      ADD COLUMN IF NOT EXISTS phone TEXT
   `);
   await query(`
     ALTER TABLE ip_candidate_academics

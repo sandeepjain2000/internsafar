@@ -1,9 +1,13 @@
 import { query } from '@/lib/db';
 import { requireSession, jsonOk } from '@/lib/apiAuth';
+import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
+import { ensureIpFormRegistrationSchema } from '@/lib/ensureIpFormRegistrationSchema';
 
 export async function GET() {
   const { session, error } = await requireSession(['superadmin']);
   if (error) return error;
+  await ensureIpFormRegistrationSchema();
+  await ensureIpEmployerApprovalSchema();
 
   const [
     candidates,

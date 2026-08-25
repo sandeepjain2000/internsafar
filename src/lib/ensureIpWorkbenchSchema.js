@@ -1,4 +1,5 @@
 import { query } from '@/lib/db';
+import { ensureIpIntegrityConstraints } from '@/lib/ensureIpIntegrityConstraints';
 
 let schemaReady = false;
 
@@ -229,6 +230,96 @@ export async function ensureIpWorkbenchSchema() {
   await query(`ALTER TABLE ip_internships ADD COLUMN IF NOT EXISTS remind_end_hours INT NOT NULL DEFAULT 24`);
   await query(`ALTER TABLE ip_internships ADD COLUMN IF NOT EXISTS remind_start_sent_at TIMESTAMPTZ`);
   await query(`ALTER TABLE ip_internships ADD COLUMN IF NOT EXISTS remind_end_sent_at TIMESTAMPTZ`);
+
+  await query(`ALTER TABLE ip_message_threads ADD COLUMN IF NOT EXISTS application_id TEXT`);
+  await query(`
+    UPDATE ip_message_threads t
+    SET application_id = a.id
+    FROM ip_candidates c
+    JOIN ip_applications a ON a.candidate_id = c.id
+    WHERE t.application_id IS NULL
+      AND t.internship_id IS NOT NULL
+      AND c.user_id = t.candidate_user_id
+      AND a.internship_id = t.internship_id
+  `);
+  await query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ip_message_threads_application_id_fkey') THEN
+        ALTER TABLE ip_message_threads
+          ADD CONSTRAINT ip_message_threads_application_id_fkey
+          FOREIGN KEY (application_id) REFERENCES ip_applications(id) ON DELETE SET NULL;
+      END IF;
+    END $$
+  `);
+  await query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ip_applications_rejection_template_id_fkey') THEN
+        ALTER TABLE ip_applications
+          ADD CONSTRAINT ip_applications_rejection_template_id_fkey
+          FOREIGN KEY (rejection_template_id) REFERENCES ip_rejection_templates(id) ON DELETE SET NULL;
+      END IF;
+    END $$
+  `);
+  await query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ip_users_generated_run_id_fkey') THEN
+        ALTER TABLE ip_users
+          ADD CONSTRAINT ip_users_generated_run_id_fkey
+          FOREIGN KEY (generated_run_id) REFERENCES ip_generated_runs(run_id) ON DELETE SET NULL;
+      END IF;
+    END $$
+  `);
+  await query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ip_linkedin_promotions_reviewed_by_fkey') THEN
+        ALTER TABLE ip_linkedin_promotions
+          ADD CONSTRAINT ip_linkedin_promotions_reviewed_by_fkey
+          FOREIGN KEY (reviewed_by) REFERENCES ip_users(id) ON DELETE SET NULL;
+      END IF;
+    END $$
+  `);
+  await query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ip_viral_shares_reviewed_by_fkey') THEN
+        ALTER TABLE ip_viral_shares
+          ADD CONSTRAINT ip_viral_shares_reviewed_by_fkey
+          FOREIGN KEY (reviewed_by) REFERENCES ip_users(id) ON DELETE SET NULL;
+      END IF;
+    END $$
+  `);
+  await query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ip_employer_requests_created_user_id_fkey') THEN
+        ALTER TABLE ip_employer_requests
+          ADD CONSTRAINT ip_employer_requests_created_user_id_fkey
+          FOREIGN KEY (created_user_id) REFERENCES ip_users(id) ON DELETE SET NULL;
+      END IF;
+    END $$
+  `);
+  await query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ip_employer_requests_reviewer_id_fkey') THEN
+        ALTER TABLE ip_employer_requests
+          ADD CONSTRAINT ip_employer_requests_reviewer_id_fkey
+          FOREIGN KEY (reviewer_id) REFERENCES ip_users(id) ON DELETE SET NULL;
+      END IF;
+    END $$
+  `);
+  await query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ip_bulk_message_recipients_message_id_fkey') THEN
+        ALTER TABLE ip_bulk_message_recipients
+          ADD CONSTRAINT ip_bulk_message_recipients_message_id_fkey
+          FOREIGN KEY (message_id) REFERENCES ip_messages(id) ON DELETE SET NULL;
+      END IF;
+    END $$
+  `);
+
+  await query(
+    `ALTER TABLE ip_export_jobs ADD COLUMN IF NOT EXISTS skipped_application_ids JSONB NOT NULL DEFAULT '[]'::jsonb`,
+  );
+  await query(`ALTER TABLE ip_endorsements ALTER COLUMN candidate_id SET NOT NULL`);
+  await ensureIpIntegrityConstraints();
 
   schemaReady = true;
 }

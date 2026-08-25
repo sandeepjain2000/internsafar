@@ -245,8 +245,19 @@ export default function BrowseInternshipsPage() {
           <div className="ip-br-hero__title">
             <h1>Browse Internships</h1>
             <span className="ip-br-chip">Marketplace</span>
+            <button
+              type="button"
+              className="ip-br-m-saved"
+              title="Saved internships"
+              aria-label={`Saved internships (${counts.saved})`}
+              onClick={() => setTab('saved')}
+            >
+              <Bookmark fill={tab === 'saved' ? 'currentColor' : 'none'} />
+              {counts.saved > 0 ? <span>{counts.saved}</span> : null}
+            </button>
           </div>
-          <p>Discover verified internship opportunities. Submitting an application uses {POINTS_PER_APPLICATION} points.</p>
+          <p className="ip-br-hero__desk">Discover verified internship opportunities. Submitting an application uses {POINTS_PER_APPLICATION} points.</p>
+          <p className="ip-br-hero__mob">Explore {counts.all} openings · {POINTS_PER_APPLICATION} pts per application · {pointsLabel}</p>
         </div>
         <div className="ip-br-cost">
           <div className="ip-br-cost__icon" aria-hidden>{POINTS_PER_APPLICATION}</div>
@@ -265,7 +276,13 @@ export default function BrowseInternshipsPage() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search by role title, company name, skills (e.g. React, Python), or location..."
+              aria-label="Search internships"
             />
+            {q ? (
+              <button type="button" className="ip-br-search-clear" onClick={() => setQ('')} aria-label="Clear search">
+                ×
+              </button>
+            ) : null}
           </div>
           <div className="ip-br-toolbar__actions">
             <button
@@ -274,7 +291,8 @@ export default function BrowseInternshipsPage() {
               onClick={() => setFiltersOpen((v) => !v)}
             >
               <SlidersHorizontal />
-              Filter Options
+              <span className="ip-br-filter-desk">Filter Options</span>
+              <span className="ip-br-filter-mob">Filters</span>
               {filtersActive ? <span className="ip-br-dot">!</span> : null}
             </button>
             <label className="ip-br-sort">
@@ -292,7 +310,14 @@ export default function BrowseInternshipsPage() {
         </div>
 
         {filtersOpen ? (
-          <div className="ip-br-drawer">
+          <>
+          <button type="button" className="ip-br-sheet-scrim" aria-label="Close filters" onClick={() => setFiltersOpen(false)} />
+          <div className="ip-br-drawer" role="dialog" aria-label="Filter internships">
+            <div className="ip-br-sheet-handle" aria-hidden />
+            <div className="ip-br-sheet-head">
+              <h3>Filter Internships</h3>
+              <button type="button" className="ip-br-sheet-x" onClick={() => setFiltersOpen(false)} aria-label="Close filters">×</button>
+            </div>
             <label>
               Work Mode
               <select value={workMode} onChange={(e) => setWorkMode(e.target.value)}>
@@ -333,7 +358,12 @@ export default function BrowseInternshipsPage() {
                 placeholder="Any"
               />
             </label>
+            <div className="ip-br-sheet-actions">
+              <button type="button" className="ip-br-btn ip-br-btn--ghost" onClick={resetFilters}>Clear All</button>
+              <button type="button" className="ip-br-btn ip-br-btn--primary" onClick={() => setFiltersOpen(false)}>Apply Filters</button>
+            </div>
           </div>
+          </>
         ) : null}
 
         <div className="ip-br-tabs">
@@ -365,6 +395,18 @@ export default function BrowseInternshipsPage() {
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="ip-br-mcount">
+        <span><b>{loading ? '…' : items.length}</b> roles matching</span>
+        <label className="ip-br-sort">
+          <span>Sort by:</span>
+          <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort internships">
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {items.length ? (
@@ -493,7 +535,8 @@ export default function BrowseInternshipsPage() {
                       className="ip-br-btn ip-br-btn--primary"
                       onClick={() => router.push(`/candidate/internships/${i.id}`)}
                     >
-                      Review &amp; Apply ({POINTS_PER_APPLICATION} Pts)
+                      <span className="ip-br-cta-desk">Review &amp; Apply ({POINTS_PER_APPLICATION} Pts)</span>
+                      <span className="ip-br-cta-mob">View &amp; Apply</span>
                     </button>
                   )}
                 </div>

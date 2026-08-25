@@ -116,7 +116,7 @@ export function presentLedgerEntry(row, balanceAfter) {
   } else if (reason === 'application_spend') {
     const intern = [row.internship_title, row.company_name].filter(Boolean).join(' @ ');
     title = intern ? `Application submitted — ${intern}` : 'Application submitted';
-    subtitle = 'Used standard application credit cost';
+    subtitle = intern ? 'Used standard application credit cost' : 'Used standard application credit cost';
     category = 'Application Spend';
     categoryKey = 'spend';
   } else if (reason === 'default_signup') {
@@ -141,6 +141,8 @@ export function presentLedgerEntry(row, balanceAfter) {
     categoryKey = 'share';
   }
 
+  subtitle = applyGoneEntityNote(row, meta, subtitle);
+
   return {
     id: row.id,
     created_at: row.created_at,
@@ -152,6 +154,16 @@ export function presentLedgerEntry(row, balanceAfter) {
     categoryKey,
     balance_after: balanceAfter,
   };
+}
+
+function applyGoneEntityNote(row, meta, subtitle) {
+  if (meta.internshipId && !row.internship_title) {
+    return 'This internship is no longer available';
+  }
+  if (meta.applicationId && !row.application_row_id) {
+    return 'This application is no longer available';
+  }
+  return subtitle;
 }
 
 export async function recordInvalidReferralAttempt({
@@ -181,6 +193,13 @@ export async function recordInvalidReferralAttempt({
 
 export async function insertPendingReferral({ referrerUserId, referredUserId, referralCode }) {
   await ensureIpReferralExtraSchema();
+  const existing = await query(
+    `SELECT id FROM ip_referrals
+     WHERE referrer_user_id = $1 AND referred_user_id = $2 AND status = 'pending'
+     LIMIT 1`,
+    [referrerUserId, referredUserId],
+  );
+  if (existing.rows[0]) return existing.rows[0].id;
   await query(
     `INSERT INTO ip_referrals (id, referrer_user_id, referred_user_id, referral_code, status, points_awarded)
      VALUES ($1,$2,$3,$4,'pending',0)`,

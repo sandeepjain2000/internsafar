@@ -218,6 +218,7 @@ export default function SuperAdminMessagesPage() {
   }
 
   function openTarget(n) {
+    if (n.resourceUnavailable) return;
     if (n.link && n.link !== '#') router.push(n.link);
   }
 
@@ -569,6 +570,9 @@ export default function SuperAdminMessagesPage() {
               </div>
               <p style={{ margin: 0, fontSize: '0.75rem', color: '#475569', whiteSpace: 'pre-wrap' }}>
                 {inspect.body || 'No additional details.'}
+                {inspect.resourceUnavailable ? (
+                  <p style={{ marginTop: '0.75rem' }}>{inspect.resourceUnavailableMessage}</p>
+                ) : null}
               </p>
             </div>
             <div className="ip-saq-modal-foot">
@@ -580,7 +584,7 @@ export default function SuperAdminMessagesPage() {
                   Resolve
                 </button>
               ) : null}
-              {inspect.link && inspect.link !== '#' ? (
+              {inspect.link && inspect.link !== '#' && !inspect.resourceUnavailable ? (
                 <button
                   type="button"
                   className="ip-saq-btn"

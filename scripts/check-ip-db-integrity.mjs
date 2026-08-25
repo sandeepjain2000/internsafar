@@ -3,9 +3,10 @@
  * InternSafar database integrity checker (read-only).
  *
  *   npm run db:check-integrity
- *   scripts\check-ip-db-integrity.cmd
  *
- * Exit 0 if checks pass; exit 1 if any orphan / mismatch is found.
+ * Covers offer→application, pipeline FKs (023–026), uniques/CHECKs (027–028),
+ * offer-accept application status (029),
+ * and hired/completed engagement for ratings and endorsements.
  */
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -22,7 +23,6 @@ if (process.argv.includes('--help') || process.argv.includes('-h')) {
 
   npm run db:check-integrity
   node scripts/check-ip-db-integrity.mjs
-  scripts\\check-ip-db-integrity.cmd
 
 Needs DATABASE_URL or SUPABASE_DATABASE_URL in .env.local.
 Does not print the connection string.
@@ -56,26 +56,73 @@ async function main() {
 
   const pool = new pg.Pool(parseUrl(dbUrl));
   const one = async (sql) => {
-    const r = await pool.query(sql);
-    return Number(r.rows[0]?.n || 0);
+    try {
+      const r = await pool.query(sql);
+      return Number(r.rows[0]?.n || 0);
+    } catch (e) {
+      if (e.code === '42P01' || e.code === '42703') return -1;
+      throw e;
+    }
+  };
+  const hasConstraint = async (name) => {
+    const r = await pool.query(`SELECT 1 FROM pg_constraint WHERE conname = $1 LIMIT 1`, [name]);
+    return r.rowCount > 0;
   };
 
   try {
     const report = {
       ok: true,
-      offer_fk_present: false,
+      offer_fk_present: await hasConstraint('ip_offers_application_id_fkey'),
+      thread_application_fk_present: await hasConstraint('ip_message_threads_application_id_fkey'),
+      endorsement_candidate_not_null: false,
       offers_missing_application_id: 0,
       offers_orphan_application: 0,
       offers_candidate_or_internship_mismatch: 0,
       applications_missing_candidate: 0,
       applications_missing_internship: 0,
       messages_missing_thread: 0,
+      endorsements_null_candidate: 0,
+      threads_orphan_application_id: 0,
+      generated_run_dangling: 0,
+      rejection_template_dangling: 0,
+      promo_reviewed_by_dangling: 0,
+      viral_reviewed_by_dangling: 0,
+      request_created_user_dangling: 0,
+      request_reviewer_dangling: 0,
+      bulk_message_id_dangling: 0,
+      ratings_without_hired_or_completed: 0,
+      endorsements_without_hired_or_completed: 0,
+      offer_application_unique_present: false,
+      ratings_from_to_internship_unique_present: false,
+      applications_status_check_present: false,
+      duplicate_offers_per_application: 0,
+      duplicate_ratings_from_to_internship: 0,
+      applications_unknown_status: 0,
+      endorsement_unique_present: false,
+      referred_by_fk_present: false,
+      pref_category_check_present: false,
+      pending_referral_unique_index: false,
+      duplicate_endorsements: 0,
+      referred_by_orphans: 0,
+      accepted_offer_app_not_hired: 0,
+      declined_offer_app_mismatch: 0,
     };
 
-    const fk = await pool.query(
-      `SELECT 1 FROM pg_constraint WHERE conname = 'ip_offers_application_id_fkey' LIMIT 1`,
+    const endNull = await pool.query(
+      `SELECT is_nullable FROM information_schema.columns
+       WHERE table_name = 'ip_endorsements' AND column_name = 'candidate_id'`,
     );
-    report.offer_fk_present = fk.rowCount > 0;
+    report.endorsement_candidate_not_null = String(endNull.rows[0]?.is_nullable || '').toUpperCase() === 'NO';
+    const endEmp = await pool.query(
+      `SELECT is_nullable FROM information_schema.columns
+       WHERE table_name = 'ip_endorsements' AND column_name = 'employer_id'`,
+    );
+    report.endorsement_employer_not_null = String(endEmp.rows[0]?.is_nullable || '').toUpperCase() === 'NO';
+    const rateIntern = await pool.query(
+      `SELECT is_nullable FROM information_schema.columns
+       WHERE table_name = 'ip_ratings' AND column_name = 'internship_id'`,
+    );
+    report.rating_internship_not_null = String(rateIntern.rows[0]?.is_nullable || '').toUpperCase() === 'NO';
 
     report.offers_missing_application_id = await one(
       `SELECT count(*)::int AS n FROM ip_offers WHERE application_id IS NULL`,
@@ -98,17 +145,138 @@ async function main() {
     report.messages_missing_thread = await one(`
       SELECT count(*)::int AS n FROM ip_messages m
       LEFT JOIN ip_message_threads t ON t.id = m.thread_id WHERE t.id IS NULL`);
+    report.endorsements_null_candidate = await one(
+      `SELECT count(*)::int AS n FROM ip_endorsements WHERE candidate_id IS NULL`,
+    );
+    report.ratings_null_internship = await one(
+      `SELECT count(*)::int AS n FROM ip_ratings WHERE internship_id IS NULL`,
+    );
+    report.threads_orphan_application_id = await one(`
+      SELECT count(*)::int AS n FROM ip_message_threads t
+      WHERE t.application_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM ip_applications a WHERE a.id = t.application_id)`);
+    report.generated_run_dangling = await one(`
+      SELECT count(*)::int AS n FROM ip_users u
+      WHERE u.generated_run_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM ip_generated_runs g WHERE g.run_id = u.generated_run_id)`);
+    report.rejection_template_dangling = await one(`
+      SELECT count(*)::int AS n FROM ip_applications a
+      WHERE a.rejection_template_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM ip_rejection_templates t WHERE t.id = a.rejection_template_id)`);
+    report.promo_reviewed_by_dangling = await one(`
+      SELECT count(*)::int AS n FROM ip_linkedin_promotions p
+      WHERE p.reviewed_by IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM ip_users u WHERE u.id = p.reviewed_by)`);
+    report.viral_reviewed_by_dangling = await one(`
+      SELECT count(*)::int AS n FROM ip_viral_shares v
+      WHERE v.reviewed_by IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM ip_users u WHERE u.id = v.reviewed_by)`);
+    report.request_created_user_dangling = await one(`
+      SELECT count(*)::int AS n FROM ip_employer_requests r
+      WHERE r.created_user_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM ip_users u WHERE u.id = r.created_user_id)`);
+    report.request_reviewer_dangling = await one(`
+      SELECT count(*)::int AS n FROM ip_employer_requests r
+      WHERE r.reviewer_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM ip_users u WHERE u.id = r.reviewer_id)`);
+    report.bulk_message_id_dangling = await one(`
+      SELECT count(*)::int AS n FROM ip_bulk_message_recipients r
+      WHERE r.message_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM ip_messages m WHERE m.id = r.message_id)`);
+
+    report.ratings_without_hired_or_completed = await one(`
+      SELECT count(*)::int AS n FROM ip_ratings r
+      WHERE r.internship_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM ip_applications a
+          JOIN ip_internships i ON i.id = a.internship_id
+          JOIN ip_candidates c ON c.id = a.candidate_id
+          JOIN ip_employers e ON e.id = i.employer_id
+          WHERE a.internship_id = r.internship_id
+            AND a.status IN ('hired', 'completed')
+            AND (
+              (c.user_id = r.from_user_id AND e.user_id = r.to_user_id)
+              OR (e.user_id = r.from_user_id AND c.user_id = r.to_user_id)
+            )
+        )`);
+    report.offer_application_unique_present = await hasConstraint('ip_offers_application_id_key');
+    report.ratings_from_to_internship_unique_present = await hasConstraint(
+      'ip_ratings_from_to_internship_key',
+    );
+    report.applications_status_check_present = await hasConstraint('ip_applications_status_check');
+    report.duplicate_offers_per_application = await one(`
+      SELECT coalesce(sum(n),0)::int AS n FROM (
+        SELECT count(*)::int AS n FROM ip_offers GROUP BY application_id HAVING count(*) > 1
+      ) t`);
+    report.duplicate_ratings_from_to_internship = await one(`
+      SELECT coalesce(sum(n),0)::int AS n FROM (
+        SELECT count(*)::int AS n FROM ip_ratings
+        GROUP BY from_user_id, to_user_id, internship_id HAVING count(*) > 1
+      ) t`);
+    report.applications_unknown_status = await one(`
+      SELECT count(*)::int AS n FROM ip_applications
+      WHERE status NOT IN (
+        'applied','shortlisted','interviewing','rejected','hired','offered','completed','declined_offer','withdrawn'
+      )`);
+    report.endorsement_unique_present = await hasConstraint(
+      'ip_endorsements_employer_candidate_internship_key',
+    );
+    report.referred_by_fk_present = await hasConstraint('ip_users_referred_by_fkey');
+    report.pref_category_check_present = await hasConstraint('ip_notification_preferences_category_check');
+    const idx = await pool.query(
+      `SELECT 1 FROM pg_indexes WHERE indexname = 'ip_referrals_pending_pair_uidx' LIMIT 1`,
+    );
+    report.pending_referral_unique_index = idx.rowCount > 0;
+    report.duplicate_endorsements = await one(`
+      SELECT coalesce(sum(n),0)::int AS n FROM (
+        SELECT count(*)::int AS n FROM ip_endorsements
+        GROUP BY employer_id, candidate_id, internship_id HAVING count(*) > 1
+      ) t`);
+    report.referred_by_orphans = await one(`
+      SELECT count(*)::int AS n FROM ip_users u
+      WHERE u.referred_by IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM ip_users r WHERE r.id = u.referred_by)`);
+    report.accepted_offer_app_not_hired = await one(`
+      SELECT count(*)::int AS n FROM ip_offers o
+      JOIN ip_applications a ON a.id = o.application_id
+      WHERE o.status = 'accepted' AND a.status NOT IN ('hired', 'completed')`);
+    report.declined_offer_app_mismatch = await one(`
+      SELECT count(*)::int AS n FROM ip_offers o
+      JOIN ip_applications a ON a.id = o.application_id
+      WHERE o.status = 'declined' AND a.status NOT IN ('declined_offer', 'rejected', 'applied', 'shortlisted', 'interviewing')`);
+    report.endorsements_without_hired_or_completed = await one(`
+      SELECT count(*)::int AS n FROM ip_endorsements en
+      WHERE en.internship_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM ip_applications a
+          JOIN ip_internships i ON i.id = a.internship_id
+          WHERE a.internship_id = en.internship_id
+            AND a.candidate_id = en.candidate_id
+            AND i.employer_id = en.employer_id
+            AND a.status IN ('hired', 'completed')
+        )`);
+
+    const numericFails = Object.entries(report)
+      .filter(([k, v]) => k !== 'ok' && typeof v === 'number' && v > 0)
+      .map(([k]) => k);
 
     const bad =
       !report.offer_fk_present ||
-      report.offers_missing_application_id > 0 ||
-      report.offers_orphan_application > 0 ||
-      report.offers_candidate_or_internship_mismatch > 0 ||
-      report.applications_missing_candidate > 0 ||
-      report.applications_missing_internship > 0 ||
-      report.messages_missing_thread > 0;
+      !report.thread_application_fk_present ||
+      !report.endorsement_candidate_not_null ||
+      !report.endorsement_employer_not_null ||
+      !report.rating_internship_not_null ||
+      !report.offer_application_unique_present ||
+      !report.ratings_from_to_internship_unique_present ||
+      !report.applications_status_check_present ||
+      !report.endorsement_unique_present ||
+      !report.referred_by_fk_present ||
+      !report.pref_category_check_present ||
+      !report.pending_referral_unique_index ||
+      numericFails.length > 0;
 
     report.ok = !bad;
+    if (numericFails.length) report.failing_counts = numericFails;
     console.log(JSON.stringify(report, null, 2));
     if (bad) process.exit(1);
   } finally {

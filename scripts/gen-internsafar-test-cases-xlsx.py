@@ -792,9 +792,9 @@ def extra_cases(seq: dict) -> list[dict]:
         "Negative",
         "Candidate, Employer",
         "Completed application (COMP path)",
-        "1. Rate 0, 1, 5, 6 if API allows raw values.\n2. Rate before complete (RATE-2).",
-        "Out-of-range rejected. Pre-complete rejected. Mutual rating UI on offers pages.",
-        "BVA 0,1,5,6.",
+        "1. Rate 0, 1, 5, 6 via POST /api/ip/ratings with internshipId on a hired/completed application.\n2. Rate with stars 5 and no internshipId (RATE-2).\n3. Rate while application is only applied/shortlisted.",
+        "0 and 6 rejected. Missing internshipId rejected. Applied/shortlisted rejected until hired or completed. 1 and 5 accepted only after that gate (or 409 if that pair already rated that internship).",
+        "BVA 0,1,5,6. Decision table: internshipId Y/N × application status applied|hired|completed. Unique (from,to,internship) → 409.",
     )
     add(
         "15",
@@ -847,6 +847,127 @@ def extra_cases(seq: dict) -> list[dict]:
         "1. Open /candidate.\n2. Follow each CTA to profile/browse/offers.",
         "No 500. CTAs hit real routes in ipNav.",
         "Related CAND-D-1 rewritten for Gemini home.",
+    )
+    add(
+        "11",
+        "11 Offers Ratings Completions",
+        "Offer needs application",
+        "POST /api/ip/offers without an application is rejected",
+        "P0",
+        "Negative",
+        "Employer",
+        DEMO["employer"] + "; a published internship; candidate who has not applied",
+        "1. POST /api/ip/offers with candidateId + internshipId and no applicationId, where no ip_applications row exists.\n2. Repeat with a bogus applicationId.",
+        "400: Offer requires an existing application. Bogus applicationId → 404. No ip_offers row is inserted (application_id is NOT NULL).",
+        "EP: missing both applicationId and candidate+internship vs candidate+internship with no apply vs valid applicationId. Risk 3×3=9 (orphan offers). Trace: migrations 019/023. Demo: "
+        + DEMO["employer"]
+        + " / "
+        + DEMO["candidate2"]
+        + " if +2 has not applied to that posting.",
+    )
+    add(
+        "11",
+        "11 Offers Ratings Completions",
+        "One offer per application",
+        "Second offer on the same application_id is 409",
+        "P0",
+        "Negative",
+        "Employer",
+        DEMO["employer"] + " with an application that already has an offer, or create one then POST again",
+        "1. POST /api/ip/offers with a valid applicationId (201).\n2. POST the same applicationId again.",
+        "Second POST 409: This application already has an offer. Unique ip_offers.application_id.",
+        "BVA: 0 offers, 1 offer, 2nd attempt. Do not use Placement Hub college offer upload.",
+    )
+    add(
+        "11",
+        "11 Offers Ratings Completions",
+        "Accept sets hired",
+        "Candidate accept PATCH updates offer accepted and application hired in one step",
+        "P0",
+        "Functional",
+        "Candidate, Employer",
+        "Pending offer with application_id (do not use a core offer you cannot restore unless using generate:ip-test-data)",
+        "1. Candidate PATCH /api/ip/offers/{id} { status: accepted }.\n2. GET application (employer applicants or DB).",
+        "Offer status accepted. Linked application status hired (not left at offered). Employer cannot PATCH accept (CAND-O-4).",
+        "Decision table: pending×accepted, pending×declined, already-responded, expired. Migration 029. Test data: generated run id tagged users, not only cores.",
+    )
+    add(
+        "11",
+        "11 Offers Ratings Completions",
+        "Decline sets declined_offer",
+        "Candidate decline PATCH sets application declined_offer",
+        "P0",
+        "Functional",
+        "Candidate",
+        "Separate pending offer from accept case",
+        "1. PATCH { status: declined }.\n2. Confirm application status declined_offer.",
+        "Offer declined. Application declined_offer. Status CHECK allows declined_offer.",
+        "EP: decline vs accept vs invalid status hired on offer PATCH.",
+    )
+    add(
+        "11",
+        "11 Offers Ratings Completions",
+        "Rating/endorsement engagement gate",
+        "Rating and endorsement require internshipId and hired or completed application",
+        "P0",
+        "Negative",
+        "Employer, Candidate",
+        DEMO["employer"] + "; " + DEMO["candidate"] + " with only applied/shortlisted if possible",
+        "1. POST /api/ip/ratings { toUserId, stars: 5 } without internshipId.\n2. POST ratings with internshipId while application is applied.\n3. POST /api/ip/endorsements { candidateId } without internshipId.\n4. After hired/completed, POST rating and endorsement with internshipId.",
+        "Steps 1–3: 400 (internshipId required or no hired/completed engagement). Step 4: 201 or 409 if already recorded for that internship.",
+        "requireInternshipEngagement ALLOWED={hired, completed}. Endorsement unique employer+candidate+internship.",
+    )
+    add(
+        "11",
+        "11 Offers Ratings Completions",
+        "Duplicate rating unique",
+        "Second rating for same from/to/internship is 409",
+        "P1",
+        "Negative",
+        "Employer",
+        "Completed/hired pair already rated once",
+        "1. POST rating with internshipId (201 or existing).\n2. POST the same triple again.",
+        "409 unique ip_ratings_from_to_internship_key. Not a 500.",
+        "BVA: first insert vs duplicate.",
+    )
+    add(
+        "11",
+        "11 Offers Ratings Completions",
+        "Duplicate endorsement unique",
+        "Second endorsement for same employer+candidate+internship is 409",
+        "P1",
+        "Negative",
+        "Employer",
+        "Hired/completed application",
+        "1. POST /api/ip/endorsements with candidateId + internshipId.\n2. Repeat.",
+        "First 201; second 409 You have already endorsed this candidate for this internship.",
+        "EP: missing internshipId vs valid vs duplicate.",
+    )
+    add(
+        "12",
+        "12 Messages",
+        "Dead notification targets",
+        "Notifications for deleted internship/offer set resourceUnavailable and clear the link",
+        "P1",
+        "Functional",
+        "Candidate",
+        DEMO["candidate"] + "; a notification whose meta.internshipId or offerId no longer exists (or generate one then delete the entity in a throwaway run)",
+        "1. GET /api/ip/notifications.\n2. Find or create a notice pointing at a missing internship/offer.\n3. Confirm UI on /candidate/notifications.",
+        "annotateNotificationsTargetAvailability: resourceUnavailable true, resourceUnavailableMessage set, link and actionHref null. List routes without a specific id stay clickable.",
+        "EP: missing internship vs missing offer vs missing application vs live entity. Risk 2×3=6. Do not delete core showcase internships.",
+    )
+    add(
+        "12",
+        "12 Messages",
+        "Thread application_id",
+        "Message thread may have application_id when the candidate applied; invite-only thread may be null",
+        "P1",
+        "Functional",
+        "Candidate, Employer",
+        DEMO["employer"] + " invite vs apply paths",
+        "1. Create/open a thread after an application (POST /api/ip/messages/threads with internshipId).\n2. Create/open a thread with no internship (general).\n3. GET thread list.",
+        "Applied+internship: application_id set when linkThreadToApplicationIfPresent finds a row. Pre-application invite: application_id null. FK SET NULL if application deleted. candidate_user_id and employer_user_id NOT NULL.",
+        "Migration 023. Decision table: internshipId Y/N × application exists Y/N.",
     )
     return out
 
@@ -937,7 +1058,7 @@ COVERAGE_ROWS = [
     ("Browse / save / apply (5 pts)", "Y", "—", "—", "—"),
     ("Postings + applicant pipeline + bulk/export", "—", "Y", "oversee", "—"),
     ("List last-used prefs + presets (max 5)", "Y", "Y", "API 403", "—"),
-    ("Offers / ratings / completions", "Y", "Y", "—", "—"),
+    ("Offers / ratings / completions + application_id integrity", "Y", "Y", "—", "—"),
     ("Messages + attachments", "Y", "Y", "oversight", "—"),
     ("Notifications UI", "Y", "Y", "API only / no nav page", "—"),
     ("Points / referral /r/{code}", "Y", "Y", "—", "landing"),
@@ -996,7 +1117,9 @@ def main():
         "Product: InternSafar (workspace sibling internship-portal). "
         "Column schema matches Reference A (TC ID … Executed At) plus Legacy ID for eyeballing Reference B. "
         "Reference A's test CONTENT was not copied. Status is Not Run for every row. "
-        "Reference B (~179 executable IDs in the xlsx, not 212) was a one-time content source and is not linked."
+        "Reference B (~179 executable IDs in the xlsx, not 212) was a one-time content source and is not linked. "
+        "Integrity cases (offer↔application, rating/endorsement engagement, dead notification targets, thread application_id) "
+        "were added 25 Aug 2026 for current InternSafar APIs. Every Status is Not Run."
     )
     idx["A2"].alignment = Alignment(wrap_text=True)
     idx.merge_cells("A2:G2")

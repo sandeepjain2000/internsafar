@@ -296,7 +296,7 @@ async function runLiveMatrix() {
   }
 
   // Playwright UI smoke: create page reminder toggles + applicants export chrome
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: true, channel: 'chrome' });
   const page = await browser.newPage();
   try {
     await page.context().addCookies(

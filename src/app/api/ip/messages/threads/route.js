@@ -3,6 +3,8 @@ import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { decorateMessageThread } from '@/lib/ipMessagePresentation';
 import { maskEmployerName } from '@/lib/ipEmployerIdentity';
+import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
+import { linkThreadToApplicationIfPresent } from '@/lib/ipLinkThreadApplication';
 import {
   ensureIpMessageInboxSchema,
   THREAD_JOINS,
@@ -58,6 +60,7 @@ export async function POST(request) {
   const { session, error } = await requireSession(['candidate', 'employer']);
   if (error) return error;
   await ensureIpMessageInboxSchema();
+  await ensureIpWorkbenchSchema();
   let body;
   try {
     body = await request.json();
@@ -93,6 +96,12 @@ export async function POST(request) {
       [threadId, internshipId, candidateUserId, employerUserId, title],
     );
   }
+
+  await linkThreadToApplicationIfPresent(query, {
+    threadId,
+    internshipId,
+    candidateUserId,
+  });
 
   if (message) {
     await query(

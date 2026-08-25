@@ -1,5 +1,6 @@
 import { query } from '@/lib/db';
 import { requireSession, jsonOk } from '@/lib/apiAuth';
+import { ensureIpFormRegistrationSchema } from '@/lib/ensureIpFormRegistrationSchema';
 import {
   ensureIpReferralExtraSchema,
   maybeAwardProfileCompleteBonus,
@@ -11,6 +12,7 @@ import {
 export async function GET(request) {
   const { session, error } = await requireSession(['candidate', 'employer']);
   if (error) return error;
+  await ensureIpFormRegistrationSchema();
   await ensureIpReferralExtraSchema();
   if (session.user.role === 'candidate') {
     await maybeAwardProfileCompleteBonus(session.user.id).catch(() => {});

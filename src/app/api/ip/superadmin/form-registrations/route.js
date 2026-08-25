@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { sendMail } from '@/lib/mail';
 import { ensureIpFormRegistrationSchema } from '@/lib/ensureIpFormRegistrationSchema';
+import { ensureIpCandidateProfileSchema } from '@/lib/ensureIpCandidateProfileSchema';
 import {
   creditReferralForReferredUser,
   ensureIpReferralExtraSchema,
@@ -66,6 +67,7 @@ export async function GET(request) {
   if (error) return error;
   await ensureIpFormRegistrationSchema();
   await ensureIpReferralExtraSchema();
+  await ensureIpCandidateProfileSchema();
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status') || 'pending';
   const withMeta = searchParams.get('meta') === '1';
@@ -121,6 +123,7 @@ export async function PATCH(request) {
   if (error) return error;
   await ensureIpFormRegistrationSchema();
   await ensureIpReferralExtraSchema();
+  await ensureIpCandidateProfileSchema();
   let body;
   try {
     body = await request.json();

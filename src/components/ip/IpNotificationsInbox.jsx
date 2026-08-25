@@ -218,7 +218,7 @@ export default function IpNotificationsInbox() {
             const category = resolveCategory(n);
             const { Icon, tone } = iconFor(n, category);
             const cta = actionLabel(n, category);
-            const href = n.link && n.link !== '#' ? n.link : null;
+            const href = n.resourceUnavailable ? null : n.link && n.link !== '#' ? n.link : null;
             return (
               <li key={n.id} className={`ip-nf-card${unread ? ' is-unread' : ''}`}>
                 <div className="ip-nf-card-main">
@@ -231,6 +231,9 @@ export default function IpNotificationsInbox() {
                       {unread ? <span className="ip-nf-unread-dot" title="Unread" /> : null}
                     </h3>
                     {n.body ? <p className="ip-nf-desc">{n.body}</p> : null}
+                    {n.resourceUnavailable ? (
+                      <p className="ip-nf-desc">{n.resourceUnavailableMessage}</p>
+                    ) : null}
                     <div className="ip-nf-meta">
                       {href ? (
                         <Link

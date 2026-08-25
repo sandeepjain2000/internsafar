@@ -101,6 +101,12 @@ async function deleteUserCascade(client, userId, email) {
     await runDelete(client, `DELETE FROM ip_message_threads WHERE candidate_user_id=$1 OR employer_user_id=$1`, [userId]);
     await runDelete(client, `DELETE FROM ip_ratings WHERE from_user_id=$1 OR to_user_id=$1`, [userId]);
     await runDelete(client, `DELETE FROM ip_endorsements WHERE ($1::text IS NOT NULL AND candidate_id=$1) OR ($2::text IS NOT NULL AND employer_id=$2)`, [candidateId, employerId]);
+    const { deleteIpWorkbenchForActor } = require(path.join(__dirname, 'lib', 'ensureIpPipelineSchema.js'));
+    await deleteIpWorkbenchForActor(client, async (_label, sql, params) => runDelete(client, sql, params), {
+      userId,
+      employerId,
+      candidateId,
+    });
 
     if (employerId) {
       await runDelete(client, `DELETE FROM ip_linkedin_promotions WHERE employer_id=$1`, [employerId]);
@@ -276,6 +282,8 @@ async function main() {
   const client = new pg.Client({ connectionString, ssl: { rejectUnauthorized: false } });
   await client.connect();
   try {
+    const { ensureIpPipelineSchema } = require(path.join(ipRoot, 'scripts', 'lib', 'ensureIpPipelineSchema.js'));
+    await ensureIpPipelineSchema(client);
     const users = await client.query(`SELECT id,email,role FROM ip_users ORDER BY role,email`);
     const toDelete = users.rows.filter((u) => String(u.email || '').toLowerCase() !== CONFIG.superadminEmail.toLowerCase());
     console.log(`IP root: ${ipRoot}`);

@@ -26,6 +26,7 @@ const {
   isProtectedEmail,
 } = require('./lib/ipCoreSampleConfig.js');
 const { hardDeleteIpUser } = require('./lib/hardDeleteIpUser.js');
+const { ensureIpPipelineSchema } = require('./lib/ensureIpPipelineSchema.js');
 
 function argFlag(name) {
   const idx = process.argv.indexOf(`--${name}`);
@@ -219,6 +220,7 @@ See scripts/IP_TEST_DATA_GUIDE.md`);
   const pool = new pg.Pool(parseUrl(dbUrl));
   const client = await pool.connect();
   try {
+    await ensureIpPipelineSchema(client);
     if (mode === 'except-cores') {
       const token = argFlag('confirm-except-cores') || arg('confirm-except-cores', null);
       const confirm = String(token || '').toUpperCase() === 'YES';

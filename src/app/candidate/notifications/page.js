@@ -311,6 +311,9 @@ export default function CandidateNotificationsPage() {
                       </div>
                     </div>
                     {n.body ? <p className="ip-cn-desc">{n.body}</p> : null}
+                    {n.resourceUnavailable ? (
+                      <p className="ip-cn-desc">{n.resourceUnavailableMessage}</p>
+                    ) : null}
                     <div className="ip-cn-actions">
                       {n.actionHref ? (
                         <Link

@@ -128,7 +128,9 @@ Windows double-click / cmd:
 C:\Users\place\Work\UIUX Migration\internship-portal\scripts\check-ip-db-integrity.cmd
 ```
 
-Fails (exit 1) if offers exist without an application, or applications/messages point at missing parents.
+Fails (exit 1) if offers lack a live application, endorsements have no candidate, pipeline FKs dangle, or a rating/endorsement is not backed by a hired/completed application on that internship.
+
+Also: `npm run db:migrate:pipeline` (023+024) or `npm run db:migrate:workbench` (016–024). Generate/delete/reset apply the same pipeline schema idempotently.
 
 ---
 
@@ -156,7 +158,9 @@ npm run delete:ip-generated-run -- --mode=run --confirm-generated-run <RUN_ID>
 | `npm run generate:ip-test-data -- --mode=core-fill` | Fill cores |
 | `npm run generate:ip-test-data -- --mode=gen-accounts` | Create +gen users |
 | `npm run delete:ip-generated-run -- --mode=run --confirm-generated-run ID` | Delete one run |
-| `npm run db:check-integrity` | Read-only integrity (offers ↔ applications, etc.) |
+| `npm run db:check-integrity` | Read-only integrity (offers, threads, endorsements, hired/completed ratings) |
+| `npm run db:migrate:pipeline` | Apply 023+024 pipeline FKs |
+| `npm run db:migrate:workbench` | Apply workbench migrations 016–024 |
 
 ---
 

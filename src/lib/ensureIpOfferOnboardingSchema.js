@@ -1,4 +1,5 @@
 import { query } from '@/lib/db';
+import { ensureIpIntegrityConstraints } from '@/lib/ensureIpIntegrityConstraints';
 
 let schemaReady = false;
 
@@ -29,5 +30,7 @@ export async function ensureIpOfferOnboardingSchema() {
       END IF;
     END $$
   `);
+  await query(`ALTER TABLE ip_offers ALTER COLUMN application_id SET NOT NULL`);
+  await ensureIpIntegrityConstraints();
   schemaReady = true;
 }

@@ -11,7 +11,7 @@ export async function GET(request, { params }) {
   const emp = await query(`SELECT id FROM ip_employers WHERE user_id = $1`, [session.user.id]);
   const job = await query(
     `SELECT id, status, progress, total, error, result_filename, resume_count, skipped_resumes,
-            include_resumes, created_at, completed_at,
+            skipped_application_ids, include_resumes, created_at, completed_at,
             CASE WHEN status = 'done' THEN result_csv ELSE NULL END AS result_csv,
             CASE WHEN status = 'done' THEN result_zip_base64 ELSE NULL END AS result_zip_base64
      FROM ip_export_jobs WHERE id = $1 AND employer_id = $2`,
@@ -28,7 +28,7 @@ export async function GET(request, { params }) {
     }
     const refreshed = await query(
       `SELECT id, status, progress, total, error, result_filename, resume_count, skipped_resumes,
-              include_resumes, created_at, completed_at,
+              skipped_application_ids, include_resumes, created_at, completed_at,
               CASE WHEN status = 'done' THEN result_csv ELSE NULL END AS result_csv,
               CASE WHEN status = 'done' THEN result_zip_base64 ELSE NULL END AS result_zip_base64
        FROM ip_export_jobs WHERE id = $1 AND employer_id = $2`,

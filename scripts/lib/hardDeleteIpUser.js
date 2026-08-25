@@ -10,6 +10,8 @@
  * @module scripts/lib/hardDeleteIpUser
  */
 
+const { deleteIpWorkbenchForActor } = require('./ensureIpPipelineSchema.js');
+
 /** Tables we check/delete (for dry-run counts). Optional tables skipped if missing. */
 const COUNT_QUERIES = {
   messages_as_sender: `SELECT count(*)::int AS n FROM ip_messages WHERE sender_user_id = $1`,
@@ -145,12 +147,26 @@ async function previewHardDeleteIpUser(client, lookup) {
     [candidateId, employerId],
   );
 
-  counts.employer_requests_by_email = await safeCount(
-    client,
-    `SELECT count(*)::int AS n FROM ip_employer_requests
+    counts.employer_requests_by_email = await safeCount(
+      client,
+      `SELECT count(*)::int AS n FROM ip_employer_requests
      WHERE lower(contact_email) = lower($1) OR created_user_id = $2`,
-    [user.email, user.id],
-  );
+      [user.email, user.id],
+    );
+    if (employerId && (await tableExists(client, 'ip_export_jobs'))) {
+      counts.export_jobs = await safeCount(
+        client,
+        `SELECT count(*)::int AS n FROM ip_export_jobs WHERE employer_id = $1`,
+        [employerId],
+      );
+    }
+    if (employerId && (await tableExists(client, 'ip_employer_lists'))) {
+      counts.employer_lists = await safeCount(
+        client,
+        `SELECT count(*)::int AS n FROM ip_employer_lists WHERE employer_id = $1`,
+        [employerId],
+      );
+    }
 
   return {
     found: true,
@@ -238,6 +254,8 @@ async function hardDeleteIpUser(client, opts = {}) {
           OR ($2::text IS NOT NULL AND employer_id = $2)`,
       [candidateId, employerId],
     );
+
+    await deleteIpWorkbenchForActor(client, run, { userId, employerId, candidateId });
 
     if (employerId) {
       await run(

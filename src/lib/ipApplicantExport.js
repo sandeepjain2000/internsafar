@@ -61,6 +61,23 @@ export async function loadAppsForExport(employerId, internshipId, applicationIds
   return result.rows;
 }
 
+/** Keep IDs that still exist on this internship; report the rest (deleted/stale). */
+export async function partitionExportApplicationIds(employerId, internshipId, applicationIds) {
+  const wanted = [...new Set((applicationIds || []).map(String).filter(Boolean))];
+  if (!wanted.length) return { liveIds: [], skippedIds: [] };
+  const live = await query(
+    `SELECT a.id FROM ip_applications a
+     JOIN ip_internships i ON i.id = a.internship_id
+     WHERE i.employer_id = $1 AND a.internship_id = $2 AND a.id = ANY($3::text[])`,
+    [employerId, internshipId, wanted],
+  );
+  const liveSet = new Set(live.rows.map((r) => r.id));
+  return {
+    liveIds: wanted.filter((id) => liveSet.has(id)),
+    skippedIds: wanted.filter((id) => !liveSet.has(id)),
+  };
+}
+
 /**
  * Build CSV (+ optional ZIP of resumes the employer is allowed to see).
  * Phone-hidden rules: still allow resume if URL present (resume is already on applicant row).
@@ -142,7 +159,12 @@ export async function processExportJob(jobId) {
 
   try {
     const ids = Array.isArray(job.application_ids) ? job.application_ids : JSON.parse(job.application_ids || '[]');
-    const rows = await loadAppsForExport(job.employer_id, job.internship_id, ids);
+    const { liveIds, skippedIds } = await partitionExportApplicationIds(
+      job.employer_id,
+      job.internship_id,
+      ids,
+    );
+    const rows = await loadAppsForExport(job.employer_id, job.internship_id, liveIds);
     const pack = await buildApplicantExportPackage(rows, {
       includeResumes: job.include_resumes,
       onProgress: async (done, total) => {
@@ -153,11 +175,16 @@ export async function processExportJob(jobId) {
       },
     });
 
+    const skipNote = skippedIds.length
+      ? `Skipped ${skippedIds.length} application(s) that no longer exist.`
+      : null;
+
     await query(
       `UPDATE ip_export_jobs SET
          status = 'done', progress = total, result_csv = $2, result_zip_base64 = $3,
          result_filename = $4, resume_count = $5, skipped_resumes = $6,
-         completed_at = now(), updated_at = now(), error = NULL
+         skipped_application_ids = $7::jsonb, error = $8,
+         completed_at = now(), updated_at = now()
        WHERE id = $1`,
       [
         jobId,
@@ -166,24 +193,29 @@ export async function processExportJob(jobId) {
         pack.filename,
         pack.resumeCount,
         pack.skipped,
+        JSON.stringify(skippedIds),
+        skipNote,
       ],
     );
 
-    await query(
-      `INSERT INTO ip_application_events (id, application_id, actor_user_id, event_type, payload)
-       VALUES ($1,$2,$3,'export',$4::jsonb)`,
-      [
-        newId('ip_aev'),
-        ids[0],
-        job.created_by_user_id,
-        JSON.stringify({
-          jobId,
-          count: ids.length,
-          includeResumes: job.include_resumes,
-          resumeCount: pack.resumeCount,
-        }),
-      ],
-    );
+    if (liveIds[0]) {
+      await query(
+        `INSERT INTO ip_application_events (id, application_id, actor_user_id, event_type, payload)
+         VALUES ($1,$2,$3,'export',$4::jsonb)`,
+        [
+          newId('ip_aev'),
+          liveIds[0],
+          job.created_by_user_id,
+          JSON.stringify({
+            jobId,
+            count: liveIds.length,
+            skippedApplicationIds: skippedIds,
+            includeResumes: job.include_resumes,
+            resumeCount: pack.resumeCount,
+          }),
+        ],
+      );
+    }
 
     const done = await query(`SELECT * FROM ip_export_jobs WHERE id = $1`, [jobId]);
     return done.rows[0];

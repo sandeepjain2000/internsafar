@@ -1,16 +1,19 @@
 import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { ensureIpNotificationCategorySchema } from '@/lib/ensureIpNotificationCategorySchema';
+import { ensureIpApplicationInterviewSchema } from '@/lib/ensureIpApplicationInterviewSchema';
 import {
   decorateCandidateNotification,
   ensureCandidateOfferExpiryNotices,
   loadCandidateNotificationContext,
 } from '@/lib/ipCandidateNotificationPresentation';
+import { annotateNotificationsTargetAvailability } from '@/lib/ipNotificationTargetAvailability';
 
 export async function GET(request) {
   const { session, error } = await requireSession(['candidate', 'employer', 'superadmin']);
   if (error) return error;
   await ensureIpNotificationCategorySchema();
+  await ensureIpApplicationInterviewSchema();
 
   if (session.user.role === 'candidate') {
     await ensureCandidateOfferExpiryNotices(session.user.id).catch(() => {});
@@ -27,6 +30,8 @@ export async function GET(request) {
     const ctx = await loadCandidateNotificationContext(session.user.id);
     items = items.map((n) => decorateCandidateNotification(n, ctx));
   }
+
+  items = await annotateNotificationsTargetAvailability(query, items);
 
   if (!withMeta) return jsonOk({ items });
 

@@ -34,6 +34,7 @@ const {
   assertProtectedConfigValid,
   isProtectedEmail,
 } = require('./lib/ipCoreSampleConfig.js');
+const { ensureIpPipelineSchema } = require('./lib/ensureIpPipelineSchema.js');
 
 function arg(name, fallback) {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -256,6 +257,8 @@ async function modeCoreFill(pool, opts) {
     lists: 0,
     templates: 0,
     notifications: 0,
+    endorsements: 0,
+    ratings: 0,
   };
 
   await pool.query('BEGIN');
@@ -475,11 +478,23 @@ async function modeCoreFill(pool, opts) {
     let tid = existingThread.rows[0]?.id;
     if (!tid) {
       await pool.query(
-        `INSERT INTO ip_message_threads (id, internship_id, candidate_user_id, employer_user_id)
-         VALUES ($1,$2,$3,$4)`,
-        [threadId, livePostings[0]?.id || null, candUser.id, empUser.id],
+        `INSERT INTO ip_message_threads (id, internship_id, candidate_user_id, employer_user_id, application_id)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [threadId, livePostings[0]?.id || null, candUser.id, empUser.id, null],
       );
       tid = threadId;
+    }
+    if (livePostings[0]) {
+      const appForThread = await pool.query(
+        `SELECT id FROM ip_applications WHERE internship_id = $1 AND candidate_id = $2 LIMIT 1`,
+        [livePostings[0].id, candRow.id],
+      );
+      if (appForThread.rows[0]) {
+        await pool.query(
+          `UPDATE ip_message_threads SET application_id = COALESCE(application_id, $2) WHERE id = $1`,
+          [tid, appForThread.rows[0].id],
+        );
+      }
     }
     const msgCount = await pool.query(
       `SELECT count(*)::int AS n FROM ip_messages WHERE thread_id = $1`,
@@ -532,10 +547,63 @@ async function modeCoreFill(pool, opts) {
             [off.rows[0].id, applicationId],
           );
         }
+        const offerRow = await pool.query(`SELECT status FROM ip_offers WHERE application_id = $1 LIMIT 1`, [
+          applicationId,
+        ]);
+        const offerStatus = String(offerRow.rows[0]?.status || 'pending').toLowerCase();
+        const appFromOffer =
+          offerStatus === 'accepted' ? 'hired' : offerStatus === 'declined' ? 'declined_offer' : 'offered';
+        await pool.query(`UPDATE ip_applications SET status = $2, updated_at = now() WHERE id = $1`, [
+          applicationId,
+          appFromOffer,
+        ]);
+      }
+    }
+
+    // Second live posting: hired + completed so rate/endorse APIs have a valid engagement
+    const hiredPosting = livePostings[1];
+    if (hiredPosting) {
+      const hiredApp = await pool.query(
+        `SELECT id FROM ip_applications WHERE internship_id = $1 AND candidate_id = $2 LIMIT 1`,
+        [hiredPosting.id, candRow.id],
+      );
+      const hiredAppId = hiredApp.rows[0]?.id;
+      if (hiredAppId) {
         await pool.query(
-          `UPDATE ip_applications SET status = 'offered', updated_at = now() WHERE id = $1`,
-          [applicationId],
+          `UPDATE ip_applications SET status = 'hired', updated_at = now() WHERE id = $1`,
+          [hiredAppId],
         );
+        const endEx = await pool.query(
+          `SELECT id FROM ip_endorsements WHERE employer_id = $1 AND candidate_id = $2 AND internship_id = $3 LIMIT 1`,
+          [empRow.id, candRow.id, hiredPosting.id],
+        );
+        if (!endEx.rows[0]) {
+          await pool.query(
+            `INSERT INTO ip_endorsements (id, internship_id, employer_id, candidate_id, role_title, certificate_text)
+             VALUES ($1,$2,$3,$4,$5,$6)`,
+            [
+              newId('ip_end'),
+              hiredPosting.id,
+              empRow.id,
+              candRow.id,
+              'Core Showcase Data Intern',
+              `This certifies that the candidate completed an internship (Core Showcase Data Intern) with ${empRow.company_name}.`,
+            ],
+          );
+          created.endorsements += 1;
+        }
+        const rateEx = await pool.query(
+          `SELECT id FROM ip_ratings WHERE from_user_id = $1 AND to_user_id = $2 AND internship_id = $3 LIMIT 1`,
+          [empUser.id, candUser.id, hiredPosting.id],
+        );
+        if (!rateEx.rows[0]) {
+          await pool.query(
+            `INSERT INTO ip_ratings (id, internship_id, from_user_id, to_user_id, stars, comment)
+             VALUES ($1,$2,$3,$4,5,$5)`,
+            [newId('ip_rate'), hiredPosting.id, empUser.id, candUser.id, 'Core-fill hired rating'],
+          );
+          created.ratings += 1;
+        }
       }
     }
 
@@ -649,6 +717,7 @@ See scripts/IP_TEST_DATA_GUIDE.md`);
 
   const pool = new pg.Pool(parseUrl(dbUrl));
   try {
+    await ensureIpPipelineSchema(pool);
     await ensureRunTables(pool);
     let result;
     if (mode === 'core-fill') {

@@ -6,7 +6,18 @@ import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
 import { parseInterviewMeetUrl } from '@/lib/ipInterviewMeetUrl';
 import { newId } from '@/lib/ids';
 
-const ALLOWED = ['shortlisted', 'interviewing', 'rejected', 'hired', 'applied'];
+/** Same closed set as ip_applications_status_check (all writers, not only this PATCH). */
+const ALLOWED = [
+  'applied',
+  'shortlisted',
+  'interviewing',
+  'rejected',
+  'hired',
+  'offered',
+  'completed',
+  'declined_offer',
+  'withdrawn',
+];
 
 export async function PATCH(request, { params }) {
   const { session, error } = await requireSession(['employer']);

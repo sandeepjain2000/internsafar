@@ -1,0 +1,1727 @@
+BUSINESS REQUIREMENTS DOCUMENT
+InternSafar — Internship & Early-Career Hiring Platform
+
+Document Type: Business Requirements
+Product: InternSafar
+Version Basis: Latest uploaded project build
+Date: 25 August 2026
+
+IMPORTANT NOTE
+This document defines what the InternSafar business must provide, how users and administrators are expected to use the product, and the business rules governing those functions.
+
+This is a BUSINESS REQUIREMENTS document. It intentionally does not prescribe the application's programming language, database design, hosting provider, API structure, table names, deployment method, or other technical architecture. Those are implementation decisions and are outside the scope of this document.
+
+
+1. BUSINESS PURPOSE
+
+InternSafar is an internship marketplace and early-career hiring platform connecting candidates with employers offering internship opportunities.
+
+The platform's business objectives are to:
+
+1. Provide candidates with a trusted marketplace for discovering relevant internship opportunities.
+2. Help candidates present their academic background, skills, experience, availability, and work preferences in a structured profile.
+3. Help employers publish internship opportunities and identify suitable candidates.
+4. Improve candidate-to-opportunity relevance through match scoring and eligibility information.
+5. Increase trust in internship listings through employer verification, document review, and a visible validation signal.
+6. Give employers a practical applicant-management workflow covering screening, shortlisting, interviews, messaging, offers, hiring, and completion.
+7. Protect candidate and employer information through controlled visibility and privacy preferences.
+8. Encourage useful platform growth through referrals and verified social sharing.
+9. Provide SuperAdmin oversight for employer verification, document review, posting moderation, registration exceptions, operational alerts, and audit activity.
+10. Create a feedback loop through a public feature-ideas and product-roadmap process.
+
+
+2. PRODUCT SCOPE
+
+InternSafar covers three primary business roles:
+
+A. Candidate
+A person looking for internships and early-career opportunities.
+
+B. Employer
+A company or organization seeking interns and managing internship recruitment.
+
+C. SuperAdmin
+The platform operator responsible for verification, moderation, account approvals, operational oversight, and governance.
+
+The product is an internship hiring marketplace. It is not intended to reproduce the complete feature set of a general-purpose job board, social network, college placement-management system, or professional networking platform.
+
+
+3. BUSINESS ACTORS AND RESPONSIBILITIES
+
+3.1 Candidate
+
+A candidate must be able to:
+
+- Create an account.
+- Maintain a professional candidate profile.
+- Record education and academic information.
+- Add skills and experience.
+- State work preferences and availability.
+- Upload or provide a resume and professional links.
+- Search and filter internship opportunities.
+- Evaluate internship relevance using match information.
+- Evaluate employer/listing trust using the validation signal.
+- Save interesting internships.
+- Apply to suitable internships.
+- Answer employer screening questions.
+- Track application progress.
+- Communicate with employers.
+- Receive and respond to offers.
+- View completed-internship endorsements.
+- Participate in ratings after eligible internship completion.
+- Manage notifications and account preferences.
+- Refer other users and earn eligible reward points.
+- Suggest and vote on product ideas.
+- Raise a grievance when an internship-related issue requires platform attention.
+
+3.2 Employer
+
+An employer must be able to:
+
+- Register as an employer.
+- Establish company identity and contact information.
+- Complete the platform's verification process.
+- Submit supporting business documents.
+- Accept required employer ethics and compliance commitments.
+- Create and manage internship postings.
+- Define opportunity requirements and screening questions.
+- Schedule and close application windows.
+- Monitor applications.
+- Search candidate profiles.
+- Assess candidate fit.
+- Invite suitable candidates to apply.
+- Shortlist, interview, reject, select, hire, and complete applicants.
+- Communicate with candidates.
+- Send offers.
+- Provide onboarding information through offers.
+- Maintain rejection templates.
+- Manage applicant lists and saved views.
+- Add internal notes and applicant timeline information where available.
+- Set follow-up reminders.
+- Send bulk applicant communications.
+- Review applicant screening-question analytics.
+- Export applicant and recruitment information where permitted.
+- View recruitment analytics.
+- Promote eligible internships through verified social-sharing workflows.
+- Manage company profile, privacy, and notification preferences.
+
+3.3 SuperAdmin
+
+SuperAdmin must be able to:
+
+- Review employer registrations and verification status.
+- Approve or reject employers.
+- Review and approve or flag business documents.
+- Identify potentially risky company-domain mismatches.
+- Review and moderate internship postings.
+- Remove or pause problematic postings.
+- Review manual registration requests.
+- Review operational messages and alerts.
+- Review login activity.
+- Review verified social-sharing claims and reward claims.
+- Monitor audit activity.
+- Manage operational notifications.
+- Review candidate/employer feature ideas and their roadmap status.
+
+
+4. CANDIDATE REGISTRATION AND ACCOUNT REQUIREMENTS
+
+4.1 Candidate registration
+
+The platform shall provide a dedicated candidate registration flow.
+
+The current business registration policy is:
+
+- Candidate registration is intended for personal Gmail or Googlemail addresses.
+- Institutional/company email domains are not accepted through the candidate registration flow.
+- The candidate supplies their name and Gmail/Googlemail address.
+- An optional referral code may be entered during registration.
+- A security challenge/CAPTCHA is used during registration.
+- A temporary initial password is sent to the registered email address.
+- The candidate uses the temporary password to sign in.
+- The candidate is expected to change the temporary password after account creation.
+
+The registration experience may use Google-branded visual language, but the business requirement is that the candidate receives an account and an emailed initial password; the login experience is not defined as a Google single-sign-on product requirement in this build.
+
+4.2 Duplicate registration
+
+The platform shall prevent duplicate accounts for the same email address.
+
+Invalid duplicate referral attempts must not generate referral rewards.
+
+4.3 Candidate account readiness
+
+A candidate may create an account before completing the full profile.
+
+The candidate must complete the business-defined application-unlock information before submitting internship applications.
+
+The platform should clearly communicate which profile information remains incomplete and what is required to unlock applications.
+
+
+5. EMPLOYER REGISTRATION REQUIREMENTS
+
+5.1 Standard employer registration
+
+The preferred employer registration path shall validate the relationship between:
+
+- Company website domain.
+- Employer work-email domain.
+
+The website and work-email domains must match for automated registration.
+
+The employer may provide:
+
+- Company website.
+- Work email.
+- Company name.
+- Contact name.
+- Referral code where applicable.
+
+A temporary password may be sent to the employer's work email.
+
+5.2 Manual employer registration
+
+Where an employer cannot use a matching company website/work-email domain, the employer may submit a manual registration request.
+
+A manual request shall capture enough information for SuperAdmin review, including:
+
+- Contact name.
+- Designation.
+- Company/organization name.
+- Official email.
+- Password or account credential information as required by the registration process.
+- Reason/context for the request.
+
+A manual employer account must not become an unrestricted active employer account merely because the request was submitted.
+
+SuperAdmin must be able to approve or reject the request.
+
+A rejection should include a business reason and notify the requester.
+
+5.3 Employer approval
+
+An employer must be approved before receiving full access to publish live internship opportunities.
+
+Pending or rejected employers must not be treated as verified employers.
+
+The platform should clearly distinguish:
+
+- Pending.
+- Approved.
+- Rejected.
+
+5.4 Employer identity and legitimacy
+
+The platform should encourage employers to provide:
+
+- Legal/company identity.
+- Website.
+- Industry.
+- Company size.
+- Headquarters/location.
+- Company description.
+- Contact information.
+- Professional/company social presence where applicable.
+
+These details support candidate trust and employer discovery.
+
+
+6. EMPLOYER VERIFICATION AND DOCUMENT REQUIREMENTS
+
+6.1 Verification objective
+
+The employer verification process exists to reduce fraudulent, misleading, or low-trust internship listings.
+
+Verification is a business trust process, not merely a registration step.
+
+6.2 Supporting documents
+
+Employers may be required or encouraged to provide legitimate business evidence, including applicable documents such as:
+
+- Shop Act documentation.
+- Business PAN.
+- GST registration.
+- Company incorporation/registration evidence.
+- Other relevant business identity documentation.
+
+6.3 Employer attestations
+
+Before submitting verification, the employer must affirm that:
+
+1. Submitted documents are authentic and belong to the company.
+2. The person submitting the information is authorized to represent the company for internship hiring.
+3. Candidates will not be charged fees for internships or applications.
+4. Company identity, address, and contact information are accurate.
+
+6.4 Document review
+
+SuperAdmin must be able to:
+
+- View submitted documents.
+- Review document type.
+- Approve documents.
+- Reject/flag documents.
+- Record review notes.
+- Identify domain mismatch or other risk indicators.
+
+Uploading a document alone does not make the employer verified.
+
+6.5 Domain-risk review
+
+The platform shall identify potentially suspicious situations such as:
+
+- Work email domain not matching company website domain.
+- Consumer email domains being used for employer identity.
+- Other business-identity inconsistencies visible to administrators.
+
+These indicators are intended to assist human review and must not be represented as proof of fraud by themselves.
+
+
+7. EMPLOYER ETHICS AND INTERNSHIP COMPLIANCE
+
+Employers must agree to the platform's internship ethics requirements before publishing opportunities.
+
+The business requirements are:
+
+1. Employers must not charge candidates fees, deposits, payments, or other monetary consideration for an internship or its completion/experience certification.
+2. Employers must use the platform for legitimate internship and recruitment purposes.
+3. Candidate information must not be collected for unrelated commercial purposes.
+4. Candidate personal information must not be misused, sold, or improperly disclosed.
+5. Internship information must be accurate, including role, responsibilities, eligibility, duration, location/work mode, stipend, and material conditions.
+6. Employers should provide an internship completion or experience letter to candidates who successfully complete the internship according to the agreed terms.
+7. Employers should reasonably respond to legitimate future employment or experience-verification requests concerning completed internships.
+
+The employer must accept all required ethics commitments before a posting can be published as a compliant live opportunity.
+
+
+8. EMPLOYER PROFILE REQUIREMENTS
+
+Employers shall be able to maintain:
+
+- Company name.
+- Legal/company identity information.
+- Website.
+- Industry.
+- Company size.
+- Headquarters/city/state.
+- Recruiter/contact name.
+- Contact designation.
+- Phone/contact information.
+- Company description.
+- Company logo.
+- Company or professional social links.
+- Hiring-related visibility preferences.
+- Employer identity visibility preference.
+- Ethics/compliance acknowledgements.
+- Verification documents and their review state.
+
+The employer profile should provide candidates with enough information to understand who is offering an internship while respecting the employer's chosen identity-visibility settings.
+
+
+9. CANDIDATE PROFILE REQUIREMENTS
+
+9.1 Personal and contact information
+
+The candidate profile shall support:
+
+- Full name.
+- Profile photo.
+- Contact information.
+- City/location.
+- State/country as applicable.
+- Preferred work locations.
+- Other relevant personal profile details.
+
+9.2 Academic information
+
+The candidate shall be able to maintain one or more academic/education records containing information such as:
+
+- College/institution.
+- Degree.
+- Specialization/branch.
+- Study status.
+- Graduation year.
+- CGPA/grade.
+- Education record label where useful.
+
+Academic information may be maintained as a history rather than a single education entry.
+
+9.3 Skills
+
+Candidates shall be able to add and remove technical/domain skills.
+
+Skills are used to help candidates present their capabilities and to calculate opportunity relevance.
+
+9.4 Experience
+
+Candidates may provide prior internship, project, or relevant experience information.
+
+9.5 Professional links
+
+Candidates may provide:
+
+- Resume.
+- LinkedIn profile.
+- GitHub profile.
+- Personal website/portfolio.
+
+9.6 Work-readiness information
+
+Candidates may provide information such as:
+
+- Preferred work mode.
+- Preferred working hours.
+- Availability.
+- Immediate-start preference.
+- Willingness to relocate.
+- Other ongoing commitments.
+- Hardware/connectivity readiness where applicable.
+- Prior experience.
+
+These attributes may help employers assess practical fit.
+
+9.7 Profile completion
+
+The platform shall identify whether the candidate profile is sufficiently complete for applications.
+
+Profile completion should be presented as an actionable checklist rather than as an unexplained score.
+
+Completing the required profile can earn a one-time points reward.
+
+
+10. CANDIDATE PRIVACY AND VISIBILITY
+
+Candidates must have control over important profile-visibility settings.
+
+The business rules include:
+
+- Candidate profiles may be made searchable to employers.
+- Public/searchable candidate information must not expose sensitive contact details unnecessarily.
+- Candidate phone visibility may remain restricted until a sufficiently advanced recruitment stage.
+- Candidate may control whether completed internships are visible to employers.
+- Candidate may control profile-photo visibility.
+- Candidate may control messaging/contact preferences.
+- WhatsApp and Telegram contact information may be supplied as optional communication channels.
+
+When phone privacy is enabled, the employer should not receive the candidate's mobile number merely because the candidate appears in search results or early application stages.
+
+Phone visibility may become available at later recruitment stages such as interviewing, offering, hiring, or completion.
+
+
+11. INTERNSHIP POSTING REQUIREMENTS
+
+11.1 Core posting information
+
+Employers shall be able to create internship postings containing:
+
+- Internship title.
+- Description.
+- Responsibilities.
+- Required skills.
+- Eligibility requirements.
+- Degree/education requirements.
+- Minimum CGPA where applicable.
+- Location.
+- One or more work cities where applicable.
+- Work mode.
+- Stipend.
+- Stipend type.
+- Incentive information where applicable.
+- Duration.
+- Internship start date.
+- Internship end date where applicable.
+- Working hours.
+- Weekly hours.
+- Engagement/commitment type.
+- Application window.
+- Number of openings where supported.
+- Candidate preferences.
+- Optional recruiter contact information.
+- Employer identity visibility preference.
+
+11.2 Quality checklist
+
+The employer should be encouraged to complete a posting-quality checklist covering:
+
+- Clear title.
+- Description.
+- Location or remote work mode.
+- Application window.
+
+The checklist is intended to improve listing quality and candidate understanding.
+
+11.3 Candidate preview
+
+Employers should be able to preview a posting in a candidate-facing presentation before publishing it.
+
+The preview should reflect the information a candidate is expected to see.
+
+
+12. INTERNSHIP SCREENING QUESTIONS
+
+Employers shall be able to add screening questions to an internship posting.
+
+Business rules:
+
+- A maximum of five screening questions may be defined.
+- Questions may be text-based.
+- Questions may be multiple-choice.
+- Multiple-choice questions must provide meaningful answer options.
+- Each question may be required or optional.
+- Candidates must answer required questions before submitting an application.
+- Optional questions may be left unanswered.
+- The question and answer structure associated with an application must remain understandable after the employer later changes the posting.
+
+12.1 Explicit screening-disqualification rules
+
+An employer may explicitly mark selected multiple-choice answers as application-disabling answers.
+
+The system must not infer a disqualification rule merely from the wording of a question.
+
+For example, a question asking whether a candidate meets a certain condition must not automatically become a rejection rule unless the employer explicitly configured the relevant answer as disabling.
+
+When a candidate selects an explicitly disabling answer, the application may be marked as screening-disabled and clearly identified to the employer for review.
+
+
+13. INTERNSHIP LIFECYCLE AND VISIBILITY
+
+Internships shall support meaningful lifecycle states, including:
+
+- Draft.
+- Scheduled.
+- Published/live.
+- Closing soon.
+- Paused.
+- Closed.
+- Expired/archived where applicable.
+
+13.1 Scheduled postings
+
+A scheduled internship must not become visible to candidates before its configured start time.
+
+13.2 Application deadline
+
+When the application window ends, the internship must no longer accept new applications.
+
+13.3 Paused postings
+
+A paused internship must not remain normally available for candidate application.
+
+13.4 Closed postings
+
+A closed or expired internship must no longer accept applications.
+
+13.5 Scheduling rules
+
+For a newly scheduled posting:
+
+- The scheduled start must be in the future.
+- The application closing time must be after the start time.
+- If only an application closing time is supplied, it must be in the future.
+
+13.6 Employer controls
+
+Employers shall be able to:
+
+- Save a draft.
+- Publish a compliant posting.
+- Edit a posting.
+- Pause a posting.
+- Reopen where business rules permit.
+- Close a posting.
+- Review posting lifecycle state.
+- View application counts and applicant activity.
+
+13.7 Employer publishing requirement
+
+An employer must be approved before publishing live opportunities.
+
+Required ethics/compliance acknowledgements must be completed before live publishing.
+
+Publishing consumes the platform's applicable employer points allocation.
+
+The current points economy charges 50 points for publishing/re-publishing an internship.
+
+An employer without sufficient points must not be allowed to publish.
+
+
+14. CANDIDATE INTERNSHIP DISCOVERY
+
+Candidates shall be able to discover live internship opportunities through a marketplace-style browsing experience.
+
+Search should support relevant terms including:
+
+- Role title.
+- Company name.
+- Skills.
+- Location.
+
+Candidates shall be able to filter by:
+
+- Work mode.
+- Minimum monthly stipend.
+- Work location/city.
+- Candidate match percentage.
+- Minimum employer validation score.
+
+Candidates should also have quick discovery filters such as:
+
+- All listings.
+- Starting soon.
+- Saved.
+- Recently updated.
+- Verified employers.
+
+Candidates may sort listings by:
+
+- Best match.
+- Highest stipend.
+- Newest listing.
+- Earliest start date.
+- Fewest applicants/best odds.
+
+Candidates may use list or card presentation where available.
+
+
+15. SAVED INTERNSHIPS
+
+Candidates shall be able to save/unsave internships while browsing.
+
+Saved internships are intended to help candidates return to opportunities they are considering.
+
+Saving an internship does not constitute an application.
+
+A saved internship may later become unavailable if it closes or is removed.
+
+
+16. CANDIDATE MATCH SCORE
+
+The platform shall provide a candidate-to-internship match signal.
+
+The match score is intended to answer:
+
+"How closely does this internship's stated skill/eligibility profile match the candidate?"
+
+The match score:
+
+- Is advisory.
+- Helps candidates prioritize opportunities.
+- Helps employers assess applicants.
+- Must not be confused with employer validation.
+- Must not be represented as a guarantee of selection.
+- Must not automatically reject a candidate solely because the score is low unless a future business policy explicitly changes this rule.
+
+Where skills are defined for a posting, the candidate's matching skills contribute to the match calculation.
+
+
+17. EMPLOYER VALIDATION SCORE
+
+The platform shall provide a separate employer/listing validation signal.
+
+This is intentionally different from Candidate Match %.
+
+The validation signal is intended to communicate the amount of verifiable employer evidence available to the candidate.
+
+The current validation factors are:
+
+1. Approved employer documents.
+2. Corporate-looking work-email domain.
+3. Company website domain.
+4. Hiring-manager or company LinkedIn profile.
+
+The score is an evidence signal, not a guarantee of employer quality.
+
+The score must not be described as:
+
+- Candidate match.
+- Hiring probability.
+- Salary quality.
+- Company rating.
+- A guarantee that an internship is safe or desirable.
+
+Rejected or suspended employers and closed opportunities may receive a zero validation outcome.
+
+Validation must not replace human judgment or SuperAdmin verification.
+
+
+18. EMPLOYER IDENTITY VISIBILITY
+
+An employer may choose whether its identity is shown to candidates for a particular internship where the business rules permit.
+
+When identity is intentionally hidden, the candidate-facing presentation must consistently use a neutral "Confidential employer" style identity.
+
+The same visibility rule should apply across:
+
+- Browse results.
+- Internship details.
+- Application-related candidate views.
+- Offers.
+- Messages where applicable.
+
+The identity-visibility preference must not be used to bypass SuperAdmin verification requirements.
+
+
+19. APPLICATION REQUIREMENTS
+
+19.1 Application eligibility
+
+A candidate may apply only to an internship that:
+
+- Is currently available for applications.
+- Has not passed its application deadline.
+- Is not paused or closed.
+- Meets the candidate's account/profile application-unlock requirements.
+- Has not already received an active application from the same candidate.
+
+19.2 Screening answers
+
+Where screening questions are configured:
+
+- Required questions must be answered.
+- Multiple-choice answers must correspond to valid options.
+- Explicit application-disabling answers must be recorded for employer review.
+
+19.3 Application capacity
+
+A single internship may have no more than 100 active applications.
+
+Rejected and withdrawn applications do not count toward the active-application capacity.
+
+The purpose of this rule is to preserve meaningful employer review capacity and avoid unlimited applicant accumulation.
+
+19.4 Application cost
+
+The current candidate points economy charges:
+
+- 5 points per application.
+
+A candidate must have sufficient points to submit an application.
+
+The platform should make the application cost visible before submission.
+
+19.5 Candidate points
+
+Current point awards include:
+
+- 50 points at account signup.
+- 15 points when the candidate first completes the required profile.
+- 10 points for the first successful application.
+- 25 points for an eligible completed referral.
+- 30 points for an eligible verified LinkedIn/social promotion.
+
+Points must be recorded in a transparent ledger so users can understand earned and spent points.
+
+The platform should prevent duplicate one-time rewards from being repeatedly earned.
+
+
+20. APPLICATION STATUS AND EMPLOYER PIPELINE
+
+Employer applicant management shall support recruitment progression through statuses such as:
+
+- Applied.
+- Shortlisted.
+- Interviewing.
+- Rejected.
+- Offered.
+- Hired.
+- Completed.
+
+The employer must be able to move an application through appropriate stages.
+
+The candidate should be able to see meaningful application progress and relevant employer communications.
+
+Changing an application status may trigger appropriate notifications.
+
+
+21. EMPLOYER APPLICANT WORKBENCH
+
+The employer applicant workbench shall support efficient review of candidates for a specific internship.
+
+The employer should be able to:
+
+- Search applicants.
+- Filter by application status.
+- Filter by candidate match score.
+- Filter screening-disabled applications.
+- Filter by candidate lists.
+- Filter unread communication.
+- Filter responded/unresponded communication.
+- Filter message activity.
+- Filter by screening-question answers.
+- Filter by internship history.
+- Sort applicants.
+- Select multiple applicants.
+- Compare selected candidates.
+- Message selected applicants.
+- Reject candidates individually or in bulk.
+- Apply rejection templates.
+- Review candidate profile details.
+- Open available resumes.
+- Review screening answers.
+- Review application communication state.
+- Review recruitment events/timeline where available.
+- Add applicant notes where available.
+- Set follow-up reminders where available.
+
+Applicant list filters and views should be capable of being saved and reused.
+
+
+22. CANDIDATE SEARCH AND OUTREACH
+
+Employers shall be able to search candidate profiles when candidates have permitted employer discovery.
+
+Candidate search should support filters such as:
+
+- Keywords.
+- City.
+- Degree.
+- Work mode.
+- Skill.
+- Availability.
+- Experience.
+- Minimum CGPA.
+- Profile freshness.
+- Candidate match against a selected internship.
+
+The employer should be able to identify candidates who are:
+
+- Available.
+- Recently updated.
+- Experienced.
+- Already applied.
+- Shortlisted.
+- Previously invited.
+
+The platform should prevent unnecessary duplicate outreach.
+
+Employers may invite suitable candidates to apply to an internship.
+
+
+23. CANDIDATE CONTACT PRIVACY DURING OUTREACH
+
+Candidate search must respect candidate privacy settings.
+
+An employer should not automatically receive a candidate's private contact information simply because the candidate appears in search.
+
+Where the candidate has chosen to restrict phone visibility, phone information remains protected until the relevant recruitment stage.
+
+The platform should provide employers with enough profile information to make an informed outreach decision without unnecessarily exposing protected personal data.
+
+
+24. MESSAGING REQUIREMENTS
+
+The platform shall provide communication between candidates and employers in the context of recruitment.
+
+Business rules:
+
+- An employer may initiate a recruitment conversation with a candidate through the applicant workflow.
+- Candidate replies must remain associated with the same conversation.
+- Messages should provide clear read/unread state.
+- Employers should be able to distinguish unread communication from communication that has not received a response.
+- Message search/filtering should support recruitment workflow.
+- Messages may include attachments where permitted.
+- Interview meeting links may be shared in connection with an application.
+- Messaging may be restricted when the relevant relationship or account state requires it.
+
+Candidate and employer communication should be treated as a shared recruitment conversation rather than isolated copies of messages.
+
+
+25. INTERVIEW MANAGEMENT
+
+The recruitment workflow shall support scheduling an interview against an application.
+
+An employer should be able to:
+
+- Select an interview date/time.
+- Record a valid meeting URL where applicable.
+- Update interview information.
+- Communicate interview information to the candidate.
+
+The platform must not present an invented or fake meeting link as though it were a real interview location.
+
+Interview status and scheduled time should be visible in the relevant application workflow.
+
+
+26. OFFERS
+
+26.1 Employer offer creation
+
+Employers shall be able to create a formal internship offer for an eligible application.
+
+An offer may include:
+
+- Role title.
+- Stipend.
+- Start date.
+- End date.
+- Offer validity/response deadline.
+- Offer letter.
+- Employer message.
+- Onboarding instructions.
+- Mentor name.
+- HR contact email.
+- HR contact phone.
+
+26.2 Candidate offer response
+
+Candidates shall be able to:
+
+- View offers.
+- Understand offer status.
+- Accept an offer.
+- Decline an offer.
+- See response deadlines.
+- See accepted/declined/expired state.
+- Access offer letter information where provided.
+- View onboarding information where provided.
+- Share an accepted offer where the applicable sharing function is available.
+
+26.3 Offer statuses
+
+Business-facing offer states include:
+
+- Action required/pending.
+- Accepted.
+- Declined.
+- Expired.
+
+An expired offer must no longer be treated as awaiting candidate action.
+
+26.4 Offer reminders
+
+The employer may send a reminder on a pending offer where supported.
+
+The reminder should not alter the offer's actual deadline.
+
+
+27. HIRING AND INTERNSHIP COMPLETION
+
+A successful recruitment process may progress from selection/offer to hiring.
+
+After the internship has been completed:
+
+- The internship/application may be marked completed.
+- Completion information should be recorded.
+- The completion event should support subsequent rating and endorsement processes.
+- Candidate and employer history should reflect the completed experience according to privacy settings.
+
+
+28. RATINGS
+
+After an eligible internship experience is completed, the platform shall support mutual ratings:
+
+- Employer may rate the candidate.
+- Candidate may rate the employer.
+
+Ratings may include:
+
+- Star/rating value.
+- Written comment.
+
+Ratings must be associated with the relevant internship experience.
+
+Ratings should not be available for unrelated or non-internship records.
+
+
+29. ENDORSEMENTS AND EXPERIENCE EVIDENCE
+
+The platform shall support employer endorsements for completed internship experiences.
+
+An endorsement may include:
+
+- Internship role.
+- Company/employer.
+- Internship period.
+- Skills endorsed.
+- Rating/comment context where applicable.
+- Candidate association.
+
+The product should favor system-generated experience evidence rather than requiring candidates to upload screenshots as proof.
+
+Candidates should be able to view their endorsements in a read-only profile history.
+
+Endorsements should remain associated with the actual internship experience and should not exist as orphaned or unrelated certificates.
+
+
+30. EMPLOYER ANALYTICS
+
+Employers shall receive recruitment analytics that help them understand:
+
+- Applicant volume.
+- Candidate eligibility/fit.
+- Match quality.
+- Stipend positioning.
+- Application trends where sufficient data exists.
+- Candidate availability/education mix where supported.
+- Recruitment outcomes.
+
+The analytics experience should help employers answer practical questions such as:
+
+- Is the stipend competitive?
+- Are enough candidates applying?
+- Are applicants matching the stated requirements?
+- Which applicant characteristics are common?
+- How is the current posting performing compared with available market/history signals?
+
+Analytics must be presented as decision support, not as guaranteed forecasts.
+
+
+31. SCREENING QUESTION ANALYTICS
+
+For multiple-choice screening questions, employers should be able to understand response distribution.
+
+Analytics should show, where applicable:
+
+- Number of applicants answering.
+- Number skipping optional questions.
+- Distribution by answer option.
+- Percentage distribution.
+- Which options are explicitly configured as application-disabling.
+
+This is intended to help employers understand applicant pools and refine future postings.
+
+
+32. REJECTION MANAGEMENT
+
+Employers shall be able to maintain rejection-message templates.
+
+The workflow should allow employers to:
+
+- Create templates.
+- Reuse templates.
+- Select an appropriate rejection template when rejecting applicants.
+- Send rejection communication consistently.
+- Maintain templates for common recruitment scenarios.
+
+Bulk rejection should remain subject to the employer's explicit action and applicable application status rules.
+
+
+33. APPLICANT LISTS, SAVED VIEWS, NOTES AND FOLLOW-UPS
+
+The employer workbench should support organization of applicant information through:
+
+- Named applicant lists.
+- Saved applicant/filter views.
+- Persistent filter preferences.
+- Applicant notes.
+- Applicant event/timeline history.
+- Follow-up reminders.
+
+These functions exist to reduce repeated manual searching and support recruiter workflow management.
+
+
+34. BULK RECRUITMENT ACTIONS
+
+Employers should be able to select multiple applicants and perform appropriate bulk actions, including:
+
+- Bulk messaging.
+- Bulk rejection.
+- Other permitted workflow actions.
+
+Bulk operations should provide a clear result indicating success, failure, or partial completion where applicable.
+
+The system should not silently perform a destructive bulk action without clear employer intent.
+
+
+35. DATA EXPORT AND REPORTING
+
+Employers should be able to export recruitment information where permitted.
+
+Candidate-facing export functionality should be limited to the candidate's own permitted information.
+
+Employer exports may include applicant information and relevant recruitment fields.
+
+Exports should respect:
+
+- Privacy settings.
+- User authorization.
+- Applicable data-visibility rules.
+- The current state of the relevant application/posting.
+
+SuperAdmin should have appropriate audit/export oversight.
+
+
+36. REFERRALS
+
+The platform shall support referral-based growth.
+
+Each eligible user may have a referral code/link.
+
+Referral rules:
+
+- A referred user may register using the referrer's code.
+- A valid completed referral can earn the referrer 25 points.
+- A self-referral must not earn rewards.
+- Duplicate registrations must not earn rewards.
+- Rejected manual registrations must not generate referral rewards.
+- Referral status should distinguish pending, completed/credited, and invalid cases.
+- Users should be able to understand why a referral did or did not earn points.
+
+
+37. SOCIAL / LINKEDIN PROMOTION
+
+The platform may reward employers for eligible social promotion of internship opportunities.
+
+The business workflow includes:
+
+- Employer initiates a promotion/share.
+- The platform records the promotion claim.
+- The claim is verified before reward points are released.
+- Invalid, broken, or removed posts may be rejected/flagged.
+- A verified promotion can award 30 points to the employer.
+- SuperAdmin can review pending claims and reject invalid claims.
+- Verification may involve delayed checking rather than immediate reward.
+
+
+38. NOTIFICATIONS
+
+The platform shall provide user notifications for important business events.
+
+Examples include:
+
+- Account registration/approval.
+- Employer verification decisions.
+- Document review decisions.
+- Internship publication or status changes.
+- New applications.
+- Application status changes.
+- New messages.
+- Interview scheduling.
+- Offers.
+- Offer reminders.
+- Offer acceptance/decline.
+- Referral rewards.
+- Verified social-share rewards.
+- Grievance-related events.
+- Feature-idea updates.
+- Important system alerts.
+
+Users should be able to:
+
+- View notifications.
+- Mark notifications as read.
+- Review unread count.
+- Manage notification preferences where available.
+
+Notification categories should be understandable to the user.
+
+
+39. ACCOUNT AND SECURITY CONTROLS
+
+Users shall be able to manage appropriate account settings, including:
+
+- Password changes.
+- Password reset.
+- Login email changes where supported.
+- Phone changes where supported.
+- Notification preferences.
+- Active sessions where supported.
+- Two-factor/security settings where supported.
+
+Security challenges such as CAPTCHA may be used on registration, authentication, or sensitive account actions.
+
+Security controls should not be presented as optional when the business process requires them.
+
+
+40. GRIEVANCES AND USER PROTECTION
+
+The platform shall provide a mechanism for candidates to raise internship-related grievances.
+
+A grievance may concern areas such as:
+
+- Stipend.
+- Internship policy.
+- Employer conduct.
+- Other internship-related concerns.
+
+The candidate should provide:
+
+- Subject.
+- Description.
+- Relevant internship/application context where available.
+
+SuperAdmin should be able to review and manage grievance status and maintain a history of actions.
+
+The purpose is to provide a formal escalation path when normal employer communication is insufficient.
+
+
+41. FEATURE IDEAS AND PRODUCT FEEDBACK
+
+The platform shall provide a product-feedback mechanism for candidates and employers.
+
+Users may submit an idea containing:
+
+- Title.
+- Problem.
+- Proposed solution/improvement.
+- Category.
+
+Users may:
+
+- Search ideas.
+- Filter by category.
+- Sort by popularity/newness/recent updates.
+- Vote for ideas.
+- Remove their vote.
+- Follow ideas.
+- Comment on ideas.
+- Review roadmap status.
+
+Only one active vote per account should be counted for an idea.
+
+Users must understand that voting indicates support and does not guarantee implementation.
+
+
+42. FEATURE IDEA ROADMAP STATES
+
+The business roadmap should communicate meaningful states such as:
+
+- Under Review.
+- Planned.
+- In Progress.
+- Completed/Shipped.
+- Declined where applicable.
+
+SuperAdmin/product stakeholders are responsible for triaging ideas and communicating progress.
+
+Users following an idea should receive relevant updates.
+
+
+43. SUPERVISORY / SUPERADMIN EMPLOYER APPROVAL
+
+SuperAdmin shall have a dedicated employer approval process.
+
+The approval queue should support:
+
+- Pending employers.
+- Approved employers.
+- Rejected employers.
+- Search/filtering.
+- Risk indicators.
+- Individual approval.
+- Bulk approval where appropriate.
+- Rejection with a reason.
+- Notification of the decision.
+
+Approval is a business decision and must not be treated as automatic simply because a registration was submitted.
+
+
+44. SUPERADMIN DOCUMENT AUDIT
+
+SuperAdmin shall be able to review employer documents.
+
+The document review function should support:
+
+- All documents.
+- Pending documents.
+- Approved documents.
+- Rejected/flagged documents.
+- Document-type filtering.
+- Company/search filtering.
+- Bulk approval where appropriate.
+- Rejection notes/reasons.
+- Risk indicators such as domain mismatches.
+
+Document approval should contribute to employer trust/validation but should not by itself guarantee employer quality.
+
+
+45. SUPERADMIN POSTING MODERATION
+
+The platform shall support post-publication oversight.
+
+SuperAdmin should be able to:
+
+- View internship postings.
+- Search postings.
+- Filter by employer/company.
+- View live/published postings.
+- View paused postings.
+- View taken-down/closed postings.
+- Pause a posting.
+- Publish a posting where an administrative publishing action is appropriate.
+- Take down a problematic posting.
+- Record a moderation reason.
+
+The business model is not intended to require SuperAdmin to manually approve every ordinary compliant posting before candidates can see it.
+
+Verified employers may publish according to the business publishing rules, while SuperAdmin retains moderation authority.
+
+
+46. SUPERADMIN MANUAL REGISTRATION REQUESTS
+
+SuperAdmin shall be able to review manual employer registration requests.
+
+The workflow shall support:
+
+- Pending requests.
+- Approved requests.
+- Rejected requests.
+- Company/contact information review.
+- Domain-risk indicators.
+- Approval that creates/activates the employer account.
+- Rejection with a reason.
+- Notification of the decision.
+
+
+47. SUPERADMIN LOGIN REPORT
+
+SuperAdmin shall be able to review authentication activity.
+
+The business report should support:
+
+- Candidate sign-ins.
+- Employer sign-ins.
+- SuperAdmin sign-ins.
+- Successful sign-ins.
+- Failed sign-ins.
+- Timestamp.
+- IP/device-related information where collected.
+- Search/filtering.
+
+The purpose is operational monitoring, security review, and accountability.
+
+
+48. SUPERADMIN OPERATIONAL ALERTS
+
+SuperAdmin shall have access to operational notifications and alerts relevant to platform administration.
+
+These may include:
+
+- Employer verification issues.
+- Domain mismatch alerts.
+- Feature idea activity.
+- Registration events.
+- Moderation events.
+- Other operational conditions requiring attention.
+
+Alerts should be filterable by status/category where applicable.
+
+
+49. AUDITABILITY AND ACCOUNTABILITY
+
+Important business actions should be auditable.
+
+Examples include:
+
+- Registration.
+- Employer approval/rejection.
+- Document review.
+- Internship creation/publication/closure.
+- Application submission/withdrawal/status changes.
+- Interview scheduling.
+- Offer creation and response.
+- Message actions where applicable.
+- Grievance creation/status changes.
+- Referral reward.
+- Social-share verification.
+- Profile/account changes.
+- Administrative moderation.
+
+The audit history should support accountability and investigation of important platform events.
+
+
+50. COMMUNICATION AND EMAIL REQUIREMENTS
+
+The platform shall send or make available transactional communication for important business events where the relevant email functionality is enabled.
+
+Examples include:
+
+- Temporary passwords.
+- Account decisions.
+- Employer verification decisions.
+- Application-related notifications.
+- Offer notifications.
+- Offer reminders.
+- Referral rewards.
+- Other important transactional events.
+
+A failure of optional email delivery should not silently change the underlying business status of a transaction.
+
+Users should also receive important information through the in-product notification experience where appropriate.
+
+
+51. APPLICATION AND RECRUITMENT TRANSPARENCY
+
+The platform should make important recruitment information understandable to both parties.
+
+Candidates should be able to understand:
+
+- What the internship is.
+- Who the employer is, subject to identity settings.
+- Where/how the internship is performed.
+- Duration.
+- Stipend.
+- Start/application dates.
+- Eligibility expectations.
+- Their match signal.
+- Employer validation signal.
+- Application status.
+- Offer status.
+
+Employers should be able to understand:
+
+- Applicant volume.
+- Applicant status.
+- Match scores.
+- Screening answers.
+- Communication state.
+- Candidate history where permitted.
+- Offer/recruitment status.
+
+
+52. BUSINESS PRIVACY PRINCIPLES
+
+InternSafar shall follow these business privacy principles:
+
+1. Show users only information appropriate to their role and relationship.
+2. Protect candidate contact details during early recruitment stages where the candidate has chosen privacy restrictions.
+3. Do not expose candidate resumes or contact information through public search unless permitted by the relevant business rules.
+4. Respect employer identity-visibility choices.
+5. Use candidate data for legitimate recruitment/platform purposes.
+6. Do not allow employers to use the platform as an unrestricted data-harvesting channel.
+7. Maintain an auditable record of important administrative decisions.
+
+
+53. BUSINESS TRUST MODEL
+
+InternSafar shall communicate trust through multiple independent signals rather than a single unexplained reputation number.
+
+The primary business signals are:
+
+A. Candidate Match %
+Measures relevance between a candidate and an internship.
+
+B. Employer Validation
+Measures the amount of supporting employer evidence available.
+
+C. Employer Verification Status
+Represents the platform's administrative verification decision.
+
+These signals must remain conceptually separate.
+
+A high match score does not mean an employer is highly validated.
+
+A high employer validation score does not mean a candidate is suitable.
+
+Employer verification does not guarantee internship quality or hiring outcome.
+
+
+54. BUSINESS RULES FOR CANDIDATE APPLICATION ACCESS
+
+The platform should prevent application submission when:
+
+- The candidate's required application profile is incomplete.
+- The internship is not currently open for applications.
+- The application window has ended.
+- The posting has been paused or closed.
+- The candidate already has an active application for the internship.
+- The candidate has insufficient application points.
+- Required screening questions have not been answered.
+- The application would exceed the posting's active-application capacity.
+- The candidate selects an employer-configured application-disabling screening answer.
+
+Where a candidate is prevented from applying, the platform should explain the reason clearly.
+
+
+55. BUSINESS RULES FOR EMPLOYER PUBLISHING
+
+The platform should prevent live publication when:
+
+- The employer is not approved.
+- Required employer ethics commitments have not been accepted.
+- The employer lacks sufficient points to publish.
+- Required posting information is invalid.
+- A new scheduled posting has an invalid start/end relationship.
+- The posting does not satisfy required business validation rules.
+
+The platform should distinguish a draft validation failure from a permanent rejection.
+
+Employers should be able to correct a draft and try again.
+
+
+56. BUSINESS RULES FOR EMPLOYER MODERATION
+
+SuperAdmin may take action when a posting:
+
+- Violates platform rules.
+- Contains misleading information.
+- Appears fraudulent.
+- Creates candidate-safety concerns.
+- Violates employer ethics commitments.
+- Requires temporary removal while an issue is investigated.
+
+Moderation actions should record a reason and notify the affected employer where appropriate.
+
+
+57. BUSINESS RULES FOR OFFERS AND RECRUITMENT STATUS
+
+The platform should maintain logical consistency between recruitment events.
+
+Examples:
+
+- An offer must relate to an actual application.
+- A candidate should not appear as hired through an unrelated offer.
+- Offer acceptance should update the relevant recruitment state.
+- Expired offers should not remain actionable.
+- Completion should relate to a genuine internship/recruitment experience.
+- Ratings and endorsements should relate to the completed internship experience.
+
+
+58. BUSINESS RULES FOR REWARDS
+
+Points are a platform engagement mechanism, not cash.
+
+Points may be earned through legitimate business activities such as:
+
+- Signup.
+- Profile completion.
+- First application.
+- Successful referrals.
+- Verified social promotion.
+
+Points may be spent on activities such as:
+
+- Candidate applications.
+- Employer internship publication.
+
+The platform must prevent duplicate reward abuse, self-referrals, invalid referrals, and unverified social-share rewards.
+
+Users should be able to understand their current balance and transaction history.
+
+
+59. BUSINESS RULES FOR CANDIDATE APPLICATION HISTORY
+
+Candidate history should support useful employer decision-making without unnecessarily exposing private information.
+
+Where the candidate allows completed-internship visibility, employers may see aggregate internship-history information such as:
+
+- Total internships.
+- Completed internships.
+- Ongoing internships.
+
+If the candidate hides completed internships, completed-history details should not be exposed to employers through normal candidate-search/application views.
+
+
+60. BUSINESS RULES FOR APPLICATION VOLUME
+
+Candidate-facing application volume may be shown as a range rather than exposing exact counts in all circumstances.
+
+Examples of meaningful volume bands include:
+
+- 50+.
+- 100+.
+- 200+.
+- 500+.
+- 1,000+.
+- 2,000+.
+
+The purpose is to help candidates judge opportunity competition without unnecessarily exposing precise operational metrics.
+
+
+61. BUSINESS REQUIREMENTS FOR USER EXPERIENCE
+
+The product should provide:
+
+- Clear role-specific navigation.
+- Consistent status labels.
+- Clear success/error feedback.
+- Understandable empty states.
+- Confirmation before important destructive actions.
+- Search/filter controls that are understandable.
+- Persistent user preferences for repeated workbench views where supported.
+- Candidate-facing and employer-facing information appropriate to each role.
+- Clear distinction between recommendations, scores, verification, and guarantees.
+
+The interface should favor business clarity over exposing internal technical concepts.
+
+
+62. BUSINESS REPORTING REQUIREMENTS
+
+SuperAdmin and employers should have access to business-relevant reporting appropriate to their role.
+
+Examples include:
+
+Employer:
+- Posting counts.
+- Applicant counts.
+- Recruitment pipeline.
+- Match quality.
+- Stipend analytics.
+- Candidate availability/education trends.
+- Exportable applicant information.
+
+SuperAdmin:
+- Employer approval workload.
+- Document review workload.
+- Posting moderation activity.
+- Registration requests.
+- Login activity.
+- Reward/social verification activity.
+- Operational alerts.
+- Audit activity.
+
+Candidates:
+- Their own applications.
+- Their own offers.
+- Their own points and reward activity.
+- Their own profile/experience information.
+
+
+63. BUSINESS ACCEPTANCE CRITERIA — CORE CANDIDATE JOURNEY
+
+A core candidate journey is considered successful when:
+
+1. A candidate can register with an eligible Gmail/Googlemail address.
+2. The candidate receives an initial password.
+3. The candidate can sign in.
+4. The candidate can complete their profile.
+5. The candidate can add academic history and skills.
+6. The candidate can browse live internships.
+7. The candidate can search and filter opportunities.
+8. The candidate can see Match % and employer validation information where available.
+9. The candidate can save an internship.
+10. The candidate can submit a valid application using available points.
+11. The candidate can answer required screening questions.
+12. The candidate can track application status.
+13. The candidate can communicate with the employer.
+14. The candidate can receive and respond to an offer.
+15. The candidate can view eligible completed-internship endorsements.
+
+
+64. BUSINESS ACCEPTANCE CRITERIA — CORE EMPLOYER JOURNEY
+
+A core employer journey is considered successful when:
+
+1. An employer can register using a matching website/work-email domain or submit a manual request.
+2. The employer can complete company information.
+3. The employer can submit verification evidence.
+4. SuperAdmin can approve the employer.
+5. The approved employer can accept required ethics commitments.
+6. The employer can create an internship posting.
+7. The employer can define eligibility and screening questions.
+8. The employer can preview and publish a valid posting.
+9. Candidates can discover the published opportunity.
+10. The employer can review applicants.
+11. The employer can filter and compare applicants.
+12. The employer can communicate with candidates.
+13. The employer can schedule an interview.
+14. The employer can create an offer.
+15. The candidate can accept/decline the offer.
+16. The employer can progress the recruitment to hiring/completion.
+17. The employer can participate in rating/endorsement processes after completion.
+
+
+65. BUSINESS ACCEPTANCE CRITERIA — CORE SUPERADMIN JOURNEY
+
+A core SuperAdmin journey is considered successful when:
+
+1. New employer accounts appear for appropriate review.
+2. SuperAdmin can approve or reject employers.
+3. SuperAdmin can inspect and review business documents.
+4. SuperAdmin can identify domain-risk indicators.
+5. SuperAdmin can review manual employer requests.
+6. SuperAdmin can review live internship postings.
+7. SuperAdmin can pause/remove problematic postings.
+8. SuperAdmin can review login activity.
+9. SuperAdmin can review social-sharing/reward claims.
+10. SuperAdmin can inspect operational alerts.
+11. SuperAdmin can review audit activity.
+12. SuperAdmin can manage/triage feature ideas.
+
+
+66. CURRENT PRODUCT BOUNDARIES / OUT OF SCOPE
+
+The following are not business requirements of the current build and must not be represented as completed product functionality merely because they may appear in older prototypes, design documents, or future planning:
+
+- A full college-admin or campus-placement-management workflow.
+- Full Placement Hub/job-board functionality.
+- A complete social-network feed.
+- A general professional networking platform.
+- A full payment gateway and production billing/commerce flow for employer plans.
+- Guaranteed employment or guaranteed internship quality.
+- Automatic candidate rejection solely from a low Match %.
+- Automatic employer approval solely from a validation score.
+- Manual candidate verification by colleges as a core product workflow.
+- Automatic fraud conclusions based only on domain mismatch.
+- A requirement for SuperAdmin to approve every ordinary internship before publication.
+- Unlimited applicant volume per internship.
+- Unlimited reward farming through duplicate/self-referral activity.
+- Fake or invented interview meeting links.
+- Manual screenshot uploads as the primary basis for endorsements.
+- Any feature that exposes protected candidate contact data without the candidate/business rules permitting it.
+
+
+67. FUTURE-CHANGE PRINCIPLE
+
+This document should be treated as the business baseline for the current product.
+
+If future features are introduced, they should be classified as one of:
+
+1. Existing business requirement — already part of the current product.
+2. Enhancement — improves an existing business capability.
+3. New business requirement — introduces a new capability.
+4. Deferred/future — intentionally not part of the current release.
+5. Removed — previously discussed but no longer part of the product.
+
+A future technical implementation must not be treated as a business requirement unless the underlying business capability has been explicitly approved.
+
+
+68. BUSINESS SUCCESS MEASURES
+
+The platform's success should ultimately be evaluated through business outcomes such as:
+
+Candidate:
+- Number of active candidates.
+- Profile completion rate.
+- Internship discovery activity.
+- Application completion rate.
+- Application-to-interview conversion.
+- Offer acceptance rate.
+- Internship completion rate.
+- Repeat candidate engagement.
+
+Employer:
+- Verified employer growth.
+- Number of quality live internships.
+- Applicant relevance.
+- Applicant-to-shortlist conversion.
+- Shortlist-to-interview conversion.
+- Interview-to-offer conversion.
+- Offer acceptance.
+- Internship completion.
+- Employer repeat usage.
+
+Trust & safety:
+- Employer verification turnaround.
+- Document review turnaround.
+- Moderation response time.
+- Fraud/problematic-listing detection.
+- Candidate grievances and resolution.
+- Percentage of listings meeting ethics requirements.
+
+Growth:
+- Valid referrals.
+- Verified social promotion.
+- Referral-to-registration conversion.
+- Candidate/employer retention.
+
+Product:
+- Feature idea participation.
+- Most requested improvements.
+- Adoption of major workflows.
+
+
+69. SUMMARY OF CORE BUSINESS PROMISE
+
+InternSafar should provide a trustworthy and practical bridge between candidates seeking meaningful internships and employers seeking suitable early-career talent.
+
+The product's core promise is:
+
+- Candidates can discover relevant internships with useful match and trust information.
+- Employers can verify their identity, publish legitimate opportunities, and manage recruitment from application through offer and completion.
+- Both sides receive appropriate privacy and communication controls.
+- SuperAdmin can protect marketplace quality through verification, document review, moderation, and audit.
+- A points and referral model encourages useful platform participation without turning the product into a general social network.
+- Product feedback is visible and structured through a community-driven feature roadmap.
+
+The business should prioritize trustworthy opportunities, relevant matching, efficient recruitment, candidate protection, and measurable hiring outcomes over unnecessary feature expansion.

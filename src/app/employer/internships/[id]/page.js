@@ -563,6 +563,14 @@ export default function ApplicantsPipelinePage() {
                   if (!job) return;
                   setBulkResult({ jobId: res.jobId, job });
                   if (job.status === 'done') {
+                    const skipped = Array.isArray(job.skipped_application_ids)
+                      ? job.skipped_application_ids
+                      : [];
+                    if (skipped.length) {
+                      window.alert(
+                        `Export ready. Skipped ${skipped.length} application(s) that no longer exist.`,
+                      );
+                    }
                     if (job.result_zip_base64) {
                       const bin = Uint8Array.from(atob(job.result_zip_base64), (c) => c.charCodeAt(0));
                       const blob = new Blob([bin], { type: 'application/zip' });
@@ -591,6 +599,11 @@ export default function ApplicantsPipelinePage() {
                 };
                 poll();
                 return;
+              }
+              if (res.skippedApplications) {
+                window.alert(
+                  `Export ready. Skipped ${res.skippedApplications} application(s) that no longer exist.`,
+                );
               }
               if (res.zipBase64) {
                 const bin = Uint8Array.from(atob(res.zipBase64), (c) => c.charCodeAt(0));

@@ -1,4 +1,5 @@
 import { query } from '@/lib/db';
+import { transaction } from '@/lib/transaction';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { notifyUser } from '@/lib/ipNotify';
 import { sendMail } from '@/lib/mail';
@@ -32,11 +33,21 @@ export async function PATCH(request, { params }) {
     return jsonError('This offer can no longer be accepted or declined');
   }
 
-  await query(`UPDATE ip_offers SET status = $2, responded_at = now() WHERE id = $1`, [id, status]);
-  await query(
-    `UPDATE ip_applications SET status = $2, updated_at = now() WHERE internship_id = $1 AND candidate_id = $3`,
-    [row.internship_id, status === 'accepted' ? 'hired' : 'declined_offer', row.candidate_id],
-  );
+  const nextAppStatus = status === 'accepted' ? 'hired' : 'declined_offer';
+  await transaction(async (client) => {
+    await client.query(`UPDATE ip_offers SET status = $2, responded_at = now() WHERE id = $1`, [id, status]);
+    if (row.application_id) {
+      await client.query(`UPDATE ip_applications SET status = $2, updated_at = now() WHERE id = $1`, [
+        row.application_id,
+        nextAppStatus,
+      ]);
+    } else {
+      await client.query(
+        `UPDATE ip_applications SET status = $2, updated_at = now() WHERE internship_id = $1 AND candidate_id = $3`,
+        [row.internship_id, nextAppStatus, row.candidate_id],
+      );
+    }
+  });
 
   await notifyUser({
     userId: row.employer_user_id,

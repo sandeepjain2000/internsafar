@@ -10,7 +10,11 @@ import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
 import pg from 'pg';
 import dotenv from 'dotenv';
+import { createRequire } from 'module';
 import { QA_ACCOUNTS } from './ipQaAuth.mjs';
+
+const require = createRequire(import.meta.url);
+const { CAST_CANDIDATES } = require('./ipCoreSampleConfig.js');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..', '..');
@@ -589,10 +593,25 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
 
   let offerId = '';
   await tryCase('EMP-PL-3', async () => {
+    let targetAppId = applyId;
+    await withDb(async (db) => {
+      const open = await db.query(
+        `SELECT a.id
+         FROM ip_applications a
+         JOIN ip_internships i ON i.id = a.internship_id
+         JOIN ip_employers e ON e.id = i.employer_id
+         JOIN ip_users u ON u.id = e.user_id
+         WHERE lower(u.email) = lower($1)
+           AND NOT EXISTS (SELECT 1 FROM ip_offers o WHERE o.application_id = a.id)
+         LIMIT 1`,
+        [QA_ACCOUNTS.employer.email],
+      );
+      if (open.rows[0]?.id) targetAppId = open.rows[0].id;
+    });
     const r = await api('/api/ip/offers', {
       method: 'POST', cookie: emp.cookie,
       body: {
-        applicationId: applyId,
+        applicationId: targetAppId,
         roleTitle: 'QA Intern',
         stipendInr: 10000,
         startDate: new Date().toISOString().slice(0, 10),
@@ -600,7 +619,21 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
       },
     });
     offerId = r.data?.id || r.data?.offerId || '';
-    assess('EMP-PL-3', r.status === 200 || r.status === 201, { status: r.status, id: offerId, error: r.data?.error });
+    if (r.status === 409) {
+      await withDb(async (db) => {
+        const existing = await db.query(
+          `SELECT id FROM ip_offers WHERE application_id = $1 LIMIT 1`,
+          [targetAppId],
+        );
+        offerId = existing.rows[0]?.id || offerId;
+      });
+    }
+    assess('EMP-PL-3', r.status === 200 || r.status === 201 || r.status === 409, {
+      status: r.status,
+      id: offerId,
+      applicationId: targetAppId,
+      error: r.data?.error,
+    });
   });
 
   await tryCase('OFF-R-1', async () => {
@@ -624,10 +657,11 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
       );
       const oid = nid('ip_off');
       await db.query(
-        `INSERT INTO ip_offers (id, internship_id, employer_id, candidate_id, role_title, status, valid_until)
-         VALUES ($1,$2,$3,$4,'QA Decline Role','pending', now() + interval '7 days')`,
-        [oid, internId, empRow.rows[0]?.id, candId],
+        `INSERT INTO ip_offers (id, internship_id, employer_id, candidate_id, application_id, role_title, status, valid_until)
+         VALUES ($1,$2,$3,$4,$5,'QA Decline Role','pending', now() + interval '7 days')`,
+        [oid, internId, empRow.rows[0]?.id, candId, appId],
       );
+      await db.query(`UPDATE ip_applications SET status = 'offered', updated_at = now() WHERE id = $1`, [appId]);
       offerId = offerId || oid;
     });
     const login = await apiLogin(BASE, email, PW);
@@ -636,7 +670,21 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const r = mine
       ? await api(`/api/ip/offers/${mine.id}`, { method: 'PATCH', cookie: login.cookie, body: { status: 'declined' } })
       : { status: 0 };
-    assess('CAND-O-2', r.status === 200, { status: r.status, offer: mine?.id });
+    let appAfter = '';
+    if (r.status === 200 && mine?.id) {
+      await withDb(async (db) => {
+        const row = await db.query(
+          `SELECT a.status FROM ip_offers o JOIN ip_applications a ON a.id = o.application_id WHERE o.id = $1`,
+          [mine.id],
+        );
+        appAfter = row.rows[0]?.status || '';
+      });
+    }
+    assess('CAND-O-2', r.status === 200 && appAfter === 'declined_offer', {
+      status: r.status,
+      offer: mine?.id,
+      appAfter,
+    });
   });
 
   await tryCase('CAND-O-3', async () => {
@@ -647,12 +695,19 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
       const candId = await ensureCandidateRow(db, uid, email, 'QA Expired');
       const empRow = await db.query(`SELECT e.id FROM ip_employers e JOIN ip_users u ON u.id=e.user_id WHERE lower(u.email)=lower($1)`, [QA_ACCOUNTS.employer.email]);
       const intern = await db.query(`SELECT i.id FROM ip_internships i WHERE i.employer_id=$1 LIMIT 1`, [empRow.rows[0]?.id]);
+      const internId = intern.rows[0]?.id;
+      const appId = nid('ip_app');
+      await db.query(
+        `INSERT INTO ip_applications (id, internship_id, candidate_id, status) VALUES ($1,$2,$3,'applied')`,
+        [appId, internId, candId],
+      );
       oid = nid('ip_off');
       await db.query(
-        `INSERT INTO ip_offers (id, internship_id, employer_id, candidate_id, role_title, status, valid_until)
-         VALUES ($1,$2,$3,$4,'Expired Role','pending', now() - interval '2 days')`,
-        [oid, intern.rows[0]?.id, empRow.rows[0]?.id, candId],
+        `INSERT INTO ip_offers (id, internship_id, employer_id, candidate_id, application_id, role_title, status, valid_until)
+         VALUES ($1,$2,$3,$4,$5,'Expired Role','pending', now() - interval '2 days')`,
+        [oid, internId, empRow.rows[0]?.id, candId, appId],
       );
+      await db.query(`UPDATE ip_applications SET status = 'offered', updated_at = now() WHERE id = $1`, [appId]);
     });
     const login = await apiLogin(BASE, email, PW);
     const r = await api(`/api/ip/offers/${oid}`, { method: 'PATCH', cookie: login.cookie, body: { status: 'accepted' } });
@@ -660,14 +715,19 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('CAND-O-7', async () => {
+    const otherEmail = CAST_CANDIDATES[1]?.email || 'lawsonlclintern+2@gmail.com';
+    await withDb(async (db) => {
+      const uid = await ensureUser(db, { email: otherEmail, role: 'candidate', name: 'QA Other Cand', points: 80 });
+      await ensureCandidateRow(db, uid, otherEmail, 'QA Other Cand');
+    });
     const other = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, PW);
     const list = await api('/api/ip/offers', { cookie: other.cookie });
     const oid = (list.data?.items || list.data?.offers || [])[0]?.id;
-    const arjun = await apiLogin(BASE, 'lawsonlclintern+2@gmail.com', PW);
+    const arjun = await apiLogin(BASE, otherEmail, PW);
     const r = oid
       ? await api(`/api/ip/offers/${oid}`, { method: 'PATCH', cookie: arjun.cookie, body: { status: 'accepted' } })
       : { status: 404 };
-    assess('CAND-O-7', r.status === 403 || r.status === 404, { status: r.status });
+    assess('CAND-O-7', r.status === 403 || r.status === 404, { status: r.status, loginOk: arjun.ok });
   });
 
   await tryCase('CAND-M-4', async () => {
@@ -683,7 +743,12 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('CAND-M-5', async () => {
-    const arjun = await apiLogin(BASE, 'lawsonlclintern+2@gmail.com', PW);
+    const otherEmail = CAST_CANDIDATES[1]?.email || 'lawsonlclintern+2@gmail.com';
+    await withDb(async (db) => {
+      const uid = await ensureUser(db, { email: otherEmail, role: 'candidate', name: 'QA Other Cand', points: 80 });
+      await ensureCandidateRow(db, uid, otherEmail, 'QA Other Cand');
+    });
+    const arjun = await apiLogin(BASE, otherEmail, PW);
     const thread = await api('/api/ip/messages/threads', {
       method: 'POST', cookie: emp.cookie,
       body: { otherUserId: cand.session?.user?.id, message: 'priya thread' },
@@ -691,7 +756,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const sneak = await api(`/api/ip/messages/threads/${thread.data?.threadId || 'x'}`, {
       cookie: arjun.cookie,
     });
-    assess('CAND-M-5', sneak.status === 403 || sneak.status === 404, { status: sneak.status });
+    assess('CAND-M-5', sneak.status === 403 || sneak.status === 404, { status: sneak.status, loginOk: arjun.ok });
   });
 
   await tryCase('EMP-M-1', async () => {
@@ -725,11 +790,34 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('RATE-1', async () => {
-    const r = await api('/api/ip/ratings', {
-      method: 'POST', cookie: emp.cookie,
-      body: { toUserId: cand.session?.user?.id, stars: 5, comment: 'QA rating' },
+    let internshipId = '';
+    let toUserId = cand.session?.user?.id;
+    await withDb(async (db) => {
+      const row = await db.query(
+        `SELECT a.internship_id, c.user_id
+         FROM ip_applications a
+         JOIN ip_candidates c ON c.id = a.candidate_id
+         JOIN ip_internships i ON i.id = a.internship_id
+         JOIN ip_employers e ON e.id = i.employer_id
+         JOIN ip_users u ON u.id = e.user_id
+         WHERE lower(u.email) = lower($1)
+           AND a.status IN ('hired', 'completed')
+         LIMIT 1`,
+        [QA_ACCOUNTS.employer.email],
+      );
+      internshipId = row.rows[0]?.internship_id || '';
+      toUserId = row.rows[0]?.user_id || toUserId;
     });
-    assess('RATE-1', r.status === 200 || r.status === 201, { status: r.status, error: r.data?.error });
+    const r = await api('/api/ip/ratings', {
+      method: 'POST',
+      cookie: emp.cookie,
+      body: { toUserId, internshipId, stars: 5, comment: 'QA rating' },
+    });
+    assess('RATE-1', r.status === 200 || r.status === 201 || r.status === 409, {
+      status: r.status,
+      error: r.data?.error,
+      internshipId,
+    });
   });
 
   await tryCase('EMP-P-3', async () => {

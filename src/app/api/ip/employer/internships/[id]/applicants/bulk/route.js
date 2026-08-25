@@ -4,6 +4,7 @@ import { newId } from '@/lib/ids';
 import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
 import { personalizeMessageBody } from '@/lib/ipMessageResponseState';
 import { notifyUser } from '@/lib/ipNotify';
+import { linkThreadToApplicationIfPresent } from '@/lib/ipLinkThreadApplication';
 
 async function ownedApps(employerId, internshipId, applicationIds) {
   const result = await query(
@@ -224,6 +225,7 @@ export async function POST(request, { params }) {
       shouldUseBackgroundJob,
       loadAppsForExport,
       buildApplicantExportPackage,
+      partitionExportApplicationIds,
     } = await import('@/lib/ipApplicantExport');
 
     if (shouldUseBackgroundJob(applicationIds, includeResumes) || body.async) {
@@ -244,22 +246,30 @@ export async function POST(request, { params }) {
       });
     }
 
-    const fullRows = await loadAppsForExport(emp.rows[0].id, internshipId, applicationIds);
-    const pack = await buildApplicantExportPackage(fullRows, { includeResumes });
-    await query(
-      `INSERT INTO ip_application_events (id, application_id, actor_user_id, event_type, payload)
-       VALUES ($1,$2,$3,'export',$4::jsonb)`,
-      [
-        newId('ip_aev'),
-        applicationIds[0],
-        session.user.id,
-        JSON.stringify({
-          count: applicationIds.length,
-          format: includeResumes ? 'zip' : 'csv',
-          resumeCount: pack.resumeCount,
-        }),
-      ],
+    const { liveIds, skippedIds } = await partitionExportApplicationIds(
+      emp.rows[0].id,
+      internshipId,
+      applicationIds,
     );
+    const fullRows = await loadAppsForExport(emp.rows[0].id, internshipId, liveIds);
+    const pack = await buildApplicantExportPackage(fullRows, { includeResumes });
+    if (liveIds[0]) {
+      await query(
+        `INSERT INTO ip_application_events (id, application_id, actor_user_id, event_type, payload)
+         VALUES ($1,$2,$3,'export',$4::jsonb)`,
+        [
+          newId('ip_aev'),
+          liveIds[0],
+          session.user.id,
+          JSON.stringify({
+            count: liveIds.length,
+            skippedApplicationIds: skippedIds,
+            format: includeResumes ? 'zip' : 'csv',
+            resumeCount: pack.resumeCount,
+          }),
+        ],
+      );
+    }
     return jsonOk({
       ok: true,
       async: false,
@@ -269,6 +279,8 @@ export async function POST(request, { params }) {
       zipBase64: pack.zipBase64,
       resumeCount: pack.resumeCount,
       skippedResumes: pack.skipped,
+      skippedApplicationIds: skippedIds,
+      skippedApplications: skippedIds.length,
     });
   }
 
@@ -301,11 +313,17 @@ async function sendEmployerMessage({ session, internshipId, candidateUserId, bod
   if (!threadId) {
     threadId = newId('ip_th');
     await query(
-      `INSERT INTO ip_message_threads (id, internship_id, candidate_user_id, employer_user_id, subject)
-       VALUES ($1,$2,$3,$4,$5)`,
-      [threadId, internshipId, candidateUserId, session.user.id, 'Application message'],
+      `INSERT INTO ip_message_threads (id, internship_id, candidate_user_id, employer_user_id, subject, application_id)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [threadId, internshipId, candidateUserId, session.user.id, 'Application message', applicationId || null],
     );
   }
+  await linkThreadToApplicationIfPresent(query, {
+    threadId,
+    internshipId,
+    candidateUserId,
+    applicationId,
+  });
   const msgId = newId('ip_msg');
   await query(
     `INSERT INTO ip_messages (id, thread_id, sender_user_id, body) VALUES ($1,$2,$3,$4)`,

@@ -27,8 +27,14 @@ export async function POST(request, { params }) {
     );
   }
 
+  let formData;
   try {
-    const formData = await request.formData();
+    formData = await request.formData();
+  } catch {
+    return NextResponse.json({ error: 'No file selected.' }, { status: 400 });
+  }
+
+  try {
     const file = formData.get('file');
     if (!file || typeof file === 'string') {
       return NextResponse.json({ error: 'No file selected.' }, { status: 400 });
