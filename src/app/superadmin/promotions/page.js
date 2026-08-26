@@ -14,6 +14,9 @@ import {
 } from 'lucide-react';
 import '@/components/ip/ip-superadmin-queue-gemini.css';
 import { LINKEDIN_PROMO_POINTS } from '@/lib/pointsEconomy';
+import { useClientPagination } from '@/hooks/useClientPagination';
+
+const PAGE_SIZE = 10;
 
 function initial(name) {
   return String(name || '?').trim().charAt(0).toUpperCase() || '?';
@@ -98,6 +101,11 @@ export default function SuperAdminPromotionsPage() {
   }, [items, tab, search]);
 
   const pendingSelectable = filtered.filter((p) => isPending(p.status));
+
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(filtered, PAGE_SIZE);
+  useEffect(() => {
+    setPage(1);
+  }, [tab, search, setPage]);
 
   async function act(ids, action, reviewNotes = '') {
     if (!ids.length) return;
@@ -267,7 +275,7 @@ export default function SuperAdminPromotionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p) => (
+                {pageItems.map((p) => (
                   <tr key={p.id}>
                     <td>
                       {isPending(p.status) ? (
@@ -330,6 +338,43 @@ export default function SuperAdminPromotionsPage() {
                 ))}
               </tbody>
             </table>
+            {total > 0 ? (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginTop: '0.75rem',
+                  fontSize: '0.75rem',
+                  color: '#64748b',
+                }}
+              >
+                <span>
+                  Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} of {total}
+                </span>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="ip-saq-btn ip-saq-btn--sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => p - 1)}
+                  >
+                    Previous
+                  </button>
+                  <span>
+                    Page {page}/{totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="ip-saq-btn ip-saq-btn--sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
       </div>

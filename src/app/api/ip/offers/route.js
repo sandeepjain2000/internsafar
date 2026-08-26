@@ -59,7 +59,10 @@ export async function GET() {
   await ensureIpOfferRemindSchema();
   const emp = await query(`SELECT id FROM ip_employers WHERE user_id = $1`, [session.user.id]);
   const result = await query(
-    `SELECT o.*, i.title, c.name as candidate_name, c.college as candidate_college,
+    `SELECT o.*,
+            i.title, i.work_mode, i.location, i.duration_months,
+            i.stipend_inr as internship_stipend_inr,
+            c.name as candidate_name, c.college as candidate_college, c.city as candidate_city,
             c.user_id as candidate_user_id
      FROM ip_offers o
      JOIN ip_internships i ON i.id = o.internship_id

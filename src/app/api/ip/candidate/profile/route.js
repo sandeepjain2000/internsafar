@@ -4,11 +4,12 @@ import { ensureIpCandidateProfileSchema } from '@/lib/ensureIpCandidateProfileSc
 import { ensureIpAccountSettingsSchema } from '@/lib/ensureIpAccountSettingsSchema';
 import { maybeAwardProfileCompleteBonus } from '@/lib/ipReferralCredit';
 import { PROFILE_COMPLETE_POINTS } from '@/lib/pointsEconomy';
+import { validateOptionalPhone } from '@/lib/ipPhoneValidation';
 
 const EDITABLE_FIELDS = [
   'name', 'first_name', 'middle_name', 'last_name', 'phone', 'phone_country_code',
   'whatsapp_number', 'telegram_handle', 'profile_picture_url', 'show_profile_picture', 'college', 'degree', 'specialization',
-  'study_status', 'graduation_year', 'cgpa', 'country', 'city', 'state', 'skills', 'resume_url', 'linkedin_url',
+  'study_status', 'graduation_year', 'cgpa', 'country', 'city', 'state', 'skills', 'resume_url', 'resume_links', 'linkedin_url',
   'github_url', 'portfolio_url', 'personal_website', 'preferred_work_mode', 'preferred_locations', 'availability_date',
   'searchable', 'show_completed_internships', 'whatsapp_opt_in', 'telegram_opt_in',
   'has_wired_broadband', 'has_dedicated_laptop', 'preferred_hours_start', 'preferred_hours_end',
@@ -18,13 +19,26 @@ const EDITABLE_FIELDS = [
 
 const COMMITMENT_CHOICES = new Set(['', 'none', 'other_internship', 'offline_classes', 'part_time_work', 'other']);
 
-const REQUIRED_FOR_COMPLETE = ['name', 'phone', 'college', 'degree', 'city', 'country', 'resume_url'];
+/** Phone is optional for save / completeness; blank is allowed. */
+const REQUIRED_FOR_COMPLETE = ['name', 'college', 'degree', 'city', 'country', 'resume_url'];
 
 function normalizeOptionalBool(value) {
   if (value === null || value === undefined || value === '') return null;
   if (value === true || value === 'true' || value === 'yes') return true;
   if (value === false || value === 'false' || value === 'no') return false;
   return null;
+}
+
+function normalizeResumeLinks(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item, i) => {
+    const id = String(item?.id || '').trim() || `rl_${Date.now()}_${i}`;
+    return {
+      id,
+      url: String(item?.url || '').trim(),
+      title: String(item?.title || '').trim(),
+    };
+  });
 }
 
 export async function GET() {
@@ -50,6 +64,7 @@ export async function GET() {
   if (profile.hide_phone_until_shortlist == null) profile.hide_phone_until_shortlist = true;
   profile.immediate_start = Boolean(profile.immediate_start);
   profile.willing_to_relocate = Boolean(profile.willing_to_relocate);
+  if (!Array.isArray(profile.resume_links)) profile.resume_links = [];
   const bonus = await maybeAwardProfileCompleteBonus(session.user.id);
   if (bonus.awarded) {
     profile.points = Number(profile.points || 0) + PROFILE_COMPLETE_POINTS;
@@ -83,6 +98,24 @@ export async function PUT(request) {
 
   const countryOptions = new Set(['India', 'Bangladesh', 'Sri Lanka', 'Indonesia']);
 
+  let phonePrev = null;
+  let nextPhone = null;
+  let nextCode = null;
+  if (body.phone !== undefined || body.phone_country_code !== undefined) {
+    const currentPhone = await query(
+      `SELECT phone, phone_country_code FROM ip_candidates WHERE user_id = $1`,
+      [session.user.id],
+    );
+    phonePrev = currentPhone.rows[0] || {};
+    nextPhone = body.phone !== undefined ? String(body.phone || '').trim() : String(phonePrev.phone || '').trim();
+    nextCode =
+      body.phone_country_code !== undefined
+        ? String(body.phone_country_code || '').trim()
+        : String(phonePrev.phone_country_code || '').trim();
+    const phoneCheck = validateOptionalPhone(nextPhone, nextCode || '+91');
+    if (!phoneCheck.ok) return jsonError(phoneCheck.error, 400);
+  }
+
   const sets = [];
   const params = [session.user.id];
   for (const field of EDITABLE_FIELDS) {
@@ -92,6 +125,9 @@ export async function PUT(request) {
       const v = value == null ? '' : String(value).trim();
       value = countryOptions.has(v) ? v : 'India';
     }
+    if (field === 'resume_links') {
+      value = JSON.stringify(normalizeResumeLinks(value));
+    }
     if (optionalBools.has(field)) value = normalizeOptionalBool(value);
     if (requiredBools.has(field)) value = value === true || value === 'true';
     if (field === 'show_profile_picture') value = value !== false && value !== 'false';
@@ -100,7 +136,11 @@ export async function PUT(request) {
       value = value === '' ? null : value;
     }
     params.push(value);
-    sets.push(`${field} = $${params.length}`);
+    if (field === 'resume_links') {
+      sets.push(`${field} = $${params.length}::jsonb`);
+    } else {
+      sets.push(`${field} = $${params.length}`);
+    }
   }
   if (body.ongoing_commitment_choice !== undefined && body.ongoing_commitment === undefined) {
     const choice = body.ongoing_commitment_choice;
@@ -116,18 +156,8 @@ export async function PUT(request) {
     params.push(composed);
     sets.push(`name = $${params.length}`);
   }
-  if (body.phone !== undefined || body.phone_country_code !== undefined) {
-    const currentPhone = await query(
-      `SELECT phone, phone_country_code FROM ip_candidates WHERE user_id = $1`,
-      [session.user.id],
-    );
-    const prev = currentPhone.rows[0] || {};
-    const nextPhone = body.phone !== undefined ? String(body.phone || '').trim() : String(prev.phone || '').trim();
-    const nextCode =
-      body.phone_country_code !== undefined
-        ? String(body.phone_country_code || '').trim()
-        : String(prev.phone_country_code || '').trim();
-    if (nextPhone !== String(prev.phone || '').trim() || nextCode !== String(prev.phone_country_code || '').trim()) {
+  if (phonePrev && nextPhone !== null) {
+    if (nextPhone !== String(phonePrev.phone || '').trim() || nextCode !== String(phonePrev.phone_country_code || '').trim()) {
       sets.push('phone_verified_at = NULL');
     }
   }

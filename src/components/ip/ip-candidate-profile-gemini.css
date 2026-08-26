@@ -365,6 +365,7 @@
   display: grid;
   gap: 1rem;
   grid-template-columns: 1fr;
+  align-items: start;
 }
 
 @media (min-width: 640px) {
@@ -393,6 +394,10 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: #334155;
+  line-height: 1.25;
+  min-height: 1rem;
+  display: block;
+  margin: 0;
 }
 
 .ip-cand-profile .ip-cp-req {
@@ -417,18 +422,45 @@
   border-radius: 0.5rem;
   background: #fff;
   padding: 0.5rem 0.75rem;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: #0f172a;
   font-family: inherit;
   outline: none;
   box-shadow: none;
   appearance: none;
+  box-sizing: border-box;
+}
+
+/* Match SearchableSelect control height so Country / City / State share one baseline */
+.ip-cand-profile .ip-cp-input {
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  line-height: 2.2rem;
+}
+
+.ip-cand-profile select.ip-cp-input {
+  line-height: 1.25;
+  padding-right: 1.75rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
 }
 
 .ip-cand-profile .ip-cp-textarea {
+  height: auto;
   min-height: 6.5rem;
   line-height: 1.6;
   resize: vertical;
+  padding: 0.5rem 0.75rem;
+}
+
+.ip-cand-profile .ip-cp-field .ip-sms.ip-ss {
+  gap: 0;
+}
+
+.ip-cand-profile .ip-cp-field .ip-sms-input {
+  border-color: #e2e8f0;
+  font-size: 0.875rem;
 }
 
 .ip-cand-profile .ip-cp-input:focus,
@@ -951,12 +983,80 @@
 .ip-cand-profile .ip-cp-save {
   padding: 1rem 1.5rem 1.5rem;
   border-top: 1px solid #f1f5f9;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
 }
 
 .ip-cand-profile .ip-cp-save p {
   font-size: 0.75rem;
   color: #64748b;
+  margin: 0;
+  flex: 1 1 12rem;
+}
+
+.ip-cand-profile .ip-cp-save__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.ip-cand-profile .ip-cp-wizard {
+  margin: 0 1.25rem 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+}
+
+.ip-cand-profile .ip-cp-wizard__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.ip-cand-profile .ip-cp-wizard__top span {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.ip-cand-profile .ip-cp-wizard__top strong {
+  font-size: 0.9rem;
+  color: #0f172a;
+}
+
+.ip-cand-profile .ip-cp-wizard__bar {
+  height: 0.4rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.ip-cand-profile .ip-cp-wizard__bar > div {
+  height: 100%;
+  background: #4f46e5;
+  border-radius: inherit;
+  max-width: 100%;
+}
+
+.ip-cand-profile .ip-cp-wizard__hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.ip-cand-profile .ip-cp-exp {
+  border-color: #c7d2fe;
 }
 
 .ip-cand-profile .ip-cp-export {
@@ -988,8 +1088,217 @@
   color: #64748b;
 }
 
+.ip-cand-profile .ip-cp-resume-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.ip-cand-profile .ip-cp-resume-row .ip-cp-input {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.ip-cand-profile .ip-cp-upload-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+}
+
+/* Force shadcn IpUploadButton into profile chrome */
+.ip-cand-profile .ip-cp-upload-wrap button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  height: 2.5rem !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 0.5rem !important;
+  background: #ffffff !important;
+  color: #4f46e5 !important;
+  border: 1px solid #e2e8f0 !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+.ip-cand-profile .ip-cp-upload-wrap button:hover:not(:disabled) {
+  border-color: #c7d2fe !important;
+  background: #eef2ff !important;
+}
+
+.ip-cand-profile .ip-cp-upload-wrap p,
+.ip-cand-profile .ip-cp-upload-wrap [data-slot='field-description'] {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #dc2626;
+}
+
+.ip-cand-profile .ip-cp-link-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+}
+
+.ip-cand-profile .ip-cp-sec-head--compact {
+  margin-bottom: 0;
+}
+
+.ip-cand-profile .ip-cp-sec-head--compact h3 {
+  font-size: 0.9375rem;
+}
+
+.ip-cand-profile .ip-cp-link-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #ffffff;
+}
+
+.ip-cand-profile .ip-cp-link-row .ip-cp-field {
+  margin: 0;
+}
+
+.ip-cand-profile .ip-cp-link-draft {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+  padding: 0.75rem;
+  border: 1px dashed #c7d2fe;
+  border-radius: 0.5rem;
+  background: #eef2ff;
+}
+
+.ip-cand-profile .ip-cp-link-draft .ip-cp-field {
+  margin: 0;
+}
+
+.ip-cand-profile .ip-cp-btn--danger-outline {
+  height: 2.5rem;
+  padding: 0 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #b91c1c;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ip-cand-profile .ip-cp-btn--danger-outline:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+
+.ip-cand-profile .ip-cp-error {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #b91c1c;
+}
+
+.ip-cand-profile .ip-cp-phone {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-height: 2.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
+  overflow: hidden;
+}
+
+.ip-cand-profile .ip-cp-phone:focus-within {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.ip-cand-profile .ip-cp-phone__dial {
+  flex: 0 0 auto;
+  min-width: 9.5rem;
+  max-width: 11.5rem;
+  border: 0;
+  border-right: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 0 0.625rem;
+  font-size: 0.8125rem;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.ip-cand-profile .ip-cp-phone__num.is-invalid {
+  background: #fff1f2;
+}
+
+.ip-cand-profile .ip-cp-phone + .ip-cp-error {
+  margin-top: 0.35rem;
+}
+
+.ip-cand-profile .ip-cp-phone__dial:focus {
+  outline: none;
+  background: #eef2ff;
+}
+
+.ip-cand-profile .ip-cp-phone__num {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0 0.875rem;
+  font-size: 0.875rem;
+  color: #0f172a;
+}
+
+.ip-cand-profile .ip-cp-phone__num:focus {
+  outline: none;
+}
+
+.ip-cand-profile .ip-cp-resume-file {
+  display: flex;
+  flex: 1 1 14rem;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0 0.5rem 0 0.875rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.ip-cand-profile .ip-cp-resume-file__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
 @media (max-width: 700px) {
   .ip-cand-profile .ip-cp-grid--3 {
     grid-template-columns: 1fr;
+  }
+
+  .ip-cand-profile .ip-cp-link-row,
+  .ip-cand-profile .ip-cp-link-draft {
+    grid-template-columns: 1fr;
+  }
+
+  .ip-cand-profile .ip-cp-link-row .ip-cp-btn,
+  .ip-cand-profile .ip-cp-link-draft .ip-cp-btn {
+    justify-self: start;
   }
 }

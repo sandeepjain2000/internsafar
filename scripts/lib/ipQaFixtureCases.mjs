@@ -350,7 +350,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   await tryCase('EMP-I-1', async () => {
     const r = await api('/api/ip/employer/internships', {
       method: 'POST', cookie: emp.cookie,
-      body: { title: `QA Draft ${stamp}`, description: 'draft fixture', status: 'draft', workMode: 'Hybrid' },
+      body: { title: 'QA Draft Internship', description: `draft fixture ${stamp}`, status: 'draft', workMode: 'Hybrid' },
     });
     draftId = r.data?.id || '';
     assess('EMP-I-1', (r.status === 200 || r.status === 201) && Boolean(draftId), { status: r.status, id: draftId });
@@ -360,7 +360,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const r = await api('/api/ip/employer/internships', {
       method: 'POST', cookie: emp.cookie,
       body: {
-        title: `QA Published ${stamp}`, description: 'published fixture', status: 'published',
+        title: 'QA Published Internship', description: `published fixture ${stamp}`, status: 'published',
         workMode: 'Onsite', location: 'Pune', stipendInr: 12000,
       },
     });
@@ -379,7 +379,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const login = await apiLogin(BASE, email, PW);
     const r = await api('/api/ip/employer/internships', {
       method: 'POST', cookie: login.cookie,
-      body: { title: `Zero Publish ${stamp}`, status: 'published', description: 'should fail' },
+      body: { title: 'Zero Publish Guard', status: 'published', description: `should fail ${stamp}` },
     });
     assess('EMP-I-3', r.status === 403, { status: r.status, error: r.data?.error });
   });
@@ -415,7 +415,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   await tryCase('EMP-I-7', async () => {
     if (!draftId) throw new Error('no draft id');
     const edit = await api(`/api/ip/employer/internships/${draftId}`, {
-      method: 'PUT', cookie: emp.cookie, body: { title: `QA Draft Edited ${stamp}` },
+      method: 'PUT', cookie: emp.cookie, body: { title: 'QA Draft Internship Edited' },
     });
     const close = await api(`/api/ip/employer/internships/${draftId}`, {
       method: 'PUT', cookie: emp.cookie, body: { status: 'closed' },
@@ -461,7 +461,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   await tryCase('CAND-B-6', async () => {
     const r = await api('/api/ip/employer/internships', {
       method: 'POST', cookie: emp.cookie,
-      body: { title: `QA Remote ${stamp}`, status: 'published', workMode: 'Remote', location: 'Remote', description: 'remote' },
+      body: { title: 'QA Remote Internship', status: 'published', workMode: 'Remote', location: 'Remote', description: `remote ${stamp}` },
     });
     remoteId = r.data?.id || '';
     const browse = await api('/api/ip/candidate/internships?workMode=Remote', { cookie: cand.cookie });
@@ -498,7 +498,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const r = await api('/api/ip/employer/internships', {
       method: 'POST', cookie: emp.cookie,
       body: {
-        title: `QA Screening ${stamp}`, status: 'published', description: 'qs',
+        title: 'QA Screening Internship', status: 'published', description: `qs ${stamp}`,
         questions: [{ id: 'q1', prompt: 'Why this role?' }],
       },
     });
@@ -612,7 +612,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
       method: 'POST', cookie: emp.cookie,
       body: {
         applicationId: targetAppId,
-        roleTitle: 'QA Intern',
+        roleTitle: 'Frontend Developer Intern',
         stipendInr: 10000,
         startDate: new Date().toISOString().slice(0, 10),
         validUntil: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
@@ -927,7 +927,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const categoryId = cats.data?.categories?.[0]?.id || cats.data?.items?.[0]?.id || cats.data?.[0]?.id;
     const r = await api('/api/ip/ideas', {
       method: 'POST', cookie: cand.cookie,
-      body: { title: `QA Idea ${stamp}`, problem: 'Need fixture coverage', proposedImprovement: 'Add seeds', solution: 'Add seeds', categoryId },
+      body: { title: 'QA Feature Idea', problem: 'Need fixture coverage', proposedImprovement: 'Add seeds', solution: 'Add seeds', categoryId },
     });
     ideaId = r.data?.id || '';
     assess('IDEA-1', (r.status === 200 || r.status === 201) && Boolean(categoryId),

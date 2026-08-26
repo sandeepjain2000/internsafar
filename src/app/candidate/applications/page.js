@@ -3,25 +3,77 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CalendarDays, ClipboardList, Hourglass, MessageSquare, Search, Target, XCircle } from 'lucide-react';
+import { CalendarDays, ClipboardList, Hourglass, MessageSquare, RotateCcw, Search, SlidersHorizontal, Target, XCircle } from 'lucide-react';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
-import { useListPrefsSync } from '@/hooks/useListPrefsSync';
+import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
+import { normalizePrefsFilters, useListPrefsSync } from '@/hooks/useListPrefsSync';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
+import { formatStatus } from '@/lib/utils';
+import {
+  APPLICATION_NEXT_STEP_OPTIONS,
+  applicationNextStepFilterMatch,
+} from '@/lib/ipApplicationPresentation';
 import '@/components/ip/ip-applications-gemini.css';
 
 const PAGE_SIZE = 10;
 
 const TABS = [
   { id: 'all', label: 'All Applications' },
-  { id: 'applied', label: 'Applied' },
-  { id: 'review', label: 'Under Review' },
+  { id: 'applied', label: 'Applied (Submitted)' },
+  { id: 'review', label: 'Under Review (Shortlisted)' },
   { id: 'interview', label: 'Interview Scheduled' },
   { id: 'offer', label: 'Offer Received' },
   { id: 'rejected', label: 'Rejected' },
   { id: 'withdrawn', label: 'Withdrawn' },
 ];
+
+const QUICK_CHIPS = [
+  { id: 'starting-soon', label: 'Starting soon' },
+  { id: 'recent', label: 'Recently updated' },
+  { id: 'verified', label: 'Verified employers' },
+];
+
+const STIPEND_OPTIONS = [
+  { value: '0', label: 'Any stipend' },
+  { value: '10000', label: '₹10,000+ / mo' },
+  { value: '15000', label: '₹15,000+ / mo' },
+  { value: '20000', label: '₹20,000+ / mo' },
+];
+
+const WORK_MODE_OPTIONS = [
+  { value: '', label: 'Any work mode' },
+  { value: 'Remote', label: 'Remote' },
+  { value: 'Hybrid', label: 'Hybrid' },
+  { value: 'On-site', label: 'On-site' },
+];
+
+const APPLIED_OPTIONS = [
+  { value: '', label: 'Any time' },
+  { value: '7', label: 'Last 7 days' },
+  { value: '30', label: 'Last 30 days' },
+  { value: '90', label: 'Last 90 days' },
+];
+
+function matchesQuickChip(a, chip) {
+  if (!chip) return true;
+  if (chip === 'starting-soon') {
+    const raw = a.start_date || a.starts_at;
+    if (!raw) return false;
+    const start = new Date(raw).getTime();
+    if (Number.isNaN(start)) return false;
+    const now = Date.now();
+    return start >= now && start <= now + 21 * 86400000;
+  }
+  if (chip === 'recent') {
+    const t = new Date(a.updated_at || a.created_at).getTime();
+    if (Number.isNaN(t)) return false;
+    return Date.now() - t <= 7 * 86400000;
+  }
+  if (chip === 'verified') return Boolean(a.employer_verified);
+  return true;
+}
 
 function stipendLabel(a) {
   if (a.stipend_inr) return `₹${Number(a.stipend_inr).toLocaleString('en-IN')}/mo`;
@@ -46,6 +98,10 @@ function statusClass(status) {
   return 'is-other';
 }
 
+function statusLabel(a) {
+  return a.display_status || formatStatus(a.status) || 'Applied';
+}
+
 function canWithdraw(status) {
   const s = String(status || '').toLowerCase();
   return s === 'applied' || s === 'pending';
@@ -59,43 +115,120 @@ export default function MyApplicationsPage() {
   const [q, setQ] = useState('');
   const [sort, setSort] = useState('latest');
   const [tab, setTab] = useState('all');
-  const [interviewFilter, setInterviewFilter] = useState('');
-  const [offerFilter, setOfferFilter] = useState('');
-  const [commFilter, setCommFilter] = useState('');
+  const [chip, setChip] = useState('');
+  const [minStipend, setMinStipend] = useState('0');
+  const [workMode, setWorkMode] = useState('');
+  const [locations, setLocations] = useState([]);
+  const [appliedWithin, setAppliedWithin] = useState('');
+  const [nextStep, setNextStep] = useState('');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [detail, setDetail] = useState(null);
   const [viewMode, setViewMode] = useViewMode('ip_apps_view', 'list');
   const [loadError, setLoadError] = useState('');
 
   const snapshot = useMemo(
-    () => ({ filters: { q, tab, interviewFilter, offerFilter, commFilter }, sort }),
-    [q, tab, interviewFilter, offerFilter, commFilter, sort],
+    () => ({
+      filters: {
+        q, tab, chip, minStipend, workMode, locations, appliedWithin, nextStep,
+      },
+      sort,
+    }),
+    [q, tab, chip, minStipend, workMode, locations, appliedWithin, nextStep, sort],
   );
   const prefs = useListPrefsSync({
     tableKey: 'candidate.applications',
     snapshot,
     applySnapshot: (s) => {
-      const f = s.filters || {};
-      if (f.q != null) setQ(f.q);
-      if (f.tab) setTab(f.tab);
-      if (f.interviewFilter != null) setInterviewFilter(f.interviewFilter);
-      if (f.offerFilter != null) setOfferFilter(f.offerFilter);
-      if (f.commFilter != null) setCommFilter(f.commFilter);
-      if (s.sort) setSort(s.sort);
+      const f = normalizePrefsFilters(s?.filters);
+      setQ(f.q != null ? String(f.q) : '');
+      setTab(f.tab != null && f.tab !== '' ? String(f.tab) : 'all');
+      let nextChip = f.chip != null ? String(f.chip) : '';
+      if (nextChip === 'saved' || !QUICK_CHIPS.some((c) => c.id === nextChip)) nextChip = '';
+      setChip(nextChip);
+      setMinStipend(f.minStipend != null ? String(f.minStipend) : '0');
+      setWorkMode(f.workMode != null ? String(f.workMode) : '');
+      setLocations(Array.isArray(f.locations) ? f.locations.map(String) : []);
+      setAppliedWithin(f.appliedWithin != null ? String(f.appliedWithin) : '');
+      // Prefer nextStep; migrate legacy nextQ free-text presets to empty
+      const legacyNext = f.nextStep != null ? String(f.nextStep) : '';
+      setNextStep(
+        APPLICATION_NEXT_STEP_OPTIONS.some((o) => o.value && o.value === legacyNext)
+          ? legacyNext
+          : '',
+      );
+      setSort(s?.sort != null && s.sort !== '' ? String(s.sort) : 'latest');
+      if (
+        Number(f.minStipend) > 0
+        || f.workMode
+        || (Array.isArray(f.locations) && f.locations.length)
+        || f.appliedWithin
+        || (legacyNext && APPLICATION_NEXT_STEP_OPTIONS.some((o) => o.value === legacyNext))
+      ) {
+        setAdvancedOpen(true);
+      }
     },
   });
 
   const metrics = useMemo(() => {
     const total = items.length;
-    const review = items.filter((a) => ['applied', 'pending', 'shortlisted'].includes(String(a.status || '').toLowerCase())).length;
+    const review = items.filter((a) => String(a.status || '').toLowerCase() === 'shortlisted').length;
     const interview = items.filter((a) => String(a.status || '').toLowerCase() === 'interviewing').length;
     const offers = items.filter((a) => ['offered', 'hired'].includes(String(a.status || '').toLowerCase())).length;
     return { total, review, interview, offers };
   }, [items]);
 
+  const locationOptions = useMemo(() => {
+    const map = new Map();
+    for (const a of items) {
+      const loc = String(a.location || '').trim();
+      if (!loc) continue;
+      const key = loc.toLowerCase();
+      if (!map.has(key)) map.set(key, { value: loc, label: loc });
+    }
+    return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
+  }, [items]);
+
+  const advancedActive = Boolean(
+    Number(minStipend) > 0
+    || workMode
+    || locations.length
+    || appliedWithin
+    || nextStep,
+  );
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
+    const stipendFloor = Number(minStipend) || 0;
+    const modeNeedle = String(workMode || '').toLowerCase().replace(/[\s_-]/g, '');
+    const locSet = new Set(locations.map((v) => String(v).toLowerCase()));
+    const appliedDays = Number(appliedWithin) || 0;
+    const now = Date.now();
     let rows = items.slice();
     if (tab !== 'all') rows = rows.filter((a) => a.status_tab === tab);
+    rows = rows.filter((a) => matchesQuickChip(a, chip));
+    if (stipendFloor) {
+      rows = rows.filter((a) => Number(a.stipend_inr || 0) >= stipendFloor);
+    }
+    if (modeNeedle) {
+      rows = rows.filter((a) => {
+        const mode = String(a.work_mode || '').toLowerCase().replace(/[\s_-]/g, '');
+        if (modeNeedle === 'onsite') return mode.includes('onsite');
+        return mode.includes(modeNeedle);
+      });
+    }
+    if (locSet.size) {
+      rows = rows.filter((a) => locSet.has(String(a.location || '').toLowerCase()));
+    }
+    if (appliedDays) {
+      rows = rows.filter((a) => {
+        const t = new Date(a.created_at).getTime();
+        if (Number.isNaN(t)) return false;
+        return now - t <= appliedDays * 86400000;
+      });
+    }
+    if (nextStep) {
+      rows = rows.filter((a) => applicationNextStepFilterMatch(a, nextStep));
+    }
     if (needle) {
       rows = rows.filter((a) => {
         const title = String(a.title || '').toLowerCase();
@@ -110,17 +243,30 @@ export default function MyApplicationsPage() {
       return new Date(b.created_at || 0) - new Date(a.created_at || 0);
     });
     return rows;
-  }, [items, q, sort, tab]);
+  }, [items, q, sort, tab, chip, minStipend, workMode, locations, appliedWithin, nextStep]);
 
   const { page, setPage, totalPages, total, pageItems } = useClientPagination(filtered, PAGE_SIZE);
 
   useEffect(() => {
     setPage(1);
-  }, [q, sort, tab, setPage]);
+  }, [q, sort, tab, chip, minStipend, workMode, locations, appliedWithin, nextStep, setPage]);
+
+  function resetFilters() {
+    setQ('');
+    setTab('all');
+    setChip('');
+    setSort('latest');
+    setMinStipend('0');
+    setWorkMode('');
+    setLocations([]);
+    setAppliedWithin('');
+    setNextStep('');
+    setAdvancedOpen(false);
+  }
 
   async function load() {
     setLoadError('');
-    const res = await fetch('/api/ip/candidate/applications?pageSize=200', {
+    const res = await fetch('/api/ip/candidate/applications?pageSize=500', {
       cache: 'no-store',
       credentials: 'include',
     });
@@ -190,6 +336,37 @@ export default function MyApplicationsPage() {
         <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </div>
 
+      <div className="ip-ap-metrics">
+        <div className="ip-ap-metric">
+          <div>
+            <span>Total Submitted</span>
+            <strong>{metrics.total}</strong>
+          </div>
+          <span className="ip-ap-metric__ico is-slate"><ClipboardList /></span>
+        </div>
+        <div className="ip-ap-metric">
+          <div>
+            <span>In Review</span>
+            <strong className="is-amber">{metrics.review}</strong>
+          </div>
+          <span className="ip-ap-metric__ico is-amber"><Hourglass /></span>
+        </div>
+        <div className="ip-ap-metric">
+          <div>
+            <span>Interviews Scheduled</span>
+            <strong className="is-brand">{metrics.interview}</strong>
+          </div>
+          <span className="ip-ap-metric__ico is-brand"><CalendarDays /></span>
+        </div>
+        <div className="ip-ap-metric">
+          <div>
+            <span>Offers Received</span>
+            <strong className="is-ok">{metrics.offers}</strong>
+          </div>
+          <span className="ip-ap-metric__ico is-ok"><Target /></span>
+        </div>
+      </div>
+
       {loadError ? <p className="ip-ap-empty" style={{ margin: '0.75rem 0' }}>{loadError}</p> : null}
 
       <div className="ip-ap-toolbar">
@@ -213,8 +390,80 @@ export default function MyApplicationsPage() {
               <option value="match">Highest match</option>
             </select>
           </label>
+          <button type="button" className="ip-ap-btn ip-ap-btn--ghost" onClick={resetFilters}>
+            <RotateCcw className="size-3.5" aria-hidden />
+            Reset filters
+          </button>
+          <button
+            type="button"
+            className={`ip-ap-btn ip-ap-btn--ghost${advancedOpen || advancedActive ? ' is-on' : ''}`}
+            aria-expanded={advancedOpen}
+            onClick={() => setAdvancedOpen((v) => !v)}
+          >
+            <SlidersHorizontal className="size-3.5" aria-hidden />
+            Advanced filters
+            {advancedActive ? <span className="ip-ap-adv-on">On</span> : null}
+          </button>
         </div>
+        {advancedOpen ? (
+          <div className="ip-ap-advanced" role="region" aria-label="Advanced application filters">
+            <label className="ip-ap-advanced__field">
+              <span>Stipend</span>
+              <select value={minStipend} onChange={(e) => setMinStipend(e.target.value)} aria-label="Minimum stipend">
+                {STIPEND_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="ip-ap-advanced__field">
+              <span>Work Mode</span>
+              <select value={workMode} onChange={(e) => setWorkMode(e.target.value)} aria-label="Work mode">
+                {WORK_MODE_OPTIONS.map((o) => (
+                  <option key={o.value || 'any'} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="ip-ap-advanced__field">
+              <span>Location</span>
+              <SearchableMultiSelect
+                options={locationOptions}
+                value={locations}
+                onChange={setLocations}
+                placeholder="Search locations…"
+                ariaLabel="Filter by location"
+              />
+            </label>
+            <label className="ip-ap-advanced__field">
+              <span>Applied</span>
+              <select value={appliedWithin} onChange={(e) => setAppliedWithin(e.target.value)} aria-label="Applied date">
+                {APPLIED_OPTIONS.map((o) => (
+                  <option key={o.value || 'any'} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="ip-ap-advanced__field">
+              <span>Next</span>
+              <select value={nextStep} onChange={(e) => setNextStep(e.target.value)} aria-label="Next step">
+                {APPLICATION_NEXT_STEP_OPTIONS.map((o) => (
+                  <option key={o.value || 'any'} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : null}
         <ListPresetsBar {...prefs} />
+        <div className="ip-ap-chips" role="tablist" aria-label="Quick filters">
+          {QUICK_CHIPS.map((c) => (
+            <button
+              key={c.id || 'all'}
+              type="button"
+              className={`ip-ap-qchip${chip === c.id ? ' is-on' : ''}`}
+              onClick={() => setChip((prev) => (prev === c.id ? '' : c.id))}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
         <div className="ip-ap-tabs">
           {TABS.map((t) => (
             <button
@@ -222,11 +471,23 @@ export default function MyApplicationsPage() {
               type="button"
               className={tab === t.id ? 'is-on' : undefined}
               onClick={() => setTab(t.id)}
+              title={
+                t.id === 'applied'
+                  ? 'Waiting for the employer to open your application'
+                  : t.id === 'review'
+                    ? 'Employer has shortlisted you'
+                    : undefined
+              }
             >
               {t.label}{t.id === 'all' ? ` (${tabCount('all')})` : ''}
             </button>
           ))}
         </div>
+        <p className="ip-ap-tab-hint">
+          <strong>Applied (Submitted)</strong> — waiting for the employer to open your application.
+          {' '}
+          <strong>Under Review (Shortlisted)</strong> — the employer has shortlisted you.
+        </p>
       </div>
 
       <div className="ip-ap-sheet">
@@ -238,10 +499,37 @@ export default function MyApplicationsPage() {
                   {a.title || 'Internship'}
                 </Link>
                 <p className="text-sm text-slate-500">{a.company_name}</p>
-                <p className="mt-2 text-sm">{a.display_status}</p>
-                <button type="button" className="ip-ap-btn ip-ap-btn--ghost mt-2" onClick={() => setDetail(a)}>
-                  View Details
-                </button>
+                <p className="mt-1 text-xs text-slate-500">
+                  {[stipendLabel(a), [a.work_mode, a.location].filter(Boolean).join(' • ')].filter((x) => x && x !== '—').join(' · ') || '—'}
+                </p>
+                <p className="mt-2 text-sm">
+                  <span className={`ip-ap-badge ${statusClass(a.status)}`}>{statusLabel(a)}</span>
+                </p>
+                <p className="mt-1 text-xs text-slate-500">Applied {appliedDate(a.created_at)} · {a.next_step || '—'}</p>
+                <div className="ip-ap-actions__row mt-2" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center' }}>
+                  <button type="button" className="ip-ap-btn ip-ap-btn--ghost" onClick={() => setDetail(a)}>
+                    View Details
+                  </button>
+                  <button
+                    type="button"
+                    className="ip-ap-icon"
+                    title="Message employer"
+                    aria-label="Message employer"
+                    onClick={() => openThread(a.internship_id)}
+                  >
+                    <MessageSquare />
+                  </button>
+                  <button
+                    type="button"
+                    className="ip-ap-icon is-withdraw"
+                    title="Withdraw application"
+                    aria-label="Withdraw application"
+                    disabled={!canWithdraw(a.status)}
+                    onClick={() => withdraw(a.id)}
+                  >
+                    <XCircle />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -254,7 +542,7 @@ export default function MyApplicationsPage() {
                 <th>Role</th>
                 <th>Employer</th>
                 <th>Stipend</th>
-                <th>Location</th>
+                <th>Work Mode / Location</th>
                 <th>Applied</th>
                 <th>Status</th>
                 <th>Next</th>
@@ -275,7 +563,7 @@ export default function MyApplicationsPage() {
                   <td>{appliedDate(a.created_at)}</td>
                   <td>
                     <span className={`ip-ap-badge ${statusClass(a.status)}`}>
-                      {a.display_status || 'Applied'}
+                      {statusLabel(a)}
                     </span>
                   </td>
                   <td>{a.next_step || '—'}</td>
@@ -321,7 +609,7 @@ export default function MyApplicationsPage() {
                 : 'You have not submitted any applications yet.'}
             </p>
             {items.length ? (
-              <button type="button" className="ip-ap-btn ip-ap-btn--primary" onClick={() => { setTab('all'); setQ(''); }}>
+              <button type="button" className="ip-ap-btn ip-ap-btn--primary" onClick={resetFilters}>
                 Clear Status Filters
               </button>
             ) : (
@@ -342,37 +630,6 @@ export default function MyApplicationsPage() {
         ) : null}
       </div>
 
-      <div className="ip-ap-metrics">
-        <div className="ip-ap-metric">
-          <div>
-            <span>Total Submitted</span>
-            <strong>{metrics.total}</strong>
-          </div>
-          <span className="ip-ap-metric__ico is-slate"><ClipboardList /></span>
-        </div>
-        <div className="ip-ap-metric">
-          <div>
-            <span>In Review</span>
-            <strong className="is-amber">{metrics.review}</strong>
-          </div>
-          <span className="ip-ap-metric__ico is-amber"><Hourglass /></span>
-        </div>
-        <div className="ip-ap-metric">
-          <div>
-            <span>Interviews Scheduled</span>
-            <strong className="is-brand">{metrics.interview}</strong>
-          </div>
-          <span className="ip-ap-metric__ico is-brand"><CalendarDays /></span>
-        </div>
-        <div className="ip-ap-metric">
-          <div>
-            <span>Offers Received</span>
-            <strong className="is-ok">{metrics.offers}</strong>
-          </div>
-          <span className="ip-ap-metric__ico is-ok"><Target /></span>
-        </div>
-      </div>
-
       {detail ? (
         <div className="ip-ap-modal" role="dialog" aria-modal="true" aria-labelledby="ip-ap-detail-title">
           <button type="button" className="ip-ap-modal__backdrop" aria-label="Close" onClick={() => setDetail(null)} />
@@ -381,7 +638,7 @@ export default function MyApplicationsPage() {
               <div>
                 <div className="ip-ap-modal__title-row">
                   <h2 id="ip-ap-detail-title">{detail.title || 'Internship'}</h2>
-                  <span className={`ip-ap-badge ${statusClass(detail.status)}`}>{detail.display_status}</span>
+                  <span className={`ip-ap-badge ${statusClass(detail.status)}`}>{statusLabel(detail)}</span>
                 </div>
                 <p>{detail.company_name} • Applied on {appliedDate(detail.created_at)}</p>
               </div>

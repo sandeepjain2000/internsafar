@@ -13,5 +13,7 @@ export async function ensureIpFormRegistrationSchema() {
   await query(`ALTER TABLE ip_users ADD COLUMN IF NOT EXISTS free_post_credits INT DEFAULT 1`);
   await query(`ALTER TABLE ip_employer_requests ADD COLUMN IF NOT EXISTS contact_designation text`);
   await query(`ALTER TABLE ip_employer_requests ADD COLUMN IF NOT EXISTS password_hash text`);
+  await query(`ALTER TABLE ip_employer_requests ADD COLUMN IF NOT EXISTS business_entity_type text`);
+  await query(`ALTER TABLE ip_employers ADD COLUMN IF NOT EXISTS business_entity_type text`);
   schemaReady = true;
 }

@@ -69,7 +69,7 @@ export default function EmployerReferralPage() {
     applySnapshot: (s) => {
       const f = s.filters || {};
       if (f.q != null) setQ(f.q);
-      if (f.filter) setFilter(f.filter);
+      if (f.filter != null) setFilter(f.filter);
     },
   });
 

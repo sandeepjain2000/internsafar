@@ -146,6 +146,35 @@
   gap: 1rem;
 }
 
+.ip-apps .ip-ap-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ip-apps .ip-ap-qchip {
+  height: 2rem;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ip-apps .ip-ap-qchip:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.ip-apps .ip-ap-qchip.is-on {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #3730a3;
+}
+
 .ip-apps .ip-ap-toolbar__row {
   display: flex;
   flex-direction: column;
@@ -240,6 +269,18 @@
 .ip-apps .ip-ap-tabs button.is-on {
   background: #eef2ff;
   color: #4338ca;
+}
+
+.ip-apps .ip-ap-tab-hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.ip-apps .ip-ap-tab-hint strong {
+  font-weight: 600;
+  color: #475569;
 }
 
 .ip-apps .ip-ap-sheet { overflow: hidden; }
@@ -367,7 +408,88 @@
   background: #f1f5f9;
   color: #334155;
 }
-.ip-apps .ip-ap-btn--ghost:hover { background: #e2e8f0; }
+.ip-apps .ip-ap-btn--ghost.is-on {
+  border-color: #6366f1;
+  color: #4338ca;
+  background: #eef2ff;
+}
+
+.ip-apps .ip-ap-adv-on {
+  display: inline-flex;
+  margin-left: 0.25rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.ip-apps .ip-ap-advanced {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  align-items: end;
+}
+
+@media (min-width: 768px) {
+  .ip-apps .ip-ap-advanced {
+    grid-template-columns: 1fr 1fr 1.2fr;
+  }
+}
+
+@media (min-width: 1100px) {
+  .ip-apps .ip-ap-advanced {
+    grid-template-columns: 0.9fr 0.9fr 1.2fr 0.9fr 1.3fr;
+  }
+}
+
+.ip-apps .ip-ap-advanced__field {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  align-content: end;
+}
+
+.ip-apps .ip-ap-advanced__field > span {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.ip-apps .ip-ap-advanced__field input,
+.ip-apps .ip-ap-advanced__field select {
+  width: 100%;
+  height: 2.25rem;
+  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  padding: 0 0.65rem;
+  background: #fff;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: #0f172a;
+}
+
+.ip-apps .ip-ap-advanced__field input:focus,
+.ip-apps .ip-ap-advanced__field select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.ip-apps .ip-ap-advanced .ip-sms-input {
+  height: 2.25rem;
+  box-sizing: border-box;
+}
+
 .ip-apps .ip-ap-btn--danger { background: #fff1f2; color: #be123c; }
 .ip-apps .ip-ap-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 

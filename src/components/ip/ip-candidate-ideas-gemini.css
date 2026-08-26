@@ -746,3 +746,58 @@
   font-weight: 600;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
 }
+
+/* List view — avoid browser-default grey button boxes */
+.ip-cand-ideas .ip-ci-list-wrap {
+  background: #fff;
+}
+
+.ip-cand-ideas .ip-ci-table td {
+  background: #fff;
+}
+
+.ip-cand-ideas .ip-ci-table tbody tr:hover td {
+  background: #f8fafc;
+}
+
+.ip-cand-ideas .ip-ci-list-title {
+  appearance: none;
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #4338ca;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  line-height: 1.35;
+}
+
+.ip-cand-ideas .ip-ci-list-title:hover {
+  text-decoration: underline;
+  color: #3730a3;
+}
+
+.ip-cand-ideas .ip-ci-list-sub {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ip-cand-ideas .ip-ci-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.ip-cand-ideas .ip-ci-table .ip-ci-status {
+  display: inline-flex;
+}

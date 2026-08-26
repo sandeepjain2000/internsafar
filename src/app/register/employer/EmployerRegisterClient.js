@@ -9,6 +9,7 @@ import LoginCaptchaField from '@/components/auth/LoginCaptchaField';
 import { IpGeminiBrand } from '@/components/ip/IpGeminiBrand';
 import { domainsMatch } from '@/lib/authRegisterRules';
 import { readCaptchaField } from '@/lib/captchaClient';
+import { BUSINESS_ENTITY_TYPES } from '@/lib/employerBusinessEntity';
 import '@/components/ip/ip-register-gemini.css';
 import '@/components/ip/ip-login-gemini.css';
 
@@ -47,6 +48,7 @@ export default function EmployerRegisterPage() {
   const [companyName, setCompanyName] = useState('');
   const [contactName, setContactName] = useState('');
   const [designation, setDesignation] = useState('');
+  const [businessEntityType, setBusinessEntityType] = useState('');
   const [password, setPassword] = useState('');
   const [captchaToken, setCaptchaToken] = useState('');
   const [captchaAnswer, setCaptchaAnswer] = useState('');
@@ -81,6 +83,7 @@ export default function EmployerRegisterPage() {
           email,
           companyName,
           contactName,
+          businessEntityType,
           manualRequest: false,
           referralCode: referralCode || undefined,
         }),
@@ -114,6 +117,7 @@ export default function EmployerRegisterPage() {
           companyName,
           contactName,
           designation,
+          businessEntityType,
           password,
           reason: mergedReason,
           manualRequest: true,
@@ -279,6 +283,23 @@ export default function EmployerRegisterPage() {
                       onChange={(e) => setContactName(e.target.value)}
                     />
                   </div>
+                  <div className="ip-reg-field">
+                    <label htmlFor="entity-type">Business entity type</label>
+                    <select
+                      id="entity-type"
+                      className="ip-reg-input"
+                      value={businessEntityType}
+                      onChange={(e) => setBusinessEntityType(e.target.value)}
+                      required
+                    >
+                      <option value="">Select entity type</option>
+                      {BUSINESS_ENTITY_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <button type="submit" className="ip-reg-submit ip-reg-submit--accent" disabled={loading}>
                   {loading ? 'Registering…' : 'Register & email password'}
@@ -328,6 +349,24 @@ export default function EmployerRegisterPage() {
                     placeholder="e.g. Acme Corporation"
                     required
                   />
+                </div>
+
+                <div className="ip-reg-field">
+                  <label htmlFor="m-entity-type">Business entity type</label>
+                  <select
+                    id="m-entity-type"
+                    className="ip-reg-input"
+                    value={businessEntityType}
+                    onChange={(e) => setBusinessEntityType(e.target.value)}
+                    required
+                  >
+                    <option value="">Select entity type</option>
+                    {BUSINESS_ENTITY_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="ip-reg-field">

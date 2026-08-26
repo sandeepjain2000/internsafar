@@ -16,6 +16,9 @@ import {
 } from 'lucide-react';
 import '@/components/ip/ip-superadmin-queue-gemini.css';
 import { candidateDomainBadge, employerDomainRisk } from '@/lib/ipDomainRisk';
+import { useClientPagination } from '@/hooks/useClientPagination';
+
+const PAGE_SIZE = 10;
 
 function initial(name) {
   return String(name || '?').trim().charAt(0).toUpperCase() || '?';
@@ -113,6 +116,37 @@ export default function FormRegistrationsPage() {
       [c.name, c.email, c.college].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)),
     );
   }, [approved, search]);
+
+  const {
+    page: candPage,
+    setPage: setCandPage,
+    totalPages: candTotalPages,
+    total: candTotal,
+    pageItems: candPageItems,
+    pageSize: candPageSize,
+  } = useClientPagination(candidateRows, PAGE_SIZE);
+  const {
+    page: empPage,
+    setPage: setEmpPage,
+    totalPages: empTotalPages,
+    total: empTotal,
+    pageItems: empPageItems,
+    pageSize: empPageSize,
+  } = useClientPagination(employerRows, PAGE_SIZE);
+  const {
+    page: apprPage,
+    setPage: setApprPage,
+    totalPages: apprTotalPages,
+    total: apprTotal,
+    pageItems: apprPageItems,
+    pageSize: apprPageSize,
+  } = useClientPagination(approvedRows, PAGE_SIZE);
+
+  useEffect(() => {
+    setCandPage(1);
+    setEmpPage(1);
+    setApprPage(1);
+  }, [search, setCandPage, setEmpPage, setApprPage]);
 
   async function processCandidates(ids, status) {
     if (!ids.length) return;
@@ -314,7 +348,7 @@ export default function FormRegistrationsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {candidateRows.map((c) => (
+                  {candPageItems.map((c) => (
                     <tr key={c.id}>
                       <td>
                         <input
@@ -378,6 +412,44 @@ export default function FormRegistrationsPage() {
                   ))}
                 </tbody>
               </table>
+              {candTotal > 0 ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginTop: '0.75rem',
+                    fontSize: '0.75rem',
+                    color: '#64748b',
+                  }}
+                >
+                  <span>
+                    Showing {(candPage - 1) * candPageSize + 1}-{Math.min(candPage * candPageSize, candTotal)} of{' '}
+                    {candTotal}
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      className="ip-saq-btn ip-saq-btn--sm"
+                      disabled={candPage <= 1}
+                      onClick={() => setCandPage((p) => p - 1)}
+                    >
+                      Previous
+                    </button>
+                    <span>
+                      Page {candPage}/{candTotalPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="ip-saq-btn ip-saq-btn--sm"
+                      disabled={candPage >= candTotalPages}
+                      onClick={() => setCandPage((p) => p + 1)}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           )
         ) : null}
@@ -402,7 +474,7 @@ export default function FormRegistrationsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {employerRows.map((e) => (
+                  {empPageItems.map((e) => (
                     <tr key={e.id}>
                       <td>
                         <div className="ip-saq-co">
@@ -445,6 +517,43 @@ export default function FormRegistrationsPage() {
                   ))}
                 </tbody>
               </table>
+              {empTotal > 0 ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginTop: '0.75rem',
+                    fontSize: '0.75rem',
+                    color: '#64748b',
+                  }}
+                >
+                  <span>
+                    Showing {(empPage - 1) * empPageSize + 1}-{Math.min(empPage * empPageSize, empTotal)} of {empTotal}
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      className="ip-saq-btn ip-saq-btn--sm"
+                      disabled={empPage <= 1}
+                      onClick={() => setEmpPage((p) => p - 1)}
+                    >
+                      Previous
+                    </button>
+                    <span>
+                      Page {empPage}/{empTotalPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="ip-saq-btn ip-saq-btn--sm"
+                      disabled={empPage >= empTotalPages}
+                      onClick={() => setEmpPage((p) => p + 1)}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           )
         ) : null}
@@ -468,7 +577,7 @@ export default function FormRegistrationsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {approvedRows.map((c) => (
+                  {apprPageItems.map((c) => (
                     <tr key={c.id}>
                       <td>
                         <div className="ip-saq-co">
@@ -488,6 +597,44 @@ export default function FormRegistrationsPage() {
                   ))}
                 </tbody>
               </table>
+              {apprTotal > 0 ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginTop: '0.75rem',
+                    fontSize: '0.75rem',
+                    color: '#64748b',
+                  }}
+                >
+                  <span>
+                    Showing {(apprPage - 1) * apprPageSize + 1}-{Math.min(apprPage * apprPageSize, apprTotal)} of{' '}
+                    {apprTotal}
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      className="ip-saq-btn ip-saq-btn--sm"
+                      disabled={apprPage <= 1}
+                      onClick={() => setApprPage((p) => p - 1)}
+                    >
+                      Previous
+                    </button>
+                    <span>
+                      Page {apprPage}/{apprTotalPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="ip-saq-btn ip-saq-btn--sm"
+                      disabled={apprPage >= apprTotalPages}
+                      onClick={() => setApprPage((p) => p + 1)}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           )
         ) : null}

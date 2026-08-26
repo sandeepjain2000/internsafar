@@ -164,6 +164,126 @@
   padding-bottom: 0.125rem;
 }
 
+.ip-emp-notif .ip-en-filters-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ip-emp-notif .ip-en-filters-wrap {
+  position: relative;
+}
+
+.ip-emp-notif .ip-en-filters-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0.4375rem 0.875rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #fff;
+  color: #334155;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ip-emp-notif .ip-en-filters-btn:hover,
+.ip-emp-notif .ip-en-filters-btn.is-on {
+  background: #eef2ff;
+  border-color: rgba(199, 210, 254, 0.9);
+  color: #4338ca;
+}
+
+.ip-emp-notif .ip-en-filters-chip {
+  background: #e0e7ff;
+  color: #4338ca;
+  border-radius: 9999px;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.ip-emp-notif .ip-en-filters-panel {
+  position: absolute;
+  top: calc(100% + 0.375rem);
+  left: 0;
+  z-index: 30;
+  min-width: 12rem;
+  max-height: 16rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.375rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+.ip-emp-notif .ip-en-filters-panel .ip-en-tab {
+  width: 100%;
+  text-align: left;
+  justify-content: flex-start;
+}
+
+.ip-emp-notif .ip-en-advanced {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.875rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+}
+@media (min-width: 720px) {
+  .ip-emp-notif .ip-en-advanced {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (min-width: 1100px) {
+  .ip-emp-notif .ip-en-advanced {
+    grid-template-columns: 1.4fr 1.2fr 0.9fr 0.9fr 0.9fr;
+  }
+}
+.ip-emp-notif .ip-en-advanced__field {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.ip-emp-notif .ip-en-advanced__field > span {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.ip-emp-notif .ip-en-advanced__field input,
+.ip-emp-notif .ip-en-advanced__field select {
+  width: 100%;
+  min-height: 2.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.4rem 0.65rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: #0f172a;
+}
+.ip-emp-notif .ip-en-advanced__field input:focus,
+.ip-emp-notif .ip-en-advanced__field select:focus {
+  outline: none;
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
 .ip-emp-notif .ip-en-tab {
   padding: 0.375rem 0.875rem;
   border-radius: 0.75rem;

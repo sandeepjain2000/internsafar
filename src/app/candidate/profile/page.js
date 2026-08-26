@@ -14,16 +14,28 @@ import {
   Trash2,
   User,
 } from 'lucide-react';
-import { imageAcceptAttr } from '@/lib/ipFileUpload';
+import { imageAcceptAttr, resumeAcceptAttr } from '@/lib/ipFileUpload';
+import { validateOptionalPhone } from '@/lib/ipPhoneValidation';
+import IpUploadButton from '@/components/ip/IpUploadButton';
+import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
+import SearchableSelect from '@/components/ip/SearchableSelect';
+import useIpCityCatalog from '@/hooks/useIpCityCatalog';
+import {
+  emptyExperience,
+  parseExperienceEntries,
+  serializeExperienceEntries,
+} from '@/lib/ipPostingBody';
 import '@/components/ip/ip-candidate-profile-gemini.css';
 
 const PROFILE_TABS = [
-  { id: 'basics', label: '1. Basics & Contact', Icon: User, saveLabel: 'Save Basics & Contact' },
-  { id: 'academic', label: '2. Academic & Skills', Icon: GraduationCap, saveLabel: 'Save Academic & Skills' },
-  { id: 'readiness', label: '3. Work Readiness', Icon: Briefcase, saveLabel: 'Save Work Readiness' },
+  { id: 'basics', label: '1. Basics & Contact', Icon: User, saveLabel: 'Save Basics & Contact', wizardStep: 1 },
+  { id: 'academic', label: '2. Academic & Skills', Icon: GraduationCap, saveLabel: 'Save Academic & Skills', wizardStep: 2 },
+  { id: 'readiness', label: '3. Work Readiness', Icon: Briefcase, saveLabel: 'Save Work Readiness', wizardStep: 3 },
   { id: 'privacy', label: '4. Privacy & Photo', Icon: Lock, saveLabel: 'Save Privacy Settings' },
   { id: 'history', label: '5. Endorsements (Read-Only)', Icon: Star },
 ];
+
+const WIZARD_ORDER = ['basics', 'academic', 'readiness'];
 
 const WORK_MODES = ['Remote', 'Hybrid', 'On-site'];
 
@@ -36,6 +48,41 @@ const COMMITMENT_OPTIONS = [
   { value: 'offline_classes', label: 'Yes — offline / college classes' },
   { value: 'part_time_work', label: 'Yes — part-time job or other work' },
   { value: 'other', label: 'Yes — other (use note)' },
+];
+
+function newResumeLinkId() {
+  return `rl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Show human filename, not the long /api/ip/files?key=… path. */
+function resumeDisplayName(url, fallbackName = '') {
+  if (fallbackName) return fallbackName;
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  try {
+    let name = raw;
+    if (raw.includes('key=')) {
+      const u = new URL(raw, 'http://local');
+      name = decodeURIComponent(u.searchParams.get('key') || '');
+    }
+    name = decodeURIComponent(name.split('/').pop() || name);
+    const uuidPrefixed = name.match(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(.+)$/i,
+    );
+    if (uuidPrefixed) return uuidPrefixed[1];
+    return name || 'Uploaded resume';
+  } catch {
+    return 'Uploaded resume';
+  }
+}
+
+const PHONE_DIAL_OPTIONS = [
+  { value: '+91', label: 'India (+91)' },
+  { value: '+1', label: 'United States (+1)' },
+  { value: '+44', label: 'United Kingdom (+44)' },
+  { value: '+65', label: 'Singapore (+65)' },
+  { value: '+971', label: 'UAE (+971)' },
+  { value: '+61', label: 'Australia (+61)' },
 ];
 
 function emptyAcademicRow() {
@@ -73,6 +120,7 @@ function Field({ label, hint, required, optional, children, span }) {
 export default function CandidateProfilePage() {
   const [form, setForm] = useState(null);
   const [academics, setAcademics] = useState([emptyAcademicRow()]);
+  const [experiences, setExperiences] = useState([emptyExperience()]);
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [endorsements, setEndorsements] = useState([]);
@@ -82,11 +130,24 @@ export default function CandidateProfilePage() {
   const [emailStep, setEmailStep] = useState('idle');
   const [newSkill, setNewSkill] = useState('');
   const [photoStatus, setPhotoStatus] = useState('No file selected');
+  const [resumeFileName, setResumeFileName] = useState('');
+  const [linkDraftError, setLinkDraftError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
+  const { cityOptions, placeCityOptions, stateOptions, findCity } = useIpCityCatalog();
+  const cityChoices = useMemo(() => {
+    const needle = String(form?.state || '').trim().toLowerCase();
+    if (!needle) return placeCityOptions;
+    return placeCityOptions.filter((o) => String(o.state || '').trim().toLowerCase() === needle);
+  }, [placeCityOptions, form?.state]);
 
   useEffect(() => {
     fetch('/api/ip/candidate/profile')
       .then((r) => r.json())
-      .then((d) => setForm(d.profile));
+      .then((d) => {
+        setForm(d.profile);
+        setResumeFileName(resumeDisplayName(d.profile?.resume_url));
+        setExperiences(parseExperienceEntries(d.profile?.prior_experience));
+      });
     fetch('/api/ip/candidate/academics')
       .then((r) => r.json())
       .then((d) => {
@@ -154,13 +215,54 @@ export default function CandidateProfilePage() {
     set('skills', skills.filter((s) => s !== tag));
   }
 
+  function addResumeLink() {
+    setForm((f) => ({
+      ...f,
+      resume_links: [
+        ...(Array.isArray(f.resume_links) ? f.resume_links : []),
+        { id: newResumeLinkId(), title: '', url: '' },
+      ],
+    }));
+    setLinkDraftError('');
+  }
+
+  function updateResumeLink(id, patch) {
+    setForm((f) => ({
+      ...f,
+      resume_links: (Array.isArray(f.resume_links) ? f.resume_links : []).map((l) =>
+        l.id === id ? { ...l, ...patch } : l,
+      ),
+    }));
+  }
+
+  function removeResumeLink(id) {
+    setForm((f) => ({
+      ...f,
+      resume_links: (Array.isArray(f.resume_links) ? f.resume_links : []).filter((l) => l.id !== id),
+    }));
+  }
+
   async function saveProfileBody() {
+    const dial = form.phone_country_code || '+91';
+    const phoneCheck = validateOptionalPhone(form.phone, dial);
+    if (!phoneCheck.ok) {
+      setPhoneError(phoneCheck.error);
+      throw new Error(phoneCheck.error);
+    }
+    setPhoneError('');
+
     const payload = {
       ...form,
+      phone: String(form.phone || '').trim(),
+      phone_country_code: dial,
       skills,
+      resume_links: (Array.isArray(form.resume_links) ? form.resume_links : []).filter(
+        (l) => String(l?.url || '').trim() || String(l?.title || '').trim(),
+      ),
       preferred_locations: typeof form.preferred_locations === 'string'
         ? form.preferred_locations.split(',').map((s) => s.trim()).filter(Boolean)
         : form.preferred_locations,
+      prior_experience: serializeExperienceEntries(experiences),
     };
     if (profileTab === 'academic') {
       delete payload.college;
@@ -181,7 +283,7 @@ export default function CandidateProfilePage() {
   }
 
   async function save(e) {
-    e.preventDefault();
+    if (e?.preventDefault) e.preventDefault();
     setSaving(true);
     setMessage('');
     try {
@@ -204,8 +306,10 @@ export default function CandidateProfilePage() {
           ? 'Profile saved — applications unlocked.'
           : `${PROFILE_TABS.find((tab) => tab.id === profileTab)?.label || 'Profile'} saved.`
       );
+      return true;
     } catch (err) {
       setMessage(err.message);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -268,7 +372,6 @@ export default function CandidateProfilePage() {
     if (!form) return [];
     return [
       { label: 'Full Name *', done: Boolean(form.first_name && form.last_name) },
-      { label: 'Mobile Phone *', done: Boolean(form.phone) },
       { label: 'Country *', done: Boolean(form.country) },
       { label: 'City & State *', done: Boolean(form.city && form.state) },
       { label: 'College / Edu *', done: collegeDone },
@@ -281,7 +384,6 @@ export default function CandidateProfilePage() {
     if (!form) return 0;
     const checks = [
       Boolean(form.first_name && form.last_name),
-      Boolean(form.phone),
       Boolean(form.country),
       Boolean(form.city),
       Boolean(form.state),
@@ -292,11 +394,31 @@ export default function CandidateProfilePage() {
       Boolean(form.availability_date),
       Boolean(form.linkedin_url || form.github_url || form.personal_website),
       Boolean(form.profile_picture_url),
-      Boolean(form.prior_experience),
+      Boolean(serializeExperienceEntries(experiences)),
+      Boolean(form.phone),
     ];
     return Math.round((checks.filter(Boolean).length / checks.length) * 100);
-  }, [form, collegeDone, skills.length]);
+  }, [form, collegeDone, skills.length, experiences]);
 
+  function setExperienceField(idx, field, value) {
+    setExperiences((rows) => rows.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
+  }
+
+  function addExperienceRow() {
+    setExperiences((rows) => [...rows, emptyExperience()]);
+  }
+
+  function removeExperienceRow(idx) {
+    setExperiences((rows) => (rows.length > 1 ? rows.filter((_, i) => i !== idx) : rows));
+  }
+
+  const wizardIndex = WIZARD_ORDER.indexOf(profileTab);
+  const isWizardTab = wizardIndex >= 0;
+
+  function goWizard(delta) {
+    const next = WIZARD_ORDER[wizardIndex + delta];
+    if (next) setProfileTab(next);
+  }
   if (!form) {
     return (
       <div className="ip-cand-profile">
@@ -381,6 +503,19 @@ export default function CandidateProfilePage() {
           })}
         </div>
 
+        {isWizardTab ? (
+          <div className="ip-cp-wizard" aria-label={`Profile setup step ${wizardIndex + 1} of ${WIZARD_ORDER.length}`}>
+            <div className="ip-cp-wizard__top">
+              <span>Step {wizardIndex + 1} of {WIZARD_ORDER.length}</span>
+              <strong>{PROFILE_TABS.find((t) => t.id === profileTab)?.label?.replace(/^\d+\.\s*/, '')}</strong>
+            </div>
+            <div className="ip-cp-wizard__bar" aria-hidden>
+              <div style={{ width: `${((wizardIndex + 1) / WIZARD_ORDER.length) * 100}%` }} />
+            </div>
+            <p className="ip-cp-wizard__hint">Complete these three steps at your pace. Privacy and endorsements stay available in the tabs above.</p>
+          </div>
+        ) : null}
+
         {profileTab === 'basics' ? (
           <div className="ip-cp-stack" role="tabpanel">
             <section>
@@ -449,18 +584,39 @@ export default function CandidateProfilePage() {
             <section>
               <div className="ip-cp-sec-head"><h3>Contact &amp; Location</h3></div>
               <div className="ip-cp-grid ip-cp-grid--3">
-                <Field label="Country Code" required>
-                  <select className="ip-cp-input" value={form.phone_country_code || '+91'} onChange={(e) => set('phone_country_code', e.target.value)}>
-                    <option value="+91">India (+91)</option>
-                    <option value="+1">United States (+1)</option>
-                    <option value="+44">United Kingdom (+44)</option>
-                    <option value="+65">Singapore (+65)</option>
-                    <option value="+971">United Arab Emirates (+971)</option>
-                    <option value="+61">Australia (+61)</option>
-                  </select>
-                </Field>
-                <Field label="Mobile Phone Number" required>
-                  <input className="ip-cp-input" type="tel" value={form.phone || ''} onChange={(e) => set('phone', e.target.value)} />
+                <Field label="Mobile phone" optional span={2}>
+                  <div className="ip-cp-phone" role="group" aria-label="Mobile phone with country code">
+                    <select
+                      className="ip-cp-phone__dial"
+                      value={form.phone_country_code || '+91'}
+                      onChange={(e) => {
+                        set('phone_country_code', e.target.value);
+                        setPhoneError('');
+                      }}
+                      aria-label="Country calling code"
+                    >
+                      {PHONE_DIAL_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      className={`ip-cp-phone__num${phoneError ? ' is-invalid' : ''}`}
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel-national"
+                      value={form.phone || ''}
+                      onChange={(e) => {
+                        set('phone', e.target.value);
+                        setPhoneError('');
+                      }}
+                      placeholder="98765 43210"
+                      aria-label="Mobile phone number"
+                      aria-invalid={phoneError ? 'true' : 'false'}
+                    />
+                  </div>
+                  {phoneError ? <p className="ip-cp-error" role="alert">{phoneError}</p> : null}
                 </Field>
                 <Field label="Country" required>
                   <select className="ip-cp-input" value={form.country || 'India'} onChange={(e) => set('country', e.target.value)}>
@@ -472,10 +628,38 @@ export default function CandidateProfilePage() {
                   </select>
                 </Field>
                 <Field label="Current City" required>
-                  <input className="ip-cp-input" value={form.city || ''} onChange={(e) => set('city', e.target.value)} />
+                  <SearchableSelect
+                    options={cityChoices}
+                    value={form.city || ''}
+                    onChange={(city) => {
+                      const hit = findCity(city);
+                      setForm((f) => ({
+                        ...f,
+                        city,
+                        state: hit?.state && !/^work mode$/i.test(hit.state) ? hit.state : f.state,
+                      }));
+                    }}
+                    placeholder="Search cities…"
+                    ariaLabel="Current city"
+                  />
                 </Field>
                 <Field label="State / Union Territory" required>
-                  <input className="ip-cp-input" value={form.state || ''} onChange={(e) => set('state', e.target.value)} />
+                  <SearchableSelect
+                    options={stateOptions}
+                    value={form.state || ''}
+                    onChange={(state) => {
+                      setForm((f) => {
+                        const hit = findCity(f.city);
+                        const cityStillValid =
+                          !state
+                          || !f.city
+                          || (hit && String(hit.state || '').toLowerCase() === String(state).toLowerCase());
+                        return { ...f, state, city: cityStillValid ? f.city : '' };
+                      });
+                    }}
+                    placeholder="Search states…"
+                    ariaLabel="State or union territory"
+                  />
                 </Field>
               </div>
             </section>
@@ -498,12 +682,20 @@ export default function CandidateProfilePage() {
                     onChange={(e) => set('availability_date', e.target.value)}
                   />
                 </Field>
-                <Field label="Preferred Locations" optional hint="comma-separated Indian cities" span={2}>
-                  <input
-                    className="ip-cp-input"
-                    value={Array.isArray(form.preferred_locations) ? form.preferred_locations.join(', ') : form.preferred_locations || ''}
-                    onChange={(e) => set('preferred_locations', e.target.value)}
-                    placeholder="Bengaluru, Pune, Hyderabad, Remote"
+                <Field label="Preferred Locations" optional hint="Search and select one or more cities (includes Remote)" span={2}>
+                  <SearchableMultiSelect
+                    options={cityOptions}
+                    value={
+                      Array.isArray(form.preferred_locations)
+                        ? form.preferred_locations
+                        : String(form.preferred_locations || '')
+                          .split(',')
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                    }
+                    onChange={(next) => set('preferred_locations', next)}
+                    placeholder="Search cities…"
+                    ariaLabel="Preferred locations"
                   />
                 </Field>
               </div>
@@ -512,9 +704,101 @@ export default function CandidateProfilePage() {
             <section>
               <div className="ip-cp-sec-head"><h3>Resume &amp; Portfolio Links</h3></div>
               <div className="ip-cp-stack-sm">
-                <Field label="Resume / CV URL (PDF Hosted)" required>
-                  <input className="ip-cp-input ip-cp-input--mono" type="url" value={form.resume_url || ''} onChange={(e) => set('resume_url', e.target.value)} placeholder="https://" />
+                <Field label="Resume / CV" required hint="Upload a PDF/DOC/DOCX or paste a hosted URL">
+                  <div className="ip-cp-resume-row">
+                    <div className="ip-cp-upload-wrap">
+                      <IpUploadButton
+                        endpoint="/api/ip/candidate/profile/resume/upload"
+                        accept={resumeAcceptAttr()}
+                        label="Upload resume"
+                        onUploaded={(data, file) => {
+                          const url = data.resume_url || data.fileUrl;
+                          if (url) set('resume_url', url);
+                          setResumeFileName(data.fileName || file?.name || resumeDisplayName(url));
+                          setMessage('Resume uploaded.');
+                        }}
+                      />
+                    </div>
+                    {form.resume_url ? (
+                      <div className="ip-cp-resume-file">
+                        <span className="ip-cp-resume-file__name" title={form.resume_url}>
+                          {resumeDisplayName(form.resume_url, resumeFileName)}
+                        </span>
+                        <button
+                          type="button"
+                          className="ip-cp-btn ip-cp-btn--ghost"
+                          onClick={() => {
+                            set('resume_url', '');
+                            setResumeFileName('');
+                          }}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : (
+                      <input
+                        className="ip-cp-input ip-cp-input--mono"
+                        type="url"
+                        value=""
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          set('resume_url', v);
+                          setResumeFileName(resumeDisplayName(v));
+                        }}
+                        placeholder="Or paste a hosted URL…"
+                      />
+                    )}
+                  </div>
                 </Field>
+
+                <div className="ip-cp-link-block">
+                  <div className="ip-cp-sec-head ip-cp-sec-head--compact">
+                    <div>
+                      <h3>Extra CV-related links</h3>
+                      <p className="ip-cp-hint">Optional docs, certificates, or alternate CV hosts — separate from LinkedIn/GitHub. Add each link below, then use Save Basics &amp; Contact.</p>
+                    </div>
+                    <button type="button" className="ip-cp-btn ip-cp-btn--soft" onClick={addResumeLink}>
+                      <Plus />
+                      + Add link
+                    </button>
+                  </div>
+                  {(Array.isArray(form.resume_links) ? form.resume_links : []).length === 0 ? (
+                    <p className="ip-cp-hint">No extra links yet. Use + Add link to add one.</p>
+                  ) : (
+                    <div className="ip-cp-stack-sm">
+                      {(form.resume_links || []).map((link) => (
+                        <div key={link.id} className="ip-cp-link-row">
+                          <Field label="Title / label" optional>
+                            <input
+                              className="ip-cp-input"
+                              value={link.title || ''}
+                              onChange={(e) => updateResumeLink(link.id, { title: e.target.value })}
+                              placeholder="e.g. Design portfolio PDF"
+                            />
+                          </Field>
+                          <Field label="URL" optional>
+                            <input
+                              className="ip-cp-input ip-cp-input--mono"
+                              type="url"
+                              value={link.url || ''}
+                              onChange={(e) => updateResumeLink(link.id, { url: e.target.value })}
+                              placeholder="https://"
+                            />
+                          </Field>
+                          <button
+                            type="button"
+                            className="ip-cp-btn ip-cp-btn--danger-outline"
+                            onClick={() => removeResumeLink(link.id)}
+                          >
+                            Remove link
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {linkDraftError ? <p className="ip-cp-error">{linkDraftError}</p> : null}
+                </div>
+
                 <div className="ip-cp-grid">
                   <Field label="LinkedIn Profile URL" optional>
                     <input className="ip-cp-input" type="url" value={form.linkedin_url || ''} onChange={(e) => set('linkedin_url', e.target.value)} placeholder="https://linkedin.com/in/..." />
@@ -619,25 +903,63 @@ export default function CandidateProfilePage() {
                 </div>
               </div>
             </section>
+
+            <section>
+              <div className="ip-cp-sec-head">
+                <div>
+                  <h3>Experience <span className="ip-cp-opt">(optional)</span></h3>
+                  <p className="ip-cp-hint">Add internships, projects, or jobs as separate cards — clearer than one long paragraph.</p>
+                </div>
+                <button type="button" className="ip-cp-btn ip-cp-btn--soft" onClick={addExperienceRow}>
+                  <Plus />
+                  + Add Experience
+                </button>
+              </div>
+              <div className="ip-cp-stack-sm">
+                {experiences.map((row, idx) => (
+                  <div key={row.id || idx} className="ip-cp-edu ip-cp-exp">
+                    <div className="ip-cp-edu__head">
+                      <span className={`ip-cp-pill${idx === 0 ? '' : ' is-outline'}`}>
+                        Experience {idx + 1}
+                      </span>
+                      {experiences.length > 1 ? (
+                        <button type="button" className="ip-cp-btn ip-cp-btn--ghost" onClick={() => removeExperienceRow(idx)} aria-label="Remove experience">
+                          <Trash2 />
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="ip-cp-grid">
+                      <Field label="Role / title">
+                        <input className="ip-cp-input" value={row.title} onChange={(e) => setExperienceField(idx, 'title', e.target.value)} placeholder="Frontend intern" />
+                      </Field>
+                      <Field label="Organization">
+                        <input className="ip-cp-input" value={row.organization} onChange={(e) => setExperienceField(idx, 'organization', e.target.value)} placeholder="Company or project" />
+                      </Field>
+                      <Field label="Start">
+                        <input className="ip-cp-input" value={row.start} onChange={(e) => setExperienceField(idx, 'start', e.target.value)} placeholder="Jun 2025" />
+                      </Field>
+                      <Field label="End">
+                        <input className="ip-cp-input" value={row.end} onChange={(e) => setExperienceField(idx, 'end', e.target.value)} placeholder="Aug 2025 or Present" />
+                      </Field>
+                      <Field label="What you did" optional span={2}>
+                        <textarea
+                          className="ip-cp-textarea"
+                          rows={3}
+                          value={row.description}
+                          onChange={(e) => setExperienceField(idx, 'description', e.target.value)}
+                          placeholder="One bullet per line works well."
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
           </div>
         ) : null}
 
         {profileTab === 'readiness' ? (
           <div className="ip-cp-stack" role="tabpanel">
-            <section>
-              <div className="ip-cp-sec-head">
-                <h3>Internship &amp; Project Experience <span className="ip-cp-opt">(optional)</span></h3>
-              </div>
-              <p className="ip-cp-hint">Summarize prior internships, academic capstones, or notable open-source projects.</p>
-              <textarea
-                className="ip-cp-textarea"
-                rows={4}
-                value={form.prior_experience || ''}
-                onChange={(e) => set('prior_experience', e.target.value)}
-                placeholder="e.g. Built a REST API using Node.js and PostgreSQL during a summer internship."
-              />
-            </section>
-
             <section>
               <div className="ip-cp-sec-head"><h3>Work Readiness Preferences</h3></div>
               <div className="ip-cp-grid">
@@ -856,9 +1178,28 @@ export default function CandidateProfilePage() {
         {profileTab !== 'history' ? (
           <div className="ip-cp-save">
             <p>You can save your progress even if some optional fields are blank.</p>
-            <button type="submit" className="ip-cp-btn ip-cp-btn--primary" disabled={saving}>
-              {saving ? 'Saving...' : activeTab?.saveLabel || 'Save profile'}
-            </button>
+            <div className="ip-cp-save__actions">
+              {isWizardTab && wizardIndex > 0 ? (
+                <button type="button" className="ip-cp-btn ip-cp-btn--outline" onClick={() => goWizard(-1)}>
+                  Back
+                </button>
+              ) : null}
+              <button type="submit" className="ip-cp-btn ip-cp-btn--primary" disabled={saving}>
+                {saving ? 'Saving...' : activeTab?.saveLabel || 'Save profile'}
+              </button>
+              {isWizardTab && wizardIndex < WIZARD_ORDER.length - 1 ? (
+                <button
+                  type="button"
+                  className="ip-cp-btn ip-cp-btn--soft"
+                  onClick={async () => {
+                    const ok = await save();
+                    if (ok) goWizard(1);
+                  }}
+                >
+                  Save &amp; Next
+                </button>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </form>

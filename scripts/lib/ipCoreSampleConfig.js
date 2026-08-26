@@ -20,17 +20,31 @@ const CAND_BASE_NAME = 'Priya Sharma';
 const EMP_BASE = 'shreekar.nyayapathi23+2@vit.edu';
 const EMP_BASE_NAME = 'Nova Labs';
 
-/** Extra candidate accounts re-seeded after reset. */
+/**
+ * Extra candidate accounts re-seeded after reset.
+ * Each name must be unique — offers/applications must not look like the same person repeated.
+ */
 const CAST_CANDIDATES = [
   { email: 'lawsonlclintern+1@gmail.com', name: 'Priya Sharma', skills: ['React', 'TypeScript', 'Node'] },
   { email: 'lawsonlclintern+2@gmail.com', name: 'Arjun Mehta', skills: ['Python', 'SQL', 'ML'] },
   { email: 'lawsonlclintern+3@gmail.com', name: 'Meera Iyer', skills: ['Java', 'Spring', 'SQL'] },
+  { email: 'lawsonlclintern+4@gmail.com', name: 'Kabir Reddy', skills: ['Figma', 'UX Research'] },
+  { email: 'lawsonlclintern+5@gmail.com', name: 'Ananya Patel', skills: ['Node.js', 'Express', 'MongoDB'] },
+  { email: 'lawsonlclintern+6@gmail.com', name: 'Rohan Das', skills: ['AWS', 'Docker', 'Linux'] },
+  { email: 'lawsonlclintern+7@gmail.com', name: 'Ishita Nair', skills: ['Selenium', 'Cypress', 'Jest'] },
+  { email: 'lawsonlclintern+8@gmail.com', name: 'Vikram Gupta', skills: ['TensorFlow', 'Python', 'NLP'] },
 ];
 
-/** Extra employer accounts re-seeded after reset. */
+/**
+ * Extra employer accounts re-seeded after reset.
+ * Multiple approved employers so offers are not always from the same company.
+ */
 const CAST_EMPLOYERS = [
   { email: 'shreekar.nyayapathi23+2@vit.edu', company: 'Nova Labs', status: 'approved' },
   { email: 'shreekar.nyayapathi23+3@vit.edu', company: 'Pulse Media', status: 'pending' },
+  { email: 'shreekar.nyayapathi23+4@vit.edu', company: 'BrightPath Analytics', status: 'approved' },
+  { email: 'shreekar.nyayapathi23+5@vit.edu', company: 'Cedar Softworks', status: 'approved' },
+  { email: 'shreekar.nyayapathi23+6@vit.edu', company: 'Orbit Fintech', status: 'approved' },
 ];
 
 const CAST_CANDIDATE_EMAILS = CAST_CANDIDATES.map((c) => c.email);

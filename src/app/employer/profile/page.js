@@ -1,8 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import IpUploadButton from '@/components/ip/IpUploadButton';
+import SearchableSelect from '@/components/ip/SearchableSelect';
+import useIpCityCatalog from '@/hooks/useIpCityCatalog';
 import { documentAcceptAttr, imageAcceptAttr } from '@/lib/ipFileUpload';
+import { BUSINESS_ENTITY_TYPES } from '@/lib/employerBusinessEntity';
 import '@/components/ip/ip-employer-profile-gemini.css';
 
 const DOC_TYPES = ['Shop Act', 'LLP registration', 'Business PAN', 'Other'];
@@ -114,6 +117,12 @@ export default function EmployerProfilePage() {
   const [docFileName, setDocFileName] = useState('');
   const [logoBusy, setLogoBusy] = useState(false);
   const logoInputRef = useRef(null);
+  const { placeCityOptions, stateOptions, findCity } = useIpCityCatalog();
+  const hqCityChoices = useMemo(() => {
+    const needle = String(form?.hq_state || '').trim().toLowerCase();
+    if (!needle) return placeCityOptions;
+    return placeCityOptions.filter((o) => String(o.state || '').trim().toLowerCase() === needle);
+  }, [placeCityOptions, form?.hq_state]);
 
   async function load() {
     const res = await fetch('/api/ip/employer/profile');
@@ -284,6 +293,24 @@ export default function EmployerProfilePage() {
                 required
               />
             </Field>
+            <Field label="Business entity type">
+              <SelectInput
+                value={form.business_entity_type || ''}
+                onChange={(e) => set('business_entity_type', e.target.value)}
+                required
+              >
+                <option value="">Select entity type</option>
+                {form.business_entity_type
+                  && !BUSINESS_ENTITY_TYPES.includes(form.business_entity_type) ? (
+                  <option value={form.business_entity_type}>{form.business_entity_type}</option>
+                ) : null}
+                {BUSINESS_ENTITY_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </SelectInput>
+            </Field>
             <Field label="Brand / trading name">
               <input
                 className="ip-ep-input"
@@ -341,12 +368,19 @@ export default function EmployerProfilePage() {
         </div>
         <div className="ip-ep-grid">
           <Field label="HQ City">
-            <input
-              className="ip-ep-input"
+            <SearchableSelect
+              options={hqCityChoices}
               value={form.hq_city || ''}
-              onChange={(e) => set('hq_city', e.target.value)}
-              placeholder="e.g. Pune"
-              required
+              onChange={(city) => {
+                const hit = findCity(city);
+                setForm((f) => ({
+                  ...f,
+                  hq_city: city,
+                  hq_state: hit?.state && !/^work mode$/i.test(hit.state) ? hit.state : f.hq_state,
+                }));
+              }}
+              placeholder="Search cities…"
+              ariaLabel="HQ city"
             />
           </Field>
           <Field label="HQ Country">
@@ -359,11 +393,21 @@ export default function EmployerProfilePage() {
             </SelectInput>
           </Field>
           <Field label="HQ State / Province">
-            <input
-              className="ip-ep-input"
+            <SearchableSelect
+              options={stateOptions}
               value={form.hq_state || ''}
-              onChange={(e) => set('hq_state', e.target.value)}
-              placeholder="e.g. Maharashtra"
+              onChange={(state) => {
+                setForm((f) => {
+                  const hit = findCity(f.hq_city);
+                  const cityStillValid =
+                    !state
+                    || !f.hq_city
+                    || (hit && String(hit.state || '').toLowerCase() === String(state).toLowerCase());
+                  return { ...f, hq_state: state, hq_city: cityStillValid ? f.hq_city : '' };
+                });
+              }}
+              placeholder="Search states…"
+              ariaLabel="HQ state or province"
             />
           </Field>
           <Field label="Primary Contact Person">

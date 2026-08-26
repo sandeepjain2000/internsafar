@@ -11,10 +11,20 @@ import {
   FileCheck,
   Gift,
   Search,
+  SlidersHorizontal,
   Sparkles,
   X,
 } from 'lucide-react';
+import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import '@/components/ip/ip-notifications-gemini.css';
+
+const FILTERS = [
+  { id: 'all', label: 'All' },
+  { id: 'unread', label: 'Unread' },
+  { id: 'applications', label: 'Applications' },
+  { id: 'referrals', label: 'Referrals' },
+];
 
 function formatWhen(value) {
   if (!value) return '—';
@@ -68,12 +78,30 @@ function iconFor(n, category) {
 }
 
 /** Shared notifications list — candidate + employer (content chrome from Gemini mock). */
-export default function IpNotificationsInbox() {
+export default function IpNotificationsInbox({ tableKey = 'shared.notifications' } = {}) {
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [toastMsg, setToastMsg] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const snapshot = useMemo(
+    () => ({ filters: { filter, search }, sort: '' }),
+    [filter, search],
+  );
+  const prefs = useListPrefsSync({
+    tableKey,
+    snapshot,
+    applySnapshot: (s) => {
+      const f = s?.filters && typeof s.filters === 'object' ? s.filters : {};
+      if (f.filter != null && f.filter !== '') setFilter(String(f.filter));
+      if (f.search != null) setSearch(String(f.search));
+    },
+  });
+
+  const activeFilter = FILTERS.find((f) => f.id === filter) || FILTERS[0];
+  const filtersActive = filter !== 'all' || Boolean(search.trim());
 
   async function load() {
     const res = await fetch('/api/ip/notifications');
@@ -150,44 +178,41 @@ export default function IpNotificationsInbox() {
       </div>
 
       <div className="ip-nf-toolbar">
-        <div className="ip-nf-tabs" role="tablist" aria-label="Notification filters">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={filter === 'all'}
-            className={`ip-nf-tab${filter === 'all' ? ' is-active' : ''}`}
-            onClick={() => setFilter('all')}
-          >
-            All ({items.length})
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={filter === 'unread'}
-            className={`ip-nf-tab${filter === 'unread' ? ' is-active' : ''}`}
-            onClick={() => setFilter('unread')}
-          >
-            <span>Unread</span>
-            {unreadCount > 0 ? <span className="ip-nf-tab-dot" aria-hidden /> : null}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={filter === 'applications'}
-            className={`ip-nf-tab${filter === 'applications' ? ' is-active' : ''}`}
-            onClick={() => setFilter('applications')}
-          >
-            Applications
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={filter === 'referrals'}
-            className={`ip-nf-tab${filter === 'referrals' ? ' is-active' : ''}`}
-            onClick={() => setFilter('referrals')}
-          >
-            Referrals
-          </button>
+        <div className="ip-nf-filters-bar">
+          <div className="ip-nf-filters-wrap">
+            <button
+              type="button"
+              className={`ip-nf-filters-btn${filtersOpen || filtersActive ? ' is-active' : ''}`}
+              aria-expanded={filtersOpen}
+              aria-controls="ip-nf-filters-panel"
+              onClick={() => setFiltersOpen((v) => !v)}
+            >
+              <SlidersHorizontal size={14} aria-hidden />
+              <span>Filters</span>
+              {filter !== 'all' ? <span className="ip-nf-filters-chip">{activeFilter.label}</span> : null}
+            </button>
+            {filtersOpen ? (
+              <div id="ip-nf-filters-panel" className="ip-nf-filters-panel" role="listbox" aria-label="Notification filters">
+                {FILTERS.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    role="option"
+                    aria-selected={filter === f.id}
+                    className={`ip-nf-tab${filter === f.id ? ' is-active' : ''}`}
+                    onClick={() => {
+                      setFilter(f.id);
+                      setFiltersOpen(false);
+                    }}
+                  >
+                    {f.id === 'all' ? `${f.label} (${items.length})` : f.label}
+                    {f.id === 'unread' && unreadCount > 0 ? <span className="ip-nf-tab-dot" aria-hidden /> : null}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <ListPresetsBar {...prefs} />
         </div>
 
         <div className="ip-nf-search">

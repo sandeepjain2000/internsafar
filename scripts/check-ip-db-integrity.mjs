@@ -6,7 +6,9 @@
  *
  * Covers offer→application, pipeline FKs (023–026), uniques/CHECKs (027–028),
  * offer-accept application status (029),
- * and hired/completed engagement for ratings and endorsements.
+ * hired/completed engagement for ratings and endorsements,
+ * the Browse empty trap (many published but almost none candidate-visible),
+ * and applications pointing at inaccessible / missing internships.
  */
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -255,9 +257,58 @@ async function main() {
             AND i.employer_id = en.employer_id
             AND a.status IN ('hired', 'completed')
         )`);
+    // Browse trap: published but outside live window (scheduled / expired apply window).
+    report.published_total = await one(`SELECT count(*)::int AS n FROM ip_internships WHERE status = 'published'`);
+    report.published_candidate_visible = await one(`
+      SELECT count(*)::int AS n FROM ip_internships i
+      WHERE i.status = 'published'
+        AND (i.starts_at IS NULL OR i.starts_at <= now())
+        AND (i.apply_ends_at IS NULL OR i.apply_ends_at > now())`);
+    report.published_not_candidate_visible = Math.max(
+      0,
+      report.published_total - report.published_candidate_visible,
+    );
+    // Fail only when Browse would look empty despite many published rows.
+    report.browse_empty_despite_published =
+      report.published_total >= 10 && report.published_candidate_visible < 2 ? 1 : 0;
+
+    // Applications must not point at non-live / missing postings (My Applications → Open internship).
+    report.apps_pointing_to_inaccessible_internship = await one(`
+      SELECT count(*)::int AS n
+      FROM ip_applications a
+      LEFT JOIN ip_internships i ON i.id = a.internship_id
+      WHERE i.id IS NULL
+         OR i.status <> 'published'
+         OR (i.starts_at IS NOT NULL AND i.starts_at > now())
+         OR (i.apply_ends_at IS NOT NULL AND i.apply_ends_at <= now())`);
+
+    // Informational: structured JD sections (About bullets + requirements/ideal in eligibility).
+    report.postings_missing_requirements_text = await one(`
+      SELECT count(*)::int AS n FROM ip_internships i
+      WHERE i.status = 'published'
+        AND (
+          i.eligibility IS NULL
+          OR COALESCE(i.eligibility->>'requirements_text','') = ''
+        )`);
+    report.candidates_with_structured_experience = await one(`
+      SELECT count(*)::int AS n FROM ip_candidates
+      WHERE prior_experience IS NOT NULL
+        AND btrim(prior_experience) LIKE '[%'`);
 
     const numericFails = Object.entries(report)
-      .filter(([k, v]) => k !== 'ok' && typeof v === 'number' && v > 0)
+      .filter(([k, v]) => {
+        if (k === 'ok') return false;
+        if (
+          k === 'published_total'
+          || k === 'published_candidate_visible'
+          || k === 'published_not_candidate_visible'
+          || k === 'postings_missing_requirements_text'
+          || k === 'candidates_with_structured_experience'
+        ) {
+          return false; // informational
+        }
+        return typeof v === 'number' && v > 0;
+      })
       .map(([k]) => k);
 
     const bad =

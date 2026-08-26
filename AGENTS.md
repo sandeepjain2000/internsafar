@@ -88,5 +88,5 @@ Read both before writing any significant UI code.
 | [`docs/README.md`](docs/README.md) | Master doc index |
 | [`docs/product/placementhub-functionality.md`](docs/product/placementhub-functionality.md) | Features & flows |
 | [`docs/help/`](docs/help/) | In-app help export |
-| [`qa/docs/`](qa/docs/) | Guided runner & manual QA playbooks |
-| [`qa/runners/`](qa/runners/) | Runner scripts (not markdown) |
+| [`qa/docs/`](qa/docs/) | Guided runner & manual QA playbooks ([InternSafar runner playbook](qa/docs/internsafar-runner-playbook.md)) |
+| [`qa/runners/`](qa/runners/) | Runner scripts — use `run-internsafar.mjs` (not markdown) |

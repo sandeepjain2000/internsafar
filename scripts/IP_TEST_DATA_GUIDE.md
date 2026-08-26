@@ -30,9 +30,31 @@ cd "C:\Users\place\Work\UIUX Migration\internship-portal"
 
 ### A. Fill core accounts (`core-fill`)
 
-Puts visible demo data on the **three core accounts** (postings, applicants, applications, saved, messages, offer, lists, rejection template, notifications, pending employer for SuperAdmin approvals).
+Puts visible demo data on the **three core accounts** (postings, applicants, applications, saved, messages, offers, lists, rejection template, notifications, feature ideas, referrals, pending employer for SuperAdmin approvals).
 
 Creates helper `+corefill…` users tagged with a **run ID** (safe to delete later). Does **not** change core passwords.
+
+Default volumes aim for **≥22 rows** on major lists (2 pages at PAGE_SIZE 10): support candidates, employer postings, message threads, notifications, feature ideas, referrals, offers.
+
+**Realism rules (offers / applications / browse):**
+- Do **not** reuse the same candidate name on many offer rows.
+- Distribute offers across different candidates and employers.
+- Unique role titles and companies — no identical “QA Intern” placeholders.
+- Cover pending / accepted / declined / expired so filters and tabs have real variety.
+- **Browse Internships** only lists *live* published rows (`starts_at` past or null, `apply_ends_at` future or null). Seed scripts must keep most postings live. For “Starting soon” chips, set **`start_date` soon** — never push `starts_at` into the future just for that chip (that hid ~400 rows before).
+- Any internship that has **applications / saves / offers / message threads** must stay live after seed (core-fill runs a final repair UPDATE). My Applications → Open internship must never 404 for seeded data.
+- **Structured JD (seed):** `description` = About This Role (bullet lines); `eligibility.skills` + `eligibility.requirements_text` + `eligibility.ideal_profile_text` for Match bars and detail sections. No new DB columns — JSON/text only.
+- **Profile experience (seed):** `prior_experience` may be a JSON array of `{title, organization, start, end, description}` cards (same field as free text before).
+
+**Candidate advanced filters (UI — no schema change):**
+| Screen | Advanced fields |
+|---|---|
+| Offers | Employer, Stipend, Work Mode/Location, Start Date, Valid Until — **no Status** |
+| Applications | Stipend, Work Mode, Location, Applied, **Next** (process dropdown) — **no Status** |
+| Notifications | Title, Company, Priority, Deadline — **no When**; Filters + Advanced may both stay open |
+
+**Migrations:** no new SQL migration for this batch (uses existing `eligibility` jsonb + `prior_experience` text).  
+**Delete scripts:** unchanged — still cascade by user / run id; no new tables.
 
 ```powershell
 npm run generate:ip-test-data -- --mode=core-fill
@@ -41,7 +63,7 @@ npm run generate:ip-test-data -- --mode=core-fill
 Optional:
 
 ```powershell
-npm run generate:ip-test-data -- --mode=core-fill --support-candidates=8 --run-id=corefill_manual1
+npm run generate:ip-test-data -- --mode=core-fill --support-candidates=22 --support-employers=12 --run-id=corefill_manual1
 ```
 
 **Then log in and check:**
@@ -49,7 +71,7 @@ npm run generate:ip-test-data -- --mode=core-fill --support-candidates=8 --run-i
 | Account | Tabs / screens that should show data |
 |---|---|
 | Candidate | `/candidate/applications`, `/candidate/internships` (Saved), Messages, Offers, Notifications |
-| Employer | `/employer/internships` → open a **Core Showcase…** posting (applicants), Rejection templates, Messages, Notifications |
+| Employer | `/employer/internships` → open a **Core Showcase…** posting (applicants), `/employer/offers`, Rejection templates, Messages, Notifications |
 | SuperAdmin | Approvals (pending employer from this run), Notifications |
 
 Copy the printed `runId` if you want to delete only the helper users later.
@@ -67,7 +89,7 @@ npm run generate:ip-test-data -- --mode=gen-accounts
 Optional:
 
 ```powershell
-npm run generate:ip-test-data -- --mode=gen-accounts --employers=3 --candidates=6 --postings=4
+npm run generate:ip-test-data -- --mode=gen-accounts --employers=22 --candidates=22 --postings=22
 ```
 
 Save the printed `runId` for deletion.
@@ -129,6 +151,10 @@ C:\Users\place\Work\UIUX Migration\internship-portal\scripts\check-ip-db-integri
 ```
 
 Fails (exit 1) if offers lack a live application, endorsements have no candidate, pipeline FKs dangle, or a rating/endorsement is not backed by a hired/completed application on that internship.
+
+Also reports (and can fail) when many postings are `published` but almost none are **candidate-visible** (scheduled / expired apply window) — the Browse empty trap.
+
+Also fails when **applications point at inaccessible / missing internships**. Informational counts: postings missing `eligibility.requirements_text`, candidates with structured experience JSON.
 
 Also: `npm run db:migrate:pipeline` (023+024) or `npm run db:migrate:workbench` (016–024). Generate/delete/reset apply the same pipeline schema idempotently.
 

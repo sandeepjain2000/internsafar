@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { ArrowLeft } from 'lucide-react';
 import PageHeader from '@/components/ip/PageHeader';
+import MessageRichComposer from '@/components/ip/MessageRichComposer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { plainTextFromMessageHtml, sanitizeMessageHtml } from '@/lib/ipRichText';
 import { cn } from '@/lib/utils';
 
 /**
@@ -17,6 +19,8 @@ import { cn } from '@/lib/utils';
 export default function MessageThreadView({ role }) {
   const { id } = useParams();
   const router = useRouter();
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id || '';
   const backHref = role === 'candidate' ? '/candidate/messages' : '/employer/messages';
   const [thread, setThread] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -49,13 +53,13 @@ export default function MessageThreadView({ role }) {
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function send() {
-    if (!draft.trim()) return;
+    if (!plainTextFromMessageHtml(draft)) return;
     setSending(true);
     try {
       const res = await fetch(`/api/ip/messages/threads/${id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: draft.trim() }),
+        body: JSON.stringify({ message: draft }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Send failed');
@@ -95,6 +99,12 @@ export default function MessageThreadView({ role }) {
       ? thread?.company_name || thread?.employer_name || 'Employer'
       : thread?.candidate_name || 'Candidate';
   const subject = (thread?.last_message || thread?.subject || thread?.internship_title || 'Conversation').trim();
+
+  function isMine(m) {
+    if (currentUserId) return m.sender_user_id === currentUserId;
+    const myId = role === 'employer' ? thread?.employer_user_id : thread?.candidate_user_id;
+    return Boolean(myId) && m.sender_user_id === myId;
+  }
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4">
@@ -140,41 +150,52 @@ export default function MessageThreadView({ role }) {
           <div className="min-h-[40vh] flex-1 space-y-3 overflow-y-auto rounded-md border bg-muted/30 p-3">
             {loading ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
             {!loading &&
-              messages.map((m) => (
-                <div
-                  key={m.id}
-                  className={cn(
-                    'rounded-md border bg-card p-3 text-sm',
-                    m.sender_role === role && 'border-primary/30',
-                  )}
-                >
-                  <div className="mb-1 flex justify-between gap-2 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">{m.sender_name || m.sender_role || 'User'}</span>
-                    <span>{m.sent_at ? new Date(m.sent_at).toLocaleString() : ''}</span>
+              messages.map((m) => {
+                const mine = isMine(m);
+                return (
+                  <div
+                    key={m.id}
+                    className={cn(
+                      'rounded-md border bg-card p-3 text-sm',
+                      mine && 'border-primary/30 ml-6',
+                      !mine && 'mr-6',
+                    )}
+                  >
+                    <div className="mb-1 flex justify-between gap-2 text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        {mine ? 'You' : m.sender_name || m.sender_role || 'User'}
+                      </span>
+                      <span>{m.sent_at ? new Date(m.sent_at).toLocaleString() : ''}</span>
+                    </div>
+                    <p
+                      className="whitespace-pre-wrap"
+                      dangerouslySetInnerHTML={{ __html: sanitizeMessageHtml(m.body) }}
+                    />
                   </div>
-                  <p className="whitespace-pre-wrap">{m.body}</p>
-                </div>
-              ))}
+                );
+              })}
             {!loading && !messages.length ? (
               <Alert>
                 <AlertDescription>No messages in this thread yet.</AlertDescription>
               </Alert>
             ) : null}
           </div>
-          <div className="flex gap-2">
-            <Textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              rows={3}
-              placeholder="Write a reply…"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-            />
-            <Button className="self-end" onClick={send} disabled={sending || !draft.trim()}>
+          <MessageRichComposer
+            value={draft}
+            onChange={setDraft}
+            disabled={sending || Boolean(thread?.archived)}
+            placeholder="Write a reply…"
+            aria-label="Reply"
+            className="w-full"
+            toolbarClassName="flex items-center gap-1 mb-2"
+            editorClassName="ip-msg-rich-editor min-h-[4.5rem]"
+          />
+          <div className="flex gap-2 justify-end">
+            <Button
+              className="self-end"
+              onClick={send}
+              disabled={sending || !plainTextFromMessageHtml(draft)}
+            >
               {sending ? 'Sending…' : 'Send'}
             </Button>
           </div>

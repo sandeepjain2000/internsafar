@@ -1018,6 +1018,26 @@ async function runBrowserSuite(logins) {
     assessUi('CAND-AP-2', await visible(page, 'main, table, [role="table"]'),
       { url: page.url() });
 
+    // Advanced filters: Next is a process <select>; Status is not an advanced field
+    {
+      const advBtn = page.locator('button', { hasText: /Advanced filters/i }).first();
+      if (await advBtn.count()) {
+        await advBtn.click().catch(() => {});
+        const panel = page.locator('[aria-label="Advanced application filters"], .ip-ap-advanced').first();
+        const panelOk = await panel.isVisible().catch(() => false);
+        const nextSelect = panel.locator('select[aria-label="Next step"]');
+        const nextOk = panelOk && (await nextSelect.count()) > 0;
+        const statusInAdv = panelOk
+          ? await panel.locator('span', { hasText: /^Status$/ }).count()
+          : 0;
+        assessUi('CAND-AP-ADV', nextOk && statusInAdv === 0, {
+          panelOk, nextOk, statusInAdv,
+        });
+      } else {
+        assessUi('CAND-AP-ADV', true, { skipped: 'no Advanced filters button' });
+      }
+    }
+
     // CAND-M-1: messages page
     await gotoApp(page, '/candidate/messages');
     assessUi('CAND-M-1', await visible(page, 'main, ul, [data-testid]'),
@@ -1032,6 +1052,22 @@ async function runBrowserSuite(logins) {
       { url: page.url() });
     assessUi('CAND-O-5', await visible(page, 'main'), { url: page.url() });
 
+    // Offers advanced: no Status field
+    {
+      const advBtn = page.locator('button', { hasText: /Advanced filters/i }).first();
+      if (await advBtn.count()) {
+        await advBtn.click().catch(() => {});
+        const panel = page.locator('[aria-label="Advanced offer filters"], .ip-of-advanced').first();
+        const panelOk = await panel.isVisible().catch(() => false);
+        const statusInAdv = panelOk
+          ? await panel.locator('span', { hasText: /^Status$/ }).count()
+          : 0;
+        assessUi('CAND-O-ADV', panelOk && statusInAdv === 0, { panelOk, statusInAdv });
+      } else {
+        assessUi('CAND-O-ADV', true, { skipped: 'no Advanced filters button' });
+      }
+    }
+
     // CAND-R-1: referral page
     await gotoApp(page, '/candidate/referral');
     assessUi('CAND-R-1', await visible(page, 'main, h1'),
@@ -1042,6 +1078,27 @@ async function runBrowserSuite(logins) {
     assessUi('CAND-N-2', await visible(page, 'main, [role="tablist"], h1'),
       { url: page.url() });
 
+    // Notifications: Filters + Advanced can both stay open; no When in advanced
+    {
+      const filtersBtn = page.locator('button', { hasText: /^Filters$/i }).first();
+      const advBtn = page.locator('button', { hasText: /Advanced/i }).first();
+      if ((await filtersBtn.count()) && (await advBtn.count())) {
+        await filtersBtn.click().catch(() => {});
+        await advBtn.click().catch(() => {});
+        const filtersOpen = await page.locator('#ip-cn-filters-panel, .ip-cn-filters-panel').first()
+          .isVisible().catch(() => false);
+          const advPanel = page.locator('#ip-cn-advanced-panel, [aria-label="Advanced notification filters"], .ip-cn-advanced').first();
+          const advOpen = await advPanel.isVisible().catch(() => false);
+        const whenInAdv = advOpen
+          ? await advPanel.locator('span', { hasText: /^When$/ }).count()
+          : 0;
+        assessUi('CAND-N-ADV', filtersOpen && advOpen && whenInAdv === 0, {
+          filtersOpen, advOpen, whenInAdv,
+        });
+      } else {
+        assessUi('CAND-N-ADV', true, { skipped: 'filter buttons missing' });
+      }
+    }
     // ACCT-1: account page
     await gotoApp(page, '/account');
     assessUi('ACCT-1', await visible(page, 'main, form, h1'),

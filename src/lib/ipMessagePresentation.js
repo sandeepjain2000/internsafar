@@ -4,7 +4,7 @@ export function threadActionStatus(applicationStatus, archived) {
   if (archived) return { key: 'archived', label: 'Archived', tone: 'muted' };
   const s = String(applicationStatus || '').toLowerCase();
   if (s === 'interviewing') return { key: 'interview', label: 'Interview scheduled', tone: 'interview' };
-  if (s === 'offered') return { key: 'offer', label: 'Offer received', tone: 'offer' };
+  if (s === 'offered') return { key: 'offer', label: 'Offer Received', tone: 'offer' };
   if (s === 'hired') return { key: 'hired', label: 'Hired', tone: 'offer' };
   if (s === 'completed') return { key: 'completed', label: 'Completed', tone: 'muted' };
   if (s === 'rejected') return { key: 'rejected', label: 'Rejected', tone: 'muted' };

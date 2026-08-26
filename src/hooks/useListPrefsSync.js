@@ -3,6 +3,31 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
+ * Coerce filters from API/DB (object or JSON string) into a plain object.
+ */
+export function normalizePrefsFilters(filters) {
+  if (filters == null) return {};
+  if (typeof filters === 'string') {
+    try {
+      const parsed = JSON.parse(filters);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+      return {};
+    } catch {
+      return {};
+    }
+  }
+  if (typeof filters === 'object' && !Array.isArray(filters)) return filters;
+  return {};
+}
+
+function normalizeSnapshot(s) {
+  return {
+    filters: normalizePrefsFilters(s?.filters),
+    sort: s?.sort != null ? String(s.sort) : '',
+  };
+}
+
+/**
  * Hydrate last-used filters/sort (and optional default preset) for a tableKey,
  * then debounce-persist changes. Default preset wins over last-used prefs.
  */
@@ -20,7 +45,12 @@ export function useListPrefsSync({ tableKey, snapshot, applySnapshot }) {
     if (!tableKey) return [];
     const res = await fetch(`/api/ip/list-presets?tableKey=${encodeURIComponent(tableKey)}`);
     const data = await res.json().catch(() => ({}));
-    const items = data.items || [];
+    const items = (data.items || []).map((p) => ({
+      ...p,
+      id: p.id != null ? String(p.id) : p.id,
+      filters: normalizePrefsFilters(p.filters),
+      sort: p.sort != null ? String(p.sort) : '',
+    }));
     setPresets(items);
     return items;
   }, [tableKey]);
@@ -43,10 +73,11 @@ export function useListPrefsSync({ tableKey, snapshot, applySnapshot }) {
         ]);
         if (cancelled) return;
         const def = items.find((p) => p.is_default);
-        applyRef.current({
-          filters: (def ? def.filters : prefRes.filters) || {},
+        const next = normalizeSnapshot({
+          filters: def ? def.filters : prefRes.filters,
           sort: def ? (def.sort ?? '') : (prefRes.sort ?? ''),
         });
+        applyRef.current(next);
       } finally {
         if (!cancelled) {
           skipPersist.current = true;
@@ -65,14 +96,15 @@ export function useListPrefsSync({ tableKey, snapshot, applySnapshot }) {
       skipPersist.current = false;
       return undefined;
     }
+    const snap = snapshotRef.current || snapshot;
     const t = setTimeout(() => {
       fetch('/api/ip/table-filter-prefs', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tableKey,
-          filters: snapshot.filters || {},
-          sort: snapshot.sort ?? '',
+          filters: normalizePrefsFilters(snap?.filters),
+          sort: snap?.sort ?? '',
         }),
       }).catch(() => {});
     }, 450);
@@ -81,33 +113,55 @@ export function useListPrefsSync({ tableKey, snapshot, applySnapshot }) {
 
   async function savePreset(name, asDefault) {
     setPresetError('');
+    const snap = snapshotRef.current || {};
+    const filters = normalizePrefsFilters(snap.filters);
+    const sort = snap.sort ?? '';
     const res = await fetch('/api/ip/list-presets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         tableKey,
         name,
-        filters: snapshotRef.current.filters || {},
-        sort: snapshotRef.current.sort ?? '',
+        filters,
+        sort,
         isDefault: Boolean(asDefault),
       }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       setPresetError(data.error || 'Could not save preset');
-      return false;
+      return { ok: false, id: '' };
     }
-    await loadPresets();
-    return true;
+    const newId = data.id != null ? String(data.id) : '';
+    // Show in dropdown immediately — no page refresh needed
+    setPresets((prev) => {
+      let next = Array.isArray(prev) ? [...prev] : [];
+      if (asDefault) next = next.map((p) => ({ ...p, is_default: false }));
+      const row = {
+        id: newId,
+        name,
+        filters,
+        sort,
+        is_default: Boolean(asDefault),
+        table_key: tableKey,
+      };
+      if (newId && !next.some((p) => String(p.id) === newId)) next.push(row);
+      return next;
+    });
+    // Reconcile with server in background (don't block UI)
+    loadPresets().catch(() => {});
+    return { ok: true, id: newId };
   }
 
   async function applyPreset(preset) {
     if (!preset) return;
     skipPersist.current = false;
-    applyRef.current({
-      filters: preset.filters || {},
-      sort: preset.sort ?? '',
-    });
+    applyRef.current(
+      normalizeSnapshot({
+        filters: normalizePrefsFilters(preset.filters),
+        sort: preset.sort ?? '',
+      }),
+    );
   }
 
   async function toggleDefault(preset) {
@@ -133,6 +187,7 @@ export function useListPrefsSync({ tableKey, snapshot, applySnapshot }) {
       setPresetError(data.error || 'Could not delete preset');
       return;
     }
+    setPresets((prev) => prev.filter((p) => String(p.id) !== String(preset.id)));
     await loadPresets();
   }
 

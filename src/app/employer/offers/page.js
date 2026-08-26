@@ -8,14 +8,28 @@ import {
   Plus,
   Search,
   Send,
+  SlidersHorizontal,
   TrendingUp,
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
+import { useClientPagination } from '@/hooks/useClientPagination';
+import IpTablePagination from '@/components/ip/IpTablePagination';
+import { sanitizeMessageHtml } from '@/lib/ipRichText';
+import { formatStatus } from '@/lib/utils';
 import '@/components/ip/ip-employer-offers-gemini.css';
 
-const TABS = ['All', 'Pending', 'Accepted', 'Declined'];
+const TABS = ['All', 'Pending', 'Accepted', 'Declined', 'Expired'];
 const REMIND_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const PAGE_SIZE = 10;
+
+const STIPEND_OPTIONS = [
+  { value: '0', label: 'Any stipend' },
+  { value: '10000', label: '₹10,000+ / mo' },
+  { value: '15000', label: '₹15,000+ / mo' },
+  { value: '20000', label: '₹20,000+ / mo' },
+  { value: '25000', label: '₹25,000+ / mo' },
+];
 
 function initials(name) {
   const parts = String(name || '')
@@ -35,25 +49,63 @@ function isExpiredPending(o) {
 
 function displayStatus(o) {
   const s = String(o.status || '').toLowerCase();
-  if (isExpiredPending(o)) return { key: 'expired', label: 'Expired', className: 'ip-eo-badge--muted' };
+  if (s === 'expired' || isExpiredPending(o)) {
+    return { key: 'expired', label: 'Expired', className: 'ip-eo-badge--muted' };
+  }
   if (s === 'accepted') return { key: 'accepted', label: 'Accepted', className: 'ip-eo-badge--ok' };
   if (s === 'declined') return { key: 'declined', label: 'Declined', className: 'ip-eo-badge--bad' };
   if (s === 'pending') return { key: 'pending', label: 'Pending Acceptance', className: 'ip-eo-badge--warn' };
-  return { key: s || 'other', label: o.status || '—', className: 'ip-eo-badge--muted' };
+  return { key: s || 'other', label: formatStatus(o.status) || '—', className: 'ip-eo-badge--muted' };
+}
+
+function stipendValue(o) {
+  const n = Number(o.stipend_inr ?? o.internship_stipend_inr);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function stipendLabel(o) {
-  if (o.stipend_inr == null || o.stipend_inr === '') return '—';
-  return `₹${Number(o.stipend_inr).toLocaleString('en-IN')}/mo`;
+  const n = stipendValue(o);
+  if (!n) return '—';
+  return `₹${n.toLocaleString('en-IN')}/mo`;
 }
 
 function startLabel(o) {
   if (!o.start_date) return '—';
   try {
-    return new Date(o.start_date).toLocaleDateString();
+    return new Date(o.start_date).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
   } catch {
     return '—';
   }
+}
+
+function validUntilLabel(o) {
+  if (!o.valid_until) return '—';
+  try {
+    return new Date(o.valid_until).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return '—';
+  }
+}
+
+function durationLabel(o) {
+  const n = Number(o.duration_months);
+  if (!Number.isFinite(n) || n <= 0) return '—';
+  return n === 1 ? '1 month' : `${n} months`;
+}
+
+function workModeLocation(o) {
+  const mode = o.work_mode || '';
+  const loc = o.location || '';
+  if (mode && loc) return `${mode} — ${loc}`;
+  return mode || loc || '—';
 }
 
 function daysUntil(dateVal) {
@@ -90,10 +142,21 @@ function weekStartMs() {
   return d.getTime();
 }
 
+function isoDateOffset(days) {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function EmployerOffersPage() {
   const [items, setItems] = useState([]);
   const [tab, setTab] = useState('All');
   const [q, setQ] = useState('');
+  const [minStipend, setMinStipend] = useState('0');
+  const [startFrom, setStartFrom] = useState('');
+  const [startTo, setStartTo] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
   const [statusOk, setStatusOk] = useState(false);
   const [busyId, setBusyId] = useState('');
@@ -103,14 +166,23 @@ export default function EmployerOffersPage() {
   const [rateFor, setRateFor] = useState(null);
   const [stars, setStars] = useState(5);
 
-  const snapshot = useMemo(() => ({ filters: { tab, q }, sort: '' }), [tab, q]);
+  const snapshot = useMemo(
+    () => ({
+      filters: { tab, q, minStipend, startFrom, startTo },
+      sort: '',
+    }),
+    [tab, q, minStipend, startFrom, startTo],
+  );
   const prefs = useListPrefsSync({
     tableKey: 'employer.offers',
     snapshot,
     applySnapshot: (s) => {
       const f = s.filters || {};
-      if (f.tab) setTab(f.tab);
+      if (f.tab != null) setTab(f.tab);
       if (f.q != null) setQ(f.q);
+      if (f.minStipend != null) setMinStipend(String(f.minStipend));
+      if (f.startFrom != null) setStartFrom(f.startFrom);
+      if (f.startTo != null) setStartTo(f.startTo);
     },
   });
 
@@ -159,16 +231,45 @@ export default function EmployerOffersPage() {
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
+    const minStip = Number(minStipend) || 0;
+    const fromMs = startFrom ? new Date(startFrom).getTime() : null;
+    const toMs = startTo ? new Date(startTo).getTime() : null;
     return items.filter((o) => {
       const st = displayStatus(o).key;
       if (tab === 'Pending' && st !== 'pending') return false;
       if (tab === 'Accepted' && st !== 'accepted') return false;
       if (tab === 'Declined' && st !== 'declined') return false;
+      if (tab === 'Expired' && st !== 'expired') return false;
+      if (minStip && stipendValue(o) < minStip) return false;
+      if (fromMs != null && !Number.isNaN(fromMs)) {
+        if (!o.start_date) return false;
+        const s = new Date(o.start_date).getTime();
+        if (Number.isNaN(s) || s < fromMs) return false;
+      }
+      if (toMs != null && !Number.isNaN(toMs)) {
+        if (!o.start_date) return false;
+        const s = new Date(o.start_date).getTime();
+        if (Number.isNaN(s) || s > toMs) return false;
+      }
       if (!needle) return true;
-      const hay = `${o.candidate_name || ''} ${o.role_title || ''} ${o.title || ''} ${o.candidate_college || ''}`.toLowerCase();
+      const hay = `${o.candidate_name || ''} ${o.role_title || ''} ${o.title || ''} ${o.candidate_college || ''} ${o.location || ''}`.toLowerCase();
       return hay.includes(needle);
     });
-  }, [items, tab, q]);
+  }, [items, tab, q, minStipend, startFrom, startTo]);
+
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(filtered, PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1);
+  }, [tab, q, minStipend, startFrom, startTo, setPage]);
+
+  const filtersActive = Number(minStipend) > 0 || Boolean(startFrom) || Boolean(startTo);
+
+  function resetColumnFilters() {
+    setMinStipend('0');
+    setStartFrom('');
+    setStartTo('');
+  }
 
   async function remind(o) {
     const blocked = remindBlockedReason(o);
@@ -345,17 +446,66 @@ export default function EmployerOffersPage() {
               </button>
             ))}
           </div>
-          <div className="ip-eo-search">
-            <Search size={16} aria-hidden />
-            <input
-              type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search candidate or role..."
-              aria-label="Search candidate or role"
-            />
+          <div className="ip-eo-toolbar-right">
+            <button
+              type="button"
+              className={`ip-eo-filters-btn${filtersOpen || filtersActive ? ' is-on' : ''}`}
+              aria-expanded={filtersOpen}
+              onClick={() => setFiltersOpen((v) => !v)}
+            >
+              <SlidersHorizontal size={15} aria-hidden />
+              Filters
+              {filtersActive ? <span className="ip-eo-filters-dot" aria-hidden /> : null}
+            </button>
+            <div className="ip-eo-search">
+              <Search size={16} aria-hidden />
+              <input
+                type="search"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search candidate or role..."
+                aria-label="Search candidate or role"
+              />
+            </div>
           </div>
         </div>
+
+        {filtersOpen ? (
+          <div className="ip-eo-filters-panel" role="region" aria-label="Offer column filters">
+            <label>
+              Minimum stipend
+              <select value={minStipend} onChange={(e) => setMinStipend(e.target.value)}>
+                {STIPEND_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Start date from
+              <input type="date" value={startFrom} onChange={(e) => setStartFrom(e.target.value)} />
+            </label>
+            <label>
+              Start date to
+              <input type="date" value={startTo} onChange={(e) => setStartTo(e.target.value)} />
+            </label>
+            <div className="ip-eo-filters-actions">
+              <button type="button" className="ip-eo-btn-ghost" onClick={resetColumnFilters}>
+                Clear filters
+              </button>
+              <button
+                type="button"
+                className="ip-eo-btn-ghost"
+                onClick={() => {
+                  setStartFrom(isoDateOffset(0));
+                  setStartTo(isoDateOffset(60));
+                }}
+              >
+                Starting in next 60 days
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <div className="px-4 pb-3">
           <ListPresetsBar {...prefs} />
         </div>
@@ -367,21 +517,24 @@ export default function EmployerOffersPage() {
                 <th>Candidate & Role</th>
                 <th>Stipend</th>
                 <th>Start Date</th>
+                <th>Valid Until</th>
+                <th>Duration</th>
+                <th>Work Mode / Location</th>
                 <th>Status</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {!filtered.length ? (
+              {!pageItems.length ? (
                 <tr>
-                  <td colSpan={5} className="ip-eo-empty">
+                  <td colSpan={8} className="ip-eo-empty">
                     {items.length
                       ? 'No offers match the selected filter.'
                       : 'No offers yet — send one from a posting’s applicant list or Search Candidates.'}
                   </td>
                 </tr>
               ) : (
-                filtered.map((o) => {
+                pageItems.map((o) => {
                   const st = displayStatus(o);
                   const canRemind = st.key === 'pending' && !remindBlockedReason(o);
                   const remindHint = remindBlockedReason(o);
@@ -408,6 +561,9 @@ export default function EmployerOffersPage() {
                       </td>
                       <td className="ip-eo-stipend">{stipendLabel(o)}</td>
                       <td className="ip-eo-date">{startLabel(o)}</td>
+                      <td className="ip-eo-date">{validUntilLabel(o)}</td>
+                      <td>{durationLabel(o)}</td>
+                      <td>{workModeLocation(o)}</td>
                       <td>
                         <span className={`ip-eo-badge ${st.className}`}>{st.label}</span>
                       </td>
@@ -459,6 +615,13 @@ export default function EmployerOffersPage() {
               )}
             </tbody>
           </table>
+          <IpTablePagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            pageSize={pageSize}
+            onPageChange={setPage}
+          />
         </div>
       </div>
 
@@ -474,7 +637,7 @@ export default function EmployerOffersPage() {
                 : ''}
             </p>
             {letterOffer.message ? (
-              <p>{letterOffer.message}</p>
+              <p dangerouslySetInnerHTML={{ __html: sanitizeMessageHtml(letterOffer.message) }} />
             ) : (
               <p>No letter URL or message was attached when this offer was sent.</p>
             )}

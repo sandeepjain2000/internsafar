@@ -6,6 +6,30 @@ import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
 const MAX_PRESETS = 5;
 const PRESET_SELECT = `id, table_key, name, filters, sort, is_default, created_at, updated_at`;
 
+function normalizeFilters(filters) {
+  if (filters == null) return {};
+  if (typeof filters === 'string') {
+    try {
+      const parsed = JSON.parse(filters);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+      return {};
+    } catch {
+      return {};
+    }
+  }
+  if (typeof filters === 'object' && !Array.isArray(filters)) return filters;
+  return {};
+}
+
+function mapPresetRow(row) {
+  return {
+    ...row,
+    id: row.id != null ? String(row.id) : row.id,
+    filters: normalizeFilters(row.filters),
+    sort: row.sort != null ? String(row.sort) : '',
+  };
+}
+
 export async function GET(request) {
   const { session, error } = await requireSession(['employer', 'candidate']);
   if (error) return error;
@@ -19,7 +43,7 @@ export async function GET(request) {
      ORDER BY is_default DESC, name ASC`,
     [session.user.id, tableKey],
   );
-  return jsonOk({ items: result.rows });
+  return jsonOk({ items: result.rows.map(mapPresetRow) });
 }
 
 export async function POST(request) {

@@ -57,6 +57,29 @@ export function applicationNextStep(row) {
   return 'Check this application for the latest update';
 }
 
+/** Canonical Next-step filter options (process stages). */
+export const APPLICATION_NEXT_STEP_OPTIONS = [
+  { value: '', label: 'Any next step' },
+  { value: 'applied', label: 'Waiting for employer to review your application' },
+  { value: 'shortlisted', label: 'Waiting for employer response on initial screening' },
+  { value: 'interviewing', label: 'Attend the scheduled interview' },
+  { value: 'offered', label: 'Review formal offer letter extended by recruiter' },
+  { value: 'hired', label: 'Offer accepted — onboarding with the employer' },
+  { value: 'completed', label: 'Internship completed' },
+  { value: 'rejected', label: 'This application was not taken forward' },
+  { value: 'withdrawn', label: 'You withdrew this application' },
+  { value: 'declined_offer', label: 'You declined this offer' },
+];
+
+export function applicationNextStepFilterMatch(row, filterValue) {
+  const want = String(filterValue || '').trim().toLowerCase();
+  if (!want) return true;
+  const s = applicationStatusKey(row?.status);
+  if (want === 'applied') return s === 'applied' || s === 'pending';
+  if (want === 'interviewing') return s === 'interviewing';
+  return s === want;
+}
+
 export function decorateCandidateApplication(row) {
   return {
     ...row,

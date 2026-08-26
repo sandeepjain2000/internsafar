@@ -13,16 +13,20 @@ import {
 } from '@/lib/authRegisterRules';
 import { verifyLoginCaptcha } from '@/lib/simpleCaptcha';
 import { ensureIpFormRegistrationSchema } from '@/lib/ensureIpFormRegistrationSchema';
+import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
+import { isValidBusinessEntityType } from '@/lib/employerBusinessEntity';
 
 export async function POST(request) {
   try {
     await ensureIpFormRegistrationSchema();
+    await ensureIpEmployerApprovalSchema();
     const body = await request.json();
     const website = String(body.website || '').trim();
     const email = normalizeEmail(body.email);
     const companyName = String(body.companyName || '').trim();
     const contactName = String(body.contactName || '').trim();
     const contactDesignation = String(body.designation || body.contactDesignation || '').trim();
+    const businessEntityType = String(body.businessEntityType || body.business_entity_type || '').trim();
     const reason = String(body.reason || '').trim() || (contactDesignation ? `Designation: ${contactDesignation}` : '');
     const forceManual = Boolean(body.manualRequest);
     const referralCode = String(body.referralCode || '').trim() || null;
@@ -30,6 +34,13 @@ export async function POST(request) {
 
     if (!email || !email.includes('@')) {
       return NextResponse.json({ error: 'Work email is required' }, { status: 400 });
+    }
+
+    if (!isValidBusinessEntityType(businessEntityType)) {
+      return NextResponse.json(
+        { error: 'Business entity type is required (Professional, Partnership Firm, LLP, Private Limited, or Public Firm)' },
+        { status: 400 },
+      );
     }
 
     const webDomain = domainFromWebsite(website);
@@ -74,9 +85,20 @@ export async function POST(request) {
       const reqId = newId('ip_ereq');
       await query(
         `INSERT INTO ip_employer_requests (
-           id, company_name, website, contact_email, contact_name, reason, contact_designation, password_hash
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [reqId, companyName, website || null, email, contactName || null, reason, contactDesignation, passwordHash],
+           id, company_name, website, contact_email, contact_name, reason, contact_designation, password_hash,
+           business_entity_type
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [
+          reqId,
+          companyName,
+          website || null,
+          email,
+          contactName || null,
+          reason,
+          contactDesignation,
+          passwordHash,
+          businessEntityType,
+        ],
       );
       await notifyRole({
         role: 'superadmin',
@@ -127,9 +149,21 @@ export async function POST(request) {
         [userId, email, passwordHash, name, referralCodeFrom(name), referredBy],
       );
       await query(
-        `INSERT INTO ip_employers (id, user_id, company_name, website, work_email, contact_name, contact_designation, approval_status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,'pending')`,
-        [employerId, userId, companyName || webDomain, website, email, contactName || name, contactDesignation || null],
+        `INSERT INTO ip_employers (
+           id, user_id, company_name, website, work_email, contact_name, contact_designation,
+           business_entity_type, approval_status
+         )
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending')`,
+        [
+          employerId,
+          userId,
+          companyName || webDomain,
+          website,
+          email,
+          contactName || name,
+          contactDesignation || null,
+          businessEntityType,
+        ],
       );
       await query(
         `INSERT INTO ip_points_ledger (id, user_id, delta, reason) VALUES ($1,$2,50,'default_signup')`,

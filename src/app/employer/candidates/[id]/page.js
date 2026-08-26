@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import PageHeader from '@/components/ip/PageHeader';
+import { formatStatus } from '@/lib/utils';
 
 export default function EmployerCandidateProfilePage() {
   const { id } = useParams();
@@ -149,7 +150,7 @@ export default function EmployerCandidateProfilePage() {
                 <CardHeader><CardTitle className="text-base">This application</CardTitle></CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div>{a.internship_title || 'Internship'}</div>
-                  <Badge variant="outline">{a.status}</Badge>
+                  <Badge variant="outline">{formatStatus(a.status)}</Badge>
                   <div>Match {a.match_score != null ? `${a.match_score}%` : '—'}</div>
                   {a.screening_disabled ? <div className="text-muted-foreground">Screening disabled</div> : null}
                   <div className="pt-2">

@@ -12,7 +12,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PageHeader from '@/components/ip/PageHeader';
 import ScreeningQuestionsEditor from '@/components/ip/ScreeningQuestionsEditor';
 import InternshipCandidatePreview from '@/components/ip/InternshipCandidatePreview';
+import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
+import BulletLinesField from '@/components/ip/BulletLinesField';
+import { mergeEligibilitySections, postingSectionsFromRow } from '@/lib/ipPostingBody';
 import { normalizeScreeningQuestions } from '@/lib/ipScreeningQuestions';
+import useIpCityCatalog from '@/hooks/useIpCityCatalog';
 
 function toLocalInput(iso) {
   if (!iso) return '';
@@ -20,6 +24,14 @@ function toLocalInput(iso) {
   if (Number.isNaN(d.getTime())) return '';
   const pad = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function locationCitiesFromInternship(intern) {
+  if (Array.isArray(intern?.locations) && intern.locations.length) {
+    return intern.locations.map((c) => String(c).trim()).filter(Boolean);
+  }
+  const single = String(intern?.location || '').trim();
+  return single ? [single] : [];
 }
 
 export default function EditInternshipPage() {
@@ -30,12 +42,22 @@ export default function EditInternshipPage() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const { cityOptions } = useIpCityCatalog();
 
   useEffect(() => {
     fetch(`/api/ip/employer/internships/${id}`)
       .then((r) => r.json())
       .then((d) => {
-        setForm(d.internship);
+        const intern = d.internship;
+        const locationCities = locationCitiesFromInternship(intern);
+        const sections = postingSectionsFromRow(intern);
+        setForm({
+          ...intern,
+          locationCities,
+          location: locationCities[0] || intern?.location || '',
+          requirementsText: sections.requirements,
+          idealText: sections.ideal,
+        });
         const qs = Array.isArray(d.internship?.questions) ? d.internship.questions : [];
         const normalized = normalizeScreeningQuestions(qs);
         // Keep legacy text questions readable in editor as MCQ-converted or text
@@ -60,13 +82,16 @@ export default function EditInternshipPage() {
     setSaving(true);
     setError('');
     try {
+      const locations = (form.locationCities || []).length
+        ? form.locationCities
+        : (form.location ? [form.location] : []);
       const res = await fetch(`/api/ip/employer/internships/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: form.title,
           description: form.description,
-          location: form.location,
+          location: locations[0] || form.location || '',
           work_mode: form.work_mode,
           stipend_inr: form.stipend_inr ? Number(form.stipend_inr) : null,
           duration_months: form.duration_months ? Number(form.duration_months) : null,
@@ -79,7 +104,7 @@ export default function EditInternshipPage() {
           remind_before_end: Boolean(form.remind_before_end),
           remind_start_hours: form.remind_start_hours ? Number(form.remind_start_hours) : 24,
           remind_end_hours: form.remind_end_hours ? Number(form.remind_end_hours) : 24,
-          locations: form.location ? [form.location] : form.locations || [],
+          locations,
           work_hours_start: form.work_hours_start || null,
           work_hours_end: form.work_hours_end || null,
           engagement_type: form.engagement_type || null,
@@ -88,6 +113,10 @@ export default function EditInternshipPage() {
             : null,
           stipend_type: form.stipend_type || null,
           incentive_basis: form.stipend_type === 'incentive' ? (form.incentive_basis || null) : null,
+          eligibility: mergeEligibilitySections(form.eligibility || {}, {
+            requirements: form.requirementsText,
+            ideal: form.idealText,
+          }),
           questions,
         }),
       });
@@ -108,6 +137,10 @@ export default function EditInternshipPage() {
     company_name: form.show_employer_identity !== false ? 'Your company' : 'Confidential employer',
     questions,
     application_volume_label: '50+',
+    eligibility: mergeEligibilitySections(form.eligibility || {}, {
+      requirements: form.requirementsText,
+      ideal: form.idealText,
+    }),
   };
 
   return (
@@ -134,8 +167,37 @@ export default function EditInternshipPage() {
 
               <TabsContent value="details" className="grid gap-4 sm:grid-cols-2">
                 <Field className="sm:col-span-2"><FieldLabel>Title</FieldLabel><Input value={form.title || ''} onChange={(e) => set('title', e.target.value)} required /></Field>
-                <Field className="sm:col-span-2"><FieldLabel>Description</FieldLabel><Textarea rows={4} value={form.description || ''} onChange={(e) => set('description', e.target.value)} /></Field>
-                <Field><FieldLabel>Location</FieldLabel><Input value={form.location || ''} onChange={(e) => set('location', e.target.value)} /></Field>
+                <BulletLinesField
+                  label="About This Role"
+                  value={form.description || ''}
+                  onChange={(v) => set('description', v)}
+                  placeholder={'What the intern will do…\n- Own a feature slice'}
+                  hint="Main role story. One bullet per line for responsibilities."
+                  rows={6}
+                />
+                <BulletLinesField
+                  label="Minimum Requirements"
+                  value={form.requirementsText || ''}
+                  onChange={(v) => set('requirementsText', v)}
+                />
+                <BulletLinesField
+                  label="Ideal Candidate Profile"
+                  value={form.idealText || ''}
+                  onChange={(v) => set('idealText', v)}
+                />
+                <Field className="sm:col-span-2">
+                  <FieldLabel>Locations (work city)</FieldLabel>
+                  <SearchableMultiSelect
+                    options={cityOptions}
+                    value={form.locationCities || []}
+                    onChange={(next) => {
+                      set('locationCities', next);
+                      set('location', next[0] || '');
+                    }}
+                    placeholder="Search cities…"
+                    ariaLabel="Work cities"
+                  />
+                </Field>
                 <Field><FieldLabel>Work mode</FieldLabel><Input value={form.work_mode || ''} onChange={(e) => set('work_mode', e.target.value)} /></Field>
                 <Field><FieldLabel>Duration (months)</FieldLabel><Input type="number" value={form.duration_months || ''} onChange={(e) => set('duration_months', e.target.value)} /></Field>
                 <Field><FieldLabel>Internship start</FieldLabel><Input type="date" value={form.start_date ? String(form.start_date).slice(0, 10) : ''} onChange={(e) => set('start_date', e.target.value)} /></Field>

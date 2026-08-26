@@ -21,7 +21,7 @@ export async function GET(request) {
 
   const withMeta = new URL(request.url).searchParams.get('meta') === '1';
   const result = await query(
-    `SELECT * FROM ip_notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 200`,
+    `SELECT * FROM ip_notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 500`,
     [session.user.id],
   );
   let items = result.rows;

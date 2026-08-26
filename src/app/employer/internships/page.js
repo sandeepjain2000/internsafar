@@ -85,7 +85,7 @@ export default function EmployerInternshipsPage() {
     applySnapshot: (s) => {
       const f = s.filters || {};
       if (f.searchQuery != null) setSearchQuery(f.searchQuery);
-      if (f.statusFilter) setStatusFilter(f.statusFilter);
+      if (f.statusFilter != null) setStatusFilter(f.statusFilter);
     },
   });
 

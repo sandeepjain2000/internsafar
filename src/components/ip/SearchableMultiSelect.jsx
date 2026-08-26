@@ -27,13 +27,26 @@ export default function SearchableMultiSelect({
 
   const selected = Array.isArray(value) ? value : value ? [value] : [];
 
+  const optionsWithSelected = useMemo(() => {
+    const list = [...(options || [])];
+    const seen = new Set(list.map((o) => String(o.value).toLowerCase()));
+    for (const s of selected) {
+      const key = String(s).toLowerCase();
+      if (!seen.has(key)) {
+        list.unshift({ value: s, label: s });
+        seen.add(key);
+      }
+    }
+    return list;
+  }, [options, selected]);
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return (options || []).filter((o) => {
+    return optionsWithSelected.filter((o) => {
       if (!needle) return true;
       return String(o.label || o.value).toLowerCase().includes(needle);
     });
-  }, [options, q]);
+  }, [optionsWithSelected, q]);
 
   function toggle(v) {
     const has = selected.some((s) => String(s).toLowerCase() === String(v).toLowerCase());
@@ -45,13 +58,15 @@ export default function SearchableMultiSelect({
 
   return (
     <div className="ip-sms" ref={rootRef}>
-      <div className="ip-sms-chips">
-        {selected.length ? selected.map((s) => (
-          <button key={s} type="button" className="ip-sms-chip" onClick={() => toggle(s)}>
-            {s} ×
-          </button>
-        )) : <span className="ip-sms-empty">None selected</span>}
-      </div>
+      {selected.length ? (
+        <div className="ip-sms-chips">
+          {selected.map((s) => (
+            <button key={s} type="button" className="ip-sms-chip" onClick={() => toggle(s)}>
+              {s} ×
+            </button>
+          ))}
+        </div>
+      ) : null}
       <input
         type="search"
         className="ip-sms-input"

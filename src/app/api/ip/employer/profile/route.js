@@ -1,21 +1,27 @@
 import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { EMPLOYER_ETHICS_ITEMS, EMPLOYER_ETHICS_VERSION, allEthicsChecked } from '@/lib/employerEthics';
+import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
+import { isValidBusinessEntityType } from '@/lib/employerBusinessEntity';
 
 const EDITABLE_FIELDS = [
   'company_name', 'legal_name', 'brand_name', 'website', 'work_email', 'industry', 'company_size',
   'hq_city', 'hq_state', 'hq_country', 'about', 'logo_url', 'linkedin_url', 'contact_name',
   'contact_designation', 'contact_phone', 'show_identity_on_posting', 'show_hiring_numbers',
-  'whatsapp_opt_in', 'telegram_opt_in',
+  'whatsapp_opt_in', 'telegram_opt_in', 'business_entity_type',
 ];
 
-const REQUIRED_FOR_COMPLETE = ['company_name', 'website', 'work_email', 'industry', 'hq_city', 'contact_name', 'contact_phone'];
+const REQUIRED_FOR_COMPLETE = [
+  'company_name', 'website', 'work_email', 'industry', 'hq_city', 'contact_name', 'contact_phone',
+  'business_entity_type',
+];
 
 const COUNTRY_OPTIONS = new Set(['India', 'Bangladesh', 'Sri Lanka', 'Indonesia']);
 
 export async function GET() {
   const { session, error } = await requireSession(['employer']);
   if (error) return error;
+  await ensureIpEmployerApprovalSchema();
   const result = await query(
     `SELECT e.*, u.email as account_email, u.points, u.free_post_credits, u.referral_code, u.profile_complete
      FROM ip_employers e JOIN ip_users u ON u.id = e.user_id
@@ -36,11 +42,20 @@ export async function GET() {
 export async function PUT(request) {
   const { session, error } = await requireSession(['employer']);
   if (error) return error;
+  await ensureIpEmployerApprovalSchema();
   let body;
   try {
     body = await request.json();
   } catch {
     return jsonError('Invalid JSON');
+  }
+
+  if (body.business_entity_type !== undefined) {
+    const v = String(body.business_entity_type || '').trim();
+    if (v && !isValidBusinessEntityType(v)) {
+      return jsonError('Invalid business entity type');
+    }
+    body.business_entity_type = v || null;
   }
 
   const sets = [];

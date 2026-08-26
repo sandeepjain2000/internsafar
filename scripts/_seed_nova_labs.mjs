@@ -70,14 +70,21 @@ async function ensureInternship(title, status = 'published') {
   await client.query(`
     INSERT INTO ip_internships
       (id, employer_id, title, description, location, work_mode, stipend_inr, duration_months,
-       eligibility, questions, status, show_employer_identity, engagement_type, stipend_type)
+       eligibility, questions, status, show_employer_identity, engagement_type, stipend_type,
+       starts_at, apply_ends_at)
     VALUES ($1,$2,$3,$4,'Remote / Hybrid','Remote',15000,3,
-      '{"skills":["JavaScript","React","TypeScript","Node"]}'::jsonb,
+      $6::jsonb,
       '[{"id":"q1","prompt":"Why this internship?","type":"textarea"}]'::jsonb,
-      $5,true,'full_time','fixed')`,
+      $5,true,'full_time','fixed',
+      now() - interval '2 hours', now() + interval '28 days')`,
     [id, empId, title,
-     `${title}\n\nJoin Nova Labs for hands-on experience with real products. Weekly mentorship, demo day, and a certificate.`,
-     status]);
+     `${title}\n- Join Nova Labs for hands-on work on real products\n- Weekly mentorship and demo day\n- Certificate on successful completion`,
+     status,
+     JSON.stringify({
+       skills: ['JavaScript', 'React', 'TypeScript', 'Node'],
+       requirements_text: 'Comfortable with JavaScript and React\nAble to work remote for the internship window',
+       ideal_profile_text: 'Has shipped a small web feature\nCommunicates weekly status clearly',
+     })]);
   return id;
 }
 

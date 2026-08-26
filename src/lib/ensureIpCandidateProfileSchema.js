@@ -21,7 +21,8 @@ export async function ensureIpCandidateProfileSchema() {
       ADD COLUMN IF NOT EXISTS college TEXT,
       ADD COLUMN IF NOT EXISTS degree TEXT,
       ADD COLUMN IF NOT EXISTS cgpa NUMERIC(4,2),
-      ADD COLUMN IF NOT EXISTS phone TEXT
+      ADD COLUMN IF NOT EXISTS phone TEXT,
+      ADD COLUMN IF NOT EXISTS resume_links JSONB NOT NULL DEFAULT '[]'::jsonb
   `);
   await query(`
     ALTER TABLE ip_candidate_academics

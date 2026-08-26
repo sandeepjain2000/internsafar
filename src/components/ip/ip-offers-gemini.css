@@ -102,6 +102,82 @@
   cursor: pointer;
 }
 
+.ip-offers .ip-of-reset.is-on {
+  border-color: #6366f1;
+  color: #4338ca;
+  background: #eef2ff;
+}
+
+.ip-offers .ip-of-adv-on {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.25rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.ip-offers .ip-of-advanced {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  align-items: end;
+}
+
+@media (min-width: 768px) {
+  .ip-offers .ip-of-advanced {
+    grid-template-columns: 1.3fr 0.9fr 0.9fr;
+  }
+}
+
+@media (min-width: 1200px) {
+  .ip-offers .ip-of-advanced {
+    grid-template-columns: 1.3fr 0.85fr 0.95fr 0.9fr 0.9fr 0.9fr;
+  }
+}
+
+.ip-offers .ip-of-advanced__field {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  align-content: end;
+}
+
+.ip-offers .ip-of-advanced__field > span {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ip-offers .ip-of-advanced__field input,
+.ip-offers .ip-of-advanced__field select {
+  height: 2.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  padding: 0 0.65rem;
+  background: #fff;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: #0f172a;
+}
+
+.ip-offers .ip-of-advanced__field input:focus,
+.ip-offers .ip-of-advanced__field select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
 .ip-offers .ip-of-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -628,6 +704,43 @@
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
 }
 
+.ip-offers .ip-of-modal--detail {
+  max-width: min(52rem, 100%);
+  max-height: min(92vh, 56rem);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ip-offers .ip-of-modal-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.ip-offers .ip-of-modal-detail-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  text-align: left;
+}
+
+.ip-offers .ip-of-modal-detail-body {
+  overflow: auto;
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.ip-offers .ip-of-card--modal {
+  border: none;
+  box-shadow: none;
+  margin: 0;
+}
+
 .ip-offers .ip-of-modal h3 {
   margin: 0;
   font-size: 1.125rem;
@@ -647,6 +760,58 @@
   justify-content: flex-end;
   gap: 0.5rem;
   margin-top: 1.25rem;
+}
+
+.ip-offers .ip-of-modal-actions--wrap {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.ip-offers .ip-of-role-btn {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ip-offers .ip-of-role-btn:hover {
+  color: var(--ip-indigo);
+  text-decoration: underline;
+}
+
+.ip-offers .ip-of-list-share {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ip-offers .ip-of-icon-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.ip-offers .ip-of-icon-btn:hover {
+  background: #f8fafc;
+  color: var(--ip-indigo);
+  border-color: #c7d2fe;
 }
 
 .ip-offers .ip-of-stars {

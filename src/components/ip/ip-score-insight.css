@@ -1,0 +1,148 @@
+/* Shared Match / Validation insight — high contrast, no clip, cards + list parity */
+
+.ip-score-pair {
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.ip-score-pair--compact {
+  gap: 0.4rem;
+  min-width: 7.5rem;
+}
+
+.ip-score-pair--comfortable,
+.ip-score-pair--detail {
+  gap: 0.65rem;
+}
+
+.ip-score-insight {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ip-score-insight__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.ip-score-insight__label {
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #475569;
+  flex-shrink: 0;
+}
+
+.ip-score-insight__readout {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.ip-score-insight__band {
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 0.1rem 0.35rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.ip-score-insight.is-high .ip-score-insight__band {
+  color: #065f46;
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+.ip-score-insight.is-med .ip-score-insight__band {
+  color: #92400e;
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.ip-score-insight.is-low .ip-score-insight__band {
+  color: #9f1239;
+  background: #ffe4e6;
+  border-color: #fda4af;
+}
+
+.ip-score-insight.is-empty .ip-score-insight__band {
+  color: #64748b;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.ip-score-insight__track {
+  height: 0.375rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+  width: 100%;
+}
+
+.ip-score-insight__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: #64748b;
+  min-width: 0;
+  max-width: 100%;
+  transition: width 0.2s ease;
+}
+
+.ip-score-insight.is-high .ip-score-insight__fill { background: #059669; }
+.ip-score-insight.is-med .ip-score-insight__fill { background: #d97706; }
+.ip-score-insight.is-low .ip-score-insight__fill { background: #e11d48; }
+
+.ip-score-insight__why {
+  margin: 0.15rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #334155;
+}
+
+.ip-score-insight--comfortable .ip-score-insight__readout,
+.ip-score-insight--detail .ip-score-insight__readout {
+  font-size: 0.9375rem;
+}
+
+.ip-score-insight--detail .ip-score-insight__track {
+  height: 0.5rem;
+}
+
+.ip-score-insight--detail .ip-score-insight__label {
+  font-size: 0.72rem;
+}
+
+/* List cell: keep dense but readable */
+.ip-ph-list td .ip-score-insight {
+  min-width: 8rem;
+  max-width: 11rem;
+}
+
+.ip-ph-list td .ip-score-insight__label {
+  font-size: 0.62rem;
+}
+
+.ip-ph-list td .ip-score-insight__readout {
+  font-size: 0.75rem;
+}
+
+.ip-ph-list td .ip-score-insight__band {
+  font-size: 0.58rem;
+  padding: 0.05rem 0.28rem;
+}
+
+.ip-br-card .ip-score-pair {
+  margin-top: 0.15rem;
+}

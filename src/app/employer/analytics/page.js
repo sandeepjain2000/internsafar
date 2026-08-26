@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import PageHeader from '@/components/ip/PageHeader';
+import { formatStatus } from '@/lib/utils';
 
 export default function EmployerAnalyticsPage() {
   const [data, setData] = useState(null);
@@ -48,7 +49,7 @@ export default function EmployerAnalyticsPage() {
         <CardHeader><CardTitle className="text-base">Application funnel</CardTitle></CardHeader>
         <CardContent className="flex gap-3 flex-wrap">
           {Object.entries(data.funnel || {}).map(([status, count]) => (
-            <Badge key={status} variant="outline">{status}: {count}</Badge>
+            <Badge key={status} variant="outline">{formatStatus(status)}: {count}</Badge>
           ))}
           {!Object.keys(data.funnel || {}).length ? <p className="text-sm text-muted-foreground">No applications yet.</p> : null}
         </CardContent>

@@ -150,6 +150,11 @@ export function decorateCandidateNotification(n, { offers = [], interviews = [] 
     company = meta.company || company;
   }
 
+  const timeSensitive =
+    priority === 'urgent'
+    || priority === 'action_required'
+    || Boolean(deadlineText);
+
   return {
     id: n.id,
     title: n.title,
@@ -161,6 +166,7 @@ export function decorateCandidateNotification(n, { offers = [], interviews = [] 
     company,
     priority,
     deadlineText,
+    time_sensitive: timeSensitive,
     actionLabel: action.label,
     actionHref: action.href,
     isUnread: !n.read_at,

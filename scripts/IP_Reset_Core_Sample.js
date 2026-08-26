@@ -9,6 +9,8 @@ const path = require('path');
 const readline = require('readline');
 const { createRequire } = require('module');
 
+const content = require('./lib/ipTestDataContent.js');
+
 const CONFIG = {
   superadminEmail: 'placementhubsupport@gmail.com',
   legacySuperadminEmail: 'superadmin@internship.local',
@@ -16,14 +18,23 @@ const CONFIG = {
   // Newest “primary” demo accounts (match the latest accounts doc)
   candidateBase: { email: 'lawsonlclintern+1@gmail.com', name: 'Priya Sharma' },
   employerBase: { email: 'shreekar.nyayapathi23+2@vit.edu', company: 'Nova Labs', status: 'approved' },
+  // Unique names — never reuse the same candidate/employer label across offer rows
   castCandidates: [
     { email: 'lawsonlclintern+1@gmail.com', name: 'Priya Sharma', skills: ['React', 'TypeScript', 'Node'] },
     { email: 'lawsonlclintern+2@gmail.com', name: 'Arjun Mehta', skills: ['Python', 'SQL', 'ML'] },
     { email: 'lawsonlclintern+3@gmail.com', name: 'Meera Iyer', skills: ['Java', 'Spring', 'SQL'] },
+    { email: 'lawsonlclintern+4@gmail.com', name: 'Kabir Reddy', skills: ['Figma', 'UX Research'] },
+    { email: 'lawsonlclintern+5@gmail.com', name: 'Ananya Patel', skills: ['Node.js', 'Express', 'MongoDB'] },
+    { email: 'lawsonlclintern+6@gmail.com', name: 'Rohan Das', skills: ['AWS', 'Docker', 'Linux'] },
+    { email: 'lawsonlclintern+7@gmail.com', name: 'Ishita Nair', skills: ['Selenium', 'Cypress', 'Jest'] },
+    { email: 'lawsonlclintern+8@gmail.com', name: 'Vikram Gupta', skills: ['TensorFlow', 'Python', 'NLP'] },
   ],
   castEmployers: [
     { email: 'shreekar.nyayapathi23+2@vit.edu', company: 'Nova Labs', status: 'approved' },
     { email: 'shreekar.nyayapathi23+3@vit.edu', company: 'Pulse Media', status: 'pending' },
+    { email: 'shreekar.nyayapathi23+4@vit.edu', company: 'BrightPath Analytics', status: 'approved' },
+    { email: 'shreekar.nyayapathi23+5@vit.edu', company: 'Cedar Softworks', status: 'approved' },
+    { email: 'shreekar.nyayapathi23+6@vit.edu', company: 'Orbit Fintech', status: 'approved' },
   ],
 };
 
@@ -182,28 +193,54 @@ async function seedCoreData(client, bcrypt) {
   const baseCandUser = await ensureUser(client, bcrypt, { email: CONFIG.candidateBase.email, role: 'candidate', name: CONFIG.candidateBase.name, points: 80, password: CONFIG.demoPassword });
   const baseEmpUser = await ensureUser(client, bcrypt, { email: CONFIG.employerBase.email, role: 'employer', name: CONFIG.employerBase.company, points: 200, password: CONFIG.demoPassword });
 
-  const candidateEntries = [{ ...CONFIG.candidateBase, skills: ['JavaScript', 'React', 'SQL'] }, ...CONFIG.castCandidates];
-  const employerEntries = [CONFIG.employerBase, ...CONFIG.castEmployers];
+  const candidateEntries = [];
+  const seenCand = new Set();
+  for (const c of [{ ...CONFIG.candidateBase, skills: ['JavaScript', 'React', 'SQL'] }, ...CONFIG.castCandidates]) {
+    const key = String(c.email || '').toLowerCase();
+    if (seenCand.has(key)) continue;
+    seenCand.add(key);
+    candidateEntries.push(c);
+  }
+  const employerEntries = [];
+  const seenEmp = new Set();
+  for (const e of [CONFIG.employerBase, ...CONFIG.castEmployers]) {
+    const key = String(e.email || '').toLowerCase();
+    if (seenEmp.has(key)) continue;
+    seenEmp.add(key);
+    employerEntries.push(e);
+  }
 
   const candidateIds = {};
+  const candidateUserIds = {};
   for (const c of candidateEntries) {
     const userId = c.email === CONFIG.candidateBase.email ? baseCandUser : await ensureUser(client, bcrypt, { email: c.email, role: 'candidate', name: c.name, points: 60, password: CONFIG.demoPassword });
+    candidateUserIds[c.email] = userId;
     const ex = await client.query(`SELECT id FROM ip_candidates WHERE user_id=$1`, [userId]);
     if (ex.rows[0]) candidateIds[c.email] = ex.rows[0].id;
     else {
       const id = nid('ip_cand');
       await client.query(
-        `INSERT INTO ip_candidates (id,user_id,name,email,phone,college,degree,specialization,study_status,graduation_year,cgpa,city,state,skills,preferred_work_mode,preferred_locations,resume_url,searchable,show_profile_picture)
-         VALUES ($1,$2,$3,$4,'9000000001','VIT','B.Tech','CSE','Studying',2027,'8.4','Vellore','Tamil Nadu',$5::jsonb,'Remote',$6::jsonb,'https://example.com/resume.pdf',true,true)`,
-        [id, userId, c.name, c.email.toLowerCase(), JSON.stringify(c.skills || ['JavaScript']), JSON.stringify(['Remote', 'Bengaluru'])],
+        `INSERT INTO ip_candidates (id,user_id,name,email,phone,college,degree,specialization,study_status,graduation_year,cgpa,city,state,skills,preferred_work_mode,preferred_locations,resume_url,prior_experience,searchable,show_profile_picture)
+         VALUES ($1,$2,$3,$4,'9000000001','VIT','B.Tech','CSE','Studying',2027,'8.4','Vellore','Tamil Nadu',$5::jsonb,'Remote',$6::jsonb,'https://example.com/resume.pdf',$7,true,true)`,
+        [
+          id,
+          userId,
+          c.name,
+          c.email.toLowerCase(),
+          JSON.stringify(c.skills || ['JavaScript']),
+          JSON.stringify(['Remote', 'Bengaluru']),
+          content.experienceEntriesJsonAt(Object.keys(candidateIds).length),
+        ],
       );
       candidateIds[c.email] = id;
     }
   }
 
   const employerIds = {};
+  const employerUserIds = {};
   for (const e of employerEntries) {
     const userId = e.email === CONFIG.employerBase.email ? baseEmpUser : await ensureUser(client, bcrypt, { email: e.email, role: 'employer', name: e.company, points: 200, password: CONFIG.demoPassword });
+    employerUserIds[e.email] = userId;
     const ex = await client.query(`SELECT id FROM ip_employers WHERE user_id=$1`, [userId]);
     if (ex.rows[0]) {
       employerIds[e.email] = ex.rows[0].id;
@@ -220,37 +257,286 @@ async function seedCoreData(client, bcrypt) {
     }
   }
 
-  const postEmpEmail = employerEntries.find((e) => (e.status || 'approved') === 'approved')?.email || CONFIG.employerBase.email;
+  const approvedEmployers = employerEntries.filter((e) => (e.status || 'approved') === 'approved');
+  const postEmpEmail = approvedEmployers[0]?.email || CONFIG.employerBase.email;
   const postEmpId = employerIds[postEmpEmail];
-  const titles = ['Frontend Developer Intern', 'Data Analyst Intern', 'Backend API Intern', 'Paused Design Intern'];
-  const internshipIds = [];
-  for (const t of titles) {
-    const status = t === 'Paused Design Intern' ? 'paused' : 'published';
-    const ex = await client.query(`SELECT id FROM ip_internships WHERE employer_id=$1 AND title=$2 LIMIT 1`, [postEmpId, t]);
-    if (ex.rows[0]) internshipIds.push(ex.rows[0].id);
-    else {
-      const id = nid('ip_int');
-      await client.query(
-        `INSERT INTO ip_internships (id,employer_id,title,description,location,work_mode,stipend_inr,duration_months,eligibility,questions,status,show_employer_identity,engagement_type,stipend_type)
-         VALUES ($1,$2,$3,$4,'Remote / Hybrid','Remote',15000,3,$5::jsonb,$6::jsonb,$7,true,'full_time','fixed')`,
-        [id, postEmpId, t, `${t}\n\nResponsibilities include project work, weekly check-ins, and a final demo.`, JSON.stringify({ skills: ['JavaScript', 'React', 'SQL', 'Python'] }), JSON.stringify([{ id: 'q1', prompt: 'Why this role?', type: 'textarea' }]), status],
-      );
-      internshipIds.push(id);
+  const postCompany = employerEntries.find((e) => e.email === postEmpEmail)?.company || 'Nova Labs';
+
+  // Unique role titles — never identical "QA Intern" placeholders
+  const roleSpecs = content.ROLE_TITLES.slice(0, 12).map((title, ti) => ({
+    title,
+    status: ti === 11 ? 'paused' : 'published',
+  }));
+
+  /** @type {{ id: string, employerId: string, title: string, company: string }[]} */
+  const postingRows = [];
+
+  async function ensurePosting(employerId, company, title, status, ti) {
+    const city = content.pick(content.CITIES, ti);
+    const ex = await client.query(`SELECT id FROM ip_internships WHERE employer_id=$1 AND title=$2 LIMIT 1`, [employerId, title]);
+    if (ex.rows[0]) {
+      postingRows.push({ id: ex.rows[0].id, employerId, title, company });
+      return ex.rows[0].id;
     }
+    const id = nid('ip_int');
+    const desc = content.internshipDescription(title, company, city, ti);
+    // Live schedule for Browse (CANDIDATE_VISIBLE): starts_at past, apply_ends_at future.
+    // start_date may be soon for "Starting soon" chips — do not put starts_at in the future.
+    await client.query(
+      `INSERT INTO ip_internships (
+         id,employer_id,title,description,location,work_mode,stipend_inr,duration_months,
+         eligibility,questions,status,show_employer_identity,engagement_type,stipend_type,
+         locations,starts_at,apply_ends_at,start_date
+       ) VALUES (
+         $1,$2,$3,$4,$5,$6,$7,3,$8::jsonb,$9::jsonb,$10,true,'full_time','fixed',
+         $11::jsonb, now() - interval '2 hours', now() + interval '28 days',
+         CURRENT_DATE + $12::int
+       )`,
+      [
+        id,
+        employerId,
+        title,
+        desc,
+        city,
+        content.pick(content.WORK_MODES, ti),
+        12000 + (ti % 5) * 2000,
+        JSON.stringify(content.internshipEligibilityAt(ti)),
+        JSON.stringify([{ id: 'q1', prompt: 'Why this role?', type: 'textarea' }]),
+        status,
+        JSON.stringify([city]),
+        5 + (ti % 16),
+      ],
+    );
+    postingRows.push({ id, employerId, title, company });
+    return id;
   }
 
-  const candEmails = Object.keys(candidateIds);
+  // Primary employer gets the bulk of published roles
+  for (let ti = 0; ti < roleSpecs.length; ti += 1) {
+    const { title: t, status } = roleSpecs[ti];
+    await ensurePosting(postEmpId, postCompany, t, status, ti);
+  }
+
+  // Each additional approved employer gets 2–3 distinct roles so offers are not all from one company
+  let extraTi = roleSpecs.length;
+  for (let ei = 1; ei < approvedEmployers.length; ei += 1) {
+    const emp = approvedEmployers[ei];
+    const eid = employerIds[emp.email];
+    if (!eid) continue;
+    const count = 3;
+    for (let j = 0; j < count; j += 1) {
+      const title = content.roleTitle(extraTi + j);
+      await ensurePosting(eid, emp.company, title, 'published', extraTi + j);
+    }
+    extraTi += count;
+  }
+
+  const publishedPostings = postingRows.filter((p) => {
+    const spec = roleSpecs.find((r) => r.title === p.title);
+    return !spec || spec.status === 'published' || p.employerId !== postEmpId;
+  });
+  const internshipIds = postingRows.map((p) => p.id);
+  const publishedInternIds = publishedPostings.map((p) => p.id);
+
+  const candEmails = [...new Set(Object.keys(candidateIds))];
+  const offerStatuses = ['pending', 'accepted', 'declined', 'pending', 'expired', 'pending', 'accepted', 'pending'];
+
+  // Applications: rotate candidates across different roles (not one name on every row)
   for (let i = 0; i < candEmails.length; i += 1) {
     const cEmail = candEmails[i];
-    const appStatus = i === 1 ? 'shortlisted' : i === 0 ? 'offered' : 'applied';
-    const internId = internshipIds[i % 3];
-    const ex = await client.query(`SELECT id FROM ip_applications WHERE internship_id=$1 AND candidate_id=$2`, [internId, candidateIds[cEmail]]);
+    const posting = publishedPostings[i % Math.max(1, publishedPostings.length)];
+    if (!posting) continue;
+    const appStatus = i === 1 ? 'shortlisted' : i % 5 === 0 ? 'offered' : i % 4 === 0 ? 'interviewing' : 'applied';
+    const ex = await client.query(`SELECT id FROM ip_applications WHERE internship_id=$1 AND candidate_id=$2`, [posting.id, candidateIds[cEmail]]);
     let appId = ex.rows[0]?.id;
     if (!appId) {
       appId = nid('ip_app');
-      await client.query(`INSERT INTO ip_applications (id,internship_id,candidate_id,status,match_score,answers) VALUES ($1,$2,$3,$4,$5,$6::jsonb)`, [appId, internId, candidateIds[cEmail], appStatus, 70 + i * 5, JSON.stringify({ q1: 'Excited to contribute.' })]);
+      await client.query(
+        `INSERT INTO ip_applications (id,internship_id,candidate_id,status,match_score,answers) VALUES ($1,$2,$3,$4,$5,$6::jsonb)`,
+        [appId, posting.id, candidateIds[cEmail], appStatus, 70 + (i % 8) * 3, JSON.stringify({ q1: 'Excited to contribute to this internship and learn from the team.' })],
+      );
     } else {
-      await client.query(`UPDATE ip_applications SET status=$2,match_score=$3 WHERE id=$1`, [appId, appStatus, 70 + i * 5]);
+      await client.query(`UPDATE ip_applications SET status=$2,match_score=$3 WHERE id=$1`, [appId, appStatus, 70 + (i % 8) * 3]);
+    }
+  }
+
+  // Offers: distinct candidate × posting pairs; employer follows the posting (never same name spam)
+  await client.query(`ALTER TABLE ip_offers ADD COLUMN IF NOT EXISTS application_id TEXT`).catch(() => {});
+  await client.query(`ALTER TABLE ip_offers ADD COLUMN IF NOT EXISTS start_date DATE`).catch(() => {});
+  await client.query(`ALTER TABLE ip_offers ADD COLUMN IF NOT EXISTS valid_until DATE`).catch(() => {});
+
+  const offerCount = Math.min(
+    Math.max(candEmails.length, publishedPostings.length),
+    content.TARGET_LIST_ROWS,
+  );
+  for (let i = 0; i < offerCount; i += 1) {
+    const cEmail = candEmails[i % candEmails.length];
+    const candidateId = candidateIds[cEmail];
+    const posting = publishedPostings[i % Math.max(1, publishedPostings.length)];
+    if (!posting || !candidateId) continue;
+    const status = offerStatuses[i % offerStatuses.length];
+    const stipend = 12000 + (i % 9) * 1500;
+    const start = new Date();
+    start.setDate(start.getDate() + 7 + (i % 10) * 3);
+    const valid = new Date();
+    if (status === 'expired') valid.setDate(valid.getDate() - 3 - (i % 5));
+    else valid.setDate(valid.getDate() + 5 + (i % 12));
+
+    let appRow = await client.query(
+      `SELECT id FROM ip_applications WHERE internship_id=$1 AND candidate_id=$2 LIMIT 1`,
+      [posting.id, candidateId],
+    );
+    let appId = appRow.rows[0]?.id;
+    if (!appId) {
+      appId = nid('ip_app');
+      const appStatus = status === 'accepted' ? 'hired' : status === 'declined' ? 'declined_offer' : 'offered';
+      await client.query(
+        `INSERT INTO ip_applications (id,internship_id,candidate_id,status,match_score,answers) VALUES ($1,$2,$3,$4,$5,$6::jsonb)`,
+        [appId, posting.id, candidateId, appStatus, 75 + (i % 10), JSON.stringify({ q1: 'Looking forward to the opportunity.' })],
+      );
+    }
+
+    const offerEx = await client.query(`SELECT id FROM ip_offers WHERE application_id=$1 LIMIT 1`, [appId]);
+    if (offerEx.rows[0]) continue;
+
+    const offerId = nid('ip_off');
+    const firstName = String(
+      candidateEntries.find((c) => c.email === cEmail)?.name || 'there',
+    ).split(' ')[0];
+    try {
+      await client.query(
+        `INSERT INTO ip_offers (
+           id, internship_id, employer_id, candidate_id, application_id,
+           status, stipend_inr, role_title, message, start_date, valid_until
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        [
+          offerId,
+          posting.id,
+          posting.employerId,
+          candidateId,
+          appId,
+          status === 'expired' ? 'pending' : status,
+          stipend,
+          posting.title,
+          `Hi ${firstName}, ${posting.company} would like to extend an offer for ${posting.title}.`,
+          start.toISOString().slice(0, 10),
+          valid.toISOString().slice(0, 10),
+        ],
+      );
+    } catch {
+      /* unique / FK — skip duplicate */
+    }
+  }
+
+  // Message threads (≥10, both sides) so Messages inbox is non-empty after reset
+  const threadTarget = Math.max(12, content.TARGET_LIST_ROWS);
+  let threadN = 0;
+  const empEmailById = Object.fromEntries(
+    Object.entries(employerIds).map(([email, id]) => [id, email]),
+  );
+  for (let i = 0; i < publishedPostings.length && threadN < threadTarget; i += 1) {
+    const posting = publishedPostings[i];
+    const cEmail = candEmails[i % candEmails.length];
+    const candUserId = candidateUserIds[cEmail];
+    const empEmail = empEmailById[posting.employerId];
+    const empUserId = employerUserIds[empEmail];
+    if (!candUserId || !empUserId) continue;
+    const thrEx = await client.query(
+      `SELECT id FROM ip_message_threads
+       WHERE internship_id=$1 AND candidate_user_id=$2 AND employer_user_id=$3 LIMIT 1`,
+      [posting.id, candUserId, empUserId],
+    );
+    let threadId = thrEx.rows[0]?.id;
+    if (!threadId) {
+      threadId = nid('ip_thr');
+      await client.query(
+        `INSERT INTO ip_message_threads (id, internship_id, candidate_user_id, employer_user_id, subject)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [threadId, posting.id, candUserId, empUserId, `${posting.title} — conversation`],
+      );
+    }
+    const msgCount = await client.query(`SELECT count(*)::int AS n FROM ip_messages WHERE thread_id=$1`, [threadId]);
+    if (Number(msgCount.rows[0]?.n || 0) === 0) {
+      const first = String(
+        candidateEntries.find((c) => c.email === cEmail)?.name || 'there',
+      ).split(' ')[0];
+      await client.query(
+        `INSERT INTO ip_messages (id, thread_id, sender_user_id, body) VALUES ($1,$2,$3,$4)`,
+        [nid('ip_msg'), threadId, empUserId, `Hi ${first} — thanks for your interest in ${posting.title}.`],
+      );
+      await client.query(
+        `INSERT INTO ip_messages (id, thread_id, sender_user_id, body) VALUES ($1,$2,$3,$4)`,
+        [nid('ip_msg'), threadId, candUserId, `Thank you! Happy to share more about my background.`],
+      );
+    }
+    threadN += 1;
+  }
+  // Extra pairs if still under target
+  for (let j = 0; j < candEmails.length && threadN < threadTarget; j += 1) {
+    for (let k = 0; k < publishedPostings.length && threadN < threadTarget; k += 1) {
+      if (k === j) continue;
+      const posting = publishedPostings[k];
+      const cEmail = candEmails[j];
+      const candUserId = candidateUserIds[cEmail];
+      const empEmail = empEmailById[posting.employerId];
+      const empUserId = employerUserIds[empEmail];
+      if (!candUserId || !empUserId) continue;
+      const thrEx = await client.query(
+        `SELECT id FROM ip_message_threads
+         WHERE internship_id=$1 AND candidate_user_id=$2 AND employer_user_id=$3 LIMIT 1`,
+        [posting.id, candUserId, empUserId],
+      );
+      if (thrEx.rows[0]) continue;
+      const threadId = nid('ip_thr');
+      await client.query(
+        `INSERT INTO ip_message_threads (id, internship_id, candidate_user_id, employer_user_id, subject)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [threadId, posting.id, candUserId, empUserId, `${posting.title} — follow-up`],
+      );
+      await client.query(
+        `INSERT INTO ip_messages (id, thread_id, sender_user_id, body) VALUES ($1,$2,$3,$4)`,
+        [nid('ip_msg'), threadId, empUserId, `Quick note about ${posting.title} — are you available for a screen?`],
+      );
+      await client.query(
+        `INSERT INTO ip_messages (id, thread_id, sender_user_id, body) VALUES ($1,$2,$3,$4)`,
+        [nid('ip_msg'), threadId, candUserId, `Yes — mid-week works best for me.`],
+      );
+      threadN += 1;
+    }
+  }
+
+  // Feature ideas with unique titles (never all "QA Intern")
+  const ideaAuthorEmail = CONFIG.castCandidates[0]?.email || CONFIG.candidateBase.email;
+  const ideaAuthorUser = await client.query(`SELECT id FROM ip_users WHERE lower(email)=lower($1) LIMIT 1`, [ideaAuthorEmail]);
+  const authorId = ideaAuthorUser.rows[0]?.id;
+  if (authorId && (await tableExists(client, 'ip_feature_ideas'))) {
+    let catId = null;
+    try {
+      const cats = await client.query(`SELECT id FROM ip_idea_categories ORDER BY sort_order NULLS LAST LIMIT 1`);
+      catId = cats.rows[0]?.id || null;
+    } catch {
+      /* optional */
+    }
+    const ideaCount = Math.min(content.FEATURE_IDEAS.length, Math.max(content.TARGET_LIST_ROWS, content.FEATURE_IDEAS.length));
+    for (let i = 0; i < ideaCount; i += 1) {
+      const idea = content.FEATURE_IDEAS[i];
+      const ex = await client.query(`SELECT id FROM ip_feature_ideas WHERE title=$1 LIMIT 1`, [idea.title]);
+      if (ex.rows[0]) continue;
+      const id = nid('ip_idea');
+      const status = content.IDEA_STATUSES[i % content.IDEA_STATUSES.length];
+      try {
+        await client.query(
+          `INSERT INTO ip_feature_ideas (id, author_user_id, title, description, problem, solution, status, category_id, vote_count)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          [id, authorId, idea.title, idea.description, idea.problem || null, idea.solution || null, status, catId, 1 + (i % 8)],
+        );
+      } catch {
+        await client.query(
+          `INSERT INTO ip_feature_ideas (id, author_user_id, title, description, status, vote_count)
+           VALUES ($1,$2,$3,$4,$5,$6)`,
+          [id, authorId, idea.title, idea.description, status, 1 + (i % 8)],
+        );
+      }
     }
   }
 }

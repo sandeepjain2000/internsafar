@@ -15,14 +15,33 @@ import {
   RotateCcw,
   Search,
   Share2,
+  SlidersHorizontal,
   Sparkles,
   X,
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
-import { useListPrefsSync } from '@/hooks/useListPrefsSync';
+import { normalizePrefsFilters, useListPrefsSync } from '@/hooks/useListPrefsSync';
+import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import '@/components/ip/ip-candidate-notifications-gemini.css';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
+import { useClientPagination } from '@/hooks/useClientPagination';
+import IpTablePagination from '@/components/ip/IpTablePagination';
+
+const PAGE_SIZE = 10;
+
+const PRIORITY_OPTIONS = [
+  { value: '', label: 'Any priority' },
+  { value: 'urgent', label: 'Time-sensitive' },
+  { value: 'action_required', label: 'Action Required' },
+  { value: 'normal', label: 'Normal' },
+];
+
+const DEADLINE_OPTIONS = [
+  { value: '', label: 'Any deadline' },
+  { value: 'has', label: 'Has deadline' },
+  { value: 'none', label: 'No deadline' },
+];
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -72,20 +91,64 @@ export default function CandidateNotificationsPage() {
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [titleQ, setTitleQ] = useState('');
+  const [companies, setCompanies] = useState([]);
+  const [priority, setPriority] = useState('');
+  const [deadline, setDeadline] = useState('');
   const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [viewMode, setViewMode] = useViewMode('ip_cand_notif_view', 'cards');
 
-  const snapshot = useMemo(() => ({ filters: { filter, search }, sort: '' }), [filter, search]);
+  const snapshot = useMemo(
+    () => ({
+      filters: { filter, search, titleQ, companies, priority, deadline },
+      sort: '',
+    }),
+    [filter, search, titleQ, companies, priority, deadline],
+  );
   const prefs = useListPrefsSync({
     tableKey: 'candidate.notifications',
     snapshot,
     applySnapshot: (s) => {
-      const f = s.filters || {};
-      if (f.filter) setFilter(f.filter);
-      if (f.search != null) setSearch(f.search);
+      const f = normalizePrefsFilters(s?.filters);
+      setFilter(f.filter != null && f.filter !== '' ? String(f.filter) : 'all');
+      setSearch(f.search != null ? String(f.search) : '');
+      setTitleQ(f.titleQ != null ? String(f.titleQ) : '');
+      setCompanies(Array.isArray(f.companies) ? f.companies.map(String) : []);
+      setPriority(f.priority != null ? String(f.priority) : '');
+      setDeadline(f.deadline != null ? String(f.deadline) : '');
+      if (
+        (f.titleQ && String(f.titleQ).trim())
+        || (Array.isArray(f.companies) && f.companies.length)
+        || f.priority
+        || f.deadline
+      ) {
+        setAdvancedOpen(true);
+      }
     },
   });
+
+  const activeFilter = FILTERS.find((f) => f.id === filter) || FILTERS[0];
+  const advancedActive = Boolean(
+    titleQ.trim()
+    || companies.length
+    || priority
+    || deadline,
+  );
+  const filtersActive = filter !== 'all' || Boolean(search.trim()) || advancedActive;
+
+  const companyOptions = useMemo(() => {
+    const map = new Map();
+    for (const n of items) {
+      const c = String(n.company || '').trim();
+      if (!c) continue;
+      const key = c.toLowerCase();
+      if (!map.has(key)) map.set(key, { value: c, label: c });
+    }
+    return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
+  }, [items]);
 
   function showToast(msg) {
     setToast(msg);
@@ -143,10 +206,16 @@ export default function CandidateNotificationsPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const titleNeedle = titleQ.trim().toLowerCase();
+    const companySet = new Set(companies.map((c) => String(c).toLowerCase()));
     return items.filter((n) => {
       if (filter === 'unread' && n.read_at) return false;
       if (filter === 'timed') {
-        const timed = n.time_sensitive || n.bucket === 'offers' || n.bucket === 'interviews' || /expir|deadline|accept/i.test(`${n.title} ${n.body}`);
+        const timed =
+          n.time_sensitive
+          || n.priority === 'urgent'
+          || n.priority === 'action_required'
+          || Boolean(n.deadlineText);
         if (!timed) return false;
       } else if (filter === '24h' || filter === '7d' || filter === '30d') {
         const created = new Date(n.created_at).getTime();
@@ -155,19 +224,47 @@ export default function CandidateNotificationsPage() {
       } else if (filter !== 'all' && filter !== 'unread' && n.bucket !== filter) {
         return false;
       }
+
+      if (titleNeedle) {
+        const hay = `${n.title || ''} ${n.body || ''}`.toLowerCase();
+        if (!hay.includes(titleNeedle)) return false;
+      }
+      if (companySet.size) {
+        const company = String(n.company || '').toLowerCase();
+        if (!companySet.has(company)) return false;
+      }
+      if (priority === 'urgent' || priority === 'action_required') {
+        if (String(n.priority || '') !== priority) return false;
+      } else if (priority === 'normal') {
+        if (n.priority === 'urgent' || n.priority === 'action_required') return false;
+      }
+      if (deadline === 'has' && !n.deadlineText) return false;
+      if (deadline === 'none' && n.deadlineText) return false;
+
       if (!q) return true;
       return `${n.title || ''} ${n.body || ''} ${n.company || ''} ${n.bucket || ''}`.toLowerCase().includes(q);
     });
-  }, [items, filter, search]);
+  }, [items, filter, search, titleQ, companies, priority, deadline]);
+
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(filtered, PAGE_SIZE);
+  useEffect(() => {
+    setPage(1);
+  }, [filter, search, titleQ, companies, priority, deadline, setPage]);
 
   function resetFilters() {
     setFilter('all');
     setSearch('');
+    setTitleQ('');
+    setCompanies([]);
+    setPriority('');
+    setDeadline('');
+    setFiltersOpen(false);
+    setAdvancedOpen(false);
   }
 
   let emptyTitle = "You're all caught up.";
   let emptyDesc = 'There are no new updates or pending notifications for your account at this time.';
-  if (search || filter !== 'all') {
+  if (filtersActive) {
     emptyTitle = 'No notifications found';
     emptyDesc = 'There are no notifications matching this search or filter.';
   }
@@ -220,29 +317,109 @@ export default function CandidateNotificationsPage() {
           </div>
         </div>
 
-        <div className="ip-cn-tabs" role="tablist" aria-label="Notification category">
-          {FILTERS.map((f) => {
-            const Icon = f.Icon;
-            const count = counts[f.id] ?? 0;
-            return (
-              <button
-                key={f.id}
-                type="button"
-                role="tab"
-                aria-selected={filter === f.id}
-                className={filter === f.id ? 'is-on' : ''}
-                onClick={() => setFilter(f.id)}
-              >
-                {f.unreadDot ? <span className="ip-cn-dot" aria-hidden /> : null}
-                {Icon ? <Icon size={14} aria-hidden /> : null}
-                <span>{f.label}</span>
-                {f.id === 'all' || f.id === 'unread' ? (
-                  <span className="ip-cn-tab-count">{count}</span>
-                ) : null}
-              </button>
-            );
-          })}
+        <div className="ip-cn-filters-bar">
+          <div className="ip-cn-filters-wrap">
+            <button
+              type="button"
+              className={`ip-cn-filters-btn${filtersOpen || (filter !== 'all') ? ' is-on' : ''}`}
+              aria-expanded={filtersOpen}
+              aria-controls="ip-cn-filters-panel"
+              onClick={() => {
+                setFiltersOpen((v) => !v);
+              }}
+            >
+              <SlidersHorizontal size={14} aria-hidden />
+              <span>Filters</span>
+              {filter !== 'all' ? <span className="ip-cn-filters-chip">{activeFilter.label}</span> : null}
+            </button>
+            {filtersOpen ? (
+              <div id="ip-cn-filters-panel" className="ip-cn-filters-panel" role="listbox" aria-label="Notification filters">
+                {FILTERS.map((f) => {
+                  const Icon = f.Icon;
+                  const count = counts[f.id];
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      role="option"
+                      aria-selected={filter === f.id}
+                      className={filter === f.id ? 'is-on' : ''}
+                      onClick={() => {
+                        setFilter(f.id);
+                      }}
+                    >
+                      {f.unreadDot ? <span className="ip-cn-dot" aria-hidden /> : null}
+                      {Icon ? <Icon size={14} aria-hidden /> : null}
+                      <span>{f.label}</span>
+                      {count != null ? <span className="ip-cn-tab-count">{count}</span> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className={`ip-cn-filters-btn${advancedOpen || advancedActive ? ' is-on' : ''}`}
+            aria-expanded={advancedOpen}
+            aria-controls="ip-cn-advanced-panel"
+            onClick={() => {
+              setAdvancedOpen((v) => !v);
+            }}
+          >
+            <SlidersHorizontal size={14} aria-hidden />
+            <span>Advanced filters</span>
+            {advancedActive ? <span className="ip-cn-filters-chip">On</span> : null}
+          </button>
+          {filtersActive ? (
+            <button type="button" className="ip-cn-btn" onClick={resetFilters}>
+              <RotateCcw size={14} aria-hidden />
+              Reset
+            </button>
+          ) : null}
         </div>
+
+        {advancedOpen ? (
+          <div id="ip-cn-advanced-panel" className="ip-cn-advanced" role="region" aria-label="Advanced notification filters">
+            <label className="ip-cn-advanced__field">
+              <span>Title</span>
+              <input
+                type="search"
+                value={titleQ}
+                onChange={(e) => setTitleQ(e.target.value)}
+                placeholder="Filter by title or body text…"
+                aria-label="Filter by title"
+              />
+            </label>
+            <label className="ip-cn-advanced__field">
+              <span>Company</span>
+              <SearchableMultiSelect
+                options={companyOptions}
+                value={companies}
+                onChange={setCompanies}
+                placeholder="Search companies…"
+                ariaLabel="Filter by company"
+              />
+            </label>
+            <label className="ip-cn-advanced__field">
+              <span>Priority</span>
+              <select value={priority} onChange={(e) => setPriority(e.target.value)} aria-label="Filter by priority">
+                {PRIORITY_OPTIONS.map((o) => (
+                  <option key={o.value || 'any'} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="ip-cn-advanced__field">
+              <span>Deadline</span>
+              <select value={deadline} onChange={(e) => setDeadline(e.target.value)} aria-label="Filter by deadline">
+                {DEADLINE_OPTIONS.map((o) => (
+                  <option key={o.value || 'any'} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : null}
+
         <ListPresetsBar {...prefs} />
       </div>
 
@@ -257,24 +434,67 @@ export default function CandidateNotificationsPage() {
               <thead>
                 <tr className="border-b text-left text-slate-500">
                   <th className="p-3">Title</th>
+                  <th className="p-3">Company</th>
+                  <th className="p-3">Priority</th>
+                  <th className="p-3">Deadline</th>
                   <th className="p-3">When</th>
                   <th className="p-3">Status</th>
+                  <th className="p-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((n) => (
+                {pageItems.map((n) => {
+                  const unread = n.isUnread || !n.read_at;
+                  return (
                   <tr key={n.id} className="border-b">
-                    <td className="p-3">{n.title}</td>
+                    <td className="p-3">
+                      <div className="font-medium">{n.title}</div>
+                      {n.body ? <div className="text-xs text-slate-500 line-clamp-2">{n.body}</div> : null}
+                    </td>
+                    <td className="p-3">{n.company || '—'}</td>
+                    <td className="p-3">
+                      {n.priority === 'urgent'
+                        ? 'Time-sensitive'
+                        : n.priority === 'action_required'
+                          ? 'Action Required'
+                          : '—'}
+                    </td>
+                    <td className="p-3">{n.deadlineText || '—'}</td>
                     <td className="p-3">{relativeTime(n.created_at)}</td>
-                    <td className="p-3">{n.isUnread || !n.read_at ? 'Unread' : 'Read'}</td>
+                    <td className="p-3">{unread ? 'Unread' : 'Read'}</td>
+                    <td className="p-3">
+                      <div className="flex flex-wrap gap-2 items-center">
+                        {n.actionHref ? (
+                          <Link
+                            href={n.actionHref}
+                            className="text-sm font-medium text-indigo-600 hover:underline"
+                            onClick={() => {
+                              if (unread) markRead(n.id);
+                            }}
+                          >
+                            {n.actionLabel || 'View'}
+                          </Link>
+                        ) : null}
+                        {unread ? (
+                          <button
+                            type="button"
+                            className="ip-cn-btn"
+                            onClick={() => markRead(n.id)}
+                          >
+                            Mark as read
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
         ) : (
         <ul className="ip-cn-list">
-          {filtered.map((n) => {
+          {pageItems.map((n) => {
             const unread = n.isUnread || !n.read_at;
             const Icon = iconFor(n.bucket);
             return (
@@ -291,7 +511,7 @@ export default function CandidateNotificationsPage() {
                           <span className="ip-cn-badge ip-cn-badge--urgent">Time-sensitive</span>
                         ) : null}
                         {n.priority === 'action_required' ? (
-                          <span className="ip-cn-badge ip-cn-badge--action">Action required</span>
+                          <span className="ip-cn-badge ip-cn-badge--action">Action Required</span>
                         ) : null}
                         {n.company ? <span className="ip-cn-company">• {n.company}</span> : null}
                       </div>
@@ -343,14 +563,26 @@ export default function CandidateNotificationsPage() {
           })}
         </ul>
         )
-      ) : (
+      ) : null}
+
+      {!loading && total > 0 ? (
+        <IpTablePagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
+      ) : null}
+
+      {!loading && !filtered.length ? (
         <div className="ip-cn-empty">
           <div className="ip-cn-empty__icon">
             <Inbox size={28} aria-hidden />
           </div>
           <h3>{emptyTitle}</h3>
           <p>{emptyDesc}</p>
-          {search || filter !== 'all' ? (
+          {search || filter !== 'all' || advancedActive ? (
             <div style={{ marginTop: '1rem' }}>
               <button type="button" className="ip-cn-btn" onClick={resetFilters}>
                 <RotateCcw size={14} aria-hidden />
@@ -359,7 +591,7 @@ export default function CandidateNotificationsPage() {
             </div>
           ) : null}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

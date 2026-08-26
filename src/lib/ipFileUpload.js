@@ -6,6 +6,17 @@ const DOC_TYPES = new Set([
   'image/webp',
   'image/gif',
 ]);
+const RESUME_TYPES = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]);
+
+const RESUME_EXT_TYPES = {
+  '.pdf': 'application/pdf',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+};
 
 export const IP_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
 export const IP_DOC_MAX_BYTES = 8 * 1024 * 1024;
@@ -17,6 +28,11 @@ export function normalizeContentType(raw) {
     .toLowerCase();
   if (base === 'image/jpg' || base === 'image/pjpeg') return 'image/jpeg';
   return base;
+}
+
+function extensionOf(name) {
+  const m = String(name || '').toLowerCase().match(/(\.[a-z0-9]+)$/);
+  return m ? m[1] : '';
 }
 
 function sniffImageOrPdf(buffer) {
@@ -42,38 +58,81 @@ function sniffImageOrPdf(buffer) {
   return null;
 }
 
+/** OLE Compound File (legacy .doc) or ZIP (docx / sometimes mislabeled). */
+function sniffWordDoc(buffer) {
+  if (!buffer || buffer.length < 8) return null;
+  if (
+    buffer[0] === 0xd0
+    && buffer[1] === 0xcf
+    && buffer[2] === 0x11
+    && buffer[3] === 0xe0
+    && buffer[4] === 0xa1
+    && buffer[5] === 0xb1
+    && buffer[6] === 0x1a
+    && buffer[7] === 0xe1
+  ) {
+    return 'application/msword';
+  }
+  // ZIP local file header — DOCX is a zip package
+  if (buffer[0] === 0x50 && buffer[1] === 0x4b && (buffer[2] === 0x03 || buffer[2] === 0x05 || buffer[2] === 0x07)) {
+    return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  }
+  return null;
+}
+
+function allowedSet(kind) {
+  if (kind === 'resume') return RESUME_TYPES;
+  if (kind === 'document') return DOC_TYPES;
+  return IMAGE_TYPES;
+}
+
 /**
  * @param {{ name?: string, type?: string, size?: number }} file
- * @param {'image'|'document'} kind
+ * @param {'image'|'document'|'resume'} kind
  */
 export function validateUploadMeta(file, kind = 'image') {
   if (!file || typeof file !== 'object') return { ok: false, error: 'No file selected.' };
-  const contentType = normalizeContentType(file.type);
-  const allowed = kind === 'document' ? DOC_TYPES : IMAGE_TYPES;
-  const max = kind === 'document' ? IP_DOC_MAX_BYTES : IP_IMAGE_MAX_BYTES;
+  let contentType = normalizeContentType(file.type);
+  const allowed = allowedSet(kind);
+  const max = kind === 'image' ? IP_IMAGE_MAX_BYTES : IP_DOC_MAX_BYTES;
+
+  // Browsers often omit or mislabel Word MIME; fall back to extension for resumes.
+  if (kind === 'resume' && !allowed.has(contentType)) {
+    const fromExt = RESUME_EXT_TYPES[extensionOf(file.name)];
+    if (fromExt) contentType = fromExt;
+  }
+
   if (!allowed.has(contentType)) {
     return {
       ok: false,
       error:
-        kind === 'document'
-          ? 'Please use a PDF or image (JPEG, PNG, WebP, GIF).'
-          : 'Please use a JPEG, PNG, WebP, or GIF image.',
+        kind === 'resume'
+          ? 'Please use a PDF, DOC, or DOCX resume file.'
+          : kind === 'document'
+            ? 'Please use a PDF or image (JPEG, PNG, WebP, GIF).'
+            : 'Please use a JPEG, PNG, WebP, or GIF image.',
     };
   }
   if (!file.size || file.size <= 0) return { ok: false, error: 'File is empty.' };
   if (file.size > max) {
     return {
       ok: false,
-      error: kind === 'document' ? 'File too large (max 8MB).' : 'Image too large (max 2MB).',
+      error: kind === 'image' ? 'Image too large (max 2MB).' : 'File too large (max 8MB).',
     };
   }
   return { ok: true, contentType };
 }
 
+/**
+ * @param {Buffer} buffer
+ * @param {string} declaredContentType
+ * @param {'image'|'document'|'resume'} kind
+ */
 export function validateUploadBuffer(buffer, declaredContentType, kind = 'image') {
-  const sniffed = sniffImageOrPdf(buffer);
+  const allowed = allowedSet(kind);
+  let sniffed = sniffImageOrPdf(buffer);
+  if (!sniffed && kind === 'resume') sniffed = sniffWordDoc(buffer);
   if (!sniffed) return { ok: false, error: 'Invalid or unsupported file contents.' };
-  const allowed = kind === 'document' ? DOC_TYPES : IMAGE_TYPES;
   if (!allowed.has(sniffed)) {
     return { ok: false, error: 'File type does not match an allowed format.' };
   }
@@ -93,4 +152,8 @@ export function imageAcceptAttr() {
 
 export function documentAcceptAttr() {
   return 'application/pdf,image/jpeg,image/png,image/webp,image/gif,.pdf,.jpg,.jpeg,.png,.webp,.gif';
+}
+
+export function resumeAcceptAttr() {
+  return 'application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,.doc,.docx';
 }

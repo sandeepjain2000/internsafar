@@ -84,9 +84,10 @@ export async function POST(request) {
     );
     await query(
       `INSERT INTO ip_employers (
-         id, user_id, company_name, website, work_email, contact_name, contact_designation, approval_status,
+         id, user_id, company_name, website, work_email, contact_name, contact_designation,
+         business_entity_type, approval_status,
          approval_reviewed_at
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,'approved', now())`,
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'approved', now())`,
       [
         employerId,
         userId,
@@ -95,6 +96,7 @@ export async function POST(request) {
         row.contact_email,
         row.contact_name,
         row.contact_designation || null,
+        row.business_entity_type || null,
       ],
     );
     await query(

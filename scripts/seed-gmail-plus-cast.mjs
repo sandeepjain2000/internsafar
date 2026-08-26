@@ -28,6 +28,7 @@ const {
   CAST_EMPLOYERS,
   pendingCastEmployer,
 } = require('./lib/ipCoreSampleConfig.js');
+const content = require('./lib/ipTestDataContent.js');
 
 dotenv.config({ path: path.join(root, '.env.local') });
 dotenv.config({ path: path.join(root, '.env') });
@@ -72,8 +73,8 @@ async function ensureCandidate(client, userId, email, name, extras = {}) {
     `INSERT INTO ip_candidates (
        id, user_id, name, email, phone, college, degree, specialization, study_status,
        graduation_year, cgpa, city, state, skills, preferred_work_mode, preferred_locations,
-       resume_url, linkedin_url, github_url, personal_website, searchable, show_profile_picture
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,true,true)`,
+       resume_url, linkedin_url, github_url, personal_website, prior_experience, searchable, show_profile_picture
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,true,true)`,
     [
       id,
       userId,
@@ -95,6 +96,7 @@ async function ensureCandidate(client, userId, email, name, extras = {}) {
       extras.linkedin_url || null,
       extras.github_url || null,
       extras.personal_website || null,
+      extras.prior_experience || content.experienceEntriesJsonAt(Date.now() % 50),
     ],
   );
   return id;
@@ -165,30 +167,39 @@ async function ensureDoc(client, employerId, docType, status = 'approved') {
   );
 }
 
-async function ensureInternship(client, employerId, title, status = 'published') {
+async function ensureInternship(client, employerId, title, status = 'published', index = 0) {
   const ex = await client.query(
     `SELECT id FROM ip_internships WHERE employer_id = $1 AND title = $2 LIMIT 1`,
     [employerId, title],
   );
   if (ex.rows[0]) return ex.rows[0].id;
   const id = nid('ip_int');
+  const city = content.pick(content.CITIES, index);
+  // Live schedule so candidate Browse (CANDIDATE_VISIBLE) shows the row immediately.
   await client.query(
     `INSERT INTO ip_internships (
        id, employer_id, title, description, location, work_mode, stipend_inr, duration_months,
-       eligibility, questions, status, show_employer_identity, engagement_type, stipend_type
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11,true,'full_time','fixed')`,
+       eligibility, questions, status, show_employer_identity, engagement_type, stipend_type,
+       locations, starts_at, apply_ends_at, start_date
+     ) VALUES (
+       $1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11,true,'full_time','fixed',
+       $12::jsonb, now() - interval '2 hours', now() + interval '28 days',
+       CURRENT_DATE + $13::int
+     )`,
     [
       id,
       employerId,
       title,
-      `${title}\n\nResponsibilities include project work, weekly check-ins, and a final demo.`,
-      'Remote / Hybrid',
-      'Remote',
-      15000,
+      content.internshipDescription(title, EMP_BASE_NAME, city, index),
+      city,
+      content.pick(content.WORK_MODES, index),
+      12000 + (index % 5) * 2000,
       3,
-      JSON.stringify({ skills: ['JavaScript', 'React', 'SQL', 'Python'] }),
+      JSON.stringify(content.internshipEligibilityAt(index)),
       JSON.stringify([{ id: 'q1', prompt: 'Why this role?', type: 'textarea' }]),
       status,
+      JSON.stringify([city]),
+      5 + (index % 16),
     ],
   );
   return id;
@@ -243,50 +254,88 @@ async function ensureThread(client, internshipId, candidateUserId, employerUserI
   return threadId;
 }
 
-async function ensureOffer(client, { internshipId, candidateId, employerId, roleTitle }) {
+async function ensureOffer(client, {
+  internshipId,
+  candidateId,
+  employerId,
+  roleTitle,
+  stipend = 15000,
+  status = 'pending',
+  message,
+  startDate,
+  validUntil,
+  applicationId,
+}) {
+  if (applicationId) {
+    const byApp = await client.query(`SELECT id FROM ip_offers WHERE application_id = $1 LIMIT 1`, [applicationId]);
+    if (byApp.rows[0]) return byApp.rows[0].id;
+  }
   const ex = await client.query(
     `SELECT id FROM ip_offers WHERE internship_id = $1 AND candidate_id = $2 LIMIT 1`,
     [internshipId, candidateId],
   );
   if (ex.rows[0]) return ex.rows[0].id;
   const id = nid('ip_off');
+  const start = startDate || (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d.toISOString().slice(0, 10);
+  })();
+  const valid = validUntil || (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 10);
+    return d.toISOString().slice(0, 10);
+  })();
+  await client.query(`ALTER TABLE ip_offers ADD COLUMN IF NOT EXISTS application_id TEXT`).catch(() => {});
+  await client.query(`ALTER TABLE ip_offers ADD COLUMN IF NOT EXISTS start_date DATE`).catch(() => {});
+  await client.query(`ALTER TABLE ip_offers ADD COLUMN IF NOT EXISTS valid_until DATE`).catch(() => {});
   await client.query(
-    `INSERT INTO ip_offers (id, internship_id, candidate_id, employer_id, role_title, stipend_inr, status, message)
-     VALUES ($1,$2,$3,$4,$5,$6,'pending',$7)`,
+    `INSERT INTO ip_offers (
+       id, internship_id, candidate_id, employer_id, application_id,
+       role_title, stipend_inr, status, message, start_date, valid_until
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
     [
       id,
       internshipId,
       candidateId,
       employerId,
+      applicationId || null,
       roleTitle,
-      15000,
-      'Congratulations — we would like to offer you this internship.',
+      stipend,
+      status,
+      message || 'Congratulations — we would like to offer you this internship.',
+      start,
+      valid,
     ],
   );
   return id;
 }
 
-async function ensureIdea(client, authorId, title, categoryId) {
+async function ensureIdea(client, authorId, title, categoryId, status = 'Pending approval') {
   const ex = await client.query(`SELECT id FROM ip_feature_ideas WHERE title = $1 LIMIT 1`, [title]);
-  if (ex.rows[0]) return ex.rows[0].id;
+  if (ex.rows[0]) {
+    await client.query(`UPDATE ip_feature_ideas SET status = $2 WHERE id = $1`, [ex.rows[0].id, status]).catch(() => {});
+    return ex.rows[0].id;
+  }
   const id = nid('ip_idea');
   const cols = await client.query(
     `SELECT column_name FROM information_schema.columns
      WHERE table_name = 'ip_feature_ideas'`,
   );
   const names = new Set(cols.rows.map((r) => r.column_name));
-  const description = `${title}.`;
+  const catalog = content.FEATURE_IDEAS.find((x) => x.title === title);
+  const description = catalog?.description || `${title} — product improvement for InternSafar.`;
   if (names.has('category_id') && names.has('priority')) {
     await client.query(
       `INSERT INTO ip_feature_ideas (id, author_user_id, title, description, status, category_id, priority, vote_count)
-       VALUES ($1,$2,$3,$4,'Pending approval',$5,$6,2)`,
-      [id, authorId, title, description, categoryId || null, 5],
+       VALUES ($1,$2,$3,$4,$5,$6,$7,2)`,
+      [id, authorId, title, description, status, categoryId || null, 5],
     );
   } else {
     await client.query(
       `INSERT INTO ip_feature_ideas (id, author_user_id, title, description, status, vote_count)
-       VALUES ($1,$2,$3,$4,'Pending approval',2)`,
-      [id, authorId, title, description],
+       VALUES ($1,$2,$3,$4,$5,2)`,
+      [id, authorId, title, description, status],
     );
   }
   return id;
@@ -378,37 +427,90 @@ async function main() {
     'Frontend Developer Intern',
     'Data Analyst Intern',
     'Backend API Intern',
+    'Product Design Intern',
+    'QA Automation Intern',
+    'Machine Learning Intern',
   ];
   const internshipIds = [];
-  for (const t of titles) {
-    internshipIds.push(await ensureInternship(client, postEmpId, t, 'published'));
+  for (let ti = 0; ti < titles.length; ti += 1) {
+    internshipIds.push(await ensureInternship(client, postEmpId, titles[ti], 'published', ti));
   }
   // One draft / paused for SA postings queue variety
-  internshipIds.push(await ensureInternship(client, postEmpId, 'Paused Design Intern', 'paused'));
+  internshipIds.push(await ensureInternship(client, postEmpId, 'Paused Design Intern', 'paused', titles.length));
 
-  // Applications from cast candidates + base if any
+  // Applications + offers: each candidate gets a different role/status (no repeated same-name spam)
   const applicantEmails = Object.keys(candIds);
+  const offerStatuses = ['pending', 'accepted', 'declined', 'pending', 'accepted', 'pending'];
   let appIdx = 0;
   for (const cEmail of applicantEmails) {
-    const internId = internshipIds[appIdx % 3];
-    const status = appIdx === 0 ? 'applied' : appIdx === 1 ? 'shortlisted' : 'applied';
+    const internId = internshipIds[appIdx % Math.max(1, titles.length)];
+    const roleTitle = titles[appIdx % titles.length];
+    const status = appIdx === 1 ? 'shortlisted' : appIdx % 3 === 0 ? 'offered' : 'applied';
     const appId = await ensureApplication(client, internId, candIds[cEmail], status, 70 + appIdx * 5);
+    const candName = castCands.find((c) => c.email === cEmail)?.name || cEmail;
+    const first = String(candName).split(' ')[0];
     await ensureThread(client, internId, candUserIds[cEmail], postEmpUserId, [
-      { from: postEmpUserId, body: `Hi — thanks for applying to our internship.` },
+      { from: postEmpUserId, body: `Hi ${first} — thanks for applying to ${roleTitle}.` },
       { from: candUserIds[cEmail], body: `Thank you! Happy to share more about my projects.` },
     ]);
-    if (appIdx === 0) {
+    // Offer for most candidates on distinct roles — varied stipend/status/dates
+    if (appIdx < titles.length) {
+      const oStatus = offerStatuses[appIdx % offerStatuses.length];
+      const start = new Date();
+      start.setDate(start.getDate() + 10 + appIdx * 2);
+      const valid = new Date();
+      if (oStatus === 'pending') valid.setDate(valid.getDate() + 7 + appIdx);
+      else if (oStatus === 'accepted' || oStatus === 'declined') valid.setDate(valid.getDate() + 3);
+      else valid.setDate(valid.getDate() - 2);
       await ensureOffer(client, {
         internshipId: internId,
         candidateId: candIds[cEmail],
         employerId: postEmpId,
-        roleTitle: titles[0],
+        roleTitle,
+        stipend: 12000 + appIdx * 1500,
+        status: oStatus,
+        message: `Hi ${first}, we would like to extend an offer for ${roleTitle}.`,
+        startDate: start.toISOString().slice(0, 10),
+        validUntil: valid.toISOString().slice(0, 10),
+        applicationId: appId,
       });
-      await client.query(`UPDATE ip_applications SET status = 'offered' WHERE id = $1`, [appId]);
+      const appStatus = oStatus === 'accepted' ? 'hired' : oStatus === 'declined' ? 'declined_offer' : 'offered';
+      await client.query(`UPDATE ip_applications SET status = $2 WHERE id = $1`, [appId, appStatus]);
     }
-    await notify(client, candUserIds[cEmail], 'Application received', `Your application is in review.`, '/candidate/applications');
+    await notify(client, candUserIds[cEmail], 'Application received', `Your application for ${roleTitle} is in review.`, '/candidate/applications');
     appIdx += 1;
   }
+
+  // Extra message threads so inbox has ≥10 conversations (both sides)
+  const threadTarget = Math.max(12, content.TARGET_LIST_ROWS);
+  let threadN = await client.query(
+    `SELECT count(*)::int AS n FROM ip_message_threads
+     WHERE candidate_user_id = ANY($1::text[]) OR employer_user_id = $2`,
+    [Object.values(candUserIds), postEmpUserId],
+  ).then((r) => Number(r.rows[0]?.n || 0));
+  const approvedEmpEmails = CAST_EMPLOYERS.filter((e) => e.status === 'approved').map((e) => e.email);
+  for (let t = 0; t < internshipIds.length && threadN < threadTarget; t += 1) {
+    for (let c = 0; c < applicantEmails.length && threadN < threadTarget; c += 1) {
+      const internId = internshipIds[t];
+      const cEmail = applicantEmails[c];
+      const empEmail = approvedEmpEmails[(t + c) % Math.max(1, approvedEmpEmails.length)] || postEmpEmail;
+      const empUid = empUserIds[empEmail] || postEmpUserId;
+      const candUid = candUserIds[cEmail];
+      if (!candUid || !empUid || !internId) continue;
+      const before = await client.query(
+        `SELECT id FROM ip_message_threads
+         WHERE internship_id=$1 AND candidate_user_id=$2 AND employer_user_id=$3 LIMIT 1`,
+        [internId, candUid, empUid],
+      );
+      if (before.rows[0]) continue;
+      await ensureThread(client, internId, candUid, empUid, [
+        { from: empUid, body: `Following up on your application — any questions about the role?` },
+        { from: candUid, body: `Thanks for checking in. I am available this week.` },
+      ]);
+      threadN += 1;
+    }
+  }
+
   await notify(client, postEmpUserId, 'New applicants', 'New applicants are waiting on your postings.', '/employer/internships');
 
   // Feature ideas
@@ -421,8 +523,12 @@ async function main() {
   }
   const ideaAuthor = candUserIds[castCands[0].email] || Object.values(candUserIds)[0];
   if (ideaAuthor) {
-    await ensureIdea(client, ideaAuthor, 'Dark mode for candidate browse', catId);
-    await ensureIdea(client, ideaAuthor, 'Bulk export applications CSV', catId);
+    const ideaCount = Math.min(content.FEATURE_IDEAS.length, Math.max(content.TARGET_LIST_ROWS, content.FEATURE_IDEAS.length));
+    for (let i = 0; i < ideaCount; i += 1) {
+      const idea = content.FEATURE_IDEAS[i];
+      const status = content.IDEA_STATUSES[i % content.IDEA_STATUSES.length];
+      await ensureIdea(client, ideaAuthor, idea.title, catId, status);
+    }
   }
 
   // Manual employer request row for SA Requests tab

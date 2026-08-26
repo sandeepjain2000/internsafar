@@ -1,0 +1,234 @@
+@startuml Internship Portal ER — CORE vs NON-ESSENTIAL
+title InternSafar / Internship Portal — logical ER\nPK + FK listed under each table name · bodies are keys only (not full schemas)
+
+' RULES (explicit):
+' 1) PK and FK appear under the table name (entity title), not as a full column dump.
+' 2) Entity bodies stay empty / key-only — do NOT list every business column.
+' 3) CORE (blue) = hire-pipeline integrity only.
+' 4) NON-ESSENTIAL (orange) = feature ideas, sharing, points, referrals, login/auth,
+'    lookup, plus further support/workbench tables identified while shrinking CORE.
+' Sources: db/migrations/*ip* + src/lib/ensureIp*.js + ipTwoFactor.js
+' Dropped table (not shown): ip_list_presets (migration 022 → ip_saved_applicant_views)
+
+top to bottom direction
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+skinparam nodesep 40
+skinparam ranksep 50
+
+skinparam package<<CORE>> {
+  BackgroundColor #D6E8FF
+  BorderColor #1D4ED8
+  FontColor #0F172A
+  FontStyle bold
+  FontSize 13
+}
+skinparam package<<NONESSENTIAL>> {
+  BackgroundColor #FFF3E0
+  BorderColor #EA580C
+  FontColor #0F172A
+  FontStyle bold
+  FontSize 13
+}
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #64748B
+  FontSize 11
+}
+
+legend right
+  |= | Meaning |
+  | <#D6E8FF> | **CORE** — hire pipeline integrity |
+  | <#FFF3E0> | **NON-ESSENTIAL** — growth / auth / lookup / workbench |
+  | Title lines | **PK:** … / **FK:** … under table name |
+  | Body | Intentionally empty (relationships carry structure) |
+endlegend
+
+'==============================================================================
+' CORE — accounts → profiles → postings → applications → offers → messaging
+'==============================================================================
+package "CORE — hire pipeline" <<CORE>> {
+
+  entity "ip_users\nPK: id\nFK: —" as ip_users {
+  }
+
+  entity "ip_candidates\nPK: id\nFK: user_id → ip_users" as ip_candidates {
+  }
+
+  entity "ip_employers\nPK: id\nFK: user_id → ip_users" as ip_employers {
+  }
+
+  entity "ip_employer_documents\nPK: id\nFK: employer_id → ip_employers" as ip_employer_documents {
+  }
+
+  entity "ip_internships\nPK: id\nFK: employer_id → ip_employers" as ip_internships {
+  }
+
+  entity "ip_applications\nPK: id\nFK: internship_id → ip_internships\nFK: candidate_id → ip_candidates" as ip_applications {
+  }
+
+  entity "ip_offers\nPK: id\nFK: application_id → ip_applications (UNIQUE)\nFK: internship_id → ip_internships\nFK: candidate_id → ip_candidates\nFK: employer_id → ip_employers" as ip_offers {
+  }
+
+  entity "ip_saved_internships\nPK: id\nFK: candidate_id → ip_candidates\nFK: internship_id → ip_internships" as ip_saved_internships {
+  }
+
+  entity "ip_message_threads\nPK: id\nFK: internship_id → ip_internships\nFK: application_id → ip_applications\nFK: candidate_user_id → ip_users\nFK: employer_user_id → ip_users" as ip_message_threads {
+  }
+
+  entity "ip_messages\nPK: id\nFK: thread_id → ip_message_threads\nFK: sender_user_id → ip_users" as ip_messages {
+  }
+
+  entity "ip_notifications\nPK: id\nFK: user_id → ip_users" as ip_notifications {
+  }
+}
+
+'==============================================================================
+' NON-ESSENTIAL — separate orange background
+'==============================================================================
+package "NON-ESSENTIAL — support / growth / auth / lookup / workbench" <<NONESSENTIAL>> {
+
+  '--- Feature ideas ---
+  entity "ip_idea_categories\nPK: id\nFK: —" as ip_idea_categories {
+  }
+  entity "ip_feature_ideas\nPK: id\nFK: author_user_id → ip_users\nFK: category_id → ip_idea_categories" as ip_feature_ideas {
+  }
+  entity "ip_feature_idea_votes\nPK: idea_id + user_id\nFK: idea_id → ip_feature_ideas\nFK: user_id → ip_users" as ip_feature_idea_votes {
+  }
+  entity "ip_feature_idea_comments\nPK: id\nFK: idea_id → ip_feature_ideas\nFK: author_user_id → ip_users" as ip_feature_idea_comments {
+  }
+  entity "ip_feature_idea_follows\nPK: idea_id + user_id\nFK: idea_id → ip_feature_ideas\nFK: user_id → ip_users" as ip_feature_idea_follows {
+  }
+
+  '--- Sharing ---
+  entity "ip_viral_shares\nPK: id\nFK: user_id → ip_users\nFK: reviewed_by → ip_users" as ip_viral_shares {
+  }
+  entity "ip_linkedin_promotions\nPK: id\nFK: employer_id → ip_employers\nFK: internship_id → ip_internships\nFK: reviewed_by → ip_users" as ip_linkedin_promotions {
+  }
+
+  '--- Points ---
+  entity "ip_points_ledger\nPK: id\nFK: user_id → ip_users" as ip_points_ledger {
+  }
+
+  '--- Referrals ---
+  entity "ip_referrals\nPK: id\nFK: referrer_user_id → ip_users\nFK: referred_user_id → ip_users" as ip_referrals {
+  }
+
+  '--- Login / auth ---
+  entity "ip_login_events\nPK: id\nFK: user_id → ip_users" as ip_login_events {
+  }
+  entity "ip_auth_sessions\nPK: id\nFK: user_id → ip_users" as ip_auth_sessions {
+  }
+  entity "ip_password_resets\nPK: id\nFK: user_id → ip_users" as ip_password_resets {
+  }
+  entity "ip_2fa_challenges\nPK: id\nFK: user_id → ip_users" as ip_2fa_challenges {
+  }
+  entity "ip_email_change_challenges\nPK: id\nFK: user_id → ip_users" as ip_email_change_challenges {
+  }
+  entity "ip_phone_change_challenges\nPK: id\nFK: user_id → ip_users" as ip_phone_change_challenges {
+  }
+  entity "ip_notification_preferences\nPK: user_id + category\nFK: user_id → ip_users" as ip_notification_preferences {
+  }
+
+  '--- Lookup ---
+  entity "ip_ref_cities\nPK: city\nFK: —" as ip_ref_cities {
+  }
+  entity "ip_ref_degrees\nPK: id\nFK: —" as ip_ref_degrees {
+  }
+
+  '--- Extra non-core (identified while cleaning CORE) ---
+  entity "ip_employer_requests\nPK: id\nFK: created_user_id → ip_users\nFK: reviewer_id → ip_users" as ip_employer_requests {
+  }
+  entity "ip_candidate_academics\nPK: id\nFK: candidate_id → ip_candidates" as ip_candidate_academics {
+  }
+  entity "ip_ratings\nPK: id\nFK: internship_id → ip_internships\nFK: from_user_id → ip_users\nFK: to_user_id → ip_users" as ip_ratings {
+  }
+  entity "ip_endorsements\nPK: id\nFK: internship_id → ip_internships\nFK: employer_id → ip_employers\nFK: candidate_id → ip_candidates" as ip_endorsements {
+  }
+  entity "ip_generated_runs\nPK: run_id\nFK: —" as ip_generated_runs {
+  }
+  entity "ip_rejection_templates\nPK: id\nFK: employer_id → ip_employers" as ip_rejection_templates {
+  }
+  entity "ip_employer_lists\nPK: id\nFK: employer_id → ip_employers" as ip_employer_lists {
+  }
+  entity "ip_employer_list_members\nPK: id\nFK: list_id → ip_employer_lists\nFK: application_id → ip_applications" as ip_employer_list_members {
+  }
+  entity "ip_saved_applicant_views\nPK: id\nFK: user_id → ip_users\nFK: employer_id → ip_employers" as ip_saved_applicant_views {
+  }
+  entity "ip_table_filter_prefs\nPK: id\nFK: user_id → ip_users" as ip_table_filter_prefs {
+  }
+  entity "ip_application_notes\nPK: id\nFK: application_id → ip_applications\nFK: employer_id → ip_employers\nFK: author_user_id → ip_users" as ip_application_notes {
+  }
+  entity "ip_application_events\nPK: id\nFK: application_id → ip_applications\nFK: actor_user_id → ip_users" as ip_application_events {
+  }
+  entity "ip_follow_up_reminders\nPK: id\nFK: employer_id → ip_employers\nFK: application_id → ip_applications\nFK: internship_id → ip_internships" as ip_follow_up_reminders {
+  }
+  entity "ip_bulk_message_jobs\nPK: id\nFK: employer_id → ip_employers\nFK: internship_id → ip_internships" as ip_bulk_message_jobs {
+  }
+  entity "ip_bulk_message_recipients\nPK: id\nFK: job_id → ip_bulk_message_jobs\nFK: application_id → ip_applications\nFK: candidate_user_id → ip_users\nFK: message_id → ip_messages" as ip_bulk_message_recipients {
+  }
+  entity "ip_export_jobs\nPK: id\nFK: employer_id → ip_employers\nFK: internship_id → ip_internships\nFK: created_by_user_id → ip_users" as ip_export_jobs {
+  }
+}
+
+'---- CORE relationships (solid) ----
+ip_users ||--o| ip_candidates
+ip_users ||--o| ip_employers
+ip_employers ||--o{ ip_employer_documents
+ip_employers ||--o{ ip_internships
+ip_internships ||--o{ ip_applications
+ip_candidates ||--o{ ip_applications
+ip_applications ||--|| ip_offers
+ip_internships ||--o{ ip_offers
+ip_candidates ||--o{ ip_offers
+ip_employers ||--o{ ip_offers
+ip_candidates ||--o{ ip_saved_internships
+ip_internships ||--o{ ip_saved_internships
+ip_internships ||--o{ ip_message_threads
+ip_applications ||--o{ ip_message_threads
+ip_users ||--o{ ip_message_threads : candidate / employer users
+ip_message_threads ||--o{ ip_messages
+ip_users ||--o{ ip_messages
+ip_users ||--o{ ip_notifications
+
+'---- NON-ESSENTIAL + cross-package (dotted = not CORE integrity focus) ----
+ip_users ..> ip_generated_runs : generated_run_id
+ip_applications ..> ip_rejection_templates : optional template
+ip_candidates ||--o{ ip_candidate_academics
+ip_users ||--o{ ip_feature_ideas
+ip_idea_categories ||--o{ ip_feature_ideas
+ip_feature_ideas ||--o{ ip_feature_idea_votes
+ip_feature_ideas ||--o{ ip_feature_idea_comments
+ip_feature_ideas ||--o{ ip_feature_idea_follows
+ip_users ||--o{ ip_points_ledger
+ip_users ||--o{ ip_referrals
+ip_users ||--o{ ip_viral_shares
+ip_employers ||--o{ ip_linkedin_promotions
+ip_internships ||--o{ ip_linkedin_promotions
+ip_internships ||--o{ ip_ratings
+ip_internships ||--o{ ip_endorsements
+ip_employers ||--o{ ip_employer_lists
+ip_employer_lists ||--o{ ip_employer_list_members
+ip_applications ||--o{ ip_employer_list_members
+ip_applications ||--o{ ip_application_notes
+ip_applications ||--o{ ip_application_events
+ip_employers ||--o{ ip_export_jobs
+ip_employers ||--o{ ip_bulk_message_jobs
+ip_bulk_message_jobs ||--o{ ip_bulk_message_recipients
+ip_users ||--o{ ip_employer_requests
+ip_users ||--o{ ip_login_events
+ip_users ||--o{ ip_auth_sessions
+ip_users ||--o{ ip_password_resets
+ip_users ||--o{ ip_2fa_challenges
+ip_users ||--o{ ip_email_change_challenges
+ip_users ||--o{ ip_phone_change_challenges
+ip_users ||--o{ ip_notification_preferences
+ip_users ||--o{ ip_saved_applicant_views
+ip_users ||--o{ ip_table_filter_prefs
+ip_employers ||--o{ ip_rejection_templates
+ip_employers ||--o{ ip_follow_up_reminders
+
+@enduml
