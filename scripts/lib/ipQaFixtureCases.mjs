@@ -12,6 +12,7 @@ import pg from 'pg';
 import dotenv from 'dotenv';
 import { createRequire } from 'module';
 import { QA_ACCOUNTS } from './ipQaAuth.mjs';
+import { qaRunLabel, qaDbId, qaReferralCode } from './ipQaNaming.mjs';
 
 const require = createRequire(import.meta.url);
 const { CAST_CANDIDATES } = require('./ipCoreSampleConfig.js');
@@ -24,7 +25,7 @@ dotenv.config({ path: path.join(root, '.env') });
 const PW = QA_ACCOUNTS.candidate.password;
 
 function nid(prefix) {
-  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  return qaDbId(prefix);
 }
 
 function dbUrl() {
@@ -57,7 +58,7 @@ async function ensureUser(client, { email, role, name, points = 80, active = tru
     return existing.rows[0].id;
   }
   const id = nid('ip_user');
-  const ref = `QA${Date.now().toString(36).slice(-6).toUpperCase()}`;
+  const ref = qaReferralCode(name || 'QA');
   await client.query(
     `INSERT INTO ip_users (
        id, email, password_hash, role, name, points, application_allowance, referral_code,
@@ -119,14 +120,58 @@ export async function setTwoFactorFlag(email, enabled) {
   });
 }
 
+const FULL_ETHICS_ACKS = {
+  no_fees: true,
+  legitimate_use: true,
+  protect_pii: true,
+  honest_jd: true,
+  experience_letter: true,
+  verification_requests: true,
+};
+
+/**
+ * Demo employer must stay posting-ready across runs. EMP-P-3 briefly clears ethics
+ * which sets profile_complete=false; missing business_entity_type also blocks complete.
+ */
+export async function ensureCoreQaAccountsReady() {
+  await withDb(async (db) => {
+    await db.query(
+      `UPDATE ip_users SET points = GREATEST(points, 250), profile_complete = true, updated_at = now()
+       WHERE lower(email) = lower($1)`,
+      [QA_ACCOUNTS.employer.email],
+    );
+    await db.query(
+      `UPDATE ip_users SET points = GREATEST(points, 80), profile_complete = true, updated_at = now()
+       WHERE lower(email) = lower($1)`,
+      [QA_ACCOUNTS.candidate.email],
+    );
+    await db.query(
+      `UPDATE ip_employers e
+       SET company_name = COALESCE(NULLIF(trim(e.company_name), ''), 'QA Employer Co'),
+           website = COALESCE(NULLIF(trim(e.website), ''), 'https://example.com'),
+           work_email = COALESCE(NULLIF(trim(e.work_email), ''), $1),
+           industry = COALESCE(NULLIF(trim(e.industry), ''), 'Technology'),
+           hq_city = COALESCE(NULLIF(trim(e.hq_city), ''), 'Pune'),
+           contact_name = COALESCE(NULLIF(trim(e.contact_name), ''), 'QA Contact'),
+           contact_phone = COALESCE(NULLIF(trim(e.contact_phone), ''), '9000000099'),
+           business_entity_type = COALESCE(NULLIF(trim(e.business_entity_type), ''), 'Private Limited'),
+           ethics_acks = $2::jsonb,
+           ethics_accepted_at = COALESCE(e.ethics_accepted_at, now()),
+           approval_status = 'approved',
+           updated_at = now()
+       FROM ip_users u
+       WHERE e.user_id = u.id AND lower(u.email) = lower($1)`,
+      [QA_ACCOUNTS.employer.email, JSON.stringify(FULL_ETHICS_ACKS)],
+    );
+  });
+}
+
 export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, cand, emp, sa }) {
-  const stamp = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  // Readable uniqueness only (e.g. 20260827-1504) — never random base36 in emails/titles.
+  const run = qaRunLabel();
   const cap = { captchaToken: 'x', captchaAnswer: '7' };
 
-  await withDb(async (db) => {
-    await db.query(`UPDATE ip_users SET points = GREATEST(points, 250) WHERE lower(email) = lower($1)`, [QA_ACCOUNTS.employer.email]);
-    await db.query(`UPDATE ip_users SET points = GREATEST(points, 80) WHERE lower(email) = lower($1)`, [QA_ACCOUNTS.candidate.email]);
-  }).catch(() => {});
+  await ensureCoreQaAccountsReady().catch(() => {});
 
   blocked('AUTH-4', 'CAPTCHA_BYPASS_FOR_TESTING=true — negative captcha path skipped');
   blocked('REGX-3', 'CAPTCHA_BYPASS_FOR_TESTING=true — register/forgot captcha negative skipped');
@@ -151,9 +196,9 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('AUTH-7', async () => {
-    const pendingEmail = `lawsonlclintern+qapend${stamp}@gmail.com`;
-    const rejectedEmail = `lawsonlclintern+qarej${stamp}@gmail.com`;
-    const inactiveEmail = `lawsonlclintern+qainact${stamp}@gmail.com`;
+    const pendingEmail = `lawsonlclintern+qa-auth-pending-${run}@gmail.com`;
+    const rejectedEmail = `lawsonlclintern+qa-auth-rejected-${run}@gmail.com`;
+    const inactiveEmail = `lawsonlclintern+qa-auth-inactive-${run}@gmail.com`;
     await withDb(async (db) => {
       const p = await ensureUser(db, { email: pendingEmail, role: 'candidate', name: 'QA Pending', active: false, formApproval: 'pending', source: 'form' });
       await ensureCandidateRow(db, p, pendingEmail, 'QA Pending');
@@ -169,7 +214,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('AUTH-17', async () => {
-    const email = `lawsonlclintern+qapw${stamp}@gmail.com`;
+    const email = `lawsonlclintern+qa-password-change-${run}@gmail.com`;
     await withDb(async (db) => {
       const id = await ensureUser(db, { email, role: 'candidate', name: 'QA PwChange' });
       await ensureCandidateRow(db, id, email, 'QA PwChange');
@@ -198,7 +243,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('REG-C-1', async () => {
-    const email = `lawsonlclintern+qareg${stamp}@gmail.com`;
+    const email = `lawsonlclintern+qa-register-form-${run}@gmail.com`;
     const r = await api('/api/ip/auth/register-candidate', {
       method: 'POST',
       body: { email, name: 'QA Google Path', path: 'google', ...cap },
@@ -207,7 +252,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('REG-C-8', async () => {
-    const email = `lawsonlclintern+qagm${stamp}@googlemail.com`;
+    const email = `lawsonlclintern+qa-register-googlemail-${run}@googlemail.com`;
     const r = await api('/api/ip/auth/register-candidate', {
       method: 'POST',
       body: { email, name: 'QA Googlemail', path: 'google', ...cap },
@@ -218,7 +263,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   let formUserId = '';
   let formUserId2 = '';
   await tryCase('REG-C-4', async () => {
-    const email = `lawsonlclintern+qaform${stamp}@gmail.com`;
+    const email = `lawsonlclintern+qa-form-pending-${run}@gmail.com`;
     const r = await api('/api/ip/auth/register-candidate', {
       method: 'POST',
       body: {
@@ -237,7 +282,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   await tryCase('REG-C-6', async () => {
     const ref = await api('/api/ip/referral', { cookie: cand.cookie });
     const code = ref.data?.referral_code;
-    const email = `lawsonlclintern+qaref${stamp}@gmail.com`;
+    const email = `lawsonlclintern+qa-referral-signup-${run}@gmail.com`;
     const r = await api('/api/ip/auth/register-candidate', {
       method: 'POST',
       body: { email, name: 'QA Referral Google', path: 'google', referralCode: code, ...cap },
@@ -249,7 +294,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   await tryCase('REG-C-7', async () => {
     const ref = await api('/api/ip/referral', { cookie: cand.cookie });
     const code = ref.data?.referral_code;
-    const email = `lawsonlclintern+qaformref${stamp}@gmail.com`;
+    const email = `lawsonlclintern+qa-form-referral-${run}@gmail.com`;
     const r = await api('/api/ip/auth/register-candidate', {
       method: 'POST',
       body: {
@@ -280,12 +325,12 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('REG-E-1', async () => {
-    const domain = `qaip${stamp}.com`;
+    const domain = `qa-employer-${run}.example`;
     const r = await api('/api/ip/auth/register-employer', {
       method: 'POST',
       body: {
-        email: `hr@${domain}`, website: `https://${domain}`, companyName: `QA Domain ${stamp}`,
-        contactName: 'QA HR', ...cap,
+        email: `hr@${domain}`, website: `https://${domain}`, companyName: `QA Employer Domain ${run}`,
+        contactName: 'QA HR', businessEntityType: 'Private Limited', ...cap,
       },
     });
     assess('REG-E-1', r.status === 200 || r.status === 201, { status: r.status, error: r.data?.error });
@@ -293,26 +338,27 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
 
   let manualReqId = '';
   await tryCase('REG-E-4', async () => {
-    const email = `qa.manual.${stamp}@gmail.com`;
+    const email = `qa-manual-request-${run}@gmail.com`;
     const r = await api('/api/ip/auth/register-employer', {
       method: 'POST',
       body: {
-        manualRequest: true, email, companyName: `QA Manual ${stamp}`, contactName: 'QA Manual',
-        designation: 'HR', reason: 'QA fixture manual request', password: PW, ...cap,
+        manualRequest: true, email, companyName: `QA Manual Employer ${run}`, contactName: 'QA Manual',
+        designation: 'HR', reason: 'QA fixture manual request', password: PW,
+        businessEntityType: 'Private Limited', ...cap,
       },
     });
-    manualReqId = r.data?.requestId || '';
+    manualReqId = r.data?.requestId || r.data?.id || '';
     assess('REG-E-4', (r.status === 200 || r.status === 201) && Boolean(manualReqId),
-      { status: r.status, requestId: Boolean(manualReqId) });
+      { status: r.status, requestId: Boolean(manualReqId), error: r.data?.error });
   });
 
   await tryCase('REG-E-6', async () => {
-    const domain = `qaip${stamp}.com`;
+    const domain = `qa-employer-${run}.example`;
     const r = await api('/api/ip/auth/register-employer', {
       method: 'POST',
       body: {
-        email: `hr@${domain}`, website: `https://${domain}`, companyName: `QA Domain Dupe ${stamp}`,
-        contactName: 'QA HR', ...cap,
+        email: `hr@${domain}`, website: `https://${domain}`, companyName: `QA Employer Domain Dupe ${run}`,
+        contactName: 'QA HR', businessEntityType: 'Private Limited', ...cap,
       },
     });
     assess('REG-E-6', r.status === 409 || r.status === 400, { status: r.status });
@@ -330,7 +376,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   await tryCase('ACCT-4', async () => {
     const r = await api('/api/ip/candidate/profile/email-change/request', {
       method: 'POST', cookie: cand.cookie,
-      body: { newEmail: `lawsonlclintern+qaemchg${stamp}@gmail.com` },
+      body: { newEmail: `lawsonlclintern+qa-email-change-${run}@gmail.com` },
     });
     assess('ACCT-4', r.status === 200, { status: r.status, error: r.data?.error });
   });
@@ -350,7 +396,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   await tryCase('EMP-I-1', async () => {
     const r = await api('/api/ip/employer/internships', {
       method: 'POST', cookie: emp.cookie,
-      body: { title: 'QA Draft Internship', description: `draft fixture ${stamp}`, status: 'draft', workMode: 'Hybrid' },
+      body: { title: 'QA Draft Internship', description: `draft fixture ${run}`, status: 'draft', workMode: 'Hybrid' },
     });
     draftId = r.data?.id || '';
     assess('EMP-I-1', (r.status === 200 || r.status === 201) && Boolean(draftId), { status: r.status, id: draftId });
@@ -360,7 +406,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const r = await api('/api/ip/employer/internships', {
       method: 'POST', cookie: emp.cookie,
       body: {
-        title: 'QA Published Internship', description: `published fixture ${stamp}`, status: 'published',
+        title: 'QA Published Internship', description: `published fixture ${run}`, status: 'published',
         workMode: 'Onsite', location: 'Pune', stipendInr: 12000,
       },
     });
@@ -370,16 +416,16 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('EMP-I-3', async () => {
-    const email = `zeroemp.${stamp}@qaipz${stamp}.com`;
+    const email = `qa-zero-points-employer-${run}@example.com`;
     let userId;
     await withDb(async (db) => {
-      userId = await ensureUser(db, { email, role: 'employer', name: 'QA Zero Emp', points: 0, profileComplete: true });
-      await ensureEmployerRow(db, userId, email, `Zero Co ${stamp}`, 'approved');
+      userId = await ensureUser(db, { email, role: 'employer', name: 'QA Zero Points Employer', points: 0, profileComplete: true });
+      await ensureEmployerRow(db, userId, email, `QA Zero Points Co ${run}`, 'approved');
     });
     const login = await apiLogin(BASE, email, PW);
     const r = await api('/api/ip/employer/internships', {
       method: 'POST', cookie: login.cookie,
-      body: { title: 'Zero Publish Guard', status: 'published', description: `should fail ${stamp}` },
+      body: { title: 'Zero Publish Guard', status: 'published', description: `should fail ${run}` },
     });
     assess('EMP-I-3', r.status === 403, { status: r.status, error: r.data?.error });
   });
@@ -398,10 +444,10 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('EMP-I-5', async () => {
-    const email = `incemp.${stamp}@qaipi${stamp}.com`;
+    const email = `qa-incomplete-employer-${run}@example.com`;
     await withDb(async (db) => {
-      const id = await ensureUser(db, { email, role: 'employer', name: 'QA Incomplete Emp', points: 200, profileComplete: false });
-      await ensureEmployerRow(db, id, email, `Incomplete Co ${stamp}`, 'approved');
+      const id = await ensureUser(db, { email, role: 'employer', name: 'QA Incomplete Employer', points: 200, profileComplete: false });
+      await ensureEmployerRow(db, id, email, `QA Incomplete Co ${run}`, 'approved');
       await db.query(`UPDATE ip_users SET profile_complete=false WHERE id=$1`, [id]);
     });
     const login = await apiLogin(BASE, email, PW);
@@ -438,10 +484,10 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('EMP-I-9', async () => {
-    const email = `emp2.${stamp}@qaip2${stamp}.com`;
+    const email = `qa-second-employer-${run}@example.com`;
     await withDb(async (db) => {
-      const id = await ensureUser(db, { email, role: 'employer', name: 'QA Emp Two', points: 200, profileComplete: true });
-      await ensureEmployerRow(db, id, email, `Second Co ${stamp}`, 'approved');
+      const id = await ensureUser(db, { email, role: 'employer', name: 'QA Second Employer', points: 200, profileComplete: true });
+      await ensureEmployerRow(db, id, email, `QA Second Co ${run}`, 'approved');
     });
     const other = await apiLogin(BASE, email, PW);
     const victim = publishedId || draftId;
@@ -461,7 +507,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   await tryCase('CAND-B-6', async () => {
     const r = await api('/api/ip/employer/internships', {
       method: 'POST', cookie: emp.cookie,
-      body: { title: 'QA Remote Internship', status: 'published', workMode: 'Remote', location: 'Remote', description: `remote ${stamp}` },
+      body: { title: 'QA Remote Internship', status: 'published', workMode: 'Remote', location: 'Remote', description: `remote ${run}` },
     });
     remoteId = r.data?.id || '';
     const browse = await api('/api/ip/candidate/internships?workMode=Remote', { cookie: cand.cookie });
@@ -476,7 +522,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('CAND-B-5', async () => {
-    const email = `lawsonlclintern+qainc${stamp}@gmail.com`;
+    const email = `lawsonlclintern+qa-incomplete-profile-${run}@gmail.com`;
     await withDb(async (db) => {
       const id = await ensureUser(db, { email, role: 'candidate', name: 'QA Incomplete Cand', points: 80, profileComplete: false });
       await ensureCandidateRow(db, id, email, 'QA Incomplete Cand', { resume_url: null, college: null, phone: null });
@@ -498,7 +544,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const r = await api('/api/ip/employer/internships', {
       method: 'POST', cookie: emp.cookie,
       body: {
-        title: 'QA Screening Internship', status: 'published', description: `qs ${stamp}`,
+        title: 'QA Screening Internship', status: 'published', description: `qs ${run}`,
         questions: [{ id: 'q1', prompt: 'Why this role?' }],
       },
     });
@@ -517,15 +563,30 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('CAND-A-5', async () => {
-    const email = `lawsonlclintern+qazero${stamp}@gmail.com`;
+    const email = `lawsonlclintern+qa-zero-points-${run}@gmail.com`;
     await withDb(async (db) => {
       const id = await ensureUser(db, { email, role: 'candidate', name: 'QA Zero Cand', points: 0, profileComplete: true });
       await ensureCandidateRow(db, id, email, 'QA Zero Cand');
       await db.query(`UPDATE ip_users SET points=0 WHERE id=$1`, [id]);
     });
     const login = await apiLogin(BASE, email, PW);
-    const internships = await api('/api/ip/candidate/internships', { cookie: login.cookie });
-    const target = publishedId || (internships.data?.items || internships.data?.internships || [])[0]?.id;
+    // Prefer a no-questions listing so screening does not mask the points gate.
+    let target = publishedId;
+    if (!target) {
+      const plain = await api('/api/ip/employer/internships', {
+        method: 'POST', cookie: emp.cookie,
+        body: {
+          title: 'QA Zero Points Target', status: 'published', workMode: 'Remote',
+          location: 'Remote', description: `zero pts target ${run}`, stipendInr: 5000,
+        },
+      });
+      target = plain.data?.id || '';
+    }
+    if (!target) {
+      const internships = await api('/api/ip/candidate/internships', { cookie: login.cookie });
+      const items = internships.data?.items || internships.data?.internships || [];
+      target = (items.find((x) => !x.questions?.length && !x.screening_questions?.length) || items[0])?.id;
+    }
     const apply = target
       ? await api('/api/ip/candidate/applications', { method: 'POST', cookie: login.cookie, body: { internshipId: target } })
       : { status: 0 };
@@ -642,7 +703,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('CAND-O-2', async () => {
-    const email = `lawsonlclintern+qadecl${stamp}@gmail.com`;
+    const email = `lawsonlclintern+qa-offer-decline-${run}@gmail.com`;
     let candId;
     let internId = publishedId;
     await withDb(async (db) => {
@@ -688,7 +749,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('CAND-O-3', async () => {
-    const email = `lawsonlclintern+qaexp${stamp}@gmail.com`;
+    const email = `lawsonlclintern+qa-offer-expire-${run}@gmail.com`;
     let oid;
     await withDb(async (db) => {
       const uid = await ensureUser(db, { email, role: 'candidate', name: 'QA Expired', points: 80 });
@@ -830,12 +891,12 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     await api('/api/ip/employer/profile', {
       method: 'PUT', cookie: emp.cookie,
       body: {
-        ethics_acks: {
-          no_fees: true, legitimate_use: true, protect_pii: true, honest_jd: true,
-          experience_letter: true, verification_requests: true,
-        },
+        ethics_acks: FULL_ETHICS_ACKS,
+        business_entity_type: 'Private Limited',
       },
     });
+    // Leave demo employer posting-ready for later cases / next suite run.
+    await ensureCoreQaAccountsReady().catch(() => {});
     assess('EMP-P-3', r.status === 200 && get.status === 200, { put: r.status, incompleteEthics: incomplete });
   });
 
@@ -851,15 +912,19 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
 
   await tryCase('EMP-R-1', async () => {
     const code = (await api('/api/ip/referral', { cookie: emp.cookie })).data?.referral_code;
-    const domain = `qaempref${stamp}.com`;
+    const domain = `qa-employer-referral-${run}.example`;
     const r = await api('/api/ip/auth/register-employer', {
       method: 'POST',
       body: {
-        email: `hr@${domain}`, website: `https://${domain}`, companyName: `QA Emp Ref ${stamp}`,
-        contactName: 'QA', referralCode: code, ...cap,
+        email: `hr@${domain}`, website: `https://${domain}`, companyName: `QA Employer Referral ${run}`,
+        contactName: 'QA', referralCode: code, businessEntityType: 'Private Limited', ...cap,
       },
     });
-    assess('EMP-R-1', Boolean(code) && (r.status === 200 || r.status === 201), { status: r.status, code: Boolean(code) });
+    assess('EMP-R-1', Boolean(code) && (r.status === 200 || r.status === 201), {
+      status: r.status,
+      code: Boolean(code),
+      error: r.data?.error,
+    });
   });
 
   await tryCase('SA-F-2', async () => {
@@ -867,13 +932,13 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const r = await api('/api/ip/superadmin/form-registrations', {
       method: 'PATCH', cookie: sa.cookie, body: { status: 'rejected', id: formUserId },
     });
-    const login = await apiLogin(BASE, `lawsonlclintern+qaform${stamp}@gmail.com`, PW);
+    const login = await apiLogin(BASE, `lawsonlclintern+qa-form-pending-${run}@gmail.com`, PW);
     assess('SA-F-2', r.status === 200 && !login.ok, { reject: r.status, loginOk: login.ok });
   });
 
   await tryCase('SA-F-3', async () => {
-    const emailA = `lawsonlclintern+qabulk1${stamp}@gmail.com`;
-    const emailB = `lawsonlclintern+qabulk2${stamp}@gmail.com`;
+    const emailA = `lawsonlclintern+qa-bulk-approve-a-${run}@gmail.com`;
+    const emailB = `lawsonlclintern+qa-bulk-approve-b-${run}@gmail.com`;
     await api('/api/ip/auth/register-candidate', {
       method: 'POST', body: { email: emailA, name: 'Bulk1', path: 'form', password: PW, university: 'VIT', college: 'VIT', graduationYear: 2027, ...cap },
     });
@@ -889,11 +954,11 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('SA-A-2', async () => {
-    const email = `susp.${stamp}@qaips${stamp}.com`;
+    const email = `qa-suspend-employer-${run}@example.com`;
     let empId;
     await withDb(async (db) => {
-      const uid = await ensureUser(db, { email, role: 'employer', name: 'QA Suspend', points: 50, profileComplete: true });
-      empId = await ensureEmployerRow(db, uid, email, `Suspend Co ${stamp}`, 'approved');
+      const uid = await ensureUser(db, { email, role: 'employer', name: 'QA Suspend Employer', points: 50, profileComplete: true });
+      empId = await ensureEmployerRow(db, uid, email, `QA Suspend Co ${run}`, 'approved');
     });
     const r = await api(`/api/ip/superadmin/employers/${empId}`, {
       method: 'PATCH', cookie: sa.cookie, body: { approvalStatus: 'suspended' },

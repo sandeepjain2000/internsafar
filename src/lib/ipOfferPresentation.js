@@ -34,11 +34,19 @@ export function offerDisplayStatus(row) {
 
 export function offerDaysRemainingLabel(row) {
   const disp = offerDisplayStatus(row);
-  if (disp.key === 'accepted' && row?.responded_at) {
-    return `Accepted on ${new Date(row.responded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  // Days remaining = how long a pending offer is still available to accept.
+  // Never show a countdown on declined/accepted/expired — use date labels only.
+  if (disp.key === 'declined') {
+    if (row?.responded_at) {
+      return `Declined on ${new Date(row.responded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    }
+    return null;
   }
-  if (disp.key === 'declined' && row?.responded_at) {
-    return `Declined on ${new Date(row.responded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  if (disp.key === 'accepted') {
+    if (row?.responded_at) {
+      return `Accepted on ${new Date(row.responded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    }
+    return null;
   }
   const end = offerDeadlineEnd(row?.valid_until);
   if (!end) return null;
@@ -46,6 +54,7 @@ export function offerDaysRemainingLabel(row) {
     const days = Math.max(1, Math.ceil((Date.now() - end.getTime()) / (24 * 60 * 60 * 1000)));
     return `Expired ${days} day${days === 1 ? '' : 's'} ago`;
   }
+  if (disp.key !== 'action_required') return null;
   const days = Math.ceil((end.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
   if (days <= 0) return 'Expires today';
   if (days === 1) return '1 day remaining';

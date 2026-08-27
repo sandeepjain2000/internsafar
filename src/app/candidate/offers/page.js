@@ -415,16 +415,18 @@ export default function CandidateOffersPage() {
             <span className={`ip-of-badge ${badgeClass(o.display_status)}`}>
               {o.display_status_label}
             </span>
-            {o.expiry_date_label || o.days_remaining_label ? (
+            {pending && (o.expiry_date_label || o.days_remaining_label) ? (
               <p className="ip-of-expires">
-                {pending && o.expiry_date_label ? `Offer expires: ${o.expiry_date_label}` : null}
+                {o.expiry_date_label ? `Offer expires: ${o.expiry_date_label}` : null}
                 {o.days_remaining_label ? (
                   <>
-                    {pending && o.expiry_date_label ? ' | ' : null}
+                    {o.expiry_date_label ? ' | ' : null}
                     {o.days_remaining_label}
                   </>
                 ) : null}
               </p>
+            ) : !pending && o.days_remaining_label ? (
+              <p className="ip-of-expires">{o.days_remaining_label}</p>
             ) : null}
           </div>
         </div>

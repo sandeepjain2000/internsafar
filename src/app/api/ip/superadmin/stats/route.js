@@ -9,63 +9,48 @@ export async function GET() {
   await ensureIpFormRegistrationSchema();
   await ensureIpEmployerApprovalSchema();
 
-  const [
-    candidates,
-    employers,
-    pendingEmployers,
-    internships,
-    applications,
-    offers,
-    requests,
-    ideas,
-    pendingDocs,
-    pendingViral,
-    pendingPromos,
-    pendingFormRegs,
-    unreadNotifs,
-    pendingEmployerPreview,
-  ] = await Promise.all([
-    query(`SELECT count(*)::int AS n FROM ip_users WHERE role = 'candidate'`),
-    query(`SELECT count(*)::int AS n FROM ip_users WHERE role = 'employer'`),
-    query(`SELECT count(*)::int AS n FROM ip_employers WHERE approval_status = 'pending'`),
-    query(
-      `SELECT count(*) FILTER (WHERE status='published')::int AS live, count(*)::int AS total FROM ip_internships`,
-    ),
-    query(`SELECT count(*)::int AS n FROM ip_applications`),
-    query(
-      `SELECT count(*) FILTER (WHERE status='accepted')::int AS accepted, count(*)::int AS total FROM ip_offers`,
-    ),
-    query(`SELECT count(*)::int AS n FROM ip_employer_requests WHERE status = 'pending'`),
-    query(`SELECT count(*)::int AS n FROM ip_feature_ideas WHERE status = 'Pending approval'`),
-    query(
-      `SELECT count(*)::int AS n FROM ip_employer_documents WHERE coalesce(review_status,'pending') = 'pending'`,
-    ),
-    query(
-      `SELECT count(*)::int AS n FROM ip_viral_shares
-       WHERE status IN ('pending','scheduled','searching','fast_track_pending')`,
-    ),
-    query(
-      `SELECT count(*)::int AS n FROM ip_linkedin_promotions
-       WHERE status IN ('pending','scheduled','fast_track_pending','searching')`,
-    ),
-    query(
-      `SELECT count(*)::int AS n FROM ip_users
-       WHERE role = 'candidate' AND registration_source = 'form' AND form_approval_status = 'pending'`,
-    ),
-    query(
-      `SELECT count(*)::int AS n FROM ip_notifications WHERE user_id = $1 AND read_at IS NULL`,
-      [session.user.id],
-    ),
-    query(
-      `SELECT e.id, e.company_name, e.work_email, e.website, e.contact_name, e.created_at,
-              u.email AS account_email
-       FROM ip_employers e
-       JOIN ip_users u ON u.id = e.user_id
-       WHERE e.approval_status = 'pending'
-       ORDER BY e.created_at ASC
-       LIMIT 5`,
-    ),
-  ]);
+  // Sequential queries — Supabase session pool (~15) cannot absorb Promise.all fan-out
+  // when QA/scripts also hold short-lived clients.
+  const candidates = await query(`SELECT count(*)::int AS n FROM ip_users WHERE role = 'candidate'`);
+  const employers = await query(`SELECT count(*)::int AS n FROM ip_users WHERE role = 'employer'`);
+  const pendingEmployers = await query(`SELECT count(*)::int AS n FROM ip_employers WHERE approval_status = 'pending'`);
+  const internships = await query(
+    `SELECT count(*) FILTER (WHERE status='published')::int AS live, count(*)::int AS total FROM ip_internships`,
+  );
+  const applications = await query(`SELECT count(*)::int AS n FROM ip_applications`);
+  const offers = await query(
+    `SELECT count(*) FILTER (WHERE status='accepted')::int AS accepted, count(*)::int AS total FROM ip_offers`,
+  );
+  const requests = await query(`SELECT count(*)::int AS n FROM ip_employer_requests WHERE status = 'pending'`);
+  const ideas = await query(`SELECT count(*)::int AS n FROM ip_feature_ideas WHERE status = 'Pending approval'`);
+  const pendingDocs = await query(
+    `SELECT count(*)::int AS n FROM ip_employer_documents WHERE coalesce(review_status,'pending') = 'pending'`,
+  );
+  const pendingViral = await query(
+    `SELECT count(*)::int AS n FROM ip_viral_shares
+     WHERE status IN ('pending','scheduled','searching','fast_track_pending')`,
+  );
+  const pendingPromos = await query(
+    `SELECT count(*)::int AS n FROM ip_linkedin_promotions
+     WHERE status IN ('pending','scheduled','fast_track_pending','searching')`,
+  );
+  const pendingFormRegs = await query(
+    `SELECT count(*)::int AS n FROM ip_users
+     WHERE role = 'candidate' AND registration_source = 'form' AND form_approval_status = 'pending'`,
+  );
+  const unreadNotifs = await query(
+    `SELECT count(*)::int AS n FROM ip_notifications WHERE user_id = $1 AND read_at IS NULL`,
+    [session.user.id],
+  );
+  const pendingEmployerPreview = await query(
+    `SELECT e.id, e.company_name, e.work_email, e.website, e.contact_name, e.created_at,
+            u.email AS account_email
+     FROM ip_employers e
+     JOIN ip_users u ON u.id = e.user_id
+     WHERE e.approval_status = 'pending'
+     ORDER BY e.created_at ASC
+     LIMIT 5`,
+  );
 
   const docsForPending = pendingEmployerPreview.rows.length
     ? await query(

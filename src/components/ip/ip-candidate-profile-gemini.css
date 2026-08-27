@@ -330,6 +330,18 @@
   border-bottom-color: var(--ip-brand);
 }
 
+.ip-cand-profile .ip-cp-tabs button[role='tab'].is-locked,
+.ip-cand-profile .ip-cp-tabs button[role='tab']:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  color: #94a3b8;
+}
+
+.ip-cand-profile .ip-cp-tabs button[role='tab'].is-locked:hover,
+.ip-cand-profile .ip-cp-tabs button[role='tab']:disabled:hover {
+  color: #94a3b8;
+}
+
 .ip-cand-profile .ip-cp-stack {
   display: flex;
   flex-direction: column;

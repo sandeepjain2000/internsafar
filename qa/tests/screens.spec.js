@@ -6,6 +6,9 @@ const { PUBLIC, CANDIDATE, EMPLOYER, SUPERADMIN } = require('../routes-by-role')
 async function smoke(page, href) {
   const res = await page.goto(href, { waitUntil: 'domcontentloaded' });
   expect(res && res.status() === 404).toBeFalsy();
+  // Public pages vary: home/register may use h1/h2/button without <main> or a form yet.
+  const shell = page.locator('main, form, h1, h2, [role="main"], button[type="submit"], button').first();
+  await expect(shell).toBeVisible({ timeout: 25_000 });
   const body = await page.locator('body').innerText({ timeout: 15_000 });
   assertNoCrash(body);
 }

@@ -59,8 +59,11 @@ async function main() {
     );
     console.log('Migrated', LEGACY, '→', NEW_EMAIL);
   } else {
-    const id = `ip_user_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    const code = `SA${String(Date.now()).slice(-6)}`;
+    const p = (n) => String(n).padStart(2, '0');
+    const d = new Date();
+    const run = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+    const id = `ip_user_${run}-001`;
+    const code = `REF-SA-${run}`;
     await client.query(
       `INSERT INTO ip_users (id, email, password_hash, role, name, points, free_post_credits,
         application_allowance, referral_code, profile_complete, active)

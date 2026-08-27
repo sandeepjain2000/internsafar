@@ -37,7 +37,14 @@ test.describe('InternSafar authentication', () => {
     await expect(page.locator('#email')).toBeVisible({ timeout: 15_000 });
   });
 
-  test('superadmin signs in on /superadmin/login', async ({ page }) => {
+  test('superadmin login form is on /superadmin/login', async ({ page }) => {
+    await page.goto('/superadmin/login');
+    await expect(page.locator('#sa-email')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('#sa-password')).toBeVisible();
+    await expect(page.getByRole('button', { name: /^login$/i })).toBeVisible();
+  });
+
+  test('superadmin signs in and lands on /superadmin', async ({ page }) => {
     await signInSuperAdmin(page, superadmin.email);
     await expect(page).toHaveURL(superadmin.home, { timeout: 25_000 });
     await signOut(page);
@@ -63,7 +70,10 @@ test.describe('InternSafar authentication', () => {
   test('candidate cannot stay on /employer', async ({ page }) => {
     await signInOnHome(page, candidate.email);
     await expect(page).toHaveURL(candidate.home, { timeout: 25_000 });
-    await page.goto('/employer');
-    await expect(page).not.toHaveURL(/\/employer(\/|$)/, { timeout: 20_000 });
+    await page.goto('/employer', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => !location.pathname.startsWith('/employer'), {
+      timeout: 20_000,
+    });
+    await expect(page).not.toHaveURL(/\/employer(\/|$)/);
   });
 });

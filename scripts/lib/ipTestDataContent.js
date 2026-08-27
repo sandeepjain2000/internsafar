@@ -126,8 +126,9 @@ const APP_STATUSES = [
   'offered',
   'rejected',
   'withdrawn',
-  'applied',
-  'shortlisted',
+  'hired',
+  'declined_offer',
+  'completed',
 ];
 
 const IDEA_STATUSES = [

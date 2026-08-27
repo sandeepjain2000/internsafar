@@ -1,7 +1,7 @@
 # Internship Portal ER diagram
 
-**Last synced:** 2026-08-26 (sibling `internship-portal`)  
-**Sources:** `db/migrations/001`–`029` (`*ip*`) + `src/lib/ensureIp*.js` + `ipTwoFactor.js`
+**Last synced:** 2026-08-27 (sibling `internship-portal`)  
+**Sources:** live Postgres catalog + `db/migrations/001`–`029` (`*ip*`) + `src/lib/ensureIp*.js` + `ipTwoFactor.js`
 
 ## PlantUML file
 
@@ -20,26 +20,37 @@ Render with VS Code PlantUML, IntelliJ, or https://www.plantuml.com/plantuml
 2. **Do not dump all columns** into entity bodies. Bodies stay empty; relationships + title keys carry structure.  
 3. **Two backgrounds:**
    - **CORE** (blue) — hire-pipeline integrity only  
-   - **NON-ESSENTIAL** (orange) — everything else  
+   - **NON-ESSENTIAL** (orange) — everything else (split into bucket packages in the `.puml`)  
 4. Required NON-ESSENTIAL buckets: feature ideas, sharing, points, referrals, login/auth, lookup — then **more** tables moved out as CORE is cleaned.
 
 ---
 
-## Audit (final re-check 2026-08-26)
+## Sync delta (2026-08-27 vs prior diagram)
+
+| Change | Detail |
+|---|---|
+| Live table count | **45** `ip_*` tables — same set; none added/removed since prior draw |
+| `ip_users` FKs | Now lists `referred_by → ip_users` and `generated_run_id → ip_generated_runs` (were missing under title) |
+| Integrity UNIQUEs in titles | Noted on applications, offers, saved_internships, ratings, endorsements, list_members, table_filter_prefs |
+| NON-ESSENTIAL layout | Split into nested orange packages (ideas / sharing / points / referrals / auth / lookup / workbench) |
+| Relationships | Added missing edges (self-referral, ratings↔users, endorsements↔candidates, bulk recipients, export created_by, etc.) |
+| CORE `ip_applications` | Title still hire-path FKs only (internship + candidate); optional `rejection_template_id` stays dotted to NON-ESSENTIAL |
+
+Integrity audit the same day: `db:check-integrity` → **ok** (no open FK/orphan issues).
+
+---
+
+## Audit checklist
 
 | Check | Result |
 |---|---|
 | Every entity has `PK:` under name | **Pass** (45 entities) |
 | Every entity has `FK:` line under name (`FK: —` if none) | **Pass** |
-| Entity bodies empty (no column lists / no body `<<PK>>`/`<<FK>>`) | **Pass** |
-| No full-schema / fat columns in boxes | **Pass** |
+| Entity bodies empty (no column lists) | **Pass** |
 | CORE (blue) vs NON-ESSENTIAL (orange) backgrounds | **Pass** |
-| Required NON-ESSENTIAL buckets (ideas, sharing, points, referrals, login, lookup) | **Pass** |
-| Extra non-core tables moved out while cleaning CORE | **Pass** (34 NON-ESSENTIAL entities) |
-| CORE `ip_applications` FKs = internship + candidate only | **Pass** |
-| Core hire relationships present | **Pass** |
-
-**Verdict:** Meets the stated ER guidelines. No further structural change required for those rules.
+| Required NON-ESSENTIAL buckets | **Pass** |
+| Extra non-core tables outside CORE | **Pass** |
+| Matches live FK catalog | **Pass** |
 
 ---
 
@@ -62,7 +73,7 @@ Logical path: accounts → candidate/employer profiles → documents/postings �
 | Login / auth | `ip_login_events`, `ip_auth_sessions`, `ip_password_resets`, `ip_2fa_challenges`, `ip_email_change_challenges`, `ip_phone_change_challenges`, `ip_notification_preferences` |
 | Lookup | `ip_ref_cities`, `ip_ref_degrees` |
 
-## NON-ESSENTIAL — additional (identified while shrinking CORE)
+## NON-ESSENTIAL — additional (workbench / support / post-hire)
 
 | Table | Why not CORE |
 |---|---|
@@ -88,7 +99,3 @@ Logical path: accounts → candidate/employer profiles → documents/postings �
 - **Dropped:** `ip_list_presets` (migration 022) — presets live on `ip_saved_applicant_views`.  
 - **UI-only labels:** e.g. offer `Action Required`, notification presentation — app code, not DB columns.  
 - **Full column schemas:** intentionally omitted; use migrations / `ensureIp*.js` for field-level detail.
-
-## Sync note
-
-No new `ip_*` tables from the 2026-08-26 candidate batch. Diagram rebuilt to sparse key-only titles + CORE/NON-ESSENTIAL split per guidelines.

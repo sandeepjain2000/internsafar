@@ -10,6 +10,8 @@ import { fileURLToPath } from 'url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 dotenv.config({ path: resolve(root, '.env.local') });
 
+import { qaDbId } from './lib/ipQaNaming.mjs';
+
 const EMP_EMAIL = 'shreekar.nyayapathi23+2@vit.edu';
 const CAND_EMAIL = 'lawsonlclintern+1@gmail.com';
 
@@ -17,7 +19,7 @@ const client = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: 
 await client.connect();
 
 function nid(prefix) {
-  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  return qaDbId(prefix);
 }
 
 // ── look up both accounts ───────────────────────────────────────────────────

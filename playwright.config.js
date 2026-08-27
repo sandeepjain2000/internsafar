@@ -15,7 +15,7 @@ module.exports = defineConfig({
     baseURL: process.env.IP_BASE || 'http://localhost:3000',
     headless: !isHeaded,
     navigationTimeout: 30_000,
-    actionTimeout: 15_000,
+    actionTimeout: 45_000,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },

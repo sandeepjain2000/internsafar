@@ -295,8 +295,9 @@ export const authOptions = {
       return token;
     },
     async session({ session, token }) {
+      // Soft-fail tokens must not look "authenticated" with user:null — that blanked PortalShell.
       if (token?.error === 'revoked' || token?.error === 'inactive' || token?.error === 'expired') {
-        return { ...session, user: null, error: token.error };
+        return null;
       }
       if (session.user) {
         session.user.id = token.uid;

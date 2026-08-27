@@ -2,7 +2,16 @@
 /**
  * Internship Portal core-sample reset (single executable).
  *
- * Edit ONLY this CONFIG section to change baseline accounts/transactions.
+ * Preserves the 3 demo login accounts (candidate / employer / superadmin),
+ * deletes everyone else (+ cascade), clears core transactional data, then
+ * re-seeds ≈2 pages of meaningful rows for those cores (+ support cast).
+ *
+ * Cores (password Admin@123):
+ *   Candidate   lawsonlclintern+1@gmail.com
+ *   Employer    shreekar.nyayapathi23+2@vit.edu
+ *   SuperAdmin  placementhubsupport@gmail.com
+ *
+ * Edit scripts/lib/ipCoreSampleConfig.js + ipCoreBaselinePostings.js for baseline.
  */
 const fs = require('fs');
 const path = require('path');
@@ -10,32 +19,20 @@ const readline = require('readline');
 const { createRequire } = require('module');
 
 const content = require('./lib/ipTestDataContent.js');
+const coreCfg = require('./lib/ipCoreSampleConfig.js');
+const { CORE_BASELINE_POSTINGS } = require('./lib/ipCoreBaselinePostings.js');
+const { seedCoreBaseline } = require('./lib/ipSeedCoreBaseline.js');
 
 const CONFIG = {
-  superadminEmail: 'placementhubsupport@gmail.com',
-  legacySuperadminEmail: 'superadmin@internship.local',
-  demoPassword: 'Admin@123',
-  // Newest “primary” demo accounts (match the latest accounts doc)
-  candidateBase: { email: 'lawsonlclintern+1@gmail.com', name: 'Priya Sharma' },
-  employerBase: { email: 'shreekar.nyayapathi23+2@vit.edu', company: 'Nova Labs', status: 'approved' },
-  // Unique names — never reuse the same candidate/employer label across offer rows
-  castCandidates: [
-    { email: 'lawsonlclintern+1@gmail.com', name: 'Priya Sharma', skills: ['React', 'TypeScript', 'Node'] },
-    { email: 'lawsonlclintern+2@gmail.com', name: 'Arjun Mehta', skills: ['Python', 'SQL', 'ML'] },
-    { email: 'lawsonlclintern+3@gmail.com', name: 'Meera Iyer', skills: ['Java', 'Spring', 'SQL'] },
-    { email: 'lawsonlclintern+4@gmail.com', name: 'Kabir Reddy', skills: ['Figma', 'UX Research'] },
-    { email: 'lawsonlclintern+5@gmail.com', name: 'Ananya Patel', skills: ['Node.js', 'Express', 'MongoDB'] },
-    { email: 'lawsonlclintern+6@gmail.com', name: 'Rohan Das', skills: ['AWS', 'Docker', 'Linux'] },
-    { email: 'lawsonlclintern+7@gmail.com', name: 'Ishita Nair', skills: ['Selenium', 'Cypress', 'Jest'] },
-    { email: 'lawsonlclintern+8@gmail.com', name: 'Vikram Gupta', skills: ['TensorFlow', 'Python', 'NLP'] },
-  ],
-  castEmployers: [
-    { email: 'shreekar.nyayapathi23+2@vit.edu', company: 'Nova Labs', status: 'approved' },
-    { email: 'shreekar.nyayapathi23+3@vit.edu', company: 'Pulse Media', status: 'pending' },
-    { email: 'shreekar.nyayapathi23+4@vit.edu', company: 'BrightPath Analytics', status: 'approved' },
-    { email: 'shreekar.nyayapathi23+5@vit.edu', company: 'Cedar Softworks', status: 'approved' },
-    { email: 'shreekar.nyayapathi23+6@vit.edu', company: 'Orbit Fintech', status: 'approved' },
-  ],
+  superadminEmail: coreCfg.SUPERADMIN_EMAIL,
+  legacySuperadminEmail: coreCfg.LEGACY_SUPERADMIN_EMAIL,
+  demoPassword: coreCfg.DEMO_PASSWORD,
+  candidateBase: { email: coreCfg.CAND_BASE, name: coreCfg.CAND_BASE_NAME },
+  employerBase: { email: coreCfg.EMP_BASE, company: coreCfg.EMP_BASE_NAME, status: 'approved' },
+  castCandidates: coreCfg.CAST_CANDIDATES,
+  castEmployers: coreCfg.CAST_EMPLOYERS,
+  /** Emails whose ip_users rows are never deleted */
+  preserveEmails: coreCfg.PRESERVE_USER_EMAILS,
 };
 
 function parseArgs(argv) {
@@ -75,13 +72,19 @@ function ask(question) {
   return new Promise((resolve) => rl.question(question, (a) => (rl.close(), resolve(String(a || '').trim()))));
 }
 
+let _qaSeq = 0;
+function qaRunLabel(date = new Date()) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}${p(date.getMonth() + 1)}${p(date.getDate())}-${p(date.getHours())}${p(date.getMinutes())}${p(date.getSeconds())}`;
+}
 function nid(prefix) {
-  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  _qaSeq += 1;
+  return `${prefix}_${qaRunLabel()}-${String(_qaSeq).padStart(3, '0')}`;
 }
 
 function refCode(email) {
   const local = String(email).split('@')[0].replace(/[^a-z0-9]/gi, '').slice(0, 8).toUpperCase();
-  return `R${local}${String(Date.now()).slice(-4)}`;
+  return `REF-${local}`;
 }
 
 async function tableExists(client, name) {
@@ -133,24 +136,24 @@ async function deleteUserCascade(client, userId, email) {
       await runDelete(client, `DELETE FROM ip_candidates WHERE id=$1`, [candidateId]);
     }
 
-    for (const sql of [
-      `DELETE FROM ip_viral_shares WHERE user_id=$1`,
-      `DELETE FROM ip_notifications WHERE user_id=$1`,
-      `DELETE FROM ip_points_ledger WHERE user_id=$1`,
-      `DELETE FROM ip_password_resets WHERE user_id=$1`,
-      `DELETE FROM ip_login_events WHERE user_id=$1`,
-      `DELETE FROM ip_auth_sessions WHERE user_id=$1`,
-      `DELETE FROM ip_feature_idea_votes WHERE user_id=$1`,
-      `DELETE FROM ip_feature_idea_comments WHERE author_user_id=$1`,
-      `UPDATE ip_feature_ideas SET author_user_id=NULL WHERE author_user_id=$1`,
-      `DELETE FROM ip_referrals WHERE referrer_user_id=$1`,
-      `UPDATE ip_referrals SET referred_user_id=NULL WHERE referred_user_id=$1`,
-      `DELETE FROM ip_employer_requests WHERE lower(contact_email)=lower($2) OR created_user_id=$1`,
-      `DELETE FROM ip_users WHERE id=$1`,
-    ]) {
-      await runDelete(client, sql, [userId, email]);
-    }
-    await client.query('COMMIT');
+    for (const [sql, params] of [
+    [`DELETE FROM ip_viral_shares WHERE user_id=$1`, [userId]],
+    [`DELETE FROM ip_notifications WHERE user_id=$1`, [userId]],
+    [`DELETE FROM ip_points_ledger WHERE user_id=$1`, [userId]],
+    [`DELETE FROM ip_password_resets WHERE user_id=$1`, [userId]],
+    [`DELETE FROM ip_login_events WHERE user_id=$1`, [userId]],
+    [`DELETE FROM ip_auth_sessions WHERE user_id=$1`, [userId]],
+    [`DELETE FROM ip_feature_idea_votes WHERE user_id=$1`, [userId]],
+    [`DELETE FROM ip_feature_idea_comments WHERE author_user_id=$1`, [userId]],
+    [`UPDATE ip_feature_ideas SET author_user_id=NULL WHERE author_user_id=$1`, [userId]],
+    [`DELETE FROM ip_referrals WHERE referrer_user_id=$1`, [userId]],
+    [`UPDATE ip_referrals SET referred_user_id=NULL WHERE referred_user_id=$1`, [userId]],
+    [`DELETE FROM ip_employer_requests WHERE lower(contact_email)=lower($1) OR created_user_id=$2`, [email, userId]],
+    [`DELETE FROM ip_users WHERE id=$1`, [userId]],
+  ]) {
+    await runDelete(client, sql, params);
+  }
+  await client.query('COMMIT');
   } catch (e) {
     await client.query('ROLLBACK');
     throw e;
@@ -262,26 +265,35 @@ async function seedCoreData(client, bcrypt) {
   const postEmpId = employerIds[postEmpEmail];
   const postCompany = employerEntries.find((e) => e.email === postEmpEmail)?.company || 'Nova Labs';
 
-  // Unique role titles — never identical "QA Intern" placeholders
-  const roleSpecs = content.ROLE_TITLES.slice(0, 12).map((title, ti) => ({
-    title,
-    status: ti === 11 ? 'paused' : 'published',
+  /** Baseline Nova roles (from live core snapshot) — ≥2 UI pages + draft/paused + 2 blank-req. */
+  const roleSpecs = CORE_BASELINE_POSTINGS.map((row) => ({
+    title: row.title,
+    status: row.status || 'published',
+    blankRequirements: Boolean(row.blankRequirements),
   }));
 
-  /** @type {{ id: string, employerId: string, title: string, company: string }[]} */
+  /** @type {{ id: string, employerId: string, title: string, company: string, status: string }[]} */
   const postingRows = [];
 
-  async function ensurePosting(employerId, company, title, status, ti) {
+  async function ensurePosting(employerId, company, title, status, ti, blankRequirements = false) {
     const city = content.pick(content.CITIES, ti);
     const ex = await client.query(`SELECT id FROM ip_internships WHERE employer_id=$1 AND title=$2 LIMIT 1`, [employerId, title]);
     if (ex.rows[0]) {
-      postingRows.push({ id: ex.rows[0].id, employerId, title, company });
+      postingRows.push({ id: ex.rows[0].id, employerId, title, company, status });
       return ex.rows[0].id;
     }
     const id = nid('ip_int');
     const desc = content.internshipDescription(title, company, city, ti);
+    let eligibility = content.internshipEligibilityAt(ti);
+    if (blankRequirements) {
+      eligibility = {
+        ...eligibility,
+        skills: [],
+        requirements_text: '',
+        ideal_profile_text: eligibility.ideal_profile_text || '',
+      };
+    }
     // Live schedule for Browse (CANDIDATE_VISIBLE): starts_at past, apply_ends_at future.
-    // start_date may be soon for "Starting soon" chips — do not put starts_at in the future.
     await client.query(
       `INSERT INTO ip_internships (
          id,employer_id,title,description,location,work_mode,stipend_inr,duration_months,
@@ -300,21 +312,21 @@ async function seedCoreData(client, bcrypt) {
         city,
         content.pick(content.WORK_MODES, ti),
         12000 + (ti % 5) * 2000,
-        JSON.stringify(content.internshipEligibilityAt(ti)),
+        JSON.stringify(eligibility),
         JSON.stringify([{ id: 'q1', prompt: 'Why this role?', type: 'textarea' }]),
         status,
         JSON.stringify([city]),
         5 + (ti % 16),
       ],
     );
-    postingRows.push({ id, employerId, title, company });
+    postingRows.push({ id, employerId, title, company, status });
     return id;
   }
 
-  // Primary employer gets the bulk of published roles
+  // Primary employer (Nova) gets the baseline catalog
   for (let ti = 0; ti < roleSpecs.length; ti += 1) {
-    const { title: t, status } = roleSpecs[ti];
-    await ensurePosting(postEmpId, postCompany, t, status, ti);
+    const { title: t, status, blankRequirements } = roleSpecs[ti];
+    await ensurePosting(postEmpId, postCompany, t, status, ti, blankRequirements);
   }
 
   // Each additional approved employer gets 2–3 distinct roles so offers are not all from one company
@@ -326,39 +338,58 @@ async function seedCoreData(client, bcrypt) {
     const count = 3;
     for (let j = 0; j < count; j += 1) {
       const title = content.roleTitle(extraTi + j);
-      await ensurePosting(eid, emp.company, title, 'published', extraTi + j);
+      await ensurePosting(eid, emp.company, title, 'published', extraTi + j, false);
     }
     extraTi += count;
   }
 
-  const publishedPostings = postingRows.filter((p) => {
-    const spec = roleSpecs.find((r) => r.title === p.title);
-    return !spec || spec.status === 'published' || p.employerId !== postEmpId;
-  });
+  const publishedPostings = postingRows.filter((p) => p.status === 'published');
   const internshipIds = postingRows.map((p) => p.id);
   const publishedInternIds = publishedPostings.map((p) => p.id);
 
   const candEmails = [...new Set(Object.keys(candidateIds))];
   const offerStatuses = ['pending', 'accepted', 'declined', 'pending', 'expired', 'pending', 'accepted', 'pending'];
+  const appStatusCycle = [
+    'applied', 'shortlisted', 'interviewing', 'offered', 'rejected', 'withdrawn',
+    'hired', 'declined_offer', 'applied', 'shortlisted', 'interviewing', 'offered',
+  ];
 
-  // Applications: rotate candidates across different roles (not one name on every row)
-  for (let i = 0; i < candEmails.length; i += 1) {
-    const cEmail = candEmails[i];
+  // Dense applications so employer applicants + candidate My Applications cover ≥2 pages / statuses
+  const appTarget = Math.max(content.TARGET_LIST_ROWS * 2, publishedPostings.length * 2);
+  let appN = 0;
+  for (let i = 0; i < appTarget; i += 1) {
+    const cEmail = candEmails[i % candEmails.length];
     const posting = publishedPostings[i % Math.max(1, publishedPostings.length)];
-    if (!posting) continue;
-    const appStatus = i === 1 ? 'shortlisted' : i % 5 === 0 ? 'offered' : i % 4 === 0 ? 'interviewing' : 'applied';
-    const ex = await client.query(`SELECT id FROM ip_applications WHERE internship_id=$1 AND candidate_id=$2`, [posting.id, candidateIds[cEmail]]);
+    if (!posting || !candidateIds[cEmail]) continue;
+    const appStatus = appStatusCycle[i % appStatusCycle.length];
+    const ex = await client.query(
+      `SELECT id FROM ip_applications WHERE internship_id=$1 AND candidate_id=$2`,
+      [posting.id, candidateIds[cEmail]],
+    );
     let appId = ex.rows[0]?.id;
     if (!appId) {
       appId = nid('ip_app');
       await client.query(
         `INSERT INTO ip_applications (id,internship_id,candidate_id,status,match_score,answers) VALUES ($1,$2,$3,$4,$5,$6::jsonb)`,
-        [appId, posting.id, candidateIds[cEmail], appStatus, 70 + (i % 8) * 3, JSON.stringify({ q1: 'Excited to contribute to this internship and learn from the team.' })],
+        [
+          appId,
+          posting.id,
+          candidateIds[cEmail],
+          appStatus,
+          70 + (i % 8) * 3,
+          JSON.stringify({ q1: 'Excited to contribute to this internship and learn from the team.' }),
+        ],
       );
-    } else {
-      await client.query(`UPDATE ip_applications SET status=$2,match_score=$3 WHERE id=$1`, [appId, appStatus, 70 + (i % 8) * 3]);
+      appN += 1;
+    } else if (i < candEmails.length) {
+      await client.query(`UPDATE ip_applications SET status=$2,match_score=$3 WHERE id=$1`, [
+        appId,
+        appStatus,
+        70 + (i % 8) * 3,
+      ]);
     }
   }
+  console.log(`Seeded/ensured applications (new inserts this pass ≈${appN}, target loop ${appTarget})`);
 
   // Offers: distinct candidate × posting pairs; employer follows the posting (never same name spam)
   await client.query(`ALTER TABLE ip_offers ADD COLUMN IF NOT EXISTS application_id TEXT`).catch(() => {});
@@ -541,6 +572,55 @@ async function seedCoreData(client, bcrypt) {
   }
 }
 
+async function clearCoreOwnedData(client, { candidateUserId, employerUserId, candidateId, employerId, superadminId }) {
+  // Wipe transactional rows owned by the preserved cores so seed starts clean.
+  const { deleteIpWorkbenchForActor } = require(path.join(__dirname, 'lib', 'ensureIpPipelineSchema.js'));
+  const actors = [
+    { userId: candidateUserId, employerId: null, candidateId },
+    { userId: employerUserId, employerId, candidateId: null },
+    { userId: superadminId, employerId: null, candidateId: null },
+  ];
+  for (const actor of actors) {
+    if (!actor.userId) continue;
+    await deleteIpWorkbenchForActor(client, async (_label, sql, params) => runDelete(client, sql, params), actor);
+  }
+
+  if (employerId) {
+    const posts = await client.query(`SELECT id FROM ip_internships WHERE employer_id=$1`, [employerId]);
+    const ids = posts.rows.map((r) => r.id);
+    if (ids.length) {
+      await runDelete(client, `DELETE FROM ip_ratings WHERE internship_id = ANY($1::text[])`, [ids]);
+      await runDelete(client, `DELETE FROM ip_endorsements WHERE internship_id = ANY($1::text[])`, [ids]);
+      await runDelete(client, `DELETE FROM ip_messages WHERE thread_id IN (SELECT id FROM ip_message_threads WHERE internship_id = ANY($1::text[]))`, [ids]);
+      await runDelete(client, `DELETE FROM ip_message_threads WHERE internship_id = ANY($1::text[])`, [ids]);
+      await runDelete(client, `DELETE FROM ip_saved_internships WHERE internship_id = ANY($1::text[])`, [ids]);
+      await runDelete(client, `DELETE FROM ip_offers WHERE internship_id = ANY($1::text[])`, [ids]);
+      await runDelete(client, `DELETE FROM ip_applications WHERE internship_id = ANY($1::text[])`, [ids]);
+      await runDelete(client, `DELETE FROM ip_internships WHERE id = ANY($1::text[])`, [ids]);
+    }
+    await runDelete(client, `DELETE FROM ip_linkedin_promotions WHERE employer_id=$1`, [employerId]);
+    await runDelete(client, `DELETE FROM ip_offers WHERE employer_id=$1`, [employerId]);
+  }
+  if (candidateId) {
+    await runDelete(client, `DELETE FROM ip_saved_internships WHERE candidate_id=$1`, [candidateId]);
+    await runDelete(client, `DELETE FROM ip_offers WHERE candidate_id=$1`, [candidateId]);
+    await runDelete(client, `DELETE FROM ip_applications WHERE candidate_id=$1`, [candidateId]);
+    await runDelete(client, `DELETE FROM ip_endorsements WHERE candidate_id=$1`, [candidateId]);
+  }
+  const coreUserIds = [candidateUserId, employerUserId, superadminId].filter(Boolean);
+  if (coreUserIds.length) {
+    await runDelete(client, `DELETE FROM ip_messages WHERE thread_id IN (
+      SELECT id FROM ip_message_threads WHERE candidate_user_id = ANY($1::text[]) OR employer_user_id = ANY($1::text[])
+    )`, [coreUserIds]);
+    await runDelete(client, `DELETE FROM ip_message_threads WHERE candidate_user_id = ANY($1::text[]) OR employer_user_id = ANY($1::text[])`, [coreUserIds]);
+    await runDelete(client, `DELETE FROM ip_ratings WHERE from_user_id = ANY($1::text[]) OR to_user_id = ANY($1::text[])`, [coreUserIds]);
+    await runDelete(client, `DELETE FROM ip_notifications WHERE user_id = ANY($1::text[])`, [coreUserIds]);
+    await runDelete(client, `DELETE FROM ip_auth_sessions WHERE user_id = ANY($1::text[])`, [coreUserIds]);
+    await runDelete(client, `DELETE FROM ip_login_events WHERE user_id = ANY($1::text[])`, [coreUserIds]);
+    await runDelete(client, `DELETE FROM ip_password_resets WHERE user_id = ANY($1::text[])`, [coreUserIds]);
+  }
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const scriptDir = __dirname;
@@ -557,13 +637,15 @@ async function main() {
   const connectionString = env.DATABASE_URL || env.SUPABASE_DATABASE_URL;
   if (!connectionString) throw new Error(`DATABASE_URL missing in ${ipRoot}`);
 
-  const coreEmails = new Set([
-    CONFIG.superadminEmail.toLowerCase(),
-    CONFIG.candidateBase.email.toLowerCase(),
-    CONFIG.employerBase.email.toLowerCase(),
-    ...CONFIG.castCandidates.map((c) => c.email.toLowerCase()),
-    ...CONFIG.castEmployers.map((e) => e.email.toLowerCase()),
-  ]);
+  coreCfg.assertProtectedConfigValid();
+
+  const preserve = new Set(
+    (CONFIG.preserveEmails || []).map((e) => String(e).toLowerCase()),
+  );
+  // Always include the three demo logins
+  preserve.add(CONFIG.superadminEmail.toLowerCase());
+  preserve.add(CONFIG.candidateBase.email.toLowerCase());
+  preserve.add(CONFIG.employerBase.email.toLowerCase());
 
   const client = new pg.Client({ connectionString, ssl: { rejectUnauthorized: false } });
   await client.connect();
@@ -571,28 +653,70 @@ async function main() {
     const { ensureIpPipelineSchema } = require(path.join(ipRoot, 'scripts', 'lib', 'ensureIpPipelineSchema.js'));
     await ensureIpPipelineSchema(client);
     const users = await client.query(`SELECT id,email,role FROM ip_users ORDER BY role,email`);
-    const toDelete = users.rows.filter((u) => String(u.email || '').toLowerCase() !== CONFIG.superadminEmail.toLowerCase());
+    const toDelete = users.rows.filter((u) => !preserve.has(String(u.email || '').toLowerCase()));
     console.log(`IP root: ${ipRoot}`);
+    console.log(`Preserve cores: ${[...preserve].join(', ')}`);
     console.log(`Users in DB: ${users.rows.length}; will remove: ${toDelete.length}`);
+    console.log(`Baseline Nova postings to seed: ${CORE_BASELINE_POSTINGS.length}`);
     if (args.dryRun) {
-      console.log('Dry run only. Core emails to restore:');
-      for (const e of coreEmails) console.log(`  - ${e}`);
+      console.log('Dry run only. Sample delete emails:');
+      for (const u of toDelete.slice(0, 15)) console.log(`  - ${u.email}`);
+      if (toDelete.length > 15) console.log(`  … +${toDelete.length - 15} more`);
       return;
     }
     if (!args.yes) {
       const c = await ask('Type RESET to continue: ');
       if (c !== 'RESET') return console.log('Cancelled.');
     }
+
     for (const u of toDelete) await deleteUserCascade(client, u.id, u.email);
+
     const superadminId = await ensureSuperadmin(client, bcrypt);
+    // Ensure core login rows exist / password restored (do not delete them)
+    const candUserId = await ensureUser(client, bcrypt, {
+      email: CONFIG.candidateBase.email,
+      role: 'candidate',
+      name: CONFIG.candidateBase.name,
+      points: 80,
+      password: CONFIG.demoPassword,
+    });
+    await client.query(
+      `UPDATE ip_users SET password_hash=$2, name=$3, active=true, role='candidate', updated_at=now() WHERE id=$1`,
+      [candUserId, await bcrypt.hash(CONFIG.demoPassword, 10), CONFIG.candidateBase.name],
+    );
+    const empUserId = await ensureUser(client, bcrypt, {
+      email: CONFIG.employerBase.email,
+      role: 'employer',
+      name: CONFIG.employerBase.company,
+      points: 200,
+      password: CONFIG.demoPassword,
+    });
+    await client.query(
+      `UPDATE ip_users SET password_hash=$2, name=$3, active=true, role='employer', updated_at=now() WHERE id=$1`,
+      [empUserId, await bcrypt.hash(CONFIG.demoPassword, 10), CONFIG.employerBase.company],
+    );
+
+    const candRow = await client.query(`SELECT id FROM ip_candidates WHERE user_id=$1`, [candUserId]);
+    const empRow = await client.query(`SELECT id FROM ip_employers WHERE user_id=$1`, [empUserId]);
+
+    console.log('Clearing transactional data on preserved cores…');
+    await clearCoreOwnedData(client, {
+      candidateUserId: candUserId,
+      employerUserId: empUserId,
+      candidateId: candRow.rows[0]?.id || null,
+      employerId: empRow.rows[0]?.id || null,
+      superadminId,
+    });
+
     for (const table of ['ip_feature_idea_votes', 'ip_feature_idea_comments', 'ip_feature_ideas', 'ip_employer_requests']) {
       if (await tableExists(client, table)) await client.query(`DELETE FROM ${table}`);
     }
-    for (const table of ['ip_notifications', 'ip_points_ledger', 'ip_login_events', 'ip_auth_sessions', 'ip_password_resets']) {
-      if (await tableExists(client, table)) await client.query(`DELETE FROM ${table} WHERE user_id=$1`, [superadminId]);
-    }
-    await seedCoreData(client, bcrypt);
-    console.log('Reset complete. Baseline accounts and transactions restored.');
+
+    await seedCoreBaseline(client, bcrypt);
+    console.log('Reset complete. Three cores preserved; baseline catalog + cast/support transactions restored.');
+    console.log(`  Candidate  ${CONFIG.candidateBase.email} / ${CONFIG.demoPassword}`);
+    console.log(`  Employer   ${CONFIG.employerBase.email} / ${CONFIG.demoPassword}`);
+    console.log(`  SuperAdmin ${CONFIG.superadminEmail} / ${CONFIG.demoPassword}`);
   } finally {
     await client.end();
   }

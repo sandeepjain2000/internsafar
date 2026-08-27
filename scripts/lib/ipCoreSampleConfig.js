@@ -1,8 +1,8 @@
 /**
  * *** ONLY FILE TO EDIT for core-sample / reset baseline emails ***
  *
- * IP_Reset_Core_Sample.cmd, reset-ip-core-sample.mjs, and seed-gmail-plus-cast.mjs
- * all read from here. Change emails/names below — no other file needs updating.
+ * IP_Reset_Core_Sample.js and seed helpers read from here.
+ * Change emails/names below — no other file needs updating for account identity.
  *
  * @module scripts/lib/ipCoreSampleConfig
  */
@@ -12,11 +12,11 @@ const SUPERADMIN_EMAIL = 'placementhubsupport@gmail.com';
 const LEGACY_SUPERADMIN_EMAIL = 'superadmin@internship.local';
 const DEMO_PASSWORD = 'Admin@123';
 
-/** Primary showcase candidate — removed on reset, then re-created. */
+/** Primary showcase candidate — kept during reset; transactional data cleared + re-seeded. */
 const CAND_BASE = 'lawsonlclintern+1@gmail.com';
 const CAND_BASE_NAME = 'Priya Sharma';
 
-/** Primary showcase employer — removed on reset, then re-created. */
+/** Primary showcase employer — kept during reset; transactional data cleared + re-seeded. */
 const EMP_BASE = 'shreekar.nyayapathi23+2@vit.edu';
 const EMP_BASE_NAME = 'Nova Labs';
 
@@ -50,8 +50,13 @@ const CAST_EMPLOYERS = [
 const CAST_CANDIDATE_EMAILS = CAST_CANDIDATES.map((c) => c.email);
 const CAST_EMPLOYER_EMAILS = CAST_EMPLOYERS.map((e) => e.email);
 
-/** Accounts preserved during nuclear reset — everyone else is removed and re-seeded. */
-const PRESERVE_USER_EMAILS = [SUPERADMIN_EMAIL];
+/**
+ * Accounts preserved during nuclear reset (login rows kept).
+ * Everyone else is removed; these three keep password Admin@123 and get data re-seeded.
+ */
+const PRESERVE_USER_EMAILS = [SUPERADMIN_EMAIL, CAND_BASE, EMP_BASE].map((e) =>
+  String(e).trim().toLowerCase(),
+);
 
 /**
  * Protected accounts for generate/delete-by-run-ID tooling.

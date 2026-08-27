@@ -128,6 +128,17 @@ export async function PUT(request) {
     if (field === 'resume_links') {
       value = JSON.stringify(normalizeResumeLinks(value));
     }
+    if (field === 'availability_date') {
+      const raw = value == null ? '' : String(value).trim();
+      value = raw || null;
+    }
+    if (field === 'skills' || field === 'preferred_locations') {
+      if (Array.isArray(value)) {
+        params.push(JSON.stringify(value));
+        sets.push(`${field} = $${params.length}::jsonb`);
+        continue;
+      }
+    }
     if (optionalBools.has(field)) value = normalizeOptionalBool(value);
     if (requiredBools.has(field)) value = value === true || value === 'true';
     if (field === 'show_profile_picture') value = value !== false && value !== 'false';

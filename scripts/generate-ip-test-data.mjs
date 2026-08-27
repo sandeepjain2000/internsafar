@@ -24,7 +24,7 @@ import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import pg from 'pg';
 import { createRequire } from 'module';
-import { randomBytes } from 'crypto';
+import { qaRunLabel, qaDbId } from './lib/ipQaNaming.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(__dirname, '..');
@@ -95,7 +95,7 @@ function parseUrl(rawUrl) {
 }
 
 function newId(prefix) {
-  return `${prefix}_${Date.now().toString(36)}_${randomBytes(4).toString('hex')}`;
+  return qaDbId(prefix);
 }
 
 function plusAddress(base, tag) {
@@ -416,7 +416,7 @@ async function modeGenAccounts(pool, opts) {
     );
 
     for (let i = 0; i < employersN; i += 1) {
-      const email = plusAddress(baseMailbox, `genemp${i}_${runId.slice(-8)}`);
+      const email = plusAddress(baseMailbox, `gen-employer-${i + 1}-${runId}`);
       if (isProtectedEmail(email)) throw new Error(`Refusing to create protected email ${email}`);
       const userId = newId('ip_u');
       const empId = newId('ip_e');
@@ -443,7 +443,7 @@ async function modeGenAccounts(pool, opts) {
     }
 
     for (let i = 0; i < candidatesN; i += 1) {
-      const email = plusAddress(baseMailbox, `gencand${i}_${runId.slice(-8)}`);
+      const email = plusAddress(baseMailbox, `gen-candidate-${i + 1}-${runId}`);
       if (isProtectedEmail(email)) throw new Error(`Refusing to create protected email ${email}`);
       const userId = newId('ip_u');
       const candId = newId('ip_c');
@@ -647,7 +647,7 @@ async function modeGenAccounts(pool, opts) {
       ]);
       let code = refUser.rows[0]?.referral_code;
       if (!code) {
-        code = `RGEN${runId.slice(-6).toUpperCase()}`;
+        code = `REF-GEN-${runId}`;
         await pool.query(`UPDATE ip_users SET referral_code = $2 WHERE id = $1`, [
           employerIds[0].userId,
           code,
@@ -826,7 +826,7 @@ async function modeCoreFill(pool, opts) {
     // Support candidates (≥ TARGET for employer candidates list)
     const supportCands = [];
     for (let i = 0; i < supportCandidatesN; i += 1) {
-      const email = plusAddress('lawsonlclintern@gmail.com', `corefill${i}_${runId.slice(-8)}`);
+      const email = plusAddress('lawsonlclintern@gmail.com', `corefill-candidate-${i + 1}-${runId}`);
       if (isProtectedEmail(email)) throw new Error(`Refusing protected email ${email}`);
       const userId = newId('ip_u');
       const candId = newId('ip_c');
@@ -855,7 +855,7 @@ async function modeCoreFill(pool, opts) {
 
     // Pending employer for SuperAdmin Approvals
     {
-      const email = plusAddress('lawsonlclintern@gmail.com', `corefillpend_${runId.slice(-8)}`);
+      const email = plusAddress('lawsonlclintern@gmail.com', `corefill-pending-employer-${runId}`);
       const userId = newId('ip_u');
       const empId = newId('ip_e');
       const company = `${companyName(18)} (Pending)`;
@@ -976,7 +976,7 @@ async function modeCoreFill(pool, opts) {
     // Support employers + postings so core candidate can reach ≥ TARGET applications
     const supportEmps = [];
     for (let i = 0; i < supportEmployersN; i += 1) {
-      const email = plusAddress('lawsonlclintern@gmail.com', `corefillemp${i}_${runId.slice(-8)}`);
+      const email = plusAddress('lawsonlclintern@gmail.com', `corefill-employer-${i + 1}-${runId}`);
       if (isProtectedEmail(email)) continue;
       const userId = newId('ip_u');
       const empId = newId('ip_e');
@@ -1140,7 +1140,17 @@ async function modeCoreFill(pool, opts) {
 
     /** Keep each Applications status tab pageable. Prefer apps without offers when mutating. */
     async function ensureCandAppTabs({ avoidOfferLinked = false } = {}) {
-      const TAB_STATUSES = ['applied', 'shortlisted', 'interviewing', 'offered', 'rejected', 'withdrawn'];
+      const TAB_STATUSES = [
+        'applied',
+        'shortlisted',
+        'interviewing',
+        'offered',
+        'rejected',
+        'withdrawn',
+        'hired',
+        'declined_offer',
+        'completed',
+      ];
       let spareIdx = 0;
       for (const status of TAB_STATUSES) {
         const countRes = await pool.query(
@@ -1834,7 +1844,7 @@ async function modeCoreFill(pool, opts) {
         await insertNotification(pool, userId, {
           ...base,
           title: `${base.title} (${suffix} · ${i + 1})`,
-          body: `${base.body} Reference ${runId.slice(-6)}.`,
+          body: `${base.body} Reference ${runId}.`,
           created_at: new Date(Date.now() - (i + 1) * 7200000).toISOString(),
           read_at: i % 4 === 0 ? new Date().toISOString() : null,
         });
@@ -1849,7 +1859,7 @@ async function modeCoreFill(pool, opts) {
       ]);
       let code = refUser.rows[0]?.referral_code;
       if (!code) {
-        code = `RCORE${runId.slice(-6).toUpperCase()}`;
+        code = `REF-CORE-${runId}`;
         await pool.query(`UPDATE ip_users SET referral_code = $2 WHERE id = $1`, [referrerUserId, code]);
       }
       for (let i = 0; i < referredList.length; i += 1) {
@@ -1952,7 +1962,7 @@ async function main() {
   const mode = arg('mode', 'gen-accounts');
   const runId = arg(
     'run-id',
-    `${mode === 'core-fill' ? 'corefill' : 'gen'}_${Date.now()}_${randomBytes(3).toString('hex')}`,
+    `${mode === 'core-fill' ? 'corefill' : 'gen'}-${qaRunLabel()}`,
   );
   const password = arg('password', DEMO_PASSWORD);
   const dbUrl = loadDbUrl();

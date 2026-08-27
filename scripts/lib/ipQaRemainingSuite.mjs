@@ -1,37 +1,55 @@
 /**
- * Cover InternSafar workbook rows that have no Reference-B Legacy ID.
- * Merges into test-cases/qa-results.json as byTcId, then apply-internsafar-qa-xlsx.py.
+ * InternSafar TC-IS cases (no Legacy ID) — called from the combined QA runner.
+ * OTP / mail codes: local .env.local only (IP_QA_2FA_LOGIN_CODE, IP_QA_EMAIL_CHANGE_CODE).
  */
-import { readFileSync, writeFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
-import { QA_ACCOUNTS, apiLogin, apiRequest } from './lib/ipQaAuth.mjs';
+import dotenv from 'dotenv';
+import { QA_ACCOUNTS, apiLogin, apiRequest } from './ipQaAuth.mjs';
+import { ensureCoreQaAccountsReady } from './ipQaFixtureCases.mjs';
+import {
+  runTcIs02023,
+  runTcIs06006,
+  runTcIs06007,
+  runTcIs11016_017,
+  runNotRunEleven,
+} from './ipQaRemainingExtras.mjs';
 
 const require = createRequire(import.meta.url);
-const { SUPERADMIN_NAV } = require('../src/lib/ipNav.js');
+const { SUPERADMIN_NAV } = require('../../src/lib/ipNav.js');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const appRoot = resolve(__dirname, '..');
-const BASE = process.env.IP_BASE || 'http://localhost:3000';
-const OUT = resolve(appRoot, 'test-cases/qa-results.json');
-const byTcId = {};
-const executedAt = new Date().toISOString();
+const appRoot = resolve(__dirname, '..', '..');
+dotenv.config({ path: resolve(appRoot, '.env.local') });
+dotenv.config({ path: resolve(appRoot, '.env') });
 
-function pass(id, actual) {
-  byTcId[id] = { status: 'Pass', actual: typeof actual === 'string' ? actual : JSON.stringify(actual) };
-}
-function fail(id, actual) {
-  byTcId[id] = { status: 'Fail', actual: typeof actual === 'string' ? actual : JSON.stringify(actual) };
-}
-function blocked(id, actual) {
-  byTcId[id] = { status: 'Blocked', actual: typeof actual === 'string' ? actual : JSON.stringify(actual) };
-}
-function assess(id, ok, actual) {
-  (ok ? pass : fail)(id, actual);
-}
+/**
+ * @param {{ base?: string, skipEnsureReady?: boolean }} [opts]
+ * @returns {Promise<{ byTcId: Record<string, {status:string, actual:string}>, executedAt: string, base: string }>}
+ */
+export async function runRemainingSuite(opts = {}) {
+  const BASE = opts.base || process.env.IP_BASE || 'http://localhost:3000';
+  const byTcId = {};
+  const executedAt = new Date().toISOString();
 
-async function main() {
+  function pass(id, actual) {
+    byTcId[id] = { status: 'Pass', actual: typeof actual === 'string' ? actual : JSON.stringify(actual) };
+  }
+  function fail(id, actual) {
+    byTcId[id] = { status: 'Fail', actual: typeof actual === 'string' ? actual : JSON.stringify(actual) };
+  }
+  function blocked(id, actual) {
+    byTcId[id] = { status: 'Blocked', actual: typeof actual === 'string' ? actual : JSON.stringify(actual) };
+  }
+  function assess(id, ok, actual) {
+    (ok ? pass : fail)(id, actual);
+  }
+
+  if (!opts.skipEnsureReady) {
+    await ensureCoreQaAccountsReady().catch((e) => console.warn('ensureCoreQaAccountsReady:', e.message || e));
+  }
+
   const cand = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, QA_ACCOUNTS.candidate.password);
   const emp = await apiLogin(BASE, QA_ACCOUNTS.employer.email, QA_ACCOUNTS.employer.password);
   const sa = await apiLogin(BASE, QA_ACCOUNTS.superadmin.email, QA_ACCOUNTS.superadmin.password);
@@ -39,10 +57,7 @@ async function main() {
     throw new Error(`login failed cand=${cand.ok} emp=${emp.ok} sa=${sa.ok}`);
   }
 
-  blocked(
-    'TC-IS-02-023',
-    'Decision table (exists/password/captcha/active/2FA/role) not fully driven this run; 2FA OTP and inactive-user paths need dedicated fixtures.',
-  );
+  await runTcIs02023({ BASE, assess, blocked });
 
   const cap = await fetch(`${BASE}/api/auth/captcha`).then((r) => r.json());
   const ans = cap.dummyAnswer ?? 7;
@@ -69,14 +84,8 @@ async function main() {
     },
   );
 
-  blocked(
-    'TC-IS-06-006',
-    'Tab-save vs unsaved sibling edits is a browser UX check; not asserted via API this run.',
-  );
-  blocked(
-    'TC-IS-06-007',
-    'New login email + 6-digit verify needs a live inbox OTP; skipped to avoid changing the core candidate email.',
-  );
+  await runTcIs06006({ BASE, assess, blocked, cand });
+  await runTcIs06007({ BASE, assess, blocked });
 
   const list0 = await apiRequest(BASE, '/api/ip/candidate/internships?minMatch=0', { cookie: cand.cookie });
   const list1 = await apiRequest(BASE, '/api/ip/candidate/internships?minMatch=1', { cookie: cand.cookie });
@@ -217,7 +226,11 @@ async function main() {
     },
   );
 
-  const candProfileId = prof.data?.candidate?.id || prof.data?.id || prof.data?.candidateId;
+  const candProfileId =
+    prof.data?.profile?.id ||
+    prof.data?.candidate?.id ||
+    prof.data?.id ||
+    prof.data?.candidateId;
   const offerNoApply = internId && candProfileId
     ? await apiRequest(BASE, '/api/ip/offers', {
         method: 'POST',
@@ -259,14 +272,8 @@ async function main() {
     },
   );
 
-  blocked(
-    'TC-IS-11-016',
-    'Accept → hired mutates a live offer/application. Use generate:ip-test-data throwaway users; not asserted on cores this run.',
-  );
-  blocked(
-    'TC-IS-11-017',
-    'Decline → declined_offer mutates a live offer. Same as 11-016 — dedicated fixture, not cores.',
-  );
+  await runTcIs11016_017({ BASE, assess, blocked, emp });
+  await runNotRunEleven({ BASE, assess, blocked, cand, emp });
 
   const endorseNoIntern = candProfileId
     ? await apiRequest(BASE, '/api/ip/endorsements', {
@@ -564,23 +571,10 @@ async function main() {
     });
   }
 
-  let payload = { executedAt, base: BASE, cases: {}, byTcId };
-  try {
-    payload = JSON.parse(readFileSync(OUT, 'utf8'));
-    payload.byTcId = { ...(payload.byTcId || {}), ...byTcId };
-    payload.executedAtRemaining = executedAt;
-  } catch {
-    /* new file */
-  }
-  writeFileSync(OUT, JSON.stringify(payload, null, 2));
   const n = Object.keys(byTcId).length;
   const passN = Object.values(byTcId).filter((c) => c.status === 'Pass').length;
   const failN = Object.values(byTcId).filter((c) => c.status === 'Fail').length;
   const blockedN = Object.values(byTcId).filter((c) => c.status === 'Blocked').length;
-  console.log(JSON.stringify({ remaining: n, pass: passN, fail: failN, blocked: blockedN }));
+  console.log(JSON.stringify({ tcIs: n, pass: passN, fail: failN, blocked: blockedN }));
+  return { byTcId, executedAt, base: BASE };
 }
-
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});

@@ -125,6 +125,8 @@ export default function CandidateProfilePage() {
   const [saving, setSaving] = useState(false);
   const [endorsements, setEndorsements] = useState([]);
   const [profileTab, setProfileTab] = useState('basics');
+  /** Highest wizard step index the user may open (0=basics). Advanced by Save & Next. */
+  const [wizardUnlockedThru, setWizardUnlockedThru] = useState(0);
   const [newEmail, setNewEmail] = useState('');
   const [emailCode, setEmailCode] = useState('');
   const [emailStep, setEmailStep] = useState('idle');
@@ -263,7 +265,20 @@ export default function CandidateProfilePage() {
         ? form.preferred_locations.split(',').map((s) => s.trim()).filter(Boolean)
         : form.preferred_locations,
       prior_experience: serializeExperienceEntries(experiences),
+      // Empty date inputs must be null — "" breaks Postgres DATE columns and blocks Save & Next
+      availability_date: String(form.availability_date || '').trim() || null,
     };
+    // Never send join-only / server fields back as updatable columns
+    delete payload.id;
+    delete payload.user_id;
+    delete payload.account_email;
+    delete payload.email;
+    delete payload.points;
+    delete payload.application_allowance;
+    delete payload.referral_code;
+    delete payload.profile_complete;
+    delete payload.created_at;
+    delete payload.updated_at;
     if (profileTab === 'academic') {
       delete payload.college;
       delete payload.degree;
@@ -415,6 +430,20 @@ export default function CandidateProfilePage() {
   const wizardIndex = WIZARD_ORDER.indexOf(profileTab);
   const isWizardTab = wizardIndex >= 0;
 
+  function tabIsLocked(tabId) {
+    const wi = WIZARD_ORDER.indexOf(tabId);
+    if (wi < 0) return false; // privacy / history always available
+    return wi > wizardUnlockedThru;
+  }
+
+  function selectTab(tabId) {
+    if (tabIsLocked(tabId)) {
+      setMessage('Use Save & Next to continue through the profile steps in order.');
+      return;
+    }
+    setProfileTab(tabId);
+  }
+
   function goWizard(delta) {
     const next = WIZARD_ORDER[wizardIndex + delta];
     if (next) setProfileTab(next);
@@ -487,16 +516,23 @@ export default function CandidateProfilePage() {
           {PROFILE_TABS.map((tab) => {
             const Icon = tab.Icon;
             const selected = profileTab === tab.id;
+            const locked = tabIsLocked(tab.id);
             return (
               <button
                 key={tab.id}
                 type="button"
                 role="tab"
                 aria-selected={selected}
-                className={tab.id === 'history' ? 'is-star' : undefined}
-                onClick={() => setProfileTab(tab.id)}
+                aria-disabled={locked}
+                disabled={locked}
+                title={locked ? 'Complete the previous step with Save & Next first' : undefined}
+                className={[
+                  tab.id === 'history' ? 'is-star' : '',
+                  locked ? 'is-locked' : '',
+                ].filter(Boolean).join(' ') || undefined}
+                onClick={() => selectTab(tab.id)}
               >
-                <Icon />
+                {locked ? <Lock /> : <Icon />}
                 <span>{tab.label}</span>
               </button>
             );
@@ -512,7 +548,10 @@ export default function CandidateProfilePage() {
             <div className="ip-cp-wizard__bar" aria-hidden>
               <div style={{ width: `${((wizardIndex + 1) / WIZARD_ORDER.length) * 100}%` }} />
             </div>
-            <p className="ip-cp-wizard__hint">Complete these three steps at your pace. Privacy and endorsements stay available in the tabs above.</p>
+            <p className="ip-cp-wizard__hint">
+              Use Save &amp; Next to move through these three steps. Later steps stay locked until you advance.
+              Privacy and endorsements stay available in the tabs above.
+            </p>
           </div>
         ) : null}
 
@@ -872,8 +911,8 @@ export default function CandidateProfilePage() {
             <section>
               <div className="ip-cp-sec-head">
                 <div>
-                  <h3>Technical &amp; Domain Skills <span className="ip-cp-req">*</span></h3>
-                  <p className="ip-cp-hint">Skills are used by recruiters to match candidates with posted internships.</p>
+                  <h3>Technical &amp; Domain Skills <span className="ip-cp-req">*</span> <span className="ip-cp-opt">(Tag-based)</span></h3>
+                  <p className="ip-cp-hint">Add skills as tags — recruiters use them to match candidates with posted internships.</p>
                 </div>
                 <span className="ip-cp-pill">Tag-based</span>
               </div>
@@ -1191,9 +1230,25 @@ export default function CandidateProfilePage() {
                 <button
                   type="button"
                   className="ip-cp-btn ip-cp-btn--soft"
-                  onClick={async () => {
+                  disabled={saving}
+                  onClick={async (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    const fromIdx = WIZARD_ORDER.indexOf(profileTab);
                     const ok = await save();
-                    if (ok) goWizard(1);
+                    if (!ok) return;
+                    const nextIdx = Math.min(fromIdx + 1, WIZARD_ORDER.length - 1);
+                    const next = WIZARD_ORDER[nextIdx];
+                    setWizardUnlockedThru((u) => Math.max(u, nextIdx));
+                    if (next) {
+                      setProfileTab(next);
+                      setMessage((prev) => prev || `${PROFILE_TABS.find((t) => t.id === next)?.label || 'Next step'} — continue here.`);
+                      try {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      } catch {
+                        /* ignore */
+                      }
+                    }
                   }}
                 >
                   Save &amp; Next
