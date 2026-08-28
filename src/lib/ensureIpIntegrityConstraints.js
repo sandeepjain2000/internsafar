@@ -46,10 +46,19 @@ END $$`,
       CHECK (review_status IN ('pending','approved','flagged'));
   END IF;
 END $$`,
+  // 'gmail_domain' = Gmail-restricted email/password signup (no OAuth).
+  // 'google' is reserved for accounts that actually completed Google OAuth.
   `DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'ip_users_registration_source_check'
+      AND pg_get_constraintdef(oid) NOT LIKE '%gmail_domain%'
+  ) THEN
+    ALTER TABLE ip_users DROP CONSTRAINT ip_users_registration_source_check;
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ip_users_registration_source_check') THEN
     ALTER TABLE ip_users ADD CONSTRAINT ip_users_registration_source_check
-      CHECK (registration_source IN ('legacy','form','google','domain'));
+      CHECK (registration_source IN ('legacy','form','google','domain','gmail_domain'));
   END IF;
 END $$`,
   `DO $$ BEGIN

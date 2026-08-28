@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import {
   AlertCircle,
   ArrowLeft,
@@ -55,22 +56,158 @@ function emailDomain(email) {
   return at > 0 ? e.slice(at + 1) : '';
 }
 
+/**
+ * Google verification survives the URL cleanup remount via sessionStorage. The token is
+ * still validated and spent server-side, so this cache grants nothing on its own.
+ */
+const GOOGLE_VERIFICATION_KEY = 'ip-candidate-google-verification';
+const GOOGLE_VERIFICATION_TTL_MS = 10 * 60 * 1000;
+
+function readStoredVerification() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(GOOGLE_VERIFICATION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.token || !parsed?.email) return null;
+    parsed.name = parsed.name || '';
+    parsed.pictureUrl = parsed.pictureUrl || '';
+    if (Date.now() - Number(parsed.at || 0) > GOOGLE_VERIFICATION_TTL_MS) {
+      window.sessionStorage.removeItem(GOOGLE_VERIFICATION_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function storeVerification({ token, email, name, pictureUrl }) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(
+      GOOGLE_VERIFICATION_KEY,
+      JSON.stringify({ token, email, name: name || '', pictureUrl: pictureUrl || '', at: Date.now() }),
+    );
+  } catch {
+    /* private mode / storage disabled — flow still works within one mount */
+  }
+}
+
+function clearStoredVerification() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(GOOGLE_VERIFICATION_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function CandidateRegisterPage() {
   const sp = useSearchParams();
+  const router = useRouter();
   const urlRef = sp.get('ref') || '';
+  const googleToken = sp.get('gv') || '';
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [referralCode, setReferralCode] = useState(urlRef);
   const [captchaToken, setCaptchaToken] = useState('');
   const [captchaAnswer, setCaptchaAnswer] = useState('');
   const captchaFieldRef = useRef(null);
-  const [step, setStep] = useState('form');
+  const [step, setStep] = useState('google');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(null);
+  const [googleVerification, setGoogleVerification] = useState(null); // { token, email }
+  const [googleBusy, setGoogleBusy] = useState(false);
 
   useEffect(() => {
     fetch('/api/ip/bootstrap', { method: 'POST' }).catch(() => {});
+  }, []);
+
+  // Returning from a real Google consent flow: /register/candidate?gv=<single-use token>.
+  // Stripping ?gv= remounts this component, so the confirmed verification is mirrored in
+  // sessionStorage and restored on mount.
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      if (!googleToken) {
+        const stored = readStoredVerification();
+        if (stored && !cancelled) {
+          // One-shot: the cache exists only to survive the remount caused by stripping
+          // ?gv= from the URL. Spending it here means coming back to this page later
+          // starts a fresh Google verification instead of trusting a stale one.
+          clearStoredVerification();
+          setGoogleVerification(stored);
+          setEmail(stored.email);
+          if (stored.name) setName((current) => current || stored.name);
+          setStep('form');
+        }
+        return;
+      }
+
+      const cleanUrl = urlRef
+        ? `/register/candidate?ref=${encodeURIComponent(urlRef)}`
+        : '/register/candidate';
+      try {
+        const res = await fetch(
+          `/api/ip/auth/google-verification?purpose=candidate-register&token=${encodeURIComponent(googleToken)}`,
+        );
+        const data = await res.json();
+        const ok = res.ok && Boolean(data.email);
+        // Persist before the cancelled check: in StrictMode the first effect pass is
+        // torn down mid-flight, and the surviving mount reads this back after the URL
+        // loses ?gv=. Skipping it here left the page stuck on the Google step.
+        const verified = {
+          token: googleToken,
+          email: data.email,
+          name: data.name || '',
+          pictureUrl: data.pictureUrl || '',
+        };
+        if (ok) storeVerification(verified);
+        else clearStoredVerification();
+        if (cancelled) return;
+        if (!ok) {
+          setError(
+            'Google verification could not be confirmed (the link may have expired). Please continue with Google again.',
+          );
+          setStep('google');
+          return;
+        }
+        setGoogleVerification(verified);
+        setEmail(verified.email);
+        if (verified.name) setName((current) => current || verified.name);
+        setStep('form');
+      } catch {
+        if (!cancelled) {
+          clearStoredVerification();
+          setError('Could not confirm Google verification. Please try again.');
+          setStep('google');
+        }
+      } finally {
+        // Only the live pass rewrites the URL — a cancelled pass doing it would strip
+        // ?gv= out from under the pass that is still fetching.
+        if (!cancelled) router.replace(cleanUrl);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleToken, urlRef, router]);
+
+  const startGoogleVerification = useCallback(async () => {
+    setError('');
+    setGoogleBusy(true);
+    // Tells the NextAuth signIn callback this is registration verification, not a login.
+    document.cookie = 'ip_google_intent=candidate-register; path=/; max-age=600; samesite=lax';
+    try {
+      await signIn('google', { callbackUrl: '/register/candidate' });
+    } catch {
+      setGoogleBusy(false);
+      setError('Could not start Google verification. Please try again.');
+    }
   }, []);
 
   const domainIssue = useMemo(() => {
@@ -83,6 +220,11 @@ export default function CandidateRegisterPage() {
   async function onSubmit(e) {
     e.preventDefault();
     setError('');
+    if (!googleVerification?.token) {
+      setError('Verify with Google before registering.');
+      setStep('google');
+      return;
+    }
     if (!name.trim()) {
       setError('Please enter your full name.');
       return;
@@ -107,13 +249,24 @@ export default function CandidateRegisterPage() {
           path: 'google',
           name: name.trim(),
           email,
+          googleVerificationToken: googleVerification.token,
           captchaToken: challenge.token,
           captchaAnswer: challenge.answer,
           referralCode: referralCode.trim() || undefined,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Registration failed');
+      if (!res.ok) {
+        if (res.status === 401) {
+          // Token spent or expired — force a fresh, real Google verification.
+          clearStoredVerification();
+          setGoogleVerification(null);
+          setStep('google');
+        }
+        throw new Error(data.error || 'Registration failed');
+      }
+      clearStoredVerification();
+      setGoogleVerification(null);
       setDone({
         name: name.trim(),
         email: normalizeEmail(email),
@@ -158,14 +311,69 @@ export default function CandidateRegisterPage() {
             </span>
           </div>
 
+          {step === 'google' ? (
+            <div className="ip-crg-body">
+              <div className="ip-crg-notice">
+                <h3>
+                  <Sparkles aria-hidden />
+                  Candidate accounts are verified with Google
+                </h3>
+                <p>Sign in with your personal Gmail account to confirm it is yours.</p>
+                <div className="ip-crg-notice-warn">
+                  <AlertCircle aria-hidden />
+                  <span>
+                    Only @gmail.com and @googlemail.com accounts are accepted. Institutional or
+                    university addresses (e.g., @vit.edu) cannot be used.
+                  </span>
+                </div>
+              </div>
+
+              {error ? (
+                <Alert variant="destructive">
+                  <AlertTitle>Verification failed</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              ) : null}
+
+              <button
+                type="button"
+                className="ip-crg-submit"
+                onClick={startGoogleVerification}
+                disabled={googleBusy}
+              >
+                <GoogleMark />
+                {googleBusy ? 'Opening Google…' : 'Continue with Google'}
+              </button>
+              <p className="ip-crg-legal">
+                Google only confirms the account is yours — it does not sign you into the portal. After
+                verifying you will finish registration and receive a temporary password by email.
+              </p>
+            </div>
+          ) : null}
+
           {step === 'form' ? (
             <div className="ip-crg-body">
               <div className="ip-crg-notice">
                 <h3>
                   <Sparkles aria-hidden />
-                  Candidate accounts are created using Gmail
+                  Google account verified
                 </h3>
-                <p>Use your personal Gmail or Googlemail address to continue.</p>
+                <div className="ip-crg-google-account">
+                  {googleVerification?.pictureUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={googleVerification.pictureUrl}
+                      alt=""
+                      width={40}
+                      height={40}
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : null}
+                  <p>
+                    Verified as <strong>{googleVerification?.email || email}</strong>. Complete the details
+                    below to create your account.
+                  </p>
+                </div>
                 <div className="ip-crg-notice-warn">
                   <AlertCircle aria-hidden />
                   <span>
@@ -201,20 +409,29 @@ export default function CandidateRegisterPage() {
 
                 <div className="ip-crg-field">
                   <label htmlFor="google-email">
-                    Gmail / Googlemail Address <span className="req">*</span>
+                    Verified Google Account <span className="req">*</span>
                   </label>
                   <div className="ip-crg-input-wrap">
                     <Mail aria-hidden />
-                    <input
-                      id="google-email"
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@gmail.com"
-                    />
+                    <input id="google-email" type="email" required value={email} readOnly />
                   </div>
-                  <p className="ip-crg-hint">Only personal @gmail.com or @googlemail.com accounts are allowed.</p>
+                  <p className="ip-crg-hint">
+                    Confirmed by Google. To use a different account,{' '}
+                    <button
+                      type="button"
+                      className="ip-crg-relink"
+                      onClick={() => {
+                        clearStoredVerification();
+                        setGoogleVerification(null);
+                        setEmail('');
+                        setError('');
+                        setStep('google');
+                      }}
+                    >
+                      verify again
+                    </button>
+                    .
+                  </p>
                   {domainIssue ? (
                     <div className="ip-crg-domain-err" role="alert">
                       <strong>
@@ -261,8 +478,7 @@ export default function CandidateRegisterPage() {
                 />
 
                 <button type="submit" className="ip-crg-submit" disabled={loading || Boolean(domainIssue)}>
-                  <GoogleMark />
-                  {loading ? 'Creating account…' : 'Create account with Gmail'}
+                  {loading ? 'Creating account…' : 'Create candidate account'}
                 </button>
                 <p className="ip-crg-legal">
                   A temporary password is emailed to this Gmail. Sign in with email and that password —
@@ -270,7 +486,9 @@ export default function CandidateRegisterPage() {
                 </p>
               </form>
             </div>
-          ) : (
+          ) : null}
+
+          {step === 'done' ? (
             <div className="ip-crg-body ip-crg-done">
               <div className="ip-crg-done-ico">
                 <CheckCircle2 aria-hidden />
@@ -297,7 +515,7 @@ export default function CandidateRegisterPage() {
                 </div>
                 <div className="ip-crg-summary-row">
                   <span>Authentication</span>
-                  <strong>Gmail + emailed password</strong>
+                  <strong>Google verified + emailed password</strong>
                 </div>
               </div>
 
@@ -336,7 +554,7 @@ export default function CandidateRegisterPage() {
                 <ArrowRight className="size-4" aria-hidden />
               </Link>
             </div>
-          )}
+          ) : null}
         </div>
       </main>
 

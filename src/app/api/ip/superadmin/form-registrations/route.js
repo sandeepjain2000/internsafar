@@ -3,6 +3,7 @@ import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { sendMail } from '@/lib/mail';
 import { ensureIpFormRegistrationSchema } from '@/lib/ensureIpFormRegistrationSchema';
 import { ensureIpCandidateProfileSchema } from '@/lib/ensureIpCandidateProfileSchema';
+import { ensureIpGoogleAuthSchema } from '@/lib/ipGoogleAuth';
 import {
   creditReferralForReferredUser,
   ensureIpReferralExtraSchema,
@@ -87,15 +88,24 @@ export async function GET(request) {
 
   if (!withMeta) return jsonOk({ items: result.rows });
 
-  const [pendingCand, pendingEmp, googleAuto, activeUsers, approvedToday] = await Promise.all([
+  await ensureIpGoogleAuthSchema();
+
+  const [pendingCand, pendingEmp, googleAuto, gmailDomain, activeUsers, approvedToday] = await Promise.all([
     query(
       `SELECT count(*)::int AS n FROM ip_users
        WHERE role = 'candidate' AND registration_source = 'form' AND form_approval_status = 'pending'`,
     ),
     query(`SELECT count(*)::int AS n FROM ip_employer_requests WHERE status = 'pending'`),
+    // Genuinely OAuth-verified only: requires a real Google identity record,
+    // not the registration_source string (which used to be set without any OAuth).
+    query(
+      `SELECT count(*)::int AS n FROM ip_users u
+       JOIN ip_google_identities g ON g.user_id = u.id
+       WHERE coalesce(u.active,true) = true`,
+    ),
     query(
       `SELECT count(*)::int AS n FROM ip_users
-       WHERE registration_source = 'google' AND coalesce(active,true) = true`,
+       WHERE registration_source = 'gmail_domain' AND coalesce(active,true) = true`,
     ),
     query(`SELECT count(*)::int AS n FROM ip_users WHERE coalesce(active,true) = true`),
     query(
@@ -110,7 +120,8 @@ export async function GET(request) {
     meta: {
       pendingCandidates: pendingCand.rows[0].n,
       pendingEmployers: pendingEmp.rows[0].n,
-      autoApprovedGoogle: googleAuto.rows[0].n,
+      googleOauthVerified: googleAuto.rows[0].n,
+      gmailDomainSignups: gmailDomain.rows[0].n,
       totalActiveUsers: activeUsers.rows[0].n,
       approvedToday: approvedToday.rows[0].n,
     },

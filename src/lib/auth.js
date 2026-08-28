@@ -1,4 +1,5 @@
 import CredentialsProvider from 'next-auth/providers/credentials';
+import GoogleProvider from 'next-auth/providers/google';
 import bcrypt from 'bcryptjs';
 import { headers } from 'next/headers';
 import { query } from '@/lib/db';
@@ -13,6 +14,12 @@ import {
   verifyTwoFactorChallenge,
 } from '@/lib/ipTwoFactor';
 import { consumeLoginDbFailureSimulation } from '@/lib/ipQaSimulate';
+import { normalizeEmail } from '@/lib/authRegisterRules';
+import {
+  createGoogleVerification,
+  ensureIpGoogleAuthSchema,
+  googleIntentFromCookieHeader,
+} from '@/lib/ipGoogleAuth';
 
 /** Default session when "Remember this device" is unchecked. */
 const SESSION_SHORT_SEC = 60 * 60 * 12; // 12 hours
@@ -20,9 +27,14 @@ const SESSION_SHORT_SEC = 60 * 60 * 12; // 12 hours
 const SESSION_LONG_SEC = 60 * 60 * 24 * 30; // 30 days
 
 /**
- * Internship Portal auth — Credentials only. No Google/OAuth provider.
- * "Continue with Google" on registration is a dummy UI step handled entirely
- * client-side + by /api/ip/auth/register-candidate; it never touches next-auth.
+ * Internship Portal auth — Credentials login + Google as registration verification.
+ *
+ * Google never creates a portal session. Every portal login goes through the
+ * credentials provider (email + emailed/chosen password + captcha). A Google sign-in
+ * is only valid when the browser carries a registration intent cookie: the callback
+ * then issues a single-use verification token and sends the browser back to the
+ * registration form, which must hand that token to its API. Without an intent the
+ * sign-in is refused, so Google can never attach itself to an existing account.
  */
 
 async function queryWithRetry(text, params, attempts = 3) {
@@ -223,6 +235,13 @@ export const authOptions = {
         };
       },
     }),
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      authorization: {
+        params: { prompt: 'select_account', access_type: 'online', scope: 'openid email profile' },
+      },
+    }),
   ],
   // Cookie ceiling = 30 days; jwt callback enforces 12h when rememberMe is false.
   session: { strategy: 'jwt', maxAge: SESSION_LONG_SEC },
@@ -231,10 +250,60 @@ export const authOptions = {
     signIn: '/',
   },
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
+    async signIn({ user, account, profile }) {
+      if (account?.provider !== 'google') return true;
+
+      const email = normalizeEmail(profile?.email || user?.email);
+      const googleSub = profile?.sub || account?.providerAccountId || null;
+      if (!email) return '/?error=GoogleNoEmail';
+      // Google returns email_verified=false for some Workspace/alias cases.
+      if (profile?.email_verified === false) return '/?error=GoogleEmailUnverified';
+
+      await ensureIpGoogleAuthSchema();
+
+      let intent = null;
+      try {
+        const h = await headers();
+        intent = googleIntentFromCookieHeader(h.get('cookie'));
+      } catch {
+        intent = null;
+      }
+
+      // Verification-only: hand a single-use token back to the registration form.
+      if (intent) {
+        const token = await createGoogleVerification({
+          email,
+          googleSub,
+          purpose: intent.cookieValue,
+          // Google already returns these under the 'profile' scope — carry them so the
+          // registration form can prefill instead of asking again.
+          name: profile?.name || user?.name || '',
+          pictureUrl: profile?.picture || user?.image || '',
+        });
+        return `${intent.returnTo}?gv=${encodeURIComponent(token)}`;
+      }
+
+      // No intent: this was an attempt to log in with Google. Refused — signing in
+      // with Google would grant an existing account to whoever holds that Google
+      // address, without ever proving they know the account password.
+      await recordLoginEvent({
+        email,
+        success: false,
+        failureReason: 'Google is registration verification only',
+        authMethod: 'Google OAuth',
+      });
+      return '/?error=GoogleLoginDisabled';
+    },
+    async jwt({ token, user, account, trigger, session }) {
       if (trigger === 'update' && session?.name) {
         token.name = session.name;
       }
+      // Google never reaches here: signIn refuses it unless it is registration
+      // verification, which redirects instead of creating a session.
+      if (account?.provider === 'google') {
+        return { ...token, error: 'inactive' };
+      }
+
       if (user?.role) {
         token.role = user.role;
         token.uid = user.id;
@@ -295,9 +364,12 @@ export const authOptions = {
       return token;
     },
     async session({ session, token }) {
-      // Soft-fail tokens must not look "authenticated" with user:null — that blanked PortalShell.
+      // Soft-fail tokens must not look "authenticated" with user:null — that blanked
+      // PortalShell. Return an empty session, not null: the next-auth client runs
+      // Object.keys() on this response, so null raises CLIENT_FETCH_ERROR. An empty
+      // object is treated as "no session" and reports status 'unauthenticated'.
       if (token?.error === 'revoked' || token?.error === 'inactive' || token?.error === 'expired') {
-        return null;
+        return {};
       }
       if (session.user) {
         session.user.id = token.uid;

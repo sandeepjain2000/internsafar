@@ -261,6 +261,44 @@
   color: #64748b;
 }
 
+.ip-cand-reg .ip-crg-google-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ip-cand-reg .ip-crg-google-account img {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  object-fit: cover;
+}
+
+.ip-cand-reg .ip-crg-google-account p {
+  margin: 0;
+}
+
+.ip-cand-reg .ip-crg-relink {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: #4f46e5;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ip-cand-reg .ip-crg-relink:hover {
+  color: #4338ca;
+}
+
+.ip-cand-reg .ip-crg-input-wrap input[readonly] {
+  color: #475569;
+  cursor: default;
+}
+
 .ip-cand-reg .ip-crg-domain-err {
   padding: 0.75rem;
   border-radius: 0.75rem;

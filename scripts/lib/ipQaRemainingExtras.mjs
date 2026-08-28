@@ -43,7 +43,7 @@ export async function withDb(fn) {
   }
 }
 
-async function ensureUser(client, { email, role, name, points = 80, active = true, profileComplete = true, formApproval = null, source = 'google' }) {
+async function ensureUser(client, { email, role, name, points = 80, active = true, profileComplete = true, formApproval = null, source = 'gmail_domain' }) {
   const existing = await client.query(`SELECT id FROM ip_users WHERE lower(email) = lower($1)`, [email]);
   const hash = await bcrypt.hash(PW, 10);
   if (existing.rows[0]) {

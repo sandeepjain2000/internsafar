@@ -27,6 +27,35 @@ export function domainFromEmail(email) {
   return (parts[1] || '').toLowerCase();
 }
 
+/**
+ * Free/consumer mailbox providers. A company domain cannot be one of these, so the
+ * employer domain path rejects them — those applicants use the SuperAdmin form path.
+ */
+const CONSUMER_EMAIL_DOMAINS = new Set([
+  'gmail.com',
+  'googlemail.com',
+  'yahoo.com',
+  'yahoo.co.in',
+  'outlook.com',
+  'hotmail.com',
+  'live.com',
+  'msn.com',
+  'icloud.com',
+  'me.com',
+  'aol.com',
+  'proton.me',
+  'protonmail.com',
+  'zoho.com',
+  'gmx.com',
+  'mail.com',
+  'yandex.com',
+  'rediffmail.com',
+]);
+
+export function isConsumerEmailDomain(domain) {
+  return CONSUMER_EMAIL_DOMAINS.has(String(domain || '').trim().toLowerCase());
+}
+
 export function domainsMatch(website, email) {
   const web = domainFromWebsite(website);
   const mail = domainFromEmail(email);

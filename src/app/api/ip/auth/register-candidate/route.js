@@ -6,7 +6,8 @@ import { sendMail, tempPasswordEmailHtml } from '@/lib/mail';
 import { notifyRole, notifyUser } from '@/lib/ipNotify';
 import { referrerRewardsForRole } from '@/lib/pointsEconomy';
 import { isGmailAddress, normalizeEmail } from '@/lib/authRegisterRules';
-import { verifyLoginCaptcha } from '@/lib/simpleCaptcha';
+import { isCaptchaBypassed, verifyLoginCaptcha } from '@/lib/simpleCaptcha';
+import { consumeGoogleVerification, GOOGLE_INTENTS, recordGoogleIdentity } from '@/lib/ipGoogleAuth';
 import { ensureIpFormRegistrationSchema } from '@/lib/ensureIpFormRegistrationSchema';
 import {
   ensureIpReferralExtraSchema,
@@ -16,7 +17,10 @@ import {
 
 /**
  * Candidate registration.
- * - path=google (default): Gmail-only + captcha, system temp password emailed, active immediately.
+ * - path=google (default): real Google OAuth verification (single-use token issued by
+ *   the NextAuth signIn callback) + Gmail-only + captcha, system temp password emailed,
+ *   active immediately. Stored as registration_source='google' — the only path allowed
+ *   to claim that. Google verifies the account only; login is still email + password.
  * - path=form: Gmail-only + user password + college + graduationYear + captcha;
  *   account stays inactive until SuperAdmin approves (form_approval_status=pending).
  */
@@ -64,6 +68,29 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Captcha verification failed' }, { status: 400 });
     }
 
+    // Google path requires a real verification token issued by the NextAuth signIn
+    // callback. isCaptchaBypassed() is the existing QA/dev bypass switch.
+    let googleIdentity = null;
+    if (path !== 'form' && !isCaptchaBypassed()) {
+      const verified = await consumeGoogleVerification(
+        String(body.googleVerificationToken || ''),
+        GOOGLE_INTENTS.candidateRegister.cookieValue,
+      );
+      if (!verified) {
+        return NextResponse.json(
+          { error: 'Google verification is required, expired, or already used. Continue with Google again.' },
+          { status: 401 },
+        );
+      }
+      if (normalizeEmail(verified.email) !== email) {
+        return NextResponse.json(
+          { error: `Registration email must match the Google-verified account (${verified.email}).` },
+          { status: 400 },
+        );
+      }
+      googleIdentity = verified;
+    }
+
     const existing = await query(`SELECT id FROM ip_users WHERE lower(email) = $1`, [email]);
     if (existing.rows[0]) {
       if (referralCode) {
@@ -101,7 +128,9 @@ export async function POST(request) {
     const myReferral = referralCodeFrom(name);
     const active = path !== 'form';
     const formApproval = path === 'form' ? 'pending' : null;
-    const registrationSource = path === 'form' ? 'form' : 'google';
+    // 'google' only when OAuth really happened. Under the QA/dev bypass no token is
+    // consumed, so those seeded accounts stay honest as 'gmail_domain'.
+    const registrationSource = path === 'form' ? 'form' : googleIdentity ? 'google' : 'gmail_domain';
 
     await query('BEGIN');
     try {
@@ -113,9 +142,9 @@ export async function POST(request) {
         [userId, email, passwordHash, name, myReferral, referredBy, active, registrationSource, formApproval],
       );
       await query(
-        `INSERT INTO ip_candidates (id, user_id, name, email, college, graduation_year)
-         VALUES ($1,$2,$3,$4,$5,$6)`,
-        [candidateId, userId, name, email, college, graduationYear],
+        `INSERT INTO ip_candidates (id, user_id, name, email, college, graduation_year, profile_picture_url)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [candidateId, userId, name, email, college, graduationYear, googleIdentity?.pictureUrl || null],
       );
       await query(
         `INSERT INTO ip_points_ledger (id, user_id, delta, reason, meta)
@@ -170,6 +199,16 @@ export async function POST(request) {
     } catch (e) {
       await query('ROLLBACK');
       throw e;
+    }
+
+    if (googleIdentity?.googleSub) {
+      await recordGoogleIdentity({
+        userId,
+        googleSub: googleIdentity.googleSub,
+        email: googleIdentity.email,
+        name: googleIdentity.name,
+        pictureUrl: googleIdentity.pictureUrl,
+      }).catch(() => {});
     }
 
     if (referralNotify) {
@@ -245,7 +284,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       ok: true,
-      mode: 'google',
+          mode: 'google',
       userId,
       referredByName: referrerName || null,
       startingPoints: 50,

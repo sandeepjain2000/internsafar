@@ -9,9 +9,11 @@ import {
   domainFromEmail,
   domainFromWebsite,
   domainsMatch as emailWebsiteDomainsMatch,
+  isConsumerEmailDomain,
   normalizeEmail,
 } from '@/lib/authRegisterRules';
-import { verifyLoginCaptcha } from '@/lib/simpleCaptcha';
+import { isCaptchaBypassed, verifyLoginCaptcha } from '@/lib/simpleCaptcha';
+import { consumeGoogleVerification, GOOGLE_INTENTS, recordGoogleIdentity } from '@/lib/ipGoogleAuth';
 import { ensureIpFormRegistrationSchema } from '@/lib/ensureIpFormRegistrationSchema';
 import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
 import { isValidBusinessEntityType } from '@/lib/employerBusinessEntity';
@@ -56,6 +58,14 @@ export async function POST(request) {
         return NextResponse.json(
           {
             error: `Website domain (${webDomain || 'invalid'}) and email domain (${emailDomain || 'invalid'}) must match. Use the Form path if you cannot use a matching domain.`,
+          },
+          { status: 400 },
+        );
+      }
+      if (isConsumerEmailDomain(emailDomain)) {
+        return NextResponse.json(
+          {
+            error: `${emailDomain} is a personal mailbox provider, not a company domain. Use your company domain, or the Form path if you do not have one.`,
           },
           { status: 400 },
         );
@@ -115,6 +125,34 @@ export async function POST(request) {
         message:
           'Request submitted. SuperAdmin will create your employer account after review — use the password you chose after approval.',
       });
+    }
+
+    // Domain path requires a real Google verification token issued by the NextAuth
+    // signIn callback. isCaptchaBypassed() is the existing QA/dev bypass switch.
+    let googleIdentity = null;
+    if (!isCaptchaBypassed()) {
+      const verified = await consumeGoogleVerification(
+        String(body.googleVerificationToken || ''),
+        GOOGLE_INTENTS.employerRegister.cookieValue,
+      );
+      if (!verified) {
+        return NextResponse.json(
+          { error: 'Google verification is required, expired, or already used. Verify with Google again.' },
+          { status: 401 },
+        );
+      }
+      // The Google account must belong to the same company domain as the website and
+      // work email — it need not be the exact same address (sarah@acme.com may
+      // register hr@acme.com).
+      if (domainFromEmail(verified.email) !== emailDomain) {
+        return NextResponse.json(
+          {
+            error: `Your Google account (${verified.email}) is not on the ${emailDomain} domain. Sign in with your company Google account, or use the Form path.`,
+          },
+          { status: 400 },
+        );
+      }
+      googleIdentity = verified;
     }
 
     const existing = await query(`SELECT id FROM ip_users WHERE lower(email) = $1`, [email]);
@@ -201,6 +239,16 @@ export async function POST(request) {
     } catch (e) {
       await query('ROLLBACK');
       throw e;
+    }
+
+    if (googleIdentity?.googleSub) {
+      await recordGoogleIdentity({
+        userId,
+        googleSub: googleIdentity.googleSub,
+        email: googleIdentity.email,
+        name: googleIdentity.name,
+        pictureUrl: googleIdentity.pictureUrl,
+      }).catch(() => {});
     }
 
     if (referralNotify) {

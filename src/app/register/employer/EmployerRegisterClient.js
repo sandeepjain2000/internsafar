@@ -1,13 +1,14 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { ArrowLeft, Building2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import LoginCaptchaField from '@/components/auth/LoginCaptchaField';
 import { IpGeminiBrand } from '@/components/ip/IpGeminiBrand';
-import { domainsMatch } from '@/lib/authRegisterRules';
+import { domainFromEmail, domainsMatch, isConsumerEmailDomain } from '@/lib/authRegisterRules';
 import { readCaptchaField } from '@/lib/captchaClient';
 import { BUSINESS_ENTITY_TYPES } from '@/lib/employerBusinessEntity';
 import '@/components/ip/ip-register-gemini.css';
@@ -37,11 +38,60 @@ function GoogleMark() {
 }
 
 /**
+ * Google verification survives the URL cleanup remount via sessionStorage. The token is
+ * still validated and spent server-side, so this cache grants nothing on its own.
+ */
+const GOOGLE_VERIFICATION_KEY = 'ip-employer-google-verification';
+const GOOGLE_VERIFICATION_TTL_MS = 10 * 60 * 1000;
+
+function readStoredVerification() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(GOOGLE_VERIFICATION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.token || !parsed?.email) return null;
+    parsed.name = parsed.name || '';
+    parsed.pictureUrl = parsed.pictureUrl || '';
+    if (Date.now() - Number(parsed.at || 0) > GOOGLE_VERIFICATION_TTL_MS) {
+      window.sessionStorage.removeItem(GOOGLE_VERIFICATION_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function storeVerification({ token, email, name, pictureUrl }) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(
+      GOOGLE_VERIFICATION_KEY,
+      JSON.stringify({ token, email, name: name || '', pictureUrl: pictureUrl || '', at: Date.now() }),
+    );
+  } catch {
+    /* private mode / storage disabled — flow still works within one mount */
+  }
+}
+
+function clearStoredVerification() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(GOOGLE_VERIFICATION_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
  * Employer registration — Gemini shell; live Domain vs SuperAdmin form paths unchanged.
  */
 export default function EmployerRegisterPage() {
   const sp = useSearchParams();
+  const router = useRouter();
   const referralCode = sp.get('ref') || '';
+  const googleToken = sp.get('gv') || '';
   const [path, setPath] = useState('choose'); // choose | domain-google | domain | form | done
   const [website, setWebsite] = useState('');
   const [email, setEmail] = useState('');
@@ -57,20 +107,145 @@ export default function EmployerRegisterPage() {
   const [done, setDone] = useState(null);
   const [loading, setLoading] = useState(false);
   const [hint, setHint] = useState('');
+  const [googleVerification, setGoogleVerification] = useState(null); // { token, email }
+  const [googleBusy, setGoogleBusy] = useState(false);
+
+  // Returning from a real Google consent flow: /register/employer?gv=<single-use token>.
+  // The token is only issued after Google confirmed the account, and the API re-checks
+  // it server-side, so this cannot be faked by jumping straight to the domain step.
+  //
+  // Stripping ?gv= from the URL remounts this component, so the confirmed verification
+  // is mirrored in sessionStorage and restored on mount — otherwise the user is thrown
+  // back to the first step immediately after a successful Google sign-in.
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      if (!googleToken) {
+        const stored = readStoredVerification();
+        if (stored && !cancelled) {
+          // One-shot: the cache exists only to survive the remount caused by stripping
+          // ?gv= from the URL. Spending it here means coming back to this page later
+          // starts a fresh Google verification instead of trusting a stale one.
+          clearStoredVerification();
+          setGoogleVerification(stored);
+          setEmail((current) => current || stored.email);
+          if (stored.name) setContactName((current) => current || stored.name);
+          setPath('domain');
+        }
+        return;
+      }
+
+      const cleanUrl = referralCode
+        ? `/register/employer?ref=${encodeURIComponent(referralCode)}`
+        : '/register/employer';
+      try {
+        const res = await fetch(
+          `/api/ip/auth/google-verification?token=${encodeURIComponent(googleToken)}`,
+        );
+        const data = await res.json();
+        const ok = res.ok && Boolean(data.email);
+        // Persist before the cancelled check: in StrictMode the first effect pass is
+        // torn down mid-flight, and the surviving mount reads this back after the URL
+        // loses ?gv=. Skipping it here left the page stuck on the Google step.
+        const verified = {
+          token: googleToken,
+          email: data.email,
+          name: data.name || '',
+          pictureUrl: data.pictureUrl || '',
+        };
+        if (ok) storeVerification(verified);
+        else clearStoredVerification();
+        if (cancelled) return;
+        if (!ok) {
+          setError(
+            'Google verification could not be confirmed (the link may have expired). Please verify with Google again.',
+          );
+          setPath('domain-google');
+          return;
+        }
+        setGoogleVerification(verified);
+        setEmail((current) => current || data.email);
+        if (verified.name) setContactName((current) => current || verified.name);
+        setPath('domain');
+      } catch {
+        if (!cancelled) {
+          clearStoredVerification();
+          setError('Could not confirm Google verification. Please try again.');
+          setPath('domain-google');
+        }
+      } finally {
+        // Keep the one-time token out of the address bar / history. Only the live pass
+        // rewrites the URL — a cancelled pass would strip ?gv= from under the pass that
+        // is still fetching.
+        if (!cancelled) router.replace(cleanUrl);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleToken, referralCode, router]);
+
+  const startGoogleVerification = useCallback(async () => {
+    setError('');
+    setHint('');
+    setGoogleBusy(true);
+    // Tells the NextAuth signIn callback this is registration verification, not a login.
+    document.cookie = 'ip_google_intent=employer-register; path=/; max-age=600; samesite=lax';
+    try {
+      await signIn('google', { callbackUrl: '/register/employer' });
+    } catch {
+      setGoogleBusy(false);
+      setError('Could not start Google verification. Please try again.');
+    }
+  }, []);
+
+  const restartGoogleVerification = useCallback(() => {
+    clearStoredVerification();
+    setGoogleVerification(null);
+    setEmail('');
+    setError('');
+    setHint('');
+    setPath('domain-google');
+  }, []);
 
   function goBack() {
     if (path === 'choose') return;
     setPath('choose');
     setError('');
     setHint('');
+    setGoogleVerification(null);
+    clearStoredVerification();
   }
 
   async function submitDomain(e) {
     e.preventDefault();
     setLoading(true);
     setError('');
+    if (!googleVerification?.token) {
+      setError('Verify with Google before registering.');
+      setPath('domain-google');
+      setLoading(false);
+      return;
+    }
     if (!domainsMatch(website, email)) {
       setError('Website domain and work-email domain must match (e.g. company.com and hr@company.com).');
+      setLoading(false);
+      return;
+    }
+    const workDomain = domainFromEmail(email);
+    if (isConsumerEmailDomain(workDomain)) {
+      setError(
+        `${workDomain} is a personal mailbox provider, not a company domain. Use the Form path if you do not have a company domain.`,
+      );
+      setLoading(false);
+      return;
+    }
+    if (domainFromEmail(googleVerification.email) !== workDomain) {
+      setError(
+        `Your Google account (${googleVerification.email}) is not on the ${workDomain} domain. Verify with a company Google account, or use the Form path.`,
+      );
       setLoading(false);
       return;
     }
@@ -85,11 +260,24 @@ export default function EmployerRegisterPage() {
           contactName,
           businessEntityType,
           manualRequest: false,
+          googleVerificationToken: googleVerification.token,
           referralCode: referralCode || undefined,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed');
+      if (!res.ok) {
+        if (res.status === 401) {
+          // Token spent or expired — force a fresh, real Google verification.
+          clearStoredVerification();
+          setGoogleVerification(null);
+          setPath('domain-google');
+          setHint('');
+        }
+        throw new Error(data.error || 'Failed');
+      }
+      // Token is single-use and now spent server-side.
+      clearStoredVerification();
+      setGoogleVerification(null);
       setDone(data);
       setPath('done');
     } catch (err) {
@@ -219,27 +407,50 @@ export default function EmployerRegisterPage() {
             {path === 'domain-google' ? (
               <div className="flex flex-col gap-3">
                 <p className="m-0 text-center text-sm text-slate-500">
-                  Verify with Google, then enter your website and matching work email.
+                  Verify with your <strong>company</strong> Google account, then enter your website and matching
+                  work email.
                 </p>
                 <div className="ip-reg-social">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPath('domain');
-                      setHint(
-                        'Google verification complete. Enter your company website and work email (domains must match). We email a temporary password to that work inbox.',
-                      );
-                    }}
-                  >
+                  <button type="button" onClick={startGoogleVerification} disabled={googleBusy}>
                     <GoogleMark />
-                    Continue with Google
+                    {googleBusy ? 'Opening Google…' : 'Continue with Google'}
                   </button>
                 </div>
+                <p className="m-0 text-center text-xs text-slate-500">
+                  Google only confirms the account is yours — it does not sign you into the portal. After
+                  verifying you will finish registration and receive a temporary password by email.
+                </p>
               </div>
             ) : null}
 
             {path === 'domain' ? (
               <form className="flex flex-col gap-4" onSubmit={submitDomain}>
+                {googleVerification?.email ? (
+                  <div className="ip-reg-google-verified">
+                    {googleVerification.pictureUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={googleVerification.pictureUrl}
+                        alt=""
+                        width={40}
+                        height={40}
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : null}
+                    <div>
+                      <strong>Google account verified</strong>
+                      <p>
+                        {googleVerification.name ? `${googleVerification.name} — ` : ''}
+                        {googleVerification.email}. Your website and work email must both be on the{' '}
+                        <strong>{domainFromEmail(googleVerification.email)}</strong> domain.
+                      </p>
+                      <button type="button" className="ip-reg-relink" onClick={restartGoogleVerification}>
+                        Use a different Google account
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="ip-reg-panel">
                   <h3>Automated domain verification</h3>
                   <div className="ip-reg-field">
@@ -264,6 +475,10 @@ export default function EmployerRegisterPage() {
                       placeholder="hr@yourcompany.com"
                       required
                     />
+                    <p className="hint">
+                      The temporary password is sent here. It may differ from your Google address, as long as
+                      the domain is the same.
+                    </p>
                   </div>
                   <div className="ip-reg-field">
                     <label htmlFor="company">Company name (optional)</label>

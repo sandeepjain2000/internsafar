@@ -47,6 +47,7 @@ yarn-error.log*
 .aws/
 azureauth.json
 service-account*.json
+client_secret*.json
 
 # OS noise
 .DS_Store

@@ -42,7 +42,8 @@ export default function FormRegistrationsPage() {
   const [meta, setMeta] = useState({
     pendingCandidates: 0,
     pendingEmployers: 0,
-    autoApprovedGoogle: 0,
+    googleOauthVerified: 0,
+    gmailDomainSignups: 0,
     totalActiveUsers: 0,
     approvedToday: 0,
   });
@@ -240,16 +241,19 @@ export default function FormRegistrationsPage() {
         </div>
         <div className="ip-saq-metric">
           <div className="ip-saq-metric__top">
-            <span>Auto-Approved</span>
+            <span>Google OAuth verified</span>
             <div className="ip-saq-metric__ico ip-saq-metric__ico--green">
               <UserCheck size={18} aria-hidden />
             </div>
           </div>
           <div className="ip-saq-metric__row">
-            <strong>{meta.autoApprovedGoogle ?? 0}</strong>
-            <span className="ip-saq-pill ip-saq-pill--ok">Google</span>
+            <strong>{meta.googleOauthVerified ?? 0}</strong>
+            <span className="ip-saq-pill ip-saq-pill--ok">OAuth</span>
           </div>
-          <p className="ip-saq-metric__sub">Google signups already active</p>
+          <p className="ip-saq-metric__sub">
+            Active accounts that completed real Google sign-in · {meta.gmailDomainSignups ?? 0} Gmail-address
+            signups (not OAuth verified)
+          </p>
         </div>
         <div className="ip-saq-metric">
           <div className="ip-saq-metric__top">
