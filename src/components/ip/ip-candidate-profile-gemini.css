@@ -1224,6 +1224,21 @@
   color: #b91c1c;
 }
 
+.ip-cand-profile .ip-cp-field.is-missing > .ip-cp-label {
+  color: #b91c1c;
+}
+
+.ip-cand-profile .ip-cp-field.is-missing .ip-cp-input,
+.ip-cand-profile .ip-cp-field.is-missing .ip-sms-input,
+.ip-cand-profile .ip-cp-field.is-missing .ip-cp-resume-row {
+  border-color: #dc2626;
+  background: #fff5f5;
+}
+
+.ip-cand-profile .ip-cp-field.is-missing > .ip-cp-error {
+  margin-top: 0.35rem;
+}
+
 .ip-cand-profile .ip-cp-phone {
   display: flex;
   align-items: stretch;

@@ -103,9 +103,15 @@ function initialsFrom(form) {
   return ((a + b) || 'C').toUpperCase();
 }
 
-function Field({ label, hint, required, optional, children, span }) {
+function Field({ label, hint, required, optional, children, span, invalid }) {
+  const classes = [
+    'ip-cp-field',
+    span === 2 ? 'ip-cp-span-2' : '',
+    span === 3 ? 'ip-cp-span-3' : '',
+    invalid ? 'is-missing' : '',
+  ].filter(Boolean).join(' ');
   return (
-    <div className={`ip-cp-field${span === 2 ? ' ip-cp-span-2' : ''}${span === 3 ? ' ip-cp-span-3' : ''}`}>
+    <div className={classes}>
       <label className="ip-cp-label">
         {label}
         {required ? <span className="ip-cp-req"> *</span> : null}
@@ -113,8 +119,26 @@ function Field({ label, hint, required, optional, children, span }) {
       </label>
       {hint ? <p className="ip-cp-hint">{hint}</p> : null}
       {children}
+      {invalid ? <p className="ip-cp-error" role="alert">Required to unlock applying.</p> : null}
     </div>
   );
+}
+
+/** Step 1 fields that must be filled before applications unlock. */
+const BASICS_REQUIRED = [
+  { key: 'first_name', label: 'First Name' },
+  { key: 'last_name', label: 'Last Name' },
+  { key: 'country', label: 'Country' },
+  { key: 'city', label: 'Current City' },
+  { key: 'state', label: 'State / Union Territory' },
+  { key: 'preferred_work_mode', label: 'Preferred Work Mode' },
+  { key: 'availability_date', label: 'Earliest Availability / Start Date' },
+  { key: 'resume_url', label: 'Resume / CV' },
+];
+
+function missingBasics(form) {
+  if (!form) return [];
+  return BASICS_REQUIRED.filter(({ key }) => !String(form[key] ?? '').trim());
 }
 
 export default function CandidateProfilePage() {
@@ -137,6 +161,8 @@ export default function CandidateProfilePage() {
   const [phoneError, setPhoneError] = useState('');
   /** Save failures must show next to the buttons; the top alert is off-screen from the save row. */
   const [saveError, setSaveError] = useState('');
+  /** Turns on red highlighting for blank required fields once the user has tried to save. */
+  const [showMissing, setShowMissing] = useState(false);
   const { cityOptions, placeCityOptions, stateOptions, findCity } = useIpCityCatalog();
   const cityChoices = useMemo(() => {
     const needle = String(form?.state || '').trim().toLowerCase();
@@ -304,6 +330,7 @@ export default function CandidateProfilePage() {
     setSaving(true);
     setMessage('');
     setSaveError('');
+    setShowMissing(true);
     try {
       let data = {};
       if (profileTab === 'academic') {
@@ -465,6 +492,8 @@ export default function CandidateProfilePage() {
   const waReady = Boolean(String(form.whatsapp_number || form.phone || '').trim());
   const tgReady = Boolean(String(form.telegram_handle || '').trim());
   const activeTab = PROFILE_TABS.find((tab) => tab.id === profileTab);
+  const missingRequired = showMissing && profileTab === 'basics' ? missingBasics(form) : [];
+  const isMissing = (key) => missingRequired.some((f) => f.key === key);
 
   return (
     <div className="ip-cand-profile">
@@ -567,13 +596,13 @@ export default function CandidateProfilePage() {
                 <h3>Personal Details</h3>
               </div>
               <div className="ip-cp-grid ip-cp-grid--3">
-                <Field label="First Name" required>
+                <Field label="First Name" required invalid={isMissing('first_name')}>
                   <input className="ip-cp-input" value={form.first_name || ''} onChange={(e) => set('first_name', e.target.value)} />
                 </Field>
                 <Field label="Middle Name" optional>
                   <input className="ip-cp-input" value={form.middle_name || ''} onChange={(e) => set('middle_name', e.target.value)} />
                 </Field>
-                <Field label="Last Name" required>
+                <Field label="Last Name" required invalid={isMissing('last_name')}>
                   <input className="ip-cp-input" value={form.last_name || ''} onChange={(e) => set('last_name', e.target.value)} />
                 </Field>
               </div>
@@ -662,7 +691,7 @@ export default function CandidateProfilePage() {
                   </div>
                   {phoneError ? <p className="ip-cp-error" role="alert">{phoneError}</p> : null}
                 </Field>
-                <Field label="Country" required>
+                <Field label="Country" required invalid={isMissing('country')}>
                   <select className="ip-cp-input" value={form.country || 'India'} onChange={(e) => set('country', e.target.value)}>
                     {COUNTRY_OPTIONS.map((c) => (
                       <option key={c} value={c}>
@@ -671,7 +700,7 @@ export default function CandidateProfilePage() {
                     ))}
                   </select>
                 </Field>
-                <Field label="Current City" required>
+                <Field label="Current City" required invalid={isMissing('city')}>
                   <SearchableSelect
                     options={cityChoices}
                     value={form.city || ''}
@@ -687,7 +716,7 @@ export default function CandidateProfilePage() {
                     ariaLabel="Current city"
                   />
                 </Field>
-                <Field label="State / Union Territory" required>
+                <Field label="State / Union Territory" required invalid={isMissing('state')}>
                   <SearchableSelect
                     options={stateOptions}
                     value={form.state || ''}
@@ -711,14 +740,14 @@ export default function CandidateProfilePage() {
             <section>
               <div className="ip-cp-sec-head"><h3>Preferences &amp; Availability</h3></div>
               <div className="ip-cp-grid">
-                <Field label="Preferred Work Mode" required>
+                <Field label="Preferred Work Mode" required invalid={isMissing('preferred_work_mode')}>
                   <select className="ip-cp-input" value={workMode} onChange={(e) => set('preferred_work_mode', e.target.value)}>
                     <option value="" disabled>Select preferred work mode</option>
                     {WORK_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
                     {!knownMode && workMode ? <option value={workMode}>{workMode}</option> : null}
                   </select>
                 </Field>
-                <Field label="Earliest Availability / Start Date" required>
+                <Field label="Earliest Availability / Start Date" required invalid={isMissing('availability_date')}>
                   <input
                     className="ip-cp-input"
                     type="date"
@@ -748,7 +777,7 @@ export default function CandidateProfilePage() {
             <section>
               <div className="ip-cp-sec-head"><h3>Resume &amp; Portfolio Links</h3></div>
               <div className="ip-cp-stack-sm">
-                <Field label="Resume / CV" required hint="Upload a PDF/DOC/DOCX or paste a hosted URL">
+                <Field label="Resume / CV" required hint="Upload a PDF/DOC/DOCX or paste a hosted URL" invalid={isMissing('resume_url')}>
                   <div className="ip-cp-resume-row">
                     <div className="ip-cp-upload-wrap">
                       <IpUploadButton
@@ -1223,6 +1252,10 @@ export default function CandidateProfilePage() {
           <div className="ip-cp-save">
             {saveError ? (
               <p className="ip-cp-save__error" role="alert">{saveError}</p>
+            ) : missingRequired.length ? (
+              <p className="ip-cp-save__error" role="status">
+                Saved. Still blank (needed to unlock applying): {missingRequired.map((f) => f.label).join(', ')}
+              </p>
             ) : (
               <p>You can save your progress even if some optional fields are blank.</p>
             )}

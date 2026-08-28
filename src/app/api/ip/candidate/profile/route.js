@@ -77,6 +77,14 @@ export async function GET() {
 }
 
 export async function PUT(request) {
+  try {
+    return await putProfile(request);
+  } catch (err) {
+    return jsonError(`Could not save profile: ${err?.message || 'unexpected server error'}`, 500);
+  }
+}
+
+async function putProfile(request) {
   const { session, error } = await requireSession(['candidate']);
   if (error) return error;
   await ensureIpCandidateProfileSchema();
@@ -174,7 +182,14 @@ export async function PUT(request) {
     }
   }
   if (sets.length) {
-    await query(`UPDATE ip_candidates SET ${sets.join(', ')}, updated_at = now() WHERE user_id = $1`, params);
+    try {
+      await query(`UPDATE ip_candidates SET ${sets.join(', ')}, updated_at = now() WHERE user_id = $1`, params);
+    } catch (err) {
+      // A bare 500 hides which column rejected the value; name it so the form can point at the field.
+      const column = err?.column || err?.detail || '';
+      const reason = [err?.message, column].filter(Boolean).join(' — ');
+      return jsonError(`Could not save profile: ${reason || 'database rejected the update'}`, 400);
+    }
   }
 
   const merged = await query(`SELECT * FROM ip_candidates WHERE user_id = $1`, [session.user.id]);
