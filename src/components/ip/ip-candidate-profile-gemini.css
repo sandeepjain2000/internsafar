@@ -1009,6 +1009,11 @@
   flex: 1 1 12rem;
 }
 
+.ip-cand-profile .ip-cp-save p.ip-cp-save__error {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
 .ip-cand-profile .ip-cp-save__actions {
   display: flex;
   flex-wrap: wrap;

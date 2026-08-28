@@ -128,7 +128,8 @@ export async function PUT(request) {
     if (field === 'resume_links') {
       value = JSON.stringify(normalizeResumeLinks(value));
     }
-    if (field === 'availability_date') {
+    if (field === 'availability_date' || field === 'graduation_year' || field === 'cgpa') {
+      // INT / NUMERIC / DATE columns reject '' — blank means "not set".
       const raw = value == null ? '' : String(value).trim();
       value = raw || null;
     }

@@ -135,6 +135,8 @@ export default function CandidateProfilePage() {
   const [resumeFileName, setResumeFileName] = useState('');
   const [linkDraftError, setLinkDraftError] = useState('');
   const [phoneError, setPhoneError] = useState('');
+  /** Save failures must show next to the buttons; the top alert is off-screen from the save row. */
+  const [saveError, setSaveError] = useState('');
   const { cityOptions, placeCityOptions, stateOptions, findCity } = useIpCityCatalog();
   const cityChoices = useMemo(() => {
     const needle = String(form?.state || '').trim().toLowerCase();
@@ -292,8 +294,8 @@ export default function CandidateProfilePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Could not save profile (HTTP ${res.status})`);
     return data;
   }
 
@@ -301,6 +303,7 @@ export default function CandidateProfilePage() {
     if (e?.preventDefault) e.preventDefault();
     setSaving(true);
     setMessage('');
+    setSaveError('');
     try {
       let data = {};
       if (profileTab === 'academic') {
@@ -309,8 +312,8 @@ export default function CandidateProfilePage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ items: academics }),
         });
-        data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Could not save academics');
+        data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `Could not save academics (HTTP ${res.status})`);
         data = await saveProfileBody();
       } else {
         data = await saveProfileBody();
@@ -323,7 +326,9 @@ export default function CandidateProfilePage() {
       );
       return true;
     } catch (err) {
-      setMessage(err.message);
+      const text = err?.message || 'Could not save. Please try again.';
+      setMessage(text);
+      setSaveError(text);
       return false;
     } finally {
       setSaving(false);
@@ -1216,7 +1221,11 @@ export default function CandidateProfilePage() {
 
         {profileTab !== 'history' ? (
           <div className="ip-cp-save">
-            <p>You can save your progress even if some optional fields are blank.</p>
+            {saveError ? (
+              <p className="ip-cp-save__error" role="alert">{saveError}</p>
+            ) : (
+              <p>You can save your progress even if some optional fields are blank.</p>
+            )}
             <div className="ip-cp-save__actions">
               {isWizardTab && wizardIndex > 0 ? (
                 <button type="button" className="ip-cp-btn ip-cp-btn--outline" onClick={() => goWizard(-1)}>
