@@ -45,8 +45,10 @@ export async function PUT(request) {
           const degree = String(row.degree || '').trim() || null;
           const specialization = String(row.specialization || '').trim() || null;
           const study_status = String(row.study_status || '').trim() || null;
-          const graduation_year = row.graduation_year ? Number(row.graduation_year) : null;
-          const cgpa = row.cgpa != null && row.cgpa !== '' ? String(row.cgpa) : null;
+          const yearNum = row.graduation_year ? Number(row.graduation_year) : null;
+          const graduation_year = Number.isFinite(yearNum) ? yearNum : null;
+          const cgpaNum = row.cgpa != null && row.cgpa !== '' ? Number(row.cgpa) : null;
+          const cgpa = Number.isFinite(cgpaNum) ? String(cgpaNum) : null;
           const rowLabel = String(row.row_label || '').trim() || null;
           if (!college && !degree && !specialization && !study_status && !graduation_year && !cgpa) continue;
           const id = row.id && String(row.id).startsWith('ip_acad_') ? row.id : newId('ip_acad');
@@ -86,6 +88,10 @@ export async function PUT(request) {
     });
     return jsonOk({ ok: true, items: saved });
   } catch (e) {
-    return jsonError(e.message || 'Failed to save academics', 500);
+    console.error('[ip/candidate/academics] save failed', e);
+    return jsonError(
+      "We couldn't save your education details. Please check the year and CGPA values and try again.",
+      400,
+    );
   }
 }

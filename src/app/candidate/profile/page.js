@@ -321,7 +321,11 @@ export default function CandidateProfilePage() {
       body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `Could not save profile (HTTP ${res.status})`);
+    if (!res.ok) {
+      throw new Error(
+        data.error || "We couldn't save your profile just now. Please check your connection and try again.",
+      );
+    }
     return data;
   }
 
@@ -340,7 +344,11 @@ export default function CandidateProfilePage() {
           body: JSON.stringify({ items: academics }),
         });
         data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || `Could not save academics (HTTP ${res.status})`);
+        if (!res.ok) {
+          throw new Error(
+            data.error || "We couldn't save your education details just now. Please try again.",
+          );
+        }
         data = await saveProfileBody();
       } else {
         data = await saveProfileBody();

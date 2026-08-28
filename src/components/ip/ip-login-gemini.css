@@ -130,6 +130,33 @@
   color: #64748b;
 }
 
+.ip-gemini-login .ip-gemini-page-foot p {
+  margin: 0;
+}
+
+.ip-gemini-login .ip-gemini-foot-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 12px;
+}
+
+.ip-gemini-login .ip-gemini-form-col a.ip-gemini-foot-link {
+  color: #475569;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+
+.ip-gemini-login .ip-gemini-form-col a.ip-gemini-foot-link:hover,
+.ip-gemini-login .ip-gemini-form-col a.ip-gemini-foot-link:focus-visible {
+  color: var(--ip-gemini-accent);
+  text-decoration: underline;
+}
+
 .ip-gemini-login .ip-login-brand__lockup {
   display: flex;
   flex-direction: column;
