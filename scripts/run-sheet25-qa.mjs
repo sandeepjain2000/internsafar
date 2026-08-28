@@ -213,7 +213,6 @@ async function main() {
 
   // 25-004 docs — no blanking instructions
   const readme = readFileSync(resolve(monoRoot, 'README.md'), 'utf8');
-  const gen = readFileSync(resolve(monoRoot, 'scripts/gen-ip-test-cases-xlsx.py'), 'utf8');
   const badPhrases = [
     /blank.*\.env/i,
     /wipe.*\.env/i,
@@ -222,12 +221,9 @@ async function main() {
     /empty your \.env/i,
   ];
   const hits = [];
-  for (const src of [
-    ['README.md', readme],
-    ['gen script (self-ref only ok)', gen],
-  ]) {
+  for (const src of [['README.md', readme]]) {
     for (const re of badPhrases) {
-      if (re.test(src[1]) && !src[0].includes('gen script')) hits.push(`${src[0]}:${re}`);
+      if (re.test(src[1])) hits.push(`${src[0]}:${re}`);
     }
   }
   // README instructs set keys — good. Scan deploy scripts briefly
