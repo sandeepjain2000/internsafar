@@ -355,7 +355,7 @@ export default function CandidateProfilePage() {
     } catch (err) {
       const text = err?.message || 'Could not save. Please try again.';
       setMessage(text);
-      setSaveError(text);
+      setSaveError(`Not saved — ${text}`);
       return false;
     } finally {
       setSaving(false);
@@ -492,6 +492,7 @@ export default function CandidateProfilePage() {
   const waReady = Boolean(String(form.whatsapp_number || form.phone || '').trim());
   const tgReady = Boolean(String(form.telegram_handle || '').trim());
   const activeTab = PROFILE_TABS.find((tab) => tab.id === profileTab);
+  const hasNextStep = isWizardTab && wizardIndex < WIZARD_ORDER.length - 1;
   const missingRequired = showMissing && profileTab === 'basics' ? missingBasics(form) : [];
   const isMissing = (key) => missingRequired.some((f) => f.key === key);
 
@@ -1265,20 +1266,23 @@ export default function CandidateProfilePage() {
                   Back
                 </button>
               ) : null}
-              <button type="submit" className="ip-cp-btn ip-cp-btn--primary" disabled={saving}>
-                {saving ? 'Saving...' : activeTab?.saveLabel || 'Save profile'}
-              </button>
-              {isWizardTab && wizardIndex < WIZARD_ORDER.length - 1 ? (
+              {hasNextStep ? null : (
+                <button type="submit" className="ip-cp-btn ip-cp-btn--primary" disabled={saving}>
+                  {saving ? 'Saving...' : activeTab?.saveLabel || 'Save profile'}
+                </button>
+              )}
+              {hasNextStep ? (
                 <button
                   type="button"
-                  className="ip-cp-btn ip-cp-btn--soft"
+                  className="ip-cp-btn ip-cp-btn--primary"
                   disabled={saving}
                   onClick={async (ev) => {
                     ev.preventDefault();
                     ev.stopPropagation();
                     const fromIdx = WIZARD_ORDER.indexOf(profileTab);
-                    const ok = await save();
-                    if (!ok) return;
+                    // Advance even if the save failed — the red error stays visible, but a
+                    // rejected field on one step must never trap the user on that step.
+                    await save();
                     const nextIdx = Math.min(fromIdx + 1, WIZARD_ORDER.length - 1);
                     const next = WIZARD_ORDER[nextIdx];
                     setWizardUnlockedThru((u) => Math.max(u, nextIdx));
@@ -1293,7 +1297,7 @@ export default function CandidateProfilePage() {
                     }
                   }}
                 >
-                  Save &amp; Next
+                  {saving ? 'Saving...' : 'Save & Next'}
                 </button>
               ) : null}
             </div>

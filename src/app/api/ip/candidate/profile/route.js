@@ -142,11 +142,13 @@ async function putProfile(request) {
       value = raw || null;
     }
     if (field === 'skills' || field === 'preferred_locations') {
-      if (Array.isArray(value)) {
-        params.push(JSON.stringify(value));
-        sets.push(`${field} = $${params.length}::jsonb`);
-        continue;
-      }
+      // Both are TEXT[] in the schema — node-postgres maps a JS array onto that directly.
+      const list = Array.isArray(value)
+        ? value
+        : String(value || '').split(',');
+      params.push(list.map((s) => String(s ?? '').trim()).filter(Boolean));
+      sets.push(`${field} = $${params.length}::text[]`);
+      continue;
     }
     if (optionalBools.has(field)) value = normalizeOptionalBool(value);
     if (requiredBools.has(field)) value = value === true || value === 'true';
