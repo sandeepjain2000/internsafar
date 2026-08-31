@@ -2,15 +2,7 @@ import { query } from '@/lib/db';
 import { requireSession, jsonOk } from '@/lib/apiAuth';
 import { skillMatchPercent } from '@/lib/skillMatch';
 import { ensureIpCandidateProfileSchema } from '@/lib/ensureIpCandidateProfileSchema';
-
-function parseExperienceYears(text) {
-  const s = String(text || '').toLowerCase();
-  if (!s.trim()) return 0;
-  const m = s.match(/(\d+(?:\.\d+)?)\s*(year|yr)/);
-  if (m) return Number(m[1]);
-  if (/intern|project|month/.test(s)) return 0.5;
-  return 1;
-}
+import { experienceYears } from '@/lib/ipCandidateExperience';
 
 function availabilityBucket(row) {
   if (row.immediate_start) return 'immediate';
@@ -158,7 +150,7 @@ export async function GET(request) {
 
   let items = result.rows.map((row) => {
     const rel = relByCand.get(row.id) || {};
-    const years = parseExperienceYears(row.prior_experience);
+    const years = experienceYears(row.prior_experience);
     const item = {
       ...row,
       experience_years: years,

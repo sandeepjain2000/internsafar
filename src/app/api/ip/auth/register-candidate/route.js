@@ -6,8 +6,13 @@ import { sendMail, tempPasswordEmailHtml } from '@/lib/mail';
 import { notifyRole, notifyUser } from '@/lib/ipNotify';
 import { referrerRewardsForRole } from '@/lib/pointsEconomy';
 import { isGmailAddress, normalizeEmail } from '@/lib/authRegisterRules';
-import { isCaptchaBypassed, verifyLoginCaptcha } from '@/lib/simpleCaptcha';
-import { consumeGoogleVerification, GOOGLE_INTENTS, recordGoogleIdentity } from '@/lib/ipGoogleAuth';
+import { verifyLoginCaptcha } from '@/lib/simpleCaptcha';
+import {
+  consumeGoogleVerification,
+  GOOGLE_INTENTS,
+  isGoogleVerificationBypassed,
+  recordGoogleIdentity,
+} from '@/lib/ipGoogleAuth';
 import { ensureIpFormRegistrationSchema } from '@/lib/ensureIpFormRegistrationSchema';
 import {
   ensureIpReferralExtraSchema,
@@ -64,14 +69,18 @@ export async function POST(request) {
       }
     }
 
-    if (!verifyLoginCaptcha(body.captchaToken, body.captchaAnswer)) {
+    // Captcha guards the form path, where nothing else proves a human is present. The
+    // Google path completes a real OAuth consent flow instead, which is the stronger check
+    // of the two, so it does not also ask a security question. Order matters: the Google
+    // token is verified below before anything is written.
+    if (path === 'form' && !verifyLoginCaptcha(body.captchaToken, body.captchaAnswer)) {
       return NextResponse.json({ error: 'Captcha verification failed' }, { status: 400 });
     }
 
     // Google path requires a real verification token issued by the NextAuth signIn
-    // callback. isCaptchaBypassed() is the existing QA/dev bypass switch.
+    // callback, so the address comes from Google rather than from this request body.
     let googleIdentity = null;
-    if (path !== 'form' && !isCaptchaBypassed()) {
+    if (path !== 'form' && !isGoogleVerificationBypassed()) {
       const verified = await consumeGoogleVerification(
         String(body.googleVerificationToken || ''),
         GOOGLE_INTENTS.candidateRegister.cookieValue,
@@ -250,6 +259,7 @@ export async function POST(request) {
           referralApplied: Boolean(referredBy && referredBy !== userId),
           mailOverride: true,
           mailSentTo: mailResult.sentTo,
+          mailCopiedTo: mailResult.copiedTo,
           message:
             'Account created. Temporary password emailed. Sign in on the login page with that password.',
         });

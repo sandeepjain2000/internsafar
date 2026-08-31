@@ -1,62 +1,109 @@
 /**
  * *** ONLY FILE TO EDIT for core-sample / reset baseline emails ***
  *
- * IP_Reset_Core_Sample.js and seed helpers read from here.
- * Change emails/names below — no other file needs updating for account identity.
+ * IP_Reset_Core_Sample.cmd, reset-ip-core-sample.mjs, and seed-gmail-plus-cast.mjs
+ * all read from here. Change emails/names below — no other file needs updating.
  *
  * @module scripts/lib/ipCoreSampleConfig
  */
 
-/** SuperAdmin — kept during reset (not deleted). */
-const SUPERADMIN_EMAIL = 'placementhubsupport@gmail.com';
+/**
+ * SuperAdmin — kept during reset (not deleted). Single account, so it takes the
+ * Zoho support address: Zoho does not support plus-addressing, and SuperAdmin
+ * never needs +aliases. Keep this in step with src/lib/ensureIpBootstrap.js,
+ * which recreates this account on boot.
+ */
+const SUPERADMIN_EMAIL = 'support@placementhub.online';
 const LEGACY_SUPERADMIN_EMAIL = 'superadmin@internship.local';
 const DEMO_PASSWORD = 'Admin@123';
 
-/** Primary showcase candidate — kept during reset; transactional data cleared + re-seeded. */
+/** Primary showcase candidate — removed on reset, then re-created. */
 const CAND_BASE = 'lawsonlclintern+1@gmail.com';
 const CAND_BASE_NAME = 'Priya Sharma';
 
-/** Primary showcase employer — kept during reset; transactional data cleared + re-seeded. */
-const EMP_BASE = 'shreekar.nyayapathi23+2@vit.edu';
-const EMP_BASE_NAME = 'Nova Labs';
-
 /**
- * Extra candidate accounts re-seeded after reset.
- * Each name must be unique — offers/applications must not look like the same person repeated.
+ * Primary showcase employer — removed on reset, then re-created.
+ * On the Gmail mailbox because the employer side needs many filler logins and
+ * Gmail delivers +aliases natively (Zoho does not).
+ */
+const EMP_BASE = 'placementhubsupport@gmail.com';
+const EMP_BASE_NAME = 'Nova Labs';
+/** Company site for every seeded employer. */
+const EMP_BASE_WEBSITE = 'https://placementhub.online';
+
+/** Extra candidate accounts re-seeded after reset. */
+/**
+ * Cast candidates, with the education each one is seeded with.
+ *
+ * `education` must stay in step with db/migrations/035_ip_seed_candidate_academics.sql, which
+ * seeds the same three candidates' ip_candidate_academics rows. Both read from the same values
+ * so a fresh seed and a migrated database agree. Previously the seeder hardcoded one identical
+ * set (VIT / B.Tech / CSE / 2027 / 8.4) for every candidate, so on a clean database all three
+ * demo candidates looked like the same person and 035 could not repair it (035 only fills
+ * blanks). Keep these three distinct.
  */
 const CAST_CANDIDATES = [
-  { email: 'lawsonlclintern+1@gmail.com', name: 'Priya Sharma', skills: ['React', 'TypeScript', 'Node'] },
-  { email: 'lawsonlclintern+2@gmail.com', name: 'Arjun Mehta', skills: ['Python', 'SQL', 'ML'] },
-  { email: 'lawsonlclintern+3@gmail.com', name: 'Meera Iyer', skills: ['Java', 'Spring', 'SQL'] },
-  { email: 'lawsonlclintern+4@gmail.com', name: 'Kabir Reddy', skills: ['Figma', 'UX Research'] },
-  { email: 'lawsonlclintern+5@gmail.com', name: 'Ananya Patel', skills: ['Node.js', 'Express', 'MongoDB'] },
-  { email: 'lawsonlclintern+6@gmail.com', name: 'Rohan Das', skills: ['AWS', 'Docker', 'Linux'] },
-  { email: 'lawsonlclintern+7@gmail.com', name: 'Ishita Nair', skills: ['Selenium', 'Cypress', 'Jest'] },
-  { email: 'lawsonlclintern+8@gmail.com', name: 'Vikram Gupta', skills: ['TensorFlow', 'Python', 'NLP'] },
+  {
+    email: 'lawsonlclintern+1@gmail.com',
+    name: 'Priya Sharma',
+    skills: ['React', 'TypeScript', 'Node'],
+    education: {
+      college: 'Pune Institute of Computer Technology',
+      degree: 'B.E.',
+      specialization: 'Information Technology',
+      studyStatus: 'Studying',
+      graduationYear: 2027,
+      cgpa: '8.62',
+      city: 'Pune',
+      state: 'Maharashtra',
+      previous: { college: 'Kendriya Vidyalaya, Pune', degree: 'Class XII', specialization: 'Science (PCM)', score: '89%' },
+    },
+  },
+  {
+    email: 'lawsonlclintern+2@gmail.com',
+    name: 'Arjun Mehta',
+    skills: ['Python', 'SQL', 'ML'],
+    education: {
+      college: 'VIT',
+      degree: 'B.Tech',
+      specialization: 'Electronics and Communication',
+      studyStatus: 'Studying',
+      graduationYear: 2026,
+      cgpa: '8.15',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      previous: { college: 'Delhi Public School, Bengaluru', degree: 'Class XII', specialization: 'Science (PCM)', score: '84%' },
+    },
+  },
+  {
+    email: 'lawsonlclintern+3@gmail.com',
+    name: 'Meera Iyer',
+    skills: ['Java', 'Spring', 'SQL'],
+    education: {
+      college: 'VIT',
+      degree: 'B.Tech',
+      specialization: 'CSE',
+      studyStatus: 'Studying',
+      graduationYear: 2027,
+      cgpa: '8.40',
+      city: 'Vellore',
+      state: 'Tamil Nadu',
+      previous: { college: 'Loyola Junior College, Chennai', degree: 'Class XII', specialization: 'Science (PCM + CS)', score: '91%' },
+    },
+  },
 ];
 
-/**
- * Extra employer accounts re-seeded after reset.
- * Multiple approved employers so offers are not always from the same company.
- */
+/** Extra employer accounts re-seeded after reset. */
 const CAST_EMPLOYERS = [
-  { email: 'shreekar.nyayapathi23+2@vit.edu', company: 'Nova Labs', status: 'approved' },
-  { email: 'shreekar.nyayapathi23+3@vit.edu', company: 'Pulse Media', status: 'pending' },
-  { email: 'shreekar.nyayapathi23+4@vit.edu', company: 'BrightPath Analytics', status: 'approved' },
-  { email: 'shreekar.nyayapathi23+5@vit.edu', company: 'Cedar Softworks', status: 'approved' },
-  { email: 'shreekar.nyayapathi23+6@vit.edu', company: 'Orbit Fintech', status: 'approved' },
+  { email: 'placementhubsupport@gmail.com', company: 'Nova Labs', status: 'approved', website: EMP_BASE_WEBSITE },
+  { email: 'placementhubsupport+3@gmail.com', company: 'Pulse Media', status: 'pending', website: EMP_BASE_WEBSITE },
 ];
 
 const CAST_CANDIDATE_EMAILS = CAST_CANDIDATES.map((c) => c.email);
 const CAST_EMPLOYER_EMAILS = CAST_EMPLOYERS.map((e) => e.email);
 
-/**
- * Accounts preserved during nuclear reset (login rows kept).
- * Everyone else is removed; these three keep password Admin@123 and get data re-seeded.
- */
-const PRESERVE_USER_EMAILS = [SUPERADMIN_EMAIL, CAND_BASE, EMP_BASE].map((e) =>
-  String(e).trim().toLowerCase(),
-);
+/** Accounts preserved during nuclear reset — everyone else is removed and re-seeded. */
+const PRESERVE_USER_EMAILS = [SUPERADMIN_EMAIL];
 
 /**
  * Protected accounts for generate/delete-by-run-ID tooling.
@@ -107,6 +154,7 @@ module.exports = {
   CAND_BASE_NAME,
   EMP_BASE,
   EMP_BASE_NAME,
+  EMP_BASE_WEBSITE,
   CAST_CANDIDATES,
   CAST_EMPLOYERS,
   CAST_CANDIDATE_EMAILS,

@@ -7,6 +7,7 @@
 const content = require('./ipTestDataContent.js');
 const cfg = require('./ipCoreSampleConfig.js');
 const { CORE_BASELINE_POSTINGS } = require('./ipCoreBaselinePostings.js');
+const { claimCompanyName } = require('./ipCompanyCatalog.js');
 
 const TARGET = content.TARGET_LIST_ROWS; // 22 → ≥2 UI pages at PAGE_SIZE 10
 const MIN_TAB = Math.floor(TARGET / 2) + 1; // 11
@@ -80,6 +81,154 @@ async function ensureUser(client, bcrypt, nid, { email, role, name, points = 80,
     [id, email.toLowerCase(), hash, role, name, points, refCode(email)],
   );
   return id;
+}
+
+/**
+ * Education for a freshly inserted candidate.
+ *
+ * Cast candidates carry their own `education` block in ipCoreSampleConfig, matching migration
+ * 035. The +coreNN filler accounts have none, so they get spread across the college/city pools
+ * by index instead of all landing on one hardcoded school.
+ */
+// Cities used by the filler accounts, mapped to their real state. Left blank, these would be
+// reported by the blank-visible-text audit.
+const CITY_STATES = {
+  Bengaluru: 'Karnataka',
+  Pune: 'Maharashtra',
+  Hyderabad: 'Telangana',
+  Mumbai: 'Maharashtra',
+  Chennai: 'Tamil Nadu',
+  'Delhi NCR': 'Delhi',
+  Ahmedabad: 'Gujarat',
+  Jaipur: 'Rajasthan',
+  Kochi: 'Kerala',
+  Chandigarh: 'Punjab',
+  Indore: 'Madhya Pradesh',
+  Kolkata: 'West Bengal',
+};
+
+function educationFor(candidate, index) {
+  if (candidate.education) {
+    return {
+      studyStatus: 'Studying',
+      ...candidate.education,
+      cgpa: String(candidate.education.cgpa),
+    };
+  }
+  const college = content.pick(content.COLLEGES, index);
+  const city = content.pick(content.CITIES, index + 1);
+  const degrees = ['B.Tech', 'B.E.', 'B.Sc', 'BCA'];
+  const specializations = [
+    'CSE', 'Information Technology', 'Electronics and Communication',
+    'Mechanical', 'Data Science', 'Electrical',
+  ];
+  return {
+    college,
+    degree: degrees[index % degrees.length],
+    specialization: specializations[index % specializations.length],
+    studyStatus: 'Studying',
+    // 2026-2028, so the browse-page graduation filters have a spread to work with.
+    graduationYear: 2026 + (index % 3),
+    cgpa: (7.4 + ((index * 7) % 22) / 10).toFixed(2),
+    city,
+    state: CITY_STATES[city] || 'Karnataka',
+  };
+}
+
+async function columnExists(client, table, column) {
+  const r = await client.query(
+    `SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name=$1 AND column_name=$2`,
+    [table, column],
+  );
+  return Boolean(r.rows[0]);
+}
+
+/**
+ * Two academics rows per candidate: the current qualification (sort_order 0, mirroring the flat
+ * ip_candidates columns) and the one before it. Same shape as migration 035, so a fresh seed and
+ * a migrated database agree. Skips a candidate who already has rows, so re-running never
+ * clobbers a curated history.
+ *
+ * row_label is added at runtime by src/lib/ensureIpCandidateProfileSchema.js rather than by a
+ * migration, so it is written only when present.
+ */
+async function seedAcademics(client, nid, candidateId, edu) {
+  if (!candidateId) return;
+  if (!(await tableExists(client, 'ip_candidate_academics'))) return;
+
+  const existing = await client.query(
+    `SELECT 1 FROM ip_candidate_academics WHERE candidate_id=$1 LIMIT 1`,
+    [candidateId],
+  );
+  if (existing.rows[0]) return;
+
+  const hasRowLabel = await columnExists(client, 'ip_candidate_academics', 'row_label');
+
+  // Row 0 must mirror the candidate's own flat columns, not the computed education. For a
+  // candidate seeded earlier those columns already hold different values, and the
+  // "primary academic row disagrees with the profile summary" consistency check compares the
+  // two. Fall back to the computed values only where the profile column is blank.
+  const profile = await client.query(
+    `SELECT college, degree, specialization, study_status, graduation_year, cgpa
+       FROM ip_candidates WHERE id=$1`,
+    [candidateId],
+  );
+  const p = profile.rows[0] || {};
+  const current = {
+    college: p.college || edu.college,
+    degree: p.degree || edu.degree,
+    specialization: p.specialization || edu.specialization,
+    studyStatus: p.study_status || edu.studyStatus,
+    graduationYear: p.graduation_year || edu.graduationYear,
+    cgpa: p.cgpa === null || p.cgpa === undefined ? String(edu.cgpa) : String(p.cgpa),
+  };
+
+  const prev = edu.previous;
+  const rows = [
+    {
+      ...current,
+      label: 'Undergraduate',
+      sortOrder: 0,
+    },
+    {
+      college: prev ? prev.college : 'Kendriya Vidyalaya',
+      degree: prev ? prev.degree : 'Class XII',
+      specialization: prev ? prev.specialization : 'Science (PCM)',
+      studyStatus: 'Completed',
+      // Four years before the degree finishes, the normal gap for a B.E./B.Tech. Derived from
+      // row 0 so the "earlier qualification finishes later than the current one" check holds.
+      graduationYear: Number(current.graduationYear) - 4,
+      cgpa: prev ? prev.score : '88%',
+      label: 'Senior Secondary',
+      sortOrder: 1,
+    },
+  ];
+
+  for (const row of rows) {
+    const cols = ['id', 'candidate_id', 'college', 'degree', 'specialization', 'study_status', 'graduation_year', 'cgpa', 'sort_order'];
+    const vals = [
+      nid('ip_acad'),
+      candidateId,
+      row.college,
+      row.degree,
+      row.specialization,
+      row.studyStatus,
+      row.graduationYear,
+      row.cgpa,
+      row.sortOrder,
+    ];
+    if (hasRowLabel) {
+      cols.push('row_label');
+      vals.push(row.label);
+    }
+    const placeholders = vals.map((_, k) => `$${k + 1}`).join(',');
+    await client.query(
+      `INSERT INTO ip_candidate_academics (${cols.join(',')}) VALUES (${placeholders})
+       ON CONFLICT (id) DO NOTHING`,
+      vals,
+    );
+  }
 }
 
 function eligibilityFor(posting, ti) {
@@ -170,14 +319,23 @@ async function seedCoreBaseline(client, bcrypt) {
       );
     } else {
       const id = nid('ip_cand');
+      const edu = educationFor(c, i);
       await client.query(
         `INSERT INTO ip_candidates (id,user_id,name,email,phone,college,degree,specialization,study_status,graduation_year,cgpa,city,state,skills,preferred_work_mode,preferred_locations,resume_url,prior_experience,searchable,show_profile_picture)
-         VALUES ($1,$2,$3,$4,'9000000001','VIT','B.Tech','CSE','Studying',2027,'8.4','Vellore','Tamil Nadu',$5::jsonb,'Remote',$6::jsonb,'https://example.com/resume.pdf',$7,true,true)`,
+         VALUES ($1,$2,$3,$4,'9000000001',$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,'Remote',$14::jsonb,'https://example.com/resume.pdf',$15,true,true)`,
         [
           id,
           userId,
           c.name,
           c.email.toLowerCase(),
+          edu.college,
+          edu.degree,
+          edu.specialization,
+          edu.studyStatus,
+          edu.graduationYear,
+          edu.cgpa,
+          edu.city,
+          edu.state,
           JSON.stringify(c.skills || ['JavaScript']),
           JSON.stringify(['Remote', 'Bengaluru']),
           content.experienceEntriesJsonAt(i),
@@ -185,6 +343,9 @@ async function seedCoreBaseline(client, bcrypt) {
       );
       candidateIds[c.email] = id;
     }
+    // The profile's education section reads ip_candidate_academics, not the flat columns, so
+    // without this a reset leaves that section empty until migration 035 is run by hand.
+    await seedAcademics(client, nid, candidateIds[c.email], educationFor(c, i));
   }
 
   const employerIds = {};
@@ -202,12 +363,19 @@ async function seedCoreBaseline(client, bcrypt) {
     if (ex.rows[0]) {
       employerIds[e.email] = ex.rows[0].id;
       await client.query(
-        `UPDATE ip_employers SET company_name=$2,contact_name=$2,approval_status=$3,updated_at=now() WHERE id=$1`,
-        [ex.rows[0].id, e.company, e.status || 'approved'],
+        `UPDATE ip_employers
+         SET company_name=$2,contact_name=$2,approval_status=$3,website=$4,work_email=$5,updated_at=now()
+         WHERE id=$1`,
+        [
+          ex.rows[0].id,
+          e.company,
+          e.status || 'approved',
+          e.website || cfg.EMP_BASE_WEBSITE,
+          e.email.toLowerCase(),
+        ],
       );
     } else {
       const id = nid('ip_emp');
-      const domain = e.email.split('@')[1] || 'example.com';
       await client.query(
         `INSERT INTO ip_employers (id,user_id,company_name,brand_name,website,work_email,industry,company_size,hq_city,hq_state,about,contact_name,contact_designation,contact_phone,approval_status,show_identity_on_posting,ethics_acks,ethics_accepted_at)
          VALUES ($1,$2,$3,$4,$5,$6,'Technology','51-200','Hyderabad','Telangana',$7,$3,'HR Lead','9000000099',$8,true,$9::jsonb,now())`,
@@ -216,7 +384,7 @@ async function seedCoreBaseline(client, bcrypt) {
           userId,
           e.company,
           e.company.split(' ')[0],
-          `https://${domain}`,
+          e.website || cfg.EMP_BASE_WEBSITE,
           e.email.toLowerCase(),
           `${e.company} is a hiring partner on PlacementHub.`,
           e.status || 'approved',
@@ -605,8 +773,17 @@ async function seedCoreBaseline(client, bcrypt) {
 
   // --- SA moderation: a few pending employer requests ---
   if (await tableExists(client, 'ip_employer_requests')) {
+    // Requests must not reuse a company name already held by an employer account, or the
+    // SuperAdmin sees an "approve this company" request for a company that is already on
+    // the platform. Claim names against what the database already holds.
+    const takenCompanies = new Set(
+      (await client.query(
+        `SELECT company_name FROM ip_employers
+         UNION SELECT company_name FROM ip_employer_requests`,
+      )).rows.map((r) => String(r.company_name || '').trim()).filter(Boolean),
+    );
     for (let i = 0; i < Math.min(6, TARGET); i += 1) {
-      const company = content.COMPANIES[(i + 3) % content.COMPANIES.length];
+      const company = claimCompanyName(takenCompanies);
       const email = `hire${i}@${company.toLowerCase().replace(/[^a-z0-9]/g, '')}.example`;
       const ex = await client.query(
         `SELECT id FROM ip_employer_requests WHERE lower(contact_email)=lower($1) LIMIT 1`,

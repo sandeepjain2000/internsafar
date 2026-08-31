@@ -607,3 +607,60 @@
   border-top: 1px solid rgba(226, 232, 240, 0.8);
   background: #ffffff;
 }
+
+/* ---------------------------------------------------------------------------
+   Google-verified account on the Domain path. The button used to be cosmetic:
+   it only advanced the step and announced "verification complete" without ever
+   contacting Google, so any typed work email was accepted. It now runs real
+   OAuth, and this block reports the account Google returned.
+   --------------------------------------------------------------------------- */
+.ip-gemini-register .ip-reg-hint {
+  margin: 0;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.ip-gemini-register .ip-reg-verified {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #bbf7d0;
+  border-radius: 0.75rem;
+  background: #f0fdf4;
+}
+
+.ip-gemini-register .ip-reg-verified > div {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.ip-gemini-register .ip-reg-verified strong {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #14532d;
+  overflow-wrap: anywhere;
+}
+
+.ip-gemini-register .ip-reg-verified span {
+  font-size: 11px;
+  font-weight: 600;
+  color: #15803d;
+}
+
+.ip-gemini-register .ip-reg-verified button {
+  appearance: none;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.3125rem 0.625rem;
+  border: 1px solid #86efac;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  color: #15803d;
+  cursor: pointer;
+}

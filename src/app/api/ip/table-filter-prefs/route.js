@@ -14,16 +14,8 @@ export async function GET(request) {
     `SELECT filters, sort FROM ip_table_filter_prefs WHERE user_id = $1 AND table_key = $2`,
     [session.user.id, tableKey],
   );
-  let filters = row.rows[0]?.filters ?? null;
-  if (typeof filters === 'string') {
-    try {
-      filters = JSON.parse(filters);
-    } catch {
-      filters = null;
-    }
-  }
   return jsonOk({
-    filters: filters && typeof filters === 'object' && !Array.isArray(filters) ? filters : null,
+    filters: row.rows[0]?.filters || null,
     sort: row.rows[0]?.sort ?? '',
   });
 }

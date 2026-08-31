@@ -9,7 +9,13 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import PageHeader from '@/components/ip/PageHeader';
-import { formatStatus } from '@/lib/utils';
+import {
+  experienceEntries,
+  experienceEntryLabel,
+  experienceIsFreeText,
+  experienceRangeLabel,
+  experienceSummaryLabel,
+} from '@/lib/ipCandidateExperience';
 
 export default function EmployerCandidateProfilePage() {
   const { id } = useParams();
@@ -86,6 +92,8 @@ export default function EmployerCandidateProfilePage() {
   const c = data?.candidate;
   const a = data?.application;
   const hist = c?.internship_history;
+  const experience = experienceEntries(c?.prior_experience);
+  const experienceIsText = experienceIsFreeText(c?.prior_experience);
 
   return (
     <div className="space-y-4 pb-12">
@@ -117,7 +125,7 @@ export default function EmployerCandidateProfilePage() {
                 <div><dt className="text-xs text-muted-foreground">Graduation</dt><dd>{c.graduation_year || '—'}</dd></div>
                 <div><dt className="text-xs text-muted-foreground">Work preference</dt><dd>{c.preferred_work_mode || '—'}</dd></div>
                 <div><dt className="text-xs text-muted-foreground">Availability</dt><dd>{c.immediate_start ? 'Immediate' : (c.availability_date || '—')}</dd></div>
-                <div><dt className="text-xs text-muted-foreground">Experience</dt><dd>{c.prior_experience || '—'}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Experience</dt><dd>{experience.length ? experienceSummaryLabel(c.prior_experience) : '—'}</dd></div>
                 <div><dt className="text-xs text-muted-foreground">Relocate</dt><dd>{c.willing_to_relocate ? 'Yes' : '—'}</dd></div>
                 <div><dt className="text-xs text-muted-foreground">Ongoing commitment</dt><dd>{c.ongoing_commitment || '—'}</dd></div>
                 <div><dt className="text-xs text-muted-foreground">Hours</dt><dd>{[c.preferred_hours_start, c.preferred_hours_end].filter(Boolean).join('–') || '—'}</dd></div>
@@ -131,6 +139,29 @@ export default function EmployerCandidateProfilePage() {
                 <div className="text-xs text-muted-foreground mb-1">Skills</div>
                 <div>{Array.isArray(c.skills) && c.skills.length ? c.skills.join(', ') : '—'}</div>
               </div>
+              {experience.length ? (
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Work experience</div>
+                  {experienceIsText ? (
+                    <p className="whitespace-pre-line">{experience[0].description}</p>
+                  ) : (
+                    <ul className="space-y-3 border-l pl-3">
+                      {experience.map((entry, idx) => {
+                        const range = experienceRangeLabel(entry);
+                        return (
+                          <li key={entry.id || idx} className="space-y-0.5">
+                            <div className="font-medium">{experienceEntryLabel(entry) || 'Experience'}</div>
+                            {range ? <div className="text-xs text-muted-foreground">{range}</div> : null}
+                            {entry.description ? (
+                              <p className="whitespace-pre-line text-muted-foreground">{entry.description}</p>
+                            ) : null}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
               {hist ? (
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Internship history</div>
@@ -150,7 +181,7 @@ export default function EmployerCandidateProfilePage() {
                 <CardHeader><CardTitle className="text-base">This application</CardTitle></CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div>{a.internship_title || 'Internship'}</div>
-                  <Badge variant="outline">{formatStatus(a.status)}</Badge>
+                  <Badge variant="outline">{a.status}</Badge>
                   <div>Match {a.match_score != null ? `${a.match_score}%` : '—'}</div>
                   {a.screening_disabled ? <div className="text-muted-foreground">Screening disabled</div> : null}
                   <div className="pt-2">

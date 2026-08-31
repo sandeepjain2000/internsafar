@@ -130,8 +130,8 @@ async function main() {
 
   const CAST = {
     candidate: 'lawsonlclintern+1@gmail.com',
-    employer: 'shreekar.nyayapathi23+2@vit.edu',
-    superadmin: 'placementhubsupport@gmail.com',
+    employer: 'placementhubsupport@gmail.com',
+    superadmin: 'support@placementhub.online',
   };
 
   // 25-002 bootstrap — ensures SuperAdmin only (Gmail+ cast seeded separately)

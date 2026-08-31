@@ -28,6 +28,21 @@ export const GOOGLE_INTENTS = {
 
 export const GOOGLE_INTENT_COOKIE = 'ip_google_intent';
 
+/**
+ * Whether a registration may proceed without a real Google verification token.
+ *
+ * This used to be gated on isCaptchaBypassed(), which is hardcoded true while the numbered
+ * captcha is disabled — so the Google path accepted any typed address and never contacted
+ * Google, defeating the point of "Sign up with Google". Identity verification is a separate
+ * concern from captcha, so it now has its own switch: off unless explicitly enabled, and
+ * never available in production. QA harnesses that POST the register endpoints directly set
+ * IP_ALLOW_UNVERIFIED_GOOGLE_REGISTER=1 locally.
+ */
+export function isGoogleVerificationBypassed() {
+  if (process.env.NODE_ENV === 'production') return false;
+  return process.env.IP_ALLOW_UNVERIFIED_GOOGLE_REGISTER === '1';
+}
+
 let schemaReady = false;
 
 export async function ensureIpGoogleAuthSchema() {

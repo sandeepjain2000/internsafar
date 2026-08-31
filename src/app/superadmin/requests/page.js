@@ -16,9 +16,6 @@ import {
 import '@/components/ip/ip-superadmin-queue-gemini.css';
 import { domainFromEmail, domainFromWebsite } from '@/lib/authRegisterRules';
 import { employerDomainRisk, REJECT_PRESETS } from '@/lib/ipDomainRisk';
-import { useClientPagination } from '@/hooks/useClientPagination';
-
-const PAGE_SIZE = 10;
 
 function initials(name) {
   const s = String(name || '').trim();
@@ -106,11 +103,6 @@ export default function SuperAdminRequestsPage() {
         .some((v) => String(v).toLowerCase().includes(q)),
     );
   }, [enriched, search]);
-
-  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(filtered, PAGE_SIZE);
-  useEffect(() => {
-    setPage(1);
-  }, [search, filter, setPage]);
 
   async function process(id, status, rejectionReason) {
     setBusy(true);
@@ -289,7 +281,7 @@ export default function SuperAdminRequestsPage() {
                 </tr>
               </thead>
               <tbody>
-                {pageItems.map((r) => {
+                {filtered.map((r) => {
                   const mailD = domainFromEmail(r.contact_email);
                   const webD = domainFromWebsite(r.website);
                   const mismatch = r.risk.key === 'mismatch';
@@ -377,43 +369,6 @@ export default function SuperAdminRequestsPage() {
                 })}
               </tbody>
             </table>
-            {total > 0 ? (
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginTop: '0.75rem',
-                  fontSize: '0.75rem',
-                  color: '#64748b',
-                }}
-              >
-                <span>
-                  Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} of {total}
-                </span>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    className="ip-saq-btn ip-saq-btn--sm"
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => p - 1)}
-                  >
-                    Previous
-                  </button>
-                  <span>
-                    Page {page}/{totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    className="ip-saq-btn ip-saq-btn--sm"
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            ) : null}
           </div>
         )}
       </div>

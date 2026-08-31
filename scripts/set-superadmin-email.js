@@ -1,14 +1,14 @@
 /* eslint-disable no-console */
 /**
- * One-shot: set SuperAdmin to placementhubsupport@gmail.com / Admin@123
- * Usage (from internship-portal): node scripts/set-superadmin-gmail.js
+ * One-shot: set SuperAdmin to support@placementhub.online / Admin@123
+ * Usage (from internship-portal): node scripts/set-superadmin-email.js
  */
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const { Client } = require('pg');
 const fs = require('fs');
 
-const NEW_EMAIL = 'placementhubsupport@gmail.com';
+const NEW_EMAIL = 'support@placementhub.online';
 const LEGACY = 'superadmin@internship.local';
 const PASSWORD = 'Admin@123';
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -16,10 +16,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import PageHeader from '@/components/ip/PageHeader';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
-import MessageFormatToolbar from '@/components/ip/MessageFormatToolbar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { StandardTableIconAction } from '@/components/ui/StandardTableIconAction';
-import { formatStatus } from '@/lib/utils';
 
 const STATUS_OPTIONS = ['applied', 'shortlisted', 'interviewing', 'rejected', 'hired', 'completed'];
 const STATUS_VARIANT = {
@@ -67,8 +65,6 @@ export default function ApplicantsPipelinePage() {
   });
   const [sort, setSort] = useState('match');
   const [bulkMsg, setBulkMsg] = useState('');
-  const bulkMsgRef = useRef(null);
-  const offerMsgRef = useRef(null);
   const [bulkMsgOpen, setBulkMsgOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectTemplateId, setRejectTemplateId] = useState('');
@@ -93,11 +89,10 @@ export default function ApplicantsPipelinePage() {
     applySnapshot: (s) => {
       const next = { ...DEFAULT_FILTERS, ...(s.filters || {}) };
       const st = searchParams.get('status');
-      if (st != null && st !== '') next.status = st;
+      if (st) next.status = st;
       if (searchParams.get('unread') === '1') next.unread = true;
       setFilters(next);
-      if (s.sort != null) setSort(s.sort || 'match');
-      else setSort('match');
+      setSort(s.sort || 'match');
     },
   });
 
@@ -147,7 +142,7 @@ export default function ApplicantsPipelinePage() {
 
   const activeChips = useMemo(() => {
     const chips = [];
-    if (filters.status) chips.push({ key: 'status', label: `Status: ${formatStatus(filters.status)}` });
+    if (filters.status) chips.push({ key: 'status', label: `Status: ${filters.status}` });
     if (filters.q) chips.push({ key: 'q', label: `Search: ${filters.q}` });
     if (filters.minMatch) chips.push({ key: 'minMatch', label: `Match ≥ ${filters.minMatch}%` });
     if (filters.screeningDisabled === '1') chips.push({ key: 'screeningDisabled', label: 'Greyed-out only' });
@@ -311,7 +306,7 @@ export default function ApplicantsPipelinePage() {
           <Input placeholder="Search name/college" value={filters.q} onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))} className="max-w-xs" />
           <select className="h-9 rounded-md border px-2 text-sm" value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}>
             <option value="">All statuses</option>
-            {STATUS_OPTIONS.concat('offered').map((s) => <option key={s} value={s}>{formatStatus(s)}</option>)}
+            {STATUS_OPTIONS.concat('offered').map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
           <Input placeholder="Min match %" type="number" value={filters.minMatch} onChange={(e) => setFilters((f) => ({ ...f, minMatch: e.target.value }))} className="max-w-[120px]" />
           <select className="h-9 rounded-md border px-2 text-sm" value={filters.screeningDisabled} onChange={(e) => setFilters((f) => ({ ...f, screeningDisabled: e.target.value }))}>
@@ -471,7 +466,7 @@ export default function ApplicantsPipelinePage() {
                     {a.communication?.unresponded ? <div role="status">Needs response</div> : <div className="text-muted-foreground">Responded</div>}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={STATUS_VARIANT[a.status] || 'outline'}>{formatStatus(a.status)}</Badge>
+                    <Badge variant={STATUS_VARIANT[a.status] || 'outline'}>{a.status}</Badge>
                   </TableCell>
                   <TableCell className="space-x-1 whitespace-nowrap">
                     {STATUS_OPTIONS.filter((s) => s !== a.status && s !== 'completed').map((s) => (
@@ -643,19 +638,7 @@ export default function ApplicantsPipelinePage() {
               Use {'{{candidate_first_name}}'} and {'{{internship_title}}'} if desired.
             </AlertDescription>
           </Alert>
-          <MessageFormatToolbar
-            className="flex items-center gap-1"
-            inputRef={bulkMsgRef}
-            value={bulkMsg}
-            onChange={setBulkMsg}
-          />
-          <Textarea
-            ref={bulkMsgRef}
-            rows={5}
-            value={bulkMsg}
-            onChange={(e) => setBulkMsg(e.target.value)}
-            placeholder="Hi {{candidate_first_name}}, …"
-          />
+          <Textarea rows={5} value={bulkMsg} onChange={(e) => setBulkMsg(e.target.value)} placeholder="Hi {{candidate_first_name}}, …" />
           {personalizedPreview ? (
             <div className="text-sm border rounded-md p-2 bg-muted/30">
               <div className="font-medium mb-1">Preview (first selected)</div>
@@ -706,21 +689,7 @@ export default function ApplicantsPipelinePage() {
           <div className="space-y-3">
             <Field><FieldLabel>Role title</FieldLabel><Input value={offerForm.roleTitle} onChange={(e) => setOfferForm((f) => ({ ...f, roleTitle: e.target.value }))} /></Field>
             <Field><FieldLabel>Stipend (INR/mo)</FieldLabel><Input type="number" value={offerForm.stipendInr} onChange={(e) => setOfferForm((f) => ({ ...f, stipendInr: e.target.value }))} /></Field>
-            <Field>
-              <FieldLabel>Message</FieldLabel>
-              <MessageFormatToolbar
-                className="mb-1 flex items-center gap-1"
-                inputRef={offerMsgRef}
-                value={offerForm.message}
-                onChange={(message) => setOfferForm((f) => ({ ...f, message }))}
-              />
-              <Textarea
-                ref={offerMsgRef}
-                rows={3}
-                value={offerForm.message}
-                onChange={(e) => setOfferForm((f) => ({ ...f, message: e.target.value }))}
-              />
-            </Field>
+            <Field><FieldLabel>Message</FieldLabel><Textarea rows={3} value={offerForm.message} onChange={(e) => setOfferForm((f) => ({ ...f, message: e.target.value }))} /></Field>
           </div>
           <DialogFooter><Button onClick={sendOffer}>Send offer</Button></DialogFooter>
         </DialogContent>

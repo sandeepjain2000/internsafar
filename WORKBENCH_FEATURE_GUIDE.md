@@ -9,8 +9,8 @@
 | Role | Email | Password |
 |---|---|---|
 | Candidate | `lawsonlclintern+1@gmail.com` | `Admin@123` |
-| Employer | `shreekar.nyayapathi23+2@vit.edu` | `Admin@123` |
-| SuperAdmin | `placementhubsupport@gmail.com` | `Admin@123` |
+| Employer | `placementhubsupport@gmail.com` | `Admin@123` |
+| SuperAdmin | `support@placementhub.online` | `Admin@123` |
 
 Paths below are browser URLs after login. Replace `{id}` with a real posting or application id.
 

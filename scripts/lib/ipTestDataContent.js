@@ -4,6 +4,8 @@
  * No "Test User N" / identical "QA Intern" placeholders.
  */
 
+const { COMPANY_CATALOG, companyNameAt } = require('./ipCompanyCatalog.js');
+
 const TARGET_LIST_ROWS = 22; // ≥2 UI pages when PAGE_SIZE is 10
 
 const FIRST_NAMES = [
@@ -31,14 +33,8 @@ const COLLEGES = [
   'IIT Madras',
 ];
 
-const COMPANIES = [
-  'Nova Labs', 'Pulse Media', 'BrightPath Analytics', 'Cedar Softworks',
-  'Orbit Fintech', 'Lotus Health Tech', 'Indigo Retail Labs', 'Summit Cloud',
-  'Aether Mobility', 'Canvas EdTech', 'Forge Robotics', 'BluePeak Consulting',
-  'Saffron Foods Tech', 'Nimbus Logistics', 'PixelCraft Studio', 'Harbor Bank Digital',
-  'GreenLeaf AgriTech', 'Stratos Telecom', 'Quill Content', 'Vertex Pharma IT',
-  'Maple HR Solutions', 'Tidewave Commerce', 'Astra Design Co', 'Helix Biotech Soft',
-];
+// Company names live in one shared catalog — see ipCompanyCatalog.js for the rules.
+const COMPANIES = COMPANY_CATALOG;
 
 const ROLE_TITLES = [
   'Frontend Developer Intern',
@@ -361,14 +357,14 @@ const NOTIFICATION_SPECS = [
   { title: 'Referral points credited', body: 'A verified referral earned you bonus points.', category: 'referral', link: '/candidate/referral' },
   { title: 'Saved role starting soon', body: 'A saved internship begins within two weeks.', category: 'application', link: '/candidate/internships' },
   { title: 'New applicants on your posting', body: 'Several candidates applied overnight — review the shortlist.', category: 'application', link: '/employer/candidates' },
-  { title: 'Document pending review', body: 'Shop Act upload is awaiting SuperAdmin review.', category: 'system', link: '/employer/documents' },
+  { title: 'Document pending review', body: 'Shop Act upload is awaiting SuperAdmin review.', category: 'system', link: '/employer/profile' },
   { title: 'Candidate accepted offer', body: 'A candidate accepted your offer. Plan onboarding.', category: 'offer', link: '/employer/offers' },
   { title: 'Interview slot suggested', body: 'A candidate proposed Thursday afternoon for a screen.', category: 'interview', link: '/employer/messages' },
   { title: 'Pending employer approval', body: 'A new employer request is waiting in Approvals.', category: 'system', link: '/superadmin/approvals' },
   { title: 'Feature idea needs triage', body: 'New product ideas are pending approval.', category: 'system', link: '/superadmin/feature-ideas' },
   { title: 'Integrity check passed', body: 'Nightly DB integrity script reported no blocking issues.', category: 'system', link: '/superadmin' },
   { title: 'Login report available', body: 'Weekly login activity is ready to export.', category: 'system', link: '/superadmin/login-report' },
-  { title: 'Rejection template saved', body: 'Your polite decline template is ready to use.', category: 'system', link: '/employer/templates' },
+  { title: 'Rejection template saved', body: 'Your polite decline template is ready to use.', category: 'system', link: '/employer/rejection-templates' },
   { title: 'Endorsement reminder', body: 'Consider endorsing a hired intern from last month.', category: 'system', link: '/employer/candidates' },
   { title: 'Points balance updated', body: 'Publishing a role deducted points from your wallet.', category: 'system', link: '/employer/referral' },
   { title: 'Message thread unread', body: 'Two candidates replied to your outreach.', category: 'message', link: '/employer/messages' },
@@ -402,11 +398,7 @@ function personName(i) {
 }
 
 function companyName(i) {
-  // Prefer catalog uniqueness; suffix only if we exceed catalog length
-  if (i < COMPANIES.length) return COMPANIES[i];
-  const base = pick(COMPANIES, i);
-  const city = pick(CITIES, i + 3);
-  return `${base} · ${city}`;
+  return companyNameAt(i);
 }
 
 /**

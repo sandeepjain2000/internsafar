@@ -15,12 +15,16 @@ import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSc
 import { ensureIpIntegrityConstraints } from '@/lib/ensureIpIntegrityConstraints';
 
 const DEMO_PASSWORD = 'Admin@123';
-/** Showcase / ops SuperAdmin login. */
-export const SUPERADMIN_EMAIL = 'placementhubsupport@gmail.com';
+/**
+ * Showcase / ops SuperAdmin login. Single account, so it holds the Zoho support
+ * address directly — Zoho has no plus-addressing, and only the employer side
+ * needs +aliases (those live on the Gmail mailbox instead).
+ */
+export const SUPERADMIN_EMAIL = 'support@placementhub.online';
 const LEGACY_SUPERADMIN_EMAIL = 'superadmin@internship.local';
 
 /**
- * Ensure SuperAdmin placementhubsupport@gmail.com / Admin@123 exists.
+ * Ensure SuperAdmin support@placementhub.online / Admin@123 exists.
  * Does not recreate @internship.local demo candidate/employer accounts.
  */
 export async function ensureIpBootstrap() {
@@ -82,6 +86,29 @@ export async function ensureIpBootstrap() {
       initialized = true;
     }
   }
+
+  // There is exactly one SuperAdmin. Promoting the target above is not enough on its own:
+  // this function only ever granted the role and never removed it, so any account that once
+  // held it kept it forever. That is how the core EMPLOYER (Nova Labs) stayed able to sign in
+  // at /superadmin after the address swap — an older deployed build carried the previous
+  // constant and promoted it on every sign-in page hit against the shared database.
+  // Demote strays back to the role their owned profile proves they are. An account with no
+  // candidate or employer profile is left alone rather than guessed at; the demo-consistency
+  // audit reports it instead.
+  await query(
+    `UPDATE ip_users u
+        SET role = CASE
+                     WHEN EXISTS (SELECT 1 FROM ip_employers e WHERE e.user_id = u.id) THEN 'employer'
+                     WHEN EXISTS (SELECT 1 FROM ip_candidates c WHERE c.user_id = u.id) THEN 'candidate'
+                     ELSE u.role
+                   END,
+            updated_at = now()
+      WHERE u.role = 'superadmin'
+        AND lower(u.email) <> lower($1)
+        AND (EXISTS (SELECT 1 FROM ip_employers e WHERE e.user_id = u.id)
+          OR EXISTS (SELECT 1 FROM ip_candidates c WHERE c.user_id = u.id))`,
+    [SUPERADMIN_EMAIL],
+  );
 
   return {
     initialized,

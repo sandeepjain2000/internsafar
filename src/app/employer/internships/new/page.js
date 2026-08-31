@@ -13,12 +13,10 @@ import PageHeader from '@/components/ip/PageHeader';
 import ScreeningQuestionsEditor from '@/components/ip/ScreeningQuestionsEditor';
 import InternshipCandidatePreview from '@/components/ip/InternshipCandidatePreview';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
-import BulletLinesField from '@/components/ip/BulletLinesField';
-import { mergeEligibilitySections } from '@/lib/ipPostingBody';
 
 const QUALITY_CHECKS = [
   { key: 'title', label: 'Clear title' },
-  { key: 'description', label: 'About This Role filled' },
+  { key: 'description', label: 'Description filled' },
   { key: 'location', label: 'Location or Remote mode' },
   { key: 'schedule', label: 'Application window set (optional but recommended)' },
 ];
@@ -26,7 +24,7 @@ const QUALITY_CHECKS = [
 export default function NewInternshipPage() {
   const router = useRouter();
   const [form, setForm] = useState({
-    title: '', description: '', requirementsText: '', idealText: '', location: '', locationCities: [], workMode: 'Remote', stipendInr: '', durationMonths: '',
+    title: '', description: '', location: '', locationCities: [], workMode: 'Remote', stipendInr: '', durationMonths: '',
     startDate: '', endDate: '', skills: '', degree: '', degrees: [], minCgpa: '',
     workHoursStart: '', workHoursEnd: '', engagementType: '', weeklyHours: '',
     stipendType: '', incentiveBasis: '',
@@ -84,12 +82,12 @@ export default function NewInternshipPage() {
           remindEndHours: form.remindEndHours ? Number(form.remindEndHours) : 24,
           locations: (form.locationCities || []).length ? form.locationCities : (form.location ? [form.location] : []),
           status,
-          eligibility: mergeEligibilitySections({
+          eligibility: {
             skills: form.skills.split(',').map((s) => s.trim()).filter(Boolean),
             degree: (form.degrees || []).join(', ') || form.degree || undefined,
             degrees: form.degrees || [],
             minCgpa: form.minCgpa || undefined,
-          }, { requirements: form.requirementsText, ideal: form.idealText }),
+          },
           questions: screeningQuestions,
         }),
       });
@@ -117,9 +115,9 @@ export default function NewInternshipPage() {
     weekly_hours: form.weeklyHours,
     work_hours_start: form.workHoursStart,
     work_hours_end: form.workHoursEnd,
-    eligibility: mergeEligibilitySections({
+    eligibility: {
       skills: form.skills.split(',').map((s) => s.trim()).filter(Boolean),
-    }, { requirements: form.requirementsText, ideal: form.idealText }),
+    },
     questions: screeningQuestions,
     company_name: form.showEmployerIdentity ? 'Your company' : 'Confidential employer',
     show_employer_identity: form.showEmployerIdentity,
@@ -167,26 +165,7 @@ export default function NewInternshipPage() {
 
               <TabsContent value="details" className="grid gap-4 sm:grid-cols-2">
                 <Field className="sm:col-span-2"><FieldLabel>Title</FieldLabel><Input required value={form.title} onChange={(e) => set('title', e.target.value)} /></Field>
-                <BulletLinesField
-                  label="About This Role"
-                  value={form.description}
-                  onChange={(v) => set('description', v)}
-                  placeholder={'What the intern will do…\n- Own a feature slice\n- Pair with mentors'}
-                  hint="Main role story. Use one bullet per line for responsibilities."
-                  rows={6}
-                />
-                <BulletLinesField
-                  label="Minimum Requirements"
-                  value={form.requirementsText}
-                  onChange={(v) => set('requirementsText', v)}
-                  placeholder={'Must-have skills or background…\n- Currently enrolled in CS or related\n- Comfortable with Git'}
-                />
-                <BulletLinesField
-                  label="Ideal Candidate Profile"
-                  value={form.idealText}
-                  onChange={(v) => set('idealText', v)}
-                  placeholder={'Nice-to-haves…\n- Built a side project\n- Strong written communication'}
-                />
+                <Field className="sm:col-span-2"><FieldLabel>Description</FieldLabel><Textarea rows={4} value={form.description} onChange={(e) => set('description', e.target.value)} /></Field>
                 <Field className="sm:col-span-2">
                   <FieldLabel>Locations (work city)</FieldLabel>
                   <SearchableMultiSelect

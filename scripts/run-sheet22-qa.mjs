@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Sheet 22 Mobile UI â€” login via NextAuth API cookies, then 375px layout checks.
  */
 import { chromium } from 'playwright';
@@ -174,7 +174,7 @@ async function main() {
 
   // 22-002 employer new form
   {
-    const auth = await apiLoginCookies('shreekar.nyayapathi23+2@vit.edu', 'Admin@123');
+    const auth = await apiLoginCookies('placementhubsupport@gmail.com', 'Admin@123');
     const context = await browser.newContext({
       viewport: { width: VW, height: VH },
       isMobile: true,

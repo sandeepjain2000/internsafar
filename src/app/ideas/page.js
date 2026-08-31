@@ -20,10 +20,6 @@ import {
 import '@/components/ip/ip-candidate-ideas-gemini.css';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
-import { useClientPagination } from '@/hooks/useClientPagination';
-import IpTablePagination from '@/components/ip/IpTablePagination';
-
-const PAGE_SIZE = 10;
 
 const STATUS_TABS = [
   { id: 'all', label: 'All Ideas' },
@@ -31,7 +27,6 @@ const STATUS_TABS = [
   { id: 'planned', label: 'Planned', dot: 'planned' },
   { id: 'in_progress', label: 'In Progress', dot: 'in_progress' },
   { id: 'completed', label: 'Completed', dot: 'completed' },
-  { id: 'declined', label: 'Declined', dot: 'declined' },
 ];
 
 function roadmapBucket(status) {
@@ -150,11 +145,6 @@ export default function FeatureIdeasPage() {
     });
     return list;
   }, [items, filter, categoryId, search, sortBy]);
-
-  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(filtered, PAGE_SIZE);
-  useEffect(() => {
-    setPage(1);
-  }, [filter, categoryId, search, sortBy, setPage]);
 
   const duplicates = useMemo(() => similarIdeas(title, items), [title, items]);
 
@@ -362,71 +352,34 @@ export default function FeatureIdeasPage() {
           <p>Loading ideas…</p>
         </div>
       ) : filtered.length ? (
-        <>
-        {viewMode === 'list' ? (
-          <div className="ip-ph-list-wrap ip-ci-list-wrap">
-            <table className="ip-ph-list ip-ci-table">
+        viewMode === 'list' ? (
+          <div className="ip-ph-list-wrap">
+            <table className="ip-ph-list">
               <thead>
-                <tr>
-                  <th>Idea</th>
-                  <th>Category</th>
-                  <th>Status</th>
-                  <th>Votes</th>
-                  <th>Comments</th>
-                  <th>Suggested by</th>
-                  <th>Date</th>
-                  <th>Actions</th>
+                <tr className="border-b text-left text-slate-500">
+                  <th className="p-3">Idea</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Votes</th>
                 </tr>
               </thead>
               <tbody>
-                {pageItems.map((idea) => {
-                  const bucket = roadmapBucket(idea.status);
-                  const voted = !!idea.voted_by_me;
-                  const following = !!idea.followed_by_me;
-                  return (
-                    <tr key={idea.id}>
-                      <td>
-                        <button type="button" className="ip-ci-list-title" onClick={() => openDetail(idea)}>
-                          {idea.title}
-                        </button>
-                        {idea.problem ? <div className="ip-ci-list-sub">{idea.problem}</div> : null}
-                      </td>
-                      <td>{idea.category_name || '—'}</td>
-                      <td>
-                        <span className={`ip-ci-status ip-ci-status--${bucket}`}>{statusLabel(bucket)}</span>
-                      </td>
-                      <td>{idea.vote_count || 0}</td>
-                      <td>{idea.comment_count || 0}</td>
-                      <td>{idea.author_name || 'Unknown'}</td>
-                      <td>{formatWhen(idea.created_at)}</td>
-                      <td>
-                        <div className="ip-ci-list-actions">
-                          <button
-                            type="button"
-                            className={`ip-ci-follow${voted ? ' is-on' : ''}`}
-                            onClick={() => vote(idea.id)}
-                            aria-pressed={voted}
-                          >
-                            {voted ? 'Voted' : 'Vote'}
-                          </button>
-                          <button
-                            type="button"
-                            className={`ip-ci-follow${following ? ' is-on' : ''}`}
-                            onClick={() => follow(idea.id)}
-                          >
-                            {following ? 'Following' : 'Follow'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {filtered.map((idea) => (
+                  <tr key={idea.id} className="border-b">
+                    <td className="p-3">
+                      <button type="button" className="font-medium text-indigo-700" onClick={() => openDetail(idea)}>
+                        {idea.title}
+                      </button>
+                    </td>
+                    <td className="p-3">{statusLabel(roadmapBucket(idea.status))}</td>
+                    <td className="p-3">{idea.vote_count || 0}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         ) : (
         <ul className="ip-ci-list">
-          {pageItems.map((idea) => {
+          {filtered.map((idea) => {
             const bucket = roadmapBucket(idea.status);
             const voted = !!idea.voted_by_me;
             const following = !!idea.followed_by_me;
@@ -480,17 +433,7 @@ export default function FeatureIdeasPage() {
             );
           })}
         </ul>
-        )}
-        {total > 0 ? (
-          <IpTablePagination
-            page={page}
-            totalPages={totalPages}
-            total={total}
-            pageSize={pageSize}
-            onPageChange={setPage}
-          />
-        ) : null}
-        </>
+        )
       ) : (
         <div className="ip-ci-empty">
           <div className="ip-ci-empty__icon">

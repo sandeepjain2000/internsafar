@@ -204,7 +204,7 @@ async function runUnitMatrix() {
   assertProtectedConfigValid();
   record(
     'WB-PROT-1',
-    PROTECTED_ACCOUNT_EMAILS.length === 3 && isProtectedEmail('placementhubsupport@gmail.com'),
+    PROTECTED_ACCOUNT_EMAILS.length === 3 && isProtectedEmail('support@placementhub.online'),
     'Three protected accounts configured',
   );
 }
@@ -296,7 +296,7 @@ async function runLiveMatrix() {
   }
 
   // Playwright UI smoke: create page reminder toggles + applicants export chrome
-  const browser = await chromium.launch({ headless: true, channel: 'chrome' });
+  const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   try {
     await page.context().addCookies(

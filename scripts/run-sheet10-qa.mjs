@@ -15,7 +15,7 @@ const BASE = process.argv[2] || process.env.IP_BASE || 'http://localhost:3000';
 const CAST = {
   candidate: 'lawsonlclintern+1@gmail.com',
   candidateHidden: 'lawsonlclintern+3@gmail.com',
-  employer: 'shreekar.nyayapathi23+2@vit.edu',
+  employer: 'placementhubsupport@gmail.com',
 };
 
 function loadDatabaseUrl() {

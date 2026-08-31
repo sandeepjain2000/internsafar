@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import { requireSession } from '@/lib/apiAuth';
 import { ensureIpCandidateProfileSchema } from '@/lib/ensureIpCandidateProfileSchema';
+import { experienceExportText } from '@/lib/ipCandidateExperience';
 
 function toCsv(rows) {
   if (!rows.length) return 'No data';
@@ -36,7 +37,7 @@ export async function GET() {
     college: c.college, degree: c.degree, specialization: c.specialization,
     preferred_hours: `${c.preferred_hours_start || ''}–${c.preferred_hours_end || ''}`,
     has_wired_broadband: c.has_wired_broadband, has_dedicated_laptop: c.has_dedicated_laptop,
-    prior_experience: c.prior_experience,
+    prior_experience: experienceExportText(c.prior_experience),
     immediate_start: c.immediate_start,
     willing_to_relocate: c.willing_to_relocate,
     hide_phone_until_shortlist: c.hide_phone_until_shortlist,

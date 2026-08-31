@@ -8,7 +8,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  min-height: 0;
+  min-height: 1.5rem;
 }
 .ip-sms-chip {
   border: 1px solid #cbd5e1;
@@ -65,33 +65,4 @@
   padding: 0.5rem;
   font-size: 0.8125rem;
   color: #64748b;
-}
-
-/* Single select */
-.ip-ss-row {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.ip-ss-row .ip-sms-input {
-  width: 100%;
-  padding-right: 2rem;
-}
-.ip-ss-clear {
-  position: absolute;
-  right: 0.35rem;
-  top: 50%;
-  transform: translateY(-50%);
-  border: 0;
-  background: transparent;
-  color: #64748b;
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0.2rem 0.35rem;
-  border-radius: 0.25rem;
-}
-.ip-ss-clear:hover {
-  color: #0f172a;
-  background: #f1f5f9;
 }

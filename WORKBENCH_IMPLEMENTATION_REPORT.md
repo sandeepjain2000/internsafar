@@ -59,8 +59,8 @@ Applied via `npm run db:migrate:workbench` (ensure helpers also apply idempotent
 From `scripts/lib/ipCoreSampleConfig.js` → `PROTECTED_ACCOUNT_EMAILS`:
 
 - `lawsonlclintern+1@gmail.com`
-- `shreekar.nyayapathi23+2@vit.edu`
 - `placementhubsupport@gmail.com`
+- `support@placementhub.online`
 
 Scripts abort if config invalid. Delete requires `--confirm-generated-run RUN_ID` and verifies password_hash/role/email unchanged.
 

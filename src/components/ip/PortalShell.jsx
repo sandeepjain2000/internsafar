@@ -84,10 +84,6 @@ export default function PortalShell({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [navBadges, setNavBadges] = useState({});
   const homePath = ROLE_HOME[role] || '/';
-  // Soft-failed JWT used to return session with user:null while status stayed "authenticated".
-  const sessionDead =
-    Boolean(session?.error)
-    || (status === 'authenticated' && !session?.user?.id);
 
   useEffect(() => {
     try {
@@ -98,12 +94,12 @@ export default function PortalShell({
   }, []);
 
   useEffect(() => {
-    if (status !== 'authenticated' || sessionDead || !session?.user?.id) return;
+    if (status !== 'authenticated') return;
     fetch('/api/ip/nav-badges')
       .then((r) => r.json())
       .then((d) => setNavBadges(d.badges || {}))
       .catch(() => {});
-  }, [status, sessionDead, session?.user?.id, pathname]);
+  }, [status, pathname]);
 
   useEffect(() => {
     try {
@@ -114,32 +110,17 @@ export default function PortalShell({
   }, [sidebarCollapsed]);
 
   useEffect(() => {
-    if (status === 'loading') return;
-    if (status === 'unauthenticated' || sessionDead) {
-      if (sessionDead) {
-        signOut({ redirect: false }).finally(() => {
-          router.replace(loginHref);
-        });
-      } else {
-        router.replace(loginHref);
-      }
-      return;
-    }
-    if (session?.user?.role && session.user.role !== role) {
+    if (status === 'unauthenticated') router.replace(loginHref);
+    if (status === 'authenticated' && session?.user?.role && session.user.role !== role) {
       router.replace(loginHref);
     }
-  }, [status, session, sessionDead, role, router, loginHref]);
+  }, [status, session, role, router, loginHref]);
 
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
 
-  if (
-    status === 'loading'
-    || status === 'unauthenticated'
-    || sessionDead
-    || session?.user?.role !== role
-  ) {
+  if (status === 'loading' || status === 'unauthenticated') {
     return (
       <div className="flex min-h-svh items-center justify-center bg-background text-muted-foreground">
         <div className="flex flex-col items-center gap-3">
@@ -149,6 +130,7 @@ export default function PortalShell({
       </div>
     );
   }
+  if (session?.user?.role !== role) return null;
 
   const displayName = session.user.name || session.user.email || 'User';
   const notificationsHref = nav.find((n) => /notif/i.test(n.label) || /notifications/.test(n.href))?.href;

@@ -264,4 +264,4 @@ Use these as discussion prompts with stakeholders / ChatGPT for next round:
 
 ## 16. Prototype inventory
 
-See `README.md` for the **26 screens** in `combined.html` and how they map to the gaps (stipend analytics, mutual rating, automatic endorsements, login report, feature ideas, multi-role messages, offers).
+See `WIREFRAMES-README.md` for the **26 screens** in `combined.html` and how they map to the gaps (stipend analytics, mutual rating, automatic endorsements, login report, feature ideas, multi-role messages, offers).

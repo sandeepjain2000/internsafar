@@ -12,8 +12,13 @@ import {
   isConsumerEmailDomain,
   normalizeEmail,
 } from '@/lib/authRegisterRules';
-import { isCaptchaBypassed, verifyLoginCaptcha } from '@/lib/simpleCaptcha';
-import { consumeGoogleVerification, GOOGLE_INTENTS, recordGoogleIdentity } from '@/lib/ipGoogleAuth';
+import { verifyLoginCaptcha } from '@/lib/simpleCaptcha';
+import {
+  consumeGoogleVerification,
+  GOOGLE_INTENTS,
+  isGoogleVerificationBypassed,
+  recordGoogleIdentity,
+} from '@/lib/ipGoogleAuth';
 import { ensureIpFormRegistrationSchema } from '@/lib/ensureIpFormRegistrationSchema';
 import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
 import { isValidBusinessEntityType } from '@/lib/employerBusinessEntity';
@@ -128,9 +133,9 @@ export async function POST(request) {
     }
 
     // Domain path requires a real Google verification token issued by the NextAuth
-    // signIn callback. isCaptchaBypassed() is the existing QA/dev bypass switch.
+    // signIn callback, so the verified address comes from Google, not this request body.
     let googleIdentity = null;
-    if (!isCaptchaBypassed()) {
+    if (!isGoogleVerificationBypassed()) {
       const verified = await consumeGoogleVerification(
         String(body.googleVerificationToken || ''),
         GOOGLE_INTENTS.employerRegister.cookieValue,
@@ -277,6 +282,7 @@ export async function POST(request) {
           userId,
           mailOverride: true,
           mailSentTo: mailResult.sentTo,
+          mailCopiedTo: mailResult.copiedTo,
           message:
             'Employer account created (pending SuperAdmin approval). Password emailed.',
         });

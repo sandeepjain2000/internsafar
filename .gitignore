@@ -75,6 +75,7 @@ test-cases/qa-results.json
 # Local scratch
 tmp-screenshots/
 _tmp_*
+.mail-override-test-*
 .local-qa-2fa-bypass-backup/
 *.bak
 *.bak-*

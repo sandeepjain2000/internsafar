@@ -1,7 +1,6 @@
 import { jsonError, jsonOk } from '@/lib/apiAuth';
 import { query } from '@/lib/db';
 import { createTwoFactorChallenge, ensureIpTwoFactorSchema } from '@/lib/ipTwoFactor';
-import { getOutboundEmailOverride } from '@/lib/mail';
 
 /** Resend login OTP for an open login challenge (no session yet). */
 export async function POST(request) {
@@ -31,7 +30,7 @@ export async function POST(request) {
     return jsonOk({
       ok: true,
       challengeId: nextId,
-      sentToHint: getOutboundEmailOverride() || email,
+      sentToHint: email,
       message: 'A new verification code was sent.',
     });
   } catch (e) {

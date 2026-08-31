@@ -82,7 +82,7 @@ async function main() {
   const cases = {};
 
   const cand = await apiLogin('lawsonlclintern+1@gmail.com', 'Admin@123');
-  const emp = await apiLogin('shreekar.nyayapathi23+2@vit.edu', 'Admin@123');
+  const emp = await apiLogin('placementhubsupport@gmail.com', 'Admin@123');
 
   // 21-001 Candidate cannot do employer-only mutations
   const cCreate = await req('/api/ip/employer/internships', {

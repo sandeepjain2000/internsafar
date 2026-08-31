@@ -16,7 +16,7 @@ export async function GET() {
   return jsonOk({
     enabled,
     method: 'email_otp',
-    /** Hint for QA: when override is set, codes go to that inbox (often Zoho). */
+    /** Hint for QA: when override is set, the support inbox is copied on codes too. */
     mailOverrideActive: Boolean(getOutboundEmailOverride()),
   });
 }
@@ -46,7 +46,7 @@ export async function POST(request) {
       return jsonOk({
         ok: true,
         challengeId,
-        sentToHint: getOutboundEmailOverride() || email,
+        sentToHint: email,
         message: 'Verification code sent to your email.',
       });
     }
@@ -57,7 +57,7 @@ export async function POST(request) {
       return jsonOk({
         ok: true,
         challengeId,
-        sentToHint: getOutboundEmailOverride() || email,
+        sentToHint: email,
         message: 'Verification code sent to your email.',
       });
     }

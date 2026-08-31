@@ -49,7 +49,7 @@ export async function GET(request) {
     const q = (searchParams.get('q') || '').trim().toLowerCase();
     const sort = searchParams.get('sort') || 'latest';
     const page = Math.max(1, Number(searchParams.get('page') || 1));
-    const pageSize = Math.min(500, Math.max(1, Number(searchParams.get('pageSize') || 50)));
+    const pageSize = Math.min(200, Math.max(1, Number(searchParams.get('pageSize') || 50)));
 
     const params = [candidateId];
     const where = ['a.candidate_id = $1'];
@@ -77,12 +77,8 @@ export async function GET(request) {
 
     const result = await query(
       `SELECT a.id, a.internship_id, a.candidate_id, a.status, a.match_score, a.created_at, a.updated_at,
-              i.title, i.stipend_inr, i.work_mode, i.location, i.show_employer_identity, i.starts_at, i.start_date,
-              e.company_name, e.approval_status,
-              EXISTS (
-                SELECT 1 FROM ip_saved_internships s
-                WHERE s.candidate_id = a.candidate_id AND s.internship_id = a.internship_id
-              ) AS saved
+              i.title, i.stipend_inr, i.work_mode, i.location, i.show_employer_identity,
+              e.company_name, e.approval_status
        FROM ip_applications a
        LEFT JOIN ip_internships i ON i.id = a.internship_id
        LEFT JOIN ip_employers e ON e.id = i.employer_id
@@ -96,8 +92,6 @@ export async function GET(request) {
       decorateCandidateApplication({
         ...row,
         company_name: maskEmployerName(row.company_name, row.show_employer_identity !== false),
-        employer_verified: String(row.approval_status || '').toLowerCase() === 'approved',
-        saved: Boolean(row.saved),
       }),
     );
 

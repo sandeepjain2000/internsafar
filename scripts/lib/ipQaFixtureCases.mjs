@@ -8,6 +8,7 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import pg from 'pg';
 import dotenv from 'dotenv';
 import { createRequire } from 'module';
@@ -16,6 +17,8 @@ import { qaRunLabel, qaDbId, qaReferralCode } from './ipQaNaming.mjs';
 
 const require = createRequire(import.meta.url);
 const { CAST_CANDIDATES } = require('./ipCoreSampleConfig.js');
+const { companyNameForLabel } = require('./ipCompanyCatalog.js');
+const demoText = require('./ipDemoText.js');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..', '..');
@@ -110,6 +113,39 @@ async function ensureEmployerRow(client, userId, email, company, status = 'appro
   return id;
 }
 
+/**
+ * Mint a real single-use Google verification token.
+ *
+ * The register endpoints now require one, since the Google path used to accept any typed
+ * address without ever contacting Google. This harness cannot complete a browser consent
+ * screen, so it writes the same row the NextAuth callback writes — the endpoint still
+ * verifies and spends the token, which keeps the Google path genuinely under test instead
+ * of switching on IP_ALLOW_UNVERIFIED_GOOGLE_REGISTER and testing nothing.
+ *
+ * Table is owned by migration 030; hashing must match createGoogleVerification() in
+ * src/lib/ipGoogleAuth.js (sha256 hex of the raw token).
+ */
+export async function mintGoogleVerification({ email, purpose = 'candidate-register', name = '' }) {
+  const token = crypto.randomBytes(32).toString('base64url');
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  await withDb(async (db) => {
+    await db.query(
+      `INSERT INTO ip_google_verifications
+         (id, token_hash, email, google_sub, name, purpose, expires_at)
+       VALUES ($1,$2,lower($3),$4,$5,$6, now() + interval '10 minutes')`,
+      [
+        `ip_gver_qa_${crypto.randomUUID()}`,
+        tokenHash,
+        email,
+        `qa-sub-${crypto.randomUUID()}`,
+        name || null,
+        purpose,
+      ],
+    );
+  });
+  return token;
+}
+
 export async function setTwoFactorFlag(email, enabled) {
   return withDb(async (db) => {
     const r = await db.query(
@@ -147,7 +183,7 @@ export async function ensureCoreQaAccountsReady() {
     );
     await db.query(
       `UPDATE ip_employers e
-       SET company_name = COALESCE(NULLIF(trim(e.company_name), ''), 'QA Employer Co'),
+       SET company_name = COALESCE(NULLIF(trim(e.company_name), ''), $3),
            website = COALESCE(NULLIF(trim(e.website), ''), 'https://example.com'),
            work_email = COALESCE(NULLIF(trim(e.work_email), ''), $1),
            industry = COALESCE(NULLIF(trim(e.industry), ''), 'Technology'),
@@ -161,7 +197,11 @@ export async function ensureCoreQaAccountsReady() {
            updated_at = now()
        FROM ip_users u
        WHERE e.user_id = u.id AND lower(u.email) = lower($1)`,
-      [QA_ACCOUNTS.employer.email, JSON.stringify(FULL_ETHICS_ACKS)],
+      [
+        QA_ACCOUNTS.employer.email,
+        JSON.stringify(FULL_ETHICS_ACKS),
+        companyNameForLabel(QA_ACCOUNTS.employer.email, 5),
+      ],
     );
   });
 }
@@ -244,18 +284,20 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
 
   await tryCase('REG-C-1', async () => {
     const email = `lawsonlclintern+qa-register-form-${run}@gmail.com`;
+    const gv = await mintGoogleVerification({ email, name: 'QA Google Path' });
     const r = await api('/api/ip/auth/register-candidate', {
       method: 'POST',
-      body: { email, name: 'QA Google Path', path: 'google', ...cap },
+      body: { email, name: 'QA Google Path', path: 'google', googleVerificationToken: gv, ...cap },
     });
     assess('REG-C-1', r.status === 200 || r.status === 201, { status: r.status, error: r.data?.error });
   });
 
   await tryCase('REG-C-8', async () => {
     const email = `lawsonlclintern+qa-register-googlemail-${run}@googlemail.com`;
+    const gv = await mintGoogleVerification({ email, name: 'QA Googlemail' });
     const r = await api('/api/ip/auth/register-candidate', {
       method: 'POST',
-      body: { email, name: 'QA Googlemail', path: 'google', ...cap },
+      body: { email, name: 'QA Googlemail', path: 'google', googleVerificationToken: gv, ...cap },
     });
     assess('REG-C-8', r.status === 200 || r.status === 201, { status: r.status, error: r.data?.error });
   });
@@ -283,9 +325,13 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const ref = await api('/api/ip/referral', { cookie: cand.cookie });
     const code = ref.data?.referral_code;
     const email = `lawsonlclintern+qa-referral-signup-${run}@gmail.com`;
+    const gv = await mintGoogleVerification({ email, name: 'QA Referral Google' });
     const r = await api('/api/ip/auth/register-candidate', {
       method: 'POST',
-      body: { email, name: 'QA Referral Google', path: 'google', referralCode: code, ...cap },
+      body: {
+        email, name: 'QA Referral Google', path: 'google', referralCode: code,
+        googleVerificationToken: gv, ...cap,
+      },
     });
     assess('REG-C-6', (r.status === 200 || r.status === 201) && Boolean(code),
       { status: r.status, code: Boolean(code) });
@@ -317,20 +363,29 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   await tryCase('REG-C-9', async () => {
     const ref = await api('/api/ip/referral', { cookie: cand.cookie });
     const code = ref.data?.referral_code;
+    // Needs a real token: verification is checked before the duplicate-email check, so
+    // without one this returns 401 and never reaches the 409 this case asserts.
+    const gv = await mintGoogleVerification({ email: QA_ACCOUNTS.candidate.email, name: 'Self' });
     const r = await api('/api/ip/auth/register-candidate', {
       method: 'POST',
-      body: { email: QA_ACCOUNTS.candidate.email, name: 'Self', path: 'google', referralCode: code, ...cap },
+      body: {
+        email: QA_ACCOUNTS.candidate.email, name: 'Self', path: 'google', referralCode: code,
+        googleVerificationToken: gv, ...cap,
+      },
     });
     assess('REG-C-9', r.status === 409, { status: r.status });
   });
 
   await tryCase('REG-E-1', async () => {
     const domain = `qa-employer-${run}.example`;
+    const gv = await mintGoogleVerification({
+      email: `hr@${domain}`, purpose: 'employer-register', name: 'QA HR',
+    });
     const r = await api('/api/ip/auth/register-employer', {
       method: 'POST',
       body: {
-        email: `hr@${domain}`, website: `https://${domain}`, companyName: `QA Employer Domain ${run}`,
-        contactName: 'QA HR', businessEntityType: 'Private Limited', ...cap,
+        email: `hr@${domain}`, website: `https://${domain}`, companyName: companyNameForLabel(run, 1),
+        contactName: 'QA HR', businessEntityType: 'Private Limited', googleVerificationToken: gv, ...cap,
       },
     });
     assess('REG-E-1', r.status === 200 || r.status === 201, { status: r.status, error: r.data?.error });
@@ -342,7 +397,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const r = await api('/api/ip/auth/register-employer', {
       method: 'POST',
       body: {
-        manualRequest: true, email, companyName: `QA Manual Employer ${run}`, contactName: 'QA Manual',
+        manualRequest: true, email, companyName: companyNameForLabel(run, 2), contactName: 'QA Manual',
         designation: 'HR', reason: 'QA fixture manual request', password: PW,
         businessEntityType: 'Private Limited', ...cap,
       },
@@ -353,12 +408,16 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('REG-E-6', async () => {
+    // Duplicate-domain rejection: needs a token so it reaches the 409/400 rather than 401.
     const domain = `qa-employer-${run}.example`;
+    const gv = await mintGoogleVerification({
+      email: `hr@${domain}`, purpose: 'employer-register', name: 'QA HR',
+    });
     const r = await api('/api/ip/auth/register-employer', {
       method: 'POST',
       body: {
-        email: `hr@${domain}`, website: `https://${domain}`, companyName: `QA Employer Domain Dupe ${run}`,
-        contactName: 'QA HR', businessEntityType: 'Private Limited', ...cap,
+        email: `hr@${domain}`, website: `https://${domain}`, companyName: companyNameForLabel(run, 3),
+        contactName: 'QA HR', businessEntityType: 'Private Limited', googleVerificationToken: gv, ...cap,
       },
     });
     assess('REG-E-6', r.status === 409 || r.status === 400, { status: r.status });
@@ -406,7 +465,8 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const r = await api('/api/ip/employer/internships', {
       method: 'POST', cookie: emp.cookie,
       body: {
-        title: 'QA Published Internship', description: `published fixture ${run}`, status: 'published',
+        title: `Frontend Developer Intern — ${demoText.runLabel(run)}`,
+        description: demoText.internshipDescription(0), status: 'published',
         workMode: 'Onsite', location: 'Pune', stipendInr: 12000,
       },
     });
@@ -544,7 +604,8 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const r = await api('/api/ip/employer/internships', {
       method: 'POST', cookie: emp.cookie,
       body: {
-        title: 'QA Screening Internship', status: 'published', description: `qs ${run}`,
+        title: `Business Analyst Intern — ${demoText.runLabel(run)}`,
+        status: 'published', description: demoText.internshipDescription(11),
         questions: [{ id: 'q1', prompt: 'Why this role?' }],
       },
     });
@@ -794,7 +855,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   await tryCase('CAND-M-4', async () => {
     const thread = await api('/api/ip/messages/threads', {
       method: 'POST', cookie: emp.cookie,
-      body: { otherUserId: cand.session?.user?.id, message: 'hello from QA employer' },
+      body: { otherUserId: cand.session?.user?.id, message: demoText.messageBody(0) },
     });
     const empty = await api(`/api/ip/messages/threads/${thread.data?.threadId || 'x'}`, {
       method: 'POST', cookie: cand.cookie, body: { message: '' },
@@ -872,7 +933,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const r = await api('/api/ip/ratings', {
       method: 'POST',
       cookie: emp.cookie,
-      body: { toUserId, internshipId, stars: 5, comment: 'QA rating' },
+      body: { toUserId, internshipId, stars: 5, comment: demoText.ratingComment(0) },
     });
     assess('RATE-1', r.status === 200 || r.status === 201 || r.status === 409, {
       status: r.status,
@@ -913,11 +974,15 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   await tryCase('EMP-R-1', async () => {
     const code = (await api('/api/ip/referral', { cookie: emp.cookie })).data?.referral_code;
     const domain = `qa-employer-referral-${run}.example`;
+    const empGv = await mintGoogleVerification({
+      email: `hr@${domain}`, purpose: 'employer-register', name: 'QA',
+    });
     const r = await api('/api/ip/auth/register-employer', {
       method: 'POST',
       body: {
-        email: `hr@${domain}`, website: `https://${domain}`, companyName: `QA Employer Referral ${run}`,
-        contactName: 'QA', referralCode: code, businessEntityType: 'Private Limited', ...cap,
+        email: `hr@${domain}`, website: `https://${domain}`, companyName: companyNameForLabel(run, 4),
+        contactName: 'QA', referralCode: code, businessEntityType: 'Private Limited',
+        googleVerificationToken: empGv, ...cap,
       },
     });
     assess('EMP-R-1', Boolean(code) && (r.status === 200 || r.status === 201), {
@@ -992,7 +1057,13 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const categoryId = cats.data?.categories?.[0]?.id || cats.data?.items?.[0]?.id || cats.data?.[0]?.id;
     const r = await api('/api/ip/ideas', {
       method: 'POST', cookie: cand.cookie,
-      body: { title: 'QA Feature Idea', problem: 'Need fixture coverage', proposedImprovement: 'Add seeds', solution: 'Add seeds', categoryId },
+      body: {
+        title: `${demoText.featureIdea(0).title} (${demoText.runLabel(run)})`,
+        problem: demoText.ideaProblem(0),
+        proposedImprovement: demoText.featureIdea(0).description,
+        solution: demoText.featureIdea(0).description,
+        categoryId,
+      },
     });
     ideaId = r.data?.id || '';
     assess('IDEA-1', (r.status === 200 || r.status === 201) && Boolean(categoryId),

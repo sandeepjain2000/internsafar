@@ -75,25 +75,6 @@ export default function IpSignInLanding() {
     fetch('/api/ip/bootstrap', { method: 'POST' }).catch(() => {});
   }, []);
 
-  // Google sign-in failures redirect here with ?error=… — surface them instead of
-  // dropping the user on a blank login form with no explanation.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const code = new URLSearchParams(window.location.search).get('error');
-    if (!code) return;
-    const messages = {
-      GoogleLoginDisabled:
-        'Google is used to verify your account during registration only. Sign in here with your email and password.',
-      GoogleNoEmail: 'Google did not share an email address, so we could not verify your account.',
-      GoogleEmailUnverified: 'That Google account has an unverified email address.',
-      OAuthCallback: 'Google verification was cancelled or did not complete.',
-      OAuthSignin: 'Google verification was cancelled or did not complete.',
-      AccessDenied: 'Google verification was cancelled.',
-    };
-    setError(messages[code] || 'Sign-in failed. Please try again.');
-    window.history.replaceState({}, '', window.location.pathname);
-  }, []);
-
   function parseTwoFactorRequired(err) {
     const raw = decodeURIComponent(String(err || ''));
     const m = raw.match(/TWO_FACTOR_REQUIRED:([A-Za-z0-9_-]+)/);
@@ -414,22 +395,7 @@ export default function IpSignInLanding() {
             </div>
           </div>
 
-          <div className="ip-gemini-page-foot">
-            <nav className="ip-gemini-foot-links" aria-label="Support">
-              <Link href="/how-it-works" className="ip-gemini-foot-link">
-                How it works
-              </Link>
-              <span aria-hidden>·</span>
-              <Link href="/guidelines" className="ip-gemini-foot-link">
-                Guidelines
-              </Link>
-              <span aria-hidden>·</span>
-              <Link href="/help" className="ip-gemini-foot-link">
-                Help
-              </Link>
-            </nav>
-            <p>InternSafar · Confidential · © 2026</p>
-          </div>
+          <p className="ip-gemini-page-foot">InternSafar · Confidential · © 2026</p>
         </div>
       </div>
     </div>

@@ -19,9 +19,17 @@ import { chromium } from 'playwright';
 import dotenv from 'dotenv';
 import pg from 'pg';
 import { QA_ACCOUNTS, apiLogin, apiRequest, cookieJar } from './lib/ipQaAuth.mjs';
-import { runFixtureCases, setTwoFactorFlag, ensureCoreQaAccountsReady } from './lib/ipQaFixtureCases.mjs';
+import {
+  runFixtureCases,
+  setTwoFactorFlag,
+  ensureCoreQaAccountsReady,
+  mintGoogleVerification,
+} from './lib/ipQaFixtureCases.mjs';
 import { runAuth8Case } from './lib/ipQaAuth8.mjs';
 import { runRemainingSuite } from './lib/ipQaRemainingSuite.mjs';
+import { createRequire as createRequireForDemoText } from 'module';
+
+const demoText = createRequireForDemoText(import.meta.url)('./lib/ipDemoText.js');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(__dirname, '..');
@@ -494,10 +502,16 @@ async function runApiSuite() {
   assess('REG-C-2', regBad.status === 400 || regBad.status === 422,
     { status: regBad.status, error: regBad.data?.error });
 
-  // Duplicate email
+  // Duplicate email. Google verification is checked before the duplicate lookup, so this
+  // needs a real token to reach the 409 (the non-Gmail and bad-format cases above still
+  // fail at validation, which runs earlier).
+  const dupeGv = await mintGoogleVerification({ email: QA_ACCOUNTS.candidate.email, name: 'Dupe' });
   const regDupe = await api('/api/ip/auth/register-candidate', {
     method: 'POST',
-    body: { email: QA_ACCOUNTS.candidate.email, name: 'Dupe', path: 'google', captchaToken: 'x', captchaAnswer: '7' },
+    body: {
+      email: QA_ACCOUNTS.candidate.email, name: 'Dupe', path: 'google',
+      googleVerificationToken: dupeGv, captchaToken: 'x', captchaAnswer: '7',
+    },
   });
   assess('REG-C-3', regDupe.status === 409,
     { status: regDupe.status });
@@ -878,7 +892,13 @@ async function runApiSuite() {
   const empDocs = await api('/api/ip/employer/documents', {
     method: 'POST',
     cookie: emp.cookie,
-    body: { docType: 'QA Automation Doc', fileName: 'qa-automation-doc.pdf', url: '/sample-docs/sample-shop-act.pdf' },
+    // Use a doc type the employer profile actually offers, so QA runs do not
+    // leave types the product can never produce.
+    body: {
+      docType: 'Shop Act',
+      fileName: demoText.documentFileName('Shop Act'),
+      url: '/sample-docs/sample-shop-act.pdf',
+    },
   });
   assess('EMP-P-2', empDocs.status === 200 || empDocs.status === 201,
     { status: empDocs.status, data: empDocs.data });

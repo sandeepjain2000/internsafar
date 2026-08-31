@@ -1,9 +1,9 @@
 import { query } from '@/lib/db';
 import { requireSession, jsonOk } from '@/lib/apiAuth';
 import { computeValidationScore } from '@/lib/internshipValidationScore';
-import { skillMatchDetail } from '@/lib/skillMatch';
+import { skillMatchPercent } from '@/lib/skillMatch';
 import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
-import { CANDIDATE_VISIBLE_SQL, deriveLifecycleLabel } from '@/lib/ipInternshipVisibility';
+import { CANDIDATE_VISIBLE_SQL } from '@/lib/ipInternshipVisibility';
 import { publicApplicationVolumeLabel } from '@/lib/ipApplicationVolume';
 import { maskEmployerName } from '@/lib/ipEmployerIdentity';
 
@@ -54,6 +54,7 @@ function matchesLocation(item, locFilter) {
   if (!wants.length) return true;
   if (wants.includes('remote') && modeKey(item.work_mode) === 'remote') return true;
   if (modeKey(item.work_mode) === 'remote' && !wants.includes('remote') && wants.length) {
+    // Remote roles still match any city filter (work can be done from selected cities)
     return true;
   }
   const cities = cityList(item);
@@ -76,6 +77,7 @@ function matchesQuery(item, q) {
 
 function sqlOrderBy(sort) {
   if (sort === 'fewest-applicants' || sort === 'best-odds') {
+    // Real ip_applications counts (all statuses). Hidden hiring labels still sort by this count.
     return 'COALESCE(app_counts.applicant_count, 0) ASC, i.created_at DESC';
   }
   if (sort === 'highest-stipend') {
@@ -107,7 +109,28 @@ function sortItems(items, sort) {
   return copy;
 }
 
-const LIST_SELECT = `SELECT i.*,
+export async function GET(request) {
+  const { session, error } = await requireSession(['candidate']);
+  if (error) return error;
+  await ensureIpWorkbenchSchema();
+  const { searchParams } = new URL(request.url);
+  const q = (searchParams.get('q') || '').trim().toLowerCase();
+  const minStipend = Number(searchParams.get('minStipend') || 0);
+  const workMode = searchParams.get('workMode') || '';
+  const location = (searchParams.get('location') || '').trim();
+  const minMatch = Number(searchParams.get('minMatch') || 0);
+  const minValidation = Number(searchParams.get('minValidation') || 0);
+  const savedOnly = searchParams.get('savedOnly') === '1';
+  const recommended = searchParams.get('recommended') === '1';
+  const chip = (searchParams.get('chip') || '').trim().toLowerCase();
+  const sort = searchParams.get('sort') || (recommended ? 'best-match' : 'newest');
+
+  const candResult = await query(`SELECT id, skills FROM ip_candidates WHERE user_id = $1`, [session.user.id]);
+  const candidateId = candResult.rows[0]?.id;
+  const skills = candResult.rows[0]?.skills || [];
+
+  const result = await query(
+    `SELECT i.*,
             e.id as employer_row_id,
             e.company_name,
             e.industry as employer_industry,
@@ -130,68 +153,38 @@ const LIST_SELECT = `SELECT i.*,
        SELECT internship_id, count(*)::int AS applicant_count
        FROM ip_applications
        GROUP BY internship_id
-     ) app_counts ON app_counts.internship_id = i.id`;
-
-export async function GET(request) {
-  const { session, error } = await requireSession(['candidate']);
-  if (error) return error;
-  await ensureIpWorkbenchSchema();
-  const { searchParams } = new URL(request.url);
-  const catalog = searchParams.get('catalog') === '1';
-  const q = (searchParams.get('q') || '').trim().toLowerCase();
-  const minStipend = Number(searchParams.get('minStipend') || 0);
-  const workMode = searchParams.get('workMode') || '';
-  const location = (searchParams.get('location') || '').trim();
-  const minMatch = Number(searchParams.get('minMatch') || 0);
-  const minValidation = Number(searchParams.get('minValidation') || 0);
-  const savedOnly = searchParams.get('savedOnly') === '1';
-  const recommended = searchParams.get('recommended') === '1';
-  const chip = (searchParams.get('chip') || '').trim().toLowerCase();
-  const sort = searchParams.get('sort') || (recommended ? 'best-match' : 'newest');
-
-  const [candResult, result] = await Promise.all([
-    query(`SELECT id, skills FROM ip_candidates WHERE user_id = $1`, [session.user.id]),
-    query(
-      `${LIST_SELECT}
+     ) app_counts ON app_counts.internship_id = i.id
      WHERE ${CANDIDATE_VISIBLE_SQL}
-     ORDER BY ${sqlOrderBy(catalog ? 'newest' : sort)}
-     LIMIT 500`,
-    ),
-  ]);
-
-  const candidateId = candResult.rows[0]?.id;
-  const skills = candResult.rows[0]?.skills || [];
+     ORDER BY ${sqlOrderBy(sort)}
+     LIMIT 200`,
+  );
 
   const employerIds = [...new Set(result.rows.map((r) => r.employer_id).filter(Boolean))];
-
-  const [docsResult, savedResult, appliedResult] = await Promise.all([
-    employerIds.length
-      ? query(
-        `SELECT id, employer_id, doc_type, review_status, reviewed_at, created_at
-         FROM ip_employer_documents
-         WHERE employer_id = ANY($1::text[])`,
-        [employerIds],
-      )
-      : Promise.resolve({ rows: [] }),
-    candidateId
-      ? query(`SELECT internship_id FROM ip_saved_internships WHERE candidate_id = $1`, [candidateId])
-      : Promise.resolve({ rows: [] }),
-    candidateId
-      ? query(`SELECT internship_id FROM ip_applications WHERE candidate_id = $1`, [candidateId])
-      : Promise.resolve({ rows: [] }),
-  ]);
-
   const docsByEmployer = new Map();
-  for (const row of docsResult.rows) {
-    const list = docsByEmployer.get(row.employer_id) || [];
-    list.push(row);
-    docsByEmployer.set(row.employer_id, list);
+  if (employerIds.length) {
+    const docs = await query(
+      `SELECT id, employer_id, doc_type, review_status, reviewed_at, created_at
+       FROM ip_employer_documents
+       WHERE employer_id = ANY($1::text[])`,
+      [employerIds],
+    );
+    for (const row of docs.rows) {
+      const list = docsByEmployer.get(row.employer_id) || [];
+      list.push(row);
+      docsByEmployer.set(row.employer_id, list);
+    }
   }
 
-  const savedIds = new Set(savedResult.rows.map((r) => r.internship_id));
-  const appliedIds = new Set(appliedResult.rows.map((r) => r.internship_id));
+  let savedIds = new Set();
+  let appliedIds = new Set();
+  if (candidateId) {
+    const saved = await query(`SELECT internship_id FROM ip_saved_internships WHERE candidate_id = $1`, [candidateId]);
+    savedIds = new Set(saved.rows.map((r) => r.internship_id));
+    const applied = await query(`SELECT internship_id FROM ip_applications WHERE candidate_id = $1`, [candidateId]);
+    appliedIds = new Set(applied.rows.map((r) => r.internship_id));
+  }
 
-  const mapRow = (r) => {
+  const mapped = result.rows.map((r) => {
     const validation = computeValidationScore({
       employer: {
         approval_status: r.approval_status,
@@ -206,20 +199,16 @@ export async function GET(request) {
       internship: r,
     });
     const skill_tags = eligibilitySkills(r.eligibility);
-    const matchDetail = skillMatchDetail(skills, r.eligibility);
     const volume = r.show_hiring_numbers
       ? publicApplicationVolumeLabel(r.historical_application_count)
       : null;
-    const lifecycle_label = deriveLifecycleLabel(r);
     return {
       ...r,
       company_name: maskEmployerName(r.company_name, r.show_employer_identity !== false),
-      applicant_count: Number(r.historical_application_count || 0),
       _applicantCount: Number(r.historical_application_count || 0),
       historical_application_count: undefined,
       application_volume_label: volume,
-      match_score: matchDetail.percent,
-      match_detail: matchDetail,
+      match_score: skillMatchPercent(skills, r.eligibility),
       saved: savedIds.has(r.id),
       applied: appliedIds.has(r.id),
       skill_tags,
@@ -227,80 +216,16 @@ export async function GET(request) {
       validation_score: validation.validation_score,
       validation_label: validation.validation_label,
       validation_breakdown: validation.validation_breakdown,
-      lifecycle_label,
-      in_marketplace: true,
     };
-  };
+  });
 
-  const mapped = result.rows.map(mapRow);
-
-  // Catalog + saved views: include closed/expired postings the candidate saved.
-  const includeNonVisibleSaved = catalog || savedOnly || chip === 'saved';
-  if (includeNonVisibleSaved && candidateId && savedIds.size) {
-    const visibleIds = new Set(mapped.map((i) => i.id));
-    const missingIds = [...savedIds].filter((id) => !visibleIds.has(id));
-    if (missingIds.length) {
-      const extra = await query(
-        `${LIST_SELECT}
-         WHERE i.id = ANY($1::text[])`,
-        [missingIds],
-      );
-      const extraEmployerIds = [...new Set(extra.rows.map((r) => r.employer_id).filter(Boolean))];
-      const newEmpIds = extraEmployerIds.filter((id) => !docsByEmployer.has(id));
-      if (newEmpIds.length) {
-        const docs = await query(
-          `SELECT id, employer_id, doc_type, review_status, reviewed_at, created_at
-           FROM ip_employer_documents
-           WHERE employer_id = ANY($1::text[])`,
-          [newEmpIds],
-        );
-        for (const row of docs.rows) {
-          const list = docsByEmployer.get(row.employer_id) || [];
-          list.push(row);
-          docsByEmployer.set(row.employer_id, list);
-        }
-      }
-      for (const row of extra.rows) {
-        const item = mapRow(row);
-        item.in_marketplace = false;
-        mapped.push(item);
-      }
-    }
-  }
-
-  const visibleMapped = mapped.filter((i) => i.in_marketplace !== false);
   const counts = {
-    all: visibleMapped.length,
-    saved: savedIds.size,
-    recommended: visibleMapped.filter((i) => (i.match_score ?? 0) >= 85).length,
+    all: mapped.length,
+    saved: mapped.filter((i) => i.saved).length,
+    recommended: mapped.filter((i) => (i.match_score ?? 0) >= 85).length,
   };
 
-  const citySet = new Map();
-  for (const i of visibleMapped) {
-    const add = (raw) => {
-      const s = String(raw || '').trim();
-      if (!s) return;
-      const key = s.toLowerCase();
-      if (!citySet.has(key)) citySet.set(key, s);
-    };
-    add(i.location);
-    if (Array.isArray(i.locations)) i.locations.forEach(add);
-  }
-  const availableCities = [...citySet.values()].sort((a, b) => a.localeCompare(b));
-
-  const strip = (list) => list.map(({ _applicantCount, historical_application_count, ...rest }) => rest);
-
-  if (catalog) {
-    return jsonOk({
-      items: strip(sortItems(mapped, 'newest')),
-      counts,
-      availableCities,
-    });
-  }
-
-  const pool = includeNonVisibleSaved ? mapped : visibleMapped;
-
-  let items = pool.filter((i) => {
+  let items = mapped.filter((i) => {
     if (savedOnly && !i.saved) return false;
     if (!matchesQuery(i, q)) return false;
     if (minStipend && Number(i.stipend_inr || 0) < minStipend) return false;
@@ -325,6 +250,21 @@ export async function GET(request) {
 
   items = sortItems(items, sort);
   if (recommended) items = items.slice(0, 12);
+  items = items.map(({ _applicantCount, historical_application_count, ...rest }) => rest);
 
-  return jsonOk({ items: strip(items), counts, availableCities });
+  // Work-location cities from visible postings (browse filter — independent of MCQ disable)
+  const citySet = new Map(); // lower -> display
+  for (const i of mapped) {
+    const add = (raw) => {
+      const s = String(raw || '').trim();
+      if (!s) return;
+      const key = s.toLowerCase();
+      if (!citySet.has(key)) citySet.set(key, s);
+    };
+    add(i.location);
+    if (Array.isArray(i.locations)) i.locations.forEach(add);
+  }
+  const availableCities = [...citySet.values()].sort((a, b) => a.localeCompare(b));
+
+  return jsonOk({ items, counts, availableCities });
 }

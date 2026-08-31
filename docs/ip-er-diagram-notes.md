@@ -1,7 +1,7 @@
 # Internship Portal ER diagram
 
-**Last synced:** 2026-08-27 (sibling `internship-portal`)  
-**Sources:** live Postgres catalog + `db/migrations/001`–`029` (`*ip*`) + `src/lib/ensureIp*.js` + `ipTwoFactor.js`
+**Last synced:** 2026-08-31 (sibling `internship-portal`)  
+**Sources:** live Postgres catalog + `db/migrations/001`–`031` (`*ip*`) + `src/lib/ensureIp*.js` + `ipTwoFactor.js`
 
 ## PlantUML file
 
@@ -25,7 +25,18 @@ Render with VS Code PlantUML, IntelliJ, or https://www.plantuml.com/plantuml
 
 ---
 
-## Sync delta (2026-08-27 vs prior diagram)
+## Sync delta (2026-08-31 vs 2026-08-27 draw)
+
+| Change | Detail |
+|---|---|
+| Live table count | **47** `ip_*` tables (was 45) |
+| Added | `ip_google_identities`, `ip_google_verifications` — migration **030**, columns extended by **031**. Both sit in the orange **Login / auth** bucket |
+| `ip_google_identities` | PK **is** the FK (`user_id → ip_users`, ON DELETE CASCADE); `UNIQUE: google_sub`. This table — not the `registration_source` string — is the source of truth for "completed Google sign-in" |
+| `ip_google_verifications` | Intentionally **no FK**: it holds single-use tokens issued *before* an account exists, so it cannot reference `ip_users`. Diagram carries a note stating this so the missing edge does not read as an omission |
+| `registration_source` | Migration 030 split the old `google` value: `gmail_domain` = Gmail-address signup with no OAuth, `google` = real OAuth only. Check constraint now allows `legacy, form, google, domain, gmail_domain` |
+| Everything else | Re-diffed against the live catalog: all other PKs, FKs and UNIQUEs in the diagram still match exactly — no drift |
+
+### Prior delta (2026-08-27 vs the draw before it)
 
 | Change | Detail |
 |---|---|
@@ -44,7 +55,7 @@ Integrity audit the same day: `db:check-integrity` → **ok** (no open FK/orphan
 
 | Check | Result |
 |---|---|
-| Every entity has `PK:` under name | **Pass** (45 entities) |
+| Every entity has `PK:` under name | **Pass** (47 entities) |
 | Every entity has `FK:` line under name (`FK: —` if none) | **Pass** |
 | Entity bodies empty (no column lists) | **Pass** |
 | CORE (blue) vs NON-ESSENTIAL (orange) backgrounds | **Pass** |
@@ -70,7 +81,7 @@ Logical path: accounts → candidate/employer profiles → documents/postings �
 | Sharing | `ip_viral_shares`, `ip_linkedin_promotions` |
 | Points | `ip_points_ledger` |
 | Referrals | `ip_referrals` |
-| Login / auth | `ip_login_events`, `ip_auth_sessions`, `ip_password_resets`, `ip_2fa_challenges`, `ip_email_change_challenges`, `ip_phone_change_challenges`, `ip_notification_preferences` |
+| Login / auth | `ip_login_events`, `ip_auth_sessions`, `ip_password_resets`, `ip_2fa_challenges`, `ip_email_change_challenges`, `ip_phone_change_challenges`, `ip_notification_preferences`, `ip_google_identities`, `ip_google_verifications` |
 | Lookup | `ip_ref_cities`, `ip_ref_degrees` |
 
 ## NON-ESSENTIAL — additional (workbench / support / post-hire)
@@ -99,3 +110,15 @@ Logical path: accounts → candidate/employer profiles → documents/postings �
 - **Dropped:** `ip_list_presets` (migration 022) — presets live on `ip_saved_applicant_views`.  
 - **UI-only labels:** e.g. offer `Action Required`, notification presentation — app code, not DB columns.  
 - **Full column schemas:** intentionally omitted; use migrations / `ensureIp*.js` for field-level detail.
+- **No `ip_form_registrations` table exists** despite migration `008_ip_form_registration.sql`. The SuperAdmin *Form registrations* queue reads `ip_users.form_approval_status`, and the manual-onboarding queue reads `ip_employer_requests`. Do not add an entity for it.
+
+---
+
+## Re-verifying this diagram
+
+The diagram is hand-maintained; there is no generator. To re-check it against reality, dump the live catalog and diff by eye:
+
+- tables — `information_schema.tables` where `table_name LIKE 'ip\_%'` and `table_type = 'BASE TABLE'`
+- keys — `pg_constraint` filtered to `contype in ('p','f','u')`, joined through `unnest(conkey)` to `pg_attribute` for column names
+
+Then confirm every live table has an entity, and that each entity's `PK:` / `FK:` / `UNIQUE:` title lines match. Verified clean on 2026-08-31 alongside `npm run db:check-integrity` (**ok**), `npm run audit:demo-consistency` (40 checks) and `npm run audit:demo-text`.

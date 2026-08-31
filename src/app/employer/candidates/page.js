@@ -1,15 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Search, ShieldCheck, X } from 'lucide-react';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
-import MessageFormatToolbar from '@/components/ip/MessageFormatToolbar';
 import { useViewMode } from '@/hooks/useViewMode';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
+import { experienceSummaryLabel } from '@/lib/ipCandidateExperience';
 import '@/components/ip/ip-employer-candidates-gemini.css';
 
 const PAGE_SIZE = 10;
@@ -93,7 +93,6 @@ export default function CandidateSearchPage() {
   const [offerTarget, setOfferTarget] = useState(null);
   const [offerInternship, setOfferInternship] = useState('');
   const [offerMessage, setOfferMessage] = useState('');
-  const offerMsgRef = useRef(null);
   const [offerExtras, setOfferExtras] = useState({
     startDate: '', endDate: '', validUntil: '', letterUrl: '',
     onboardingInstructions: '', mentorName: '', hrContactEmail: '', hrContactPhone: '',
@@ -127,7 +126,7 @@ export default function CandidateSearchPage() {
       if (f.minCgpa != null) setMinCgpa(String(f.minCgpa));
       if (f.freshnessDays != null) setFreshnessDays(f.freshnessDays);
       if (f.matchInternshipId != null) setMatchInternshipId(f.matchInternshipId);
-      if (s.sort != null) setSort(s.sort);
+      if (s.sort) setSort(s.sort);
     },
   });
 
@@ -329,66 +328,20 @@ export default function CandidateSearchPage() {
                 <thead>
                   <tr className="border-b text-left text-slate-500">
                     <th className="p-3">Candidate</th>
-                    <th className="p-3">College / City</th>
-                    <th className="p-3">Degree</th>
-                    <th className="p-3">Match</th>
-                    <th className="p-3">Availability</th>
-                    <th className="p-3">Work mode</th>
+                    <th className="p-3">College</th>
                     <th className="p-3">Status</th>
-                    <th className="p-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {pageItems.map((c) => {
-                    const r = c.relationship || {};
-                    const canInvite = !r.applied && !r.invited;
-                    const canOffer = Boolean(r.applied);
-                    return (
+                  {pageItems.map((c) => (
                     <tr key={c.id} className="border-b">
                       <td className="p-3">
                         <Link href={`/employer/candidates/${c.id}?from=${encodeURIComponent('/employer/candidates')}`}>{c.name}</Link>
-                        {Array.isArray(c.skills) && c.skills.length ? (
-                          <div className="text-xs text-slate-500 mt-1">{c.skills.slice(0, 4).join(' · ')}</div>
-                        ) : null}
                       </td>
-                      <td className="p-3">{[c.college, c.city].filter(Boolean).join(' · ') || '—'}</td>
-                      <td className="p-3">{[c.degree, c.specialization].filter(Boolean).join(' · ') || '—'}</td>
-                      <td className="p-3">{c.match_score != null ? `${Math.round(Number(c.match_score))}%` : '—'}</td>
-                      <td className="p-3">{availLabel(c)}</td>
-                      <td className="p-3">{c.preferred_work_mode || '—'}</td>
+                      <td className="p-3">{c.college || '—'}</td>
                       <td className="p-3">{statusInfo(c).label}</td>
-                      <td className="p-3">
-                        <div className="flex flex-wrap gap-2">
-                          <Link className="text-sm text-indigo-600 hover:underline" href={`/employer/candidates/${c.id}?from=${encodeURIComponent('/employer/candidates')}`}>View</Link>
-                          {canOffer ? (
-                            <button
-                              type="button"
-                              className="text-sm text-indigo-600 hover:underline"
-                              onClick={() => {
-                                setOfferTarget(c);
-                                setOfferInternship(matchInternshipId || '');
-                              }}
-                            >
-                              Offer
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              className="text-sm text-indigo-600 hover:underline disabled:opacity-40"
-                              disabled={!canInvite}
-                              onClick={() => {
-                                setInviteTarget(c);
-                                setSelectedInternship(matchInternshipId || '');
-                              }}
-                            >
-                              {r.applied ? '—' : r.invited ? 'Invited' : 'Invite'}
-                            </button>
-                          )}
-                        </div>
-                      </td>
                     </tr>
-                    );
-                  })}
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -428,7 +381,12 @@ export default function CandidateSearchPage() {
                 </div>
                 <div className="ip-ec-facts">
                   <div className="ip-ec-fact"><b>{c.cgpa != null ? `${c.cgpa} CGPA` : '—'}</b><span>Academic</span></div>
-                  <div className="ip-ec-fact"><b>{c.prior_experience || (c.experience_years ? `${c.experience_years} yr` : 'None listed')}</b><span>Relevant experience</span></div>
+                  <div className="ip-ec-fact">
+                    <b title={experienceSummaryLabel(c.prior_experience, { fallbackYears: c.experience_years })}>
+                      {experienceSummaryLabel(c.prior_experience, { fallbackYears: c.experience_years })}
+                    </b>
+                    <span>Relevant experience</span>
+                  </div>
                   <div className="ip-ec-fact"><b>{availLabel(c)}</b><span>Availability</span></div>
                   <div className="ip-ec-fact"><b>{c.preferred_work_mode || '—'}</b><span>Work preference</span></div>
                   <div className="ip-ec-fact"><b>{relativeUpdated(c.updated_at)}</b><span>Profile activity</span></div>
@@ -603,19 +561,7 @@ export default function CandidateSearchPage() {
                 {postings.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
               </select>
               <label htmlFor="ip-ec-offer-msg">Message (optional)</label>
-              <MessageFormatToolbar
-                className="ip-msg-fmt mb-1 flex gap-1"
-                inputRef={offerMsgRef}
-                value={offerMessage}
-                onChange={setOfferMessage}
-                disabled={busy}
-              />
-              <textarea
-                id="ip-ec-offer-msg"
-                ref={offerMsgRef}
-                value={offerMessage}
-                onChange={(e) => setOfferMessage(e.target.value)}
-              />
+              <textarea id="ip-ec-offer-msg" value={offerMessage} onChange={(e) => setOfferMessage(e.target.value)} />
               <label>Start date</label>
               <input type="date" value={offerExtras.startDate} onChange={(e) => setOfferExtras((f) => ({ ...f, startDate: e.target.value }))} />
               <label>Valid until</label>

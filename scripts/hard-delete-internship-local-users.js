@@ -66,7 +66,7 @@ async function main() {
   console.log('Remaining @internship.local:', left.rows);
 
   const sa = await client.query(`
-    SELECT email, role, active FROM ip_users WHERE lower(email) = 'placementhubsupport@gmail.com'
+    SELECT email, role, active FROM ip_users WHERE lower(email) = 'support@placementhub.online'
   `);
   console.log('SuperAdmin kept:', sa.rows);
 

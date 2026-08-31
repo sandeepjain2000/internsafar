@@ -1,5 +1,12 @@
 #!/usr/bin/env node
-/** One-off audit: core accounts list/tab volumes vs PAGE_SIZE 10 (≥11 for Next). */
+/**
+ * Audit: core-account list/tab volumes vs PAGE_SIZE 10 (≥11 so page 2 exists).
+ *
+ *   npm run audit:core-coverage
+ *
+ * Covers candidate, employer, and SuperAdmin surfaces. Fix failures with
+ * `npm run fill:core-coverage` (idempotent, fills only the deficit).
+ */
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -12,8 +19,8 @@ dotenv.config({ path: path.join(appRoot, '.env') });
 
 const MIN = 11;
 const CAND = 'lawsonlclintern+1@gmail.com';
-const EMP = 'shreekar.nyayapathi23+2@vit.edu';
-const SA = 'placementhubsupport@gmail.com';
+const EMP = 'placementhubsupport@gmail.com';
+const SA = 'support@placementhub.online';
 
 function parseUrl(rawUrl) {
   const url = new URL(rawUrl);
@@ -141,8 +148,68 @@ try {
     (await pool.query(`SELECT count(*)::int AS n FROM ip_notifications WHERE user_id = $1`, [sa.id])).rows[0].n,
   );
 
+  // Employer + SuperAdmin tabs/queues/workbench tables, to the same depth the
+  // candidate cores are held to. Kept in step with scripts/fill-core-coverage.mjs.
+  const depthChecks = [
+    ['emp.postings.draft', `SELECT count(*)::int AS n FROM ip_internships WHERE employer_id=$1 AND status='draft'`, [empRow.id]],
+    ['emp.postings.paused', `SELECT count(*)::int AS n FROM ip_internships WHERE employer_id=$1 AND status='paused'`, [empRow.id]],
+    ['emp.postings.closed', `SELECT count(*)::int AS n FROM ip_internships WHERE employer_id=$1 AND status='closed'`, [empRow.id]],
+    ['emp.postings.scheduled', `SELECT count(*)::int AS n FROM ip_internships WHERE employer_id=$1 AND status='published' AND starts_at > now()`, [empRow.id]],
+    ['emp.postings.expired', `SELECT count(*)::int AS n FROM ip_internships WHERE employer_id=$1 AND status='published' AND apply_ends_at <= now()`, [empRow.id]],
+    ['emp.apps.completed', `SELECT count(*)::int AS n FROM ip_applications a JOIN ip_internships i ON i.id=a.internship_id WHERE i.employer_id=$1 AND a.status='completed'`, [empRow.id]],
+    ['emp.offers.expired_badge', `SELECT count(*)::int AS n FROM ip_offers WHERE employer_id=$1 AND status='pending' AND valid_until < now()`, [empRow.id]],
+    ['emp.notes', `SELECT count(*)::int AS n FROM ip_application_notes WHERE employer_id=$1`, [empRow.id]],
+    ['emp.events', `SELECT count(*)::int AS n FROM ip_application_events e JOIN ip_applications a ON a.id=e.application_id JOIN ip_internships i ON i.id=a.internship_id WHERE i.employer_id=$1`, [empRow.id]],
+    ['emp.reminders', `SELECT count(*)::int AS n FROM ip_follow_up_reminders WHERE employer_id=$1`, [empRow.id]],
+    ['emp.bulk_jobs', `SELECT count(*)::int AS n FROM ip_bulk_message_jobs WHERE employer_id=$1`, [empRow.id]],
+    ['emp.export_jobs', `SELECT count(*)::int AS n FROM ip_export_jobs WHERE employer_id=$1`, [empRow.id]],
+    ['emp.lists', `SELECT count(*)::int AS n FROM ip_employer_lists WHERE employer_id=$1`, [empRow.id]],
+    ['emp.rejection_templates', `SELECT count(*)::int AS n FROM ip_rejection_templates WHERE employer_id=$1`, [empRow.id]],
+    ['sa.employers.rejected', `SELECT count(*)::int AS n FROM ip_employers WHERE approval_status='rejected'`, []],
+    ['sa.employers.suspended', `SELECT count(*)::int AS n FROM ip_employers WHERE approval_status='suspended'`, []],
+    ['sa.requests.pending', `SELECT count(*)::int AS n FROM ip_employer_requests WHERE status='pending'`, []],
+    ['sa.requests.approved', `SELECT count(*)::int AS n FROM ip_employer_requests WHERE status='approved'`, []],
+    ['sa.requests.rejected', `SELECT count(*)::int AS n FROM ip_employer_requests WHERE status='rejected'`, []],
+    ['sa.documents.approved', `SELECT count(*)::int AS n FROM ip_employer_documents WHERE review_status='approved'`, []],
+    ['sa.documents.flagged', `SELECT count(*)::int AS n FROM ip_employer_documents WHERE review_status='flagged'`, []],
+    ['sa.postings.closed', `SELECT count(*)::int AS n FROM ip_internships WHERE status='closed'`, []],
+    ['sa.promotions.pending', `SELECT count(*)::int AS n FROM ip_linkedin_promotions WHERE status='pending'`, []],
+    ['sa.promotions.rewarded', `SELECT count(*)::int AS n FROM ip_linkedin_promotions WHERE status='rewarded'`, []],
+    ['sa.promotions.failed', `SELECT count(*)::int AS n FROM ip_linkedin_promotions WHERE status='failed'`, []],
+    ['sa.viral.pending', `SELECT count(*)::int AS n FROM ip_viral_shares WHERE status='pending'`, []],
+    ['sa.viral.verified', `SELECT count(*)::int AS n FROM ip_viral_shares WHERE status='verified'`, []],
+    ['sa.viral.whatsapp', `SELECT count(*)::int AS n FROM ip_viral_shares WHERE channel='whatsapp'`, []],
+    ['sa.form_regs.pending', `SELECT count(*)::int AS n FROM ip_users WHERE role='candidate' AND registration_source='form' AND form_approval_status='pending'`, []],
+    ['sa.form_regs.approved', `SELECT count(*)::int AS n FROM ip_users WHERE role='candidate' AND registration_source='form' AND form_approval_status='approved'`, []],
+    ['sa.ideas.shipped', `SELECT count(*)::int AS n FROM ip_feature_ideas WHERE status='Shipped'`, []],
+    ['sa.ideas.declined', `SELECT count(*)::int AS n FROM ip_feature_ideas WHERE status='Declined'`, []],
+    ['sa.logins.employer_failed', `SELECT count(*)::int AS n FROM ip_login_events WHERE role='employer' AND success=false`, []],
+    ['sa.logins.superadmin_failed', `SELECT count(*)::int AS n FROM ip_login_events WHERE role='superadmin' AND success=false`, []],
+  ];
+  const depth = {};
+  for (const [label, sql, params] of depthChecks) {
+    depth[label] = Number((await pool.query(sql, params)).rows[0].n);
+  }
+  for (const [label, shape] of [['emp.notifs', emp.id], ['sa.notifs', sa.id]]) {
+    const perCat = Object.fromEntries(
+      (
+        await pool.query(
+          `SELECT coalesce(category,'system') AS category, count(*)::int AS n
+           FROM ip_notifications WHERE user_id = $1 GROUP BY 1`,
+          [shape],
+        )
+      ).rows.map((r) => [r.category, Number(r.n)]),
+    );
+    for (const c of ['application', 'offer', 'interview', 'message', 'referral', 'system']) {
+      depth[`${label}.${c}`] = perCat[c] || 0;
+    }
+  }
+
   const tabs = appTabs(appByStatus);
   const fails = [];
+  for (const [label, value] of Object.entries(depth)) {
+    if (value < MIN) fails.push(`${label}=${value}`);
+  }
   for (const [k, v] of Object.entries(tabs)) {
     if (v < MIN) fails.push(`cand.app.${k}=${v}`);
   }
@@ -173,6 +240,7 @@ try {
         candidate: { tabs, offers: offerByStatus, threads, saved, refs, unread, notifs: notifCat, appRaw: appByStatus },
         employer: { apps: empApps, offers: empOffers, threads: empThreads, notifs: empNotifs },
         superadmin: { notifs: saNotifs, ideas },
+        depth,
         published,
         published_visible_now: visibleNow,
       },

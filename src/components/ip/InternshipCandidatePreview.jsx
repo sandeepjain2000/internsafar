@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import PostingBodySections from '@/components/ip/PostingBodySections';
 
 /** Employer-only preview of candidate-facing posting + MCQ form. */
 export default function InternshipCandidatePreview({ internship, onClose }) {
@@ -14,7 +13,7 @@ export default function InternshipCandidatePreview({ internship, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4">
-      <div className="my-8 w-full max-w-2xl space-y-3">
+      <div className="w-full max-w-2xl space-y-3 my-8">
         <Alert>
           <AlertTitle>Preview only</AlertTitle>
           <AlertDescription>
@@ -24,7 +23,7 @@ export default function InternshipCandidatePreview({ internship, onClose }) {
         <Card>
           <CardHeader>
             <div className="flex justify-between gap-2">
-              <div className="min-w-0">
+              <div>
                 <CardTitle className="text-xl">{internship.title}</CardTitle>
                 <CardDescription>
                   {internship.company_name} · {internship.location || internship.work_mode}
@@ -33,8 +32,8 @@ export default function InternshipCandidatePreview({ internship, onClose }) {
               <Button type="button" variant="outline" size="sm" onClick={onClose}>Close preview</Button>
             </div>
           </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="flex flex-wrap gap-2">
+          <CardContent className="space-y-4">
+            <div className="flex gap-2 flex-wrap">
               <Badge variant="outline">
                 {internship.stipend_type === 'incentive'
                   ? 'Incentive-based'
@@ -49,16 +48,21 @@ export default function InternshipCandidatePreview({ internship, onClose }) {
                 </Badge>
               ) : null}
             </div>
-            <PostingBodySections internship={internship} />
+            <div>
+              <h3 className="font-medium mb-1">Description</h3>
+              <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+                {internship.description || 'No description provided.'}
+              </p>
+            </div>
             {internship.eligibility?.skills?.length ? (
-              <div className="flex flex-wrap gap-1">
+              <div className="flex gap-1 flex-wrap">
                 {internship.eligibility.skills.map((s) => (
                   <Badge key={s} variant="secondary">{s}</Badge>
                 ))}
               </div>
             ) : null}
             {questions.length ? (
-              <div className="space-y-3 rounded-md border p-3">
+              <div className="space-y-3 border rounded-md p-3">
                 <h3 className="font-medium">Screening questions (preview)</h3>
                 {questions.map((q, idx) => (
                   <Field key={q.id || idx}>

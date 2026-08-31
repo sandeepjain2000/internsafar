@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Batch QA for sheets 20 â†’ 16 (Uploads, SuperAdmin, Notifications, Ideas, Ratings).
  */
 import { readFileSync, existsSync } from 'fs';
@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
+const demoText = require('./lib/ipDemoText.js');
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const siblingRoot = resolve(__dirname, '../../../internship-portal');
 const BASE = process.argv[2] || process.env.IP_BASE || 'http://localhost:3000';
@@ -92,8 +93,8 @@ async function main() {
   const out = [];
 
   const cand = await apiLogin('lawsonlclintern+1@gmail.com', 'Admin@123');
-  const emp = await apiLogin('shreekar.nyayapathi23+2@vit.edu', 'Admin@123');
-  const sa = await apiLogin('placementhubsupport@gmail.com', 'Admin@123');
+  const emp = await apiLogin('placementhubsupport@gmail.com', 'Admin@123');
+  const sa = await apiLogin('support@placementhub.online', 'Admin@123');
 
   // ========== 20 Uploads S3 ==========
   {
@@ -377,18 +378,20 @@ async function main() {
   {
     const sheet = '17 Feature Ideas';
     const cases = {};
-    const title = `QA idea ${Date.now()}`;
+    // Readable and still run-specific — never `QA idea <epoch>`.
+    const idea = demoText.featureIdea(new Date().getMinutes());
+    const title = `${idea.title} (${demoText.runLabel(String(Date.now()))})`;
     const submit = await req('/api/ip/ideas', {
       method: 'POST',
       cookie: cand.cookie,
-      body: { title, description: 'Automated QA feature idea', topics: ['testing'] },
+      body: { title, description: idea.description, topics: ['testing'] },
     });
     const submit2 =
       submit.status === 400 || submit.status === 422
         ? await req('/api/ip/ideas', {
             method: 'POST',
             cookie: cand.cookie,
-            body: { title, description: 'Automated QA feature idea', topic: 'testing' },
+            body: { title, description: idea.description, topic: 'testing' },
           })
         : submit;
     cases['TC-IP-17-001'] = {

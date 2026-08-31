@@ -44,7 +44,7 @@ function ForgotInner() {
     const res = await fetch('/api/ip/auth/password-reset/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, password }),
+      body: JSON.stringify({ token, newPassword: password }),
     });
     const data = await res.json();
     if (!res.ok) setErr(data.error || 'Failed');

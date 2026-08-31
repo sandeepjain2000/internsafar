@@ -32,7 +32,6 @@ to the database. Deep detail on generating and deleting test data lives in
 | `sanitize-ip-demo-labels.mjs` | data | Renames visible "seed/seeded" labels so demo rows read like normal data. |
 | `migrate-and-seed.mjs` | data + schema | Applies the older ISM migrations and seeds those demo users. |
 | `db_exec_sql_file.js` | schema | Runs a given `.sql` file against the database. |
-| `_seed_nova_labs.mjs` | data | One-off seed for the Nova Labs employer and Priya Sharma candidate. |
 | `seed-gmail-plus-cast.mjs` | data | **Deprecated** — use `IP_Reset_Core_Sample.js` instead. |
 
 ## Account tools (destructive — read before running)
@@ -41,7 +40,7 @@ to the database. Deep detail on generating and deleting test data lives in
 |---|---|---|
 | `hard-delete-ip-user.js` | data | Hard-deletes one `ip_*` user with full cascade. See `HARD_DELETE_IP_USER.md`. |
 | `hard-delete-internship-local-users.js` | data | Hard-deletes every `*@internship.local` user. Leaves real accounts alone. |
-| `set-superadmin-gmail.js` | data | One-shot: points SuperAdmin at the support Gmail account. |
+| `set-superadmin-email.js` | data | One-shot: points SuperAdmin at `support@placementhub.online`. |
 
 ## QA runners
 

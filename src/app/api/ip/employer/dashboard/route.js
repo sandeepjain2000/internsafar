@@ -64,7 +64,7 @@ export async function GET() {
     `SELECT count(*)::int AS n
      FROM ip_applications a
      JOIN ip_internships i ON i.id = a.internship_id
-     WHERE i.employer_id = $1 AND a.status IN ('applied','under_review','pending','shortlisted')`,
+     WHERE i.employer_id = $1 AND a.status IN ('applied','shortlisted')`,
     [employer.id],
   );
 

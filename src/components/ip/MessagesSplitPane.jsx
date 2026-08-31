@@ -3,37 +3,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import { Archive, Calendar, FileText, MessageSquare, Paperclip, RotateCcw, Search, Send, SlidersHorizontal, X } from 'lucide-react';
+import {
+  Archive,
+  Calendar,
+  FileText,
+  MessageSquare,
+  Paperclip,
+  Search,
+  Send,
+  SlidersHorizontal,
+} from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
-import MessageRichComposer from '@/components/ip/MessageRichComposer';
-import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
-import { normalizePrefsFilters, useListPrefsSync } from '@/hooks/useListPrefsSync';
+import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { isStoredMeetUrl, meetJoinLabel } from '@/lib/ipInterviewMeetUrl';
 import {
   formatBytes,
   formatDurationMonths,
   formatStipendInr,
 } from '@/lib/ipMessagePresentation';
-import { applicationDisplayStatus } from '@/lib/ipApplicationPresentation';
-import { offerDisplayStatus } from '@/lib/ipOfferPresentation';
-import { plainTextFromMessageHtml, sanitizeMessageHtml } from '@/lib/ipRichText';
-import '@/components/ip/ip-employer-messages-gemini.css';
+// Both roles now render the candidate layout: the employer tree keeps its own content and
+// actions but uses this stylesheet, scoped by .ip-cand-msg--employer for its extras.
+// ip-employer-messages-gemini.css is intentionally no longer imported.
 import '@/components/ip/ip-candidate-messages-gemini.css';
-import { useClientPagination } from '@/hooks/useClientPagination';
-import IpTablePagination from '@/components/ip/IpTablePagination';
-
-const PAGE_SIZE = 10;
-
-function displayApplicationStatus(status) {
-  if (!status) return '';
-  return applicationDisplayStatus(status);
-}
-
-function displayOfferStatus(status) {
-  if (!status) return '';
-  return offerDisplayStatus({ status }).label;
-}
 
 function initials(name) {
   const parts = String(name || '')
@@ -76,6 +67,45 @@ function formatBubbleTime(value) {
 function counterpartName(t, role) {
   if (role === 'employer') return t.candidate_name || 'Candidate';
   return t.company_name || t.employer_name || 'Employer';
+}
+
+/**
+ * Employer inbox column filters, keyed to the columns it actually shows:
+ * Candidate · Internship · Preview · When · Status. The candidate inbox has different
+ * columns (From · Internship · …), so it keeps the plain tab/search filters instead.
+ */
+const EMPTY_COLS = {
+  candidate: '',
+  internship: '',
+  preview: '',
+  when: 'any',
+  status: '',
+};
+
+const WHEN_WINDOWS = [
+  ['any', 'Any time'],
+  ['today', 'Today'],
+  ['7d', 'Last 7 days'],
+  ['30d', 'Last 30 days'],
+  ['older', 'Older than 30 days'],
+];
+
+function withinWhen(value, window) {
+  if (window === 'any') return true;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return false;
+  const days = (Date.now() - d.getTime()) / 86400000;
+  if (window === 'today') return d.toDateString() === new Date().toDateString();
+  if (window === '7d') return days <= 7;
+  if (window === '30d') return days <= 30;
+  if (window === 'older') return days > 30;
+  return true;
+}
+
+function has(haystack, needle) {
+  const q = needle.trim().toLowerCase();
+  if (!q) return true;
+  return String(haystack || '').toLowerCase().includes(q);
 }
 
 function roleLine(t) {
@@ -126,12 +156,12 @@ function ThreadPartyPanel({ role, thread }) {
         </div>
         <div className="ip-msg-party__sec">
           <span>Your application</span>
-          <b>{displayApplicationStatus(thread.application_status) || 'No application on this thread'}</b>
+          <b>{thread.application_status || 'No application on this thread'}</b>
         </div>
         {thread.offer_status ? (
           <div className="ip-msg-party__sec">
             <span>Offer</span>
-            <b>{displayOfferStatus(thread.offer_status)}{thread.offer_role_title ? ` · ${thread.offer_role_title}` : ''}</b>
+            <b>{thread.offer_status}{thread.offer_role_title ? ` · ${thread.offer_role_title}` : ''}</b>
           </div>
         ) : null}
         {thread.internship_id ? (
@@ -165,7 +195,7 @@ function ThreadPartyPanel({ role, thread }) {
       </div>
       <div className="ip-msg-party__sec">
         <span>Application</span>
-        <b>{displayApplicationStatus(thread.application_status) || '—'}</b>
+        <b>{thread.application_status || '—'}</b>
       </div>
     </aside>
   );
@@ -277,16 +307,6 @@ function offerSummary(t) {
 }
 
 /**
- * Viewer-relative: own bubble iff sender matches session user (else thread party for this pane).
- */
-function isMineMessage(m, thread, role, currentUserId) {
-  if (currentUserId) return m.sender_user_id === currentUserId;
-  if (!thread) return false;
-  const myId = role === 'employer' ? thread.employer_user_id : thread.candidate_user_id;
-  return Boolean(myId) && m.sender_user_id === myId;
-}
-
-/**
  * Split-pane inbox. Employer keeps existing chrome; candidate matches workspace HTML.
  */
 export default function MessagesSplitPane({ role = 'employer' }) {
@@ -294,8 +314,6 @@ export default function MessagesSplitPane({ role = 'employer' }) {
   const base = isEmployer ? '/employer/messages' : '/candidate/messages';
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
-  const currentUserId = session?.user?.id || '';
   const threadFromUrl = searchParams.get('thread') || '';
   const feedRef = useRef(null);
   const fileRef = useRef(null);
@@ -304,9 +322,6 @@ export default function MessagesSplitPane({ role = 'employer' }) {
   const [tab, setTab] = useState('all');
   const [sort, setSort] = useState('newest');
   const [search, setSearch] = useState('');
-  const [fromFilter, setFromFilter] = useState([]);
-  const [internshipFilter, setInternshipFilter] = useState([]);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(threadFromUrl);
   const [thread, setThread] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -318,46 +333,37 @@ export default function MessagesSplitPane({ role = 'employer' }) {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [inboxMeta, setInboxMeta] = useState({ unread: 0, action: 0 });
+  // Employer-only advanced filters, one per column of its inbox table
+  // (Candidate · Internship · Preview · When · Status). Saved views carry these too.
+  const [cols, setCols] = useState(EMPTY_COLS);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const snapshot = useMemo(
-    () => ({ filters: { tab, search, fromFilter, internshipFilter }, sort }),
-    [tab, search, fromFilter, internshipFilter, sort],
+    () => ({ filters: isEmployer ? { tab, search, cols } : { tab, search }, sort }),
+    [tab, search, sort, cols, isEmployer],
   );
   const prefs = useListPrefsSync({
     tableKey: isEmployer ? 'employer.messages' : 'candidate.messages',
     snapshot,
     applySnapshot: (s) => {
-      const f = normalizePrefsFilters(s?.filters);
-      setTab(f.tab != null && f.tab !== '' ? String(f.tab) : 'all');
-      setSearch(f.search != null ? String(f.search) : '');
-      const nextFrom = Array.isArray(f.fromFilter) ? f.fromFilter.map(String) : [];
-      const nextIntern = Array.isArray(f.internshipFilter) ? f.internshipFilter.map(String) : [];
-      setFromFilter(nextFrom);
-      setInternshipFilter(nextIntern);
-      setSort(s?.sort != null && s.sort !== '' ? String(s.sort) : 'newest');
-      if (nextFrom.length || nextIntern.length) setAdvancedOpen(true);
+      const f = s.filters || {};
+      if (f.tab) setTab(f.tab);
+      if (f.search != null) setSearch(f.search);
+      if (s.sort) setSort(s.sort);
+      // Older saved views predate column filters, so fall back to empty rather than undefined.
+      if (isEmployer) setCols({ ...EMPTY_COLS, ...(f.cols || {}) });
     },
   });
 
-  function resetMessageFilters() {
-    setSearch('');
-    setTab('all');
-    setFromFilter([]);
-    setInternshipFilter([]);
-    setSort('newest');
-    setAdvancedOpen(false);
-  }
-
-  const advancedActive = fromFilter.length > 0 || internshipFilter.length > 0;
-  const filtersActive = Boolean(search.trim()) || tab !== 'all' || advancedActive || sort !== 'newest';
+  const colsActive = isEmployer && Object.entries(cols).some(([k, v]) => v !== EMPTY_COLS[k]);
 
   function showToast(msg) {
     setToast(msg);
     setTimeout(() => setToast(''), 2800);
   }
 
-  const loadThreads = useCallback(async ({ quiet = false } = {}) => {
-    if (!quiet) setLoadingList(true);
+  const loadThreads = useCallback(async () => {
+    setLoadingList(true);
     try {
       const qs = tab === 'archived' ? '?archived=1' : '';
       const res = await fetch(`/api/ip/messages/threads${qs}`);
@@ -371,9 +377,9 @@ export default function MessagesSplitPane({ role = 'employer' }) {
         });
       }
     } catch {
-      if (!quiet) setThreads([]);
+      setThreads([]);
     } finally {
-      if (!quiet) setLoadingList(false);
+      setLoadingList(false);
     }
   }, [tab]);
 
@@ -386,33 +392,10 @@ export default function MessagesSplitPane({ role = 'employer' }) {
     if (threadFromUrl) setSelectedId(threadFromUrl);
   }, [threadFromUrl]);
 
-  const fromOptions = useMemo(() => {
-    const map = new Map();
-    for (const t of threads) {
-      const name = counterpartName(t, role);
-      if (!name) continue;
-      const key = name.toLowerCase();
-      if (!map.has(key)) map.set(key, { value: name, label: name });
-    }
-    return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
-  }, [threads, role]);
-
-  const internshipOptions = useMemo(() => {
-    const map = new Map();
-    for (const t of threads) {
-      const title = String(t.internship_title || roleLine(t) || '').trim();
-      if (!title) continue;
-      const key = title.toLowerCase();
-      if (!map.has(key)) map.set(key, { value: title, label: title });
-    }
-    return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
-  }, [threads]);
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const fromSet = new Set(fromFilter.map((v) => String(v).toLowerCase()));
-    const internSet = new Set(internshipFilter.map((v) => String(v).toLowerCase()));
     const rows = threads.filter((t) => {
+      // 'archived' is filtered server-side via ?archived=1; the rest narrow here.
       if (tab === 'unread' && !(Number(t.unread_count) > 0)) return false;
       if (tab === 'action' && !t.needs_action) return false;
       if (tab === 'unreplied') {
@@ -420,13 +403,13 @@ export default function MessagesSplitPane({ role = 'employer' }) {
         const me = role === 'candidate' ? t.candidate_user_id : t.employer_user_id;
         if (!last || last !== me) return false;
       }
-      if (fromSet.size) {
-        const name = counterpartName(t, role).toLowerCase();
-        if (!fromSet.has(name)) return false;
-      }
-      if (internSet.size) {
-        const title = String(t.internship_title || roleLine(t) || '').toLowerCase();
-        if (!internSet.has(title)) return false;
+      // Column filters are employer-only and AND together with the tab and search box.
+      if (isEmployer) {
+        if (!has(counterpartName(t, role), cols.candidate)) return false;
+        if (!has(roleLine(t), cols.internship)) return false;
+        if (!has(t.last_message || t.subject, cols.preview)) return false;
+        if (!has(t.application_status || (Number(t.message_count) ? 'Open' : 'New'), cols.status)) return false;
+        if (!withinWhen(t.last_message_at || t.updated_at, cols.when)) return false;
       }
       if (!q) return true;
       const hay = `${counterpartName(t, role)} ${t.internship_title || ''} ${t.subject || ''} ${t.last_message || ''} ${t.candidate_college || ''} ${t.employer_name || ''} ${t.company_name || ''}`.toLowerCase();
@@ -436,12 +419,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
       return [...rows].reverse();
     }
     return rows;
-  }, [threads, search, tab, role, sort, fromFilter, internshipFilter]);
-
-  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(filtered, PAGE_SIZE);
-  useEffect(() => {
-    setPage(1);
-  }, [tab, search, sort, fromFilter, internshipFilter, setPage]);
+  }, [threads, search, tab, role, sort, isEmployer, cols]);
 
   const loadThread = useCallback(
     async (id) => {
@@ -458,8 +436,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
         if (!res.ok) throw new Error(data.error || 'Thread not found');
         setThread(data.thread);
         setMessages(data.messages || []);
-        // Quiet refresh keeps inbox table mounted (no Loading flash on select/close).
-        await loadThreads({ quiet: true });
+        await loadThreads();
       } catch (e) {
         setError(e.message);
         setThread(null);
@@ -495,8 +472,8 @@ export default function MessagesSplitPane({ role = 'employer' }) {
   async function send(e) {
     e?.preventDefault?.();
     if (!selectedId || thread?.archived) return;
-    const text = draft;
-    if (!plainTextFromMessageHtml(text) && !pendingFile) return;
+    const text = draft.trim();
+    if (!text && !pendingFile) return;
     setSending(true);
     setError('');
     try {
@@ -548,7 +525,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
       if (id === selectedId) {
         selectThread('');
       }
-      await loadThreads({ quiet: true });
+      await loadThreads();
     } catch (err) {
       setError(err.message);
     }
@@ -569,15 +546,13 @@ export default function MessagesSplitPane({ role = 'employer' }) {
     setPendingFile(file);
   }
 
-  const canSend = Boolean(
-    (plainTextFromMessageHtml(draft) || pendingFile) && !sending && !thread?.archived,
-  );
+  const canSend = Boolean((draft.trim() || pendingFile) && !sending && !thread?.archived);
   const activeName = thread ? counterpartName(thread, role) : isEmployer ? 'candidate' : 'employer';
   const showInterview = !isEmployer && thread && String(thread.application_status || '').toLowerCase() === 'interviewing' && thread.interview_at;
   const showOffer = !isEmployer && thread && (String(thread.application_status || '').toLowerCase() === 'offered' || thread.offer_id);
   const meetUrl = isStoredMeetUrl(thread?.interview_meet_url) ? thread.interview_meet_url : '';
 
-  const toastEl = toast ? <div className={isEmployer ? 'ip-em-toast' : 'ip-cm-toast'}>{toast}</div> : null;
+  const toastEl = toast ? <div className="ip-cm-toast">{toast}</div> : null;
 
   if (!isEmployer) {
     return (
@@ -636,57 +611,14 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                   <option value="oldest">Oldest</option>
                 </select>
               </div>
-              <div className="px-3 pb-2 space-y-2">
+              <div className="px-3 pb-2">
                 <ListPresetsBar {...prefs} />
-                <div className="ip-cm-adv-bar">
-                  <button
-                    type="button"
-                    className={`ip-cm-adv-btn${advancedOpen || advancedActive ? ' is-on' : ''}`}
-                    aria-expanded={advancedOpen}
-                    onClick={() => setAdvancedOpen((v) => !v)}
-                  >
-                    <SlidersHorizontal className="size-3.5" aria-hidden />
-                    Advanced filters
-                    {advancedActive ? <span className="ip-cm-adv-on">On</span> : null}
-                  </button>
-                  {filtersActive ? (
-                    <button type="button" className="ip-cm-adv-btn" onClick={resetMessageFilters}>
-                      <RotateCcw className="size-3.5" aria-hidden />
-                      Reset filters
-                    </button>
-                  ) : null}
-                </div>
-                {advancedOpen ? (
-                  <div className="ip-cm-filters" role="region" aria-label="Advanced message filters">
-                    <div>
-                      <label className="ip-cm-filter-label">From</label>
-                      <SearchableMultiSelect
-                        options={fromOptions}
-                        value={fromFilter}
-                        onChange={setFromFilter}
-                        placeholder="Search employers…"
-                        ariaLabel="Filter by employer"
-                      />
-                    </div>
-                    <div>
-                      <label className="ip-cm-filter-label">Internship</label>
-                      <SearchableMultiSelect
-                        options={internshipOptions}
-                        value={internshipFilter}
-                        onChange={setInternshipFilter}
-                        placeholder="Search roles you applied to…"
-                        ariaLabel="Filter by internship"
-                      />
-                    </div>
-                  </div>
-                ) : null}
               </div>
             </div>
             <div className="ip-cm-list-body">
               {loadingList ? (
                 <p className="ip-cm-empty-list">Loading…</p>
               ) : filtered.length ? (
-                <>
                 <table className="ip-ph-list ip-msg-table">
                   <thead>
                     <tr>
@@ -698,16 +630,14 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {pageItems.map((t) => {
+                    {filtered.map((t) => {
                       const unread = Number(t.unread_count) > 0;
                       const on = t.id === selectedId;
                       const name = counterpartName(t, role);
-                      const preview = plainTextFromMessageHtml(t.last_message || t.subject || '') || '—';
                       return (
                         <tr
                           key={t.id}
                           className={on ? 'is-on' : undefined}
-                          title={preview === '—' ? undefined : preview}
                           onClick={() => selectThread(t.id)}
                         >
                           <td>
@@ -715,24 +645,14 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                             {unread ? <span className="ip-cm-unread" aria-label="Unread" /> : null}
                           </td>
                           <td>{roleLine(t)}</td>
-                          <td className="ip-msg-table__preview" title={preview === '—' ? undefined : preview}>{preview}</td>
+                          <td className="ip-msg-table__preview">{t.last_message || t.subject || '—'}</td>
                           <td>{formatWhen(t.last_message_at || t.updated_at)}</td>
-                          <td>{displayApplicationStatus(t.application_status) || (Number(t.message_count) ? 'Open' : 'New')}</td>
+                          <td>{t.application_status || (Number(t.message_count) ? 'Open' : 'New')}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-                {total > 0 ? (
-                  <IpTablePagination
-                    page={page}
-                    totalPages={totalPages}
-                    total={total}
-                    pageSize={pageSize}
-                    onPageChange={setPage}
-                  />
-                ) : null}
-                </>
               ) : (
                 <div className="ip-cm-empty-list">
                   <p style={{ fontWeight: 800, color: '#334155', margin: 0 }}>No conversations found</p>
@@ -775,15 +695,6 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                       onClick={() => setArchived(thread.id, !thread.archived)}
                     >
                       <Archive className="size-3.5" aria-hidden />
-                    </button>
-                    <button
-                      type="button"
-                      className="ip-cm-btn ip-cm-btn--icon"
-                      title="Close conversation"
-                      aria-label="Close conversation"
-                      onClick={() => selectThread('')}
-                    >
-                      <X className="size-3.5" aria-hidden />
                     </button>
                   </div>
                 </div>
@@ -835,14 +746,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                       <strong>Formal offer letter extended</strong>
                       <p>{offerSummary(thread) || 'Review the offer in Offers.'}</p>
                     </div>
-                    <Link
-                      href={
-                        thread.offer_id
-                          ? `/candidate/offers?offer=${encodeURIComponent(thread.offer_id)}`
-                          : '/candidate/offers'
-                      }
-                      className="ip-cm-btn ip-cm-btn--offer"
-                    >
+                    <Link href="/candidate/offers" className="ip-cm-btn ip-cm-btn--offer">
                       View Formal Offer →
                     </Link>
                   </div>
@@ -852,7 +756,8 @@ export default function MessagesSplitPane({ role = 'employer' }) {
 
                 <div className="ip-cm-feed" ref={feedRef}>
                   {messages.map((m) => {
-                    const mine = isMineMessage(m, thread, role, currentUserId);
+                    const mine =
+                      m.sender_role === 'candidate' || m.sender_user_id === thread.candidate_user_id;
                     return (
                       <div
                         key={m.id}
@@ -862,9 +767,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                           {m.sender_name} • {formatBubbleTime(m.sent_at)}
                         </span>
                         <div className={`ip-cm-bubble ${mine ? 'ip-cm-bubble--me' : 'ip-cm-bubble--them'}`}>
-                          {m.body ? (
-                            <p dangerouslySetInnerHTML={{ __html: sanitizeMessageHtml(m.body) }} />
-                          ) : null}
+                          {m.body ? <p>{m.body}</p> : null}
                           {m.attachment_url ? (
                             <div className="ip-cm-file">
                               <Paperclip className="size-3.5" aria-hidden />
@@ -911,36 +814,33 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                       This conversation is archived. Unarchive the thread to send messages.
                     </div>
                   ) : (
-                    <>
-                      <div className="ip-cm-composer-row ip-cm-composer-row--rich">
-                        <input
-                          ref={fileRef}
-                          type="file"
-                          accept={ATTACH_ACCEPT}
-                          onChange={onPickFile}
-                        />
-                        <button
-                          type="button"
-                          className="ip-cm-attach"
-                          title="Attach file"
-                          onClick={() => fileRef.current?.click()}
-                        >
-                          <Paperclip className="size-5" aria-hidden />
-                        </button>
-                        <MessageRichComposer
-                          value={draft}
-                          onChange={setDraft}
-                          disabled={sending}
-                          placeholder="Type reply message to recruiter..."
-                          aria-label="Reply"
-                          className="ip-cm-rich-wrap"
-                        />
-                        <button type="submit" className="ip-cm-btn ip-cm-btn--primary" disabled={!canSend}>
-                          Send
-                          <Send className="size-4" aria-hidden />
-                        </button>
-                      </div>
-                    </>
+                    <div className="ip-cm-composer-row">
+                      <input
+                        ref={fileRef}
+                        type="file"
+                        accept={ATTACH_ACCEPT}
+                        onChange={onPickFile}
+                      />
+                      <button
+                        type="button"
+                        className="ip-cm-attach"
+                        title="Attach file"
+                        onClick={() => fileRef.current?.click()}
+                      >
+                        <Paperclip className="size-5" aria-hidden />
+                      </button>
+                      <input
+                        type="text"
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        placeholder="Type reply message to recruiter..."
+                        aria-label="Reply"
+                      />
+                      <button type="submit" className="ip-cm-btn ip-cm-btn--primary" disabled={!canSend}>
+                        Send
+                        <Send className="size-4" aria-hidden />
+                      </button>
+                    </div>
                   )}
                 </form>
               </>
@@ -957,15 +857,15 @@ export default function MessagesSplitPane({ role = 'employer' }) {
     'Direct messaging hub for discussing interview availability, project briefs, and application updates.';
 
   return (
-    <div className="ip-emp-msg">
+    <div className="ip-cand-msg ip-cand-msg--employer">
       {toastEl}
 
-      <div className="ip-em-banner">
+      <div className="ip-cm-banner">
         <div>
           <h1>{bannerTitle}</h1>
           <p>{bannerDesc}</p>
         </div>
-        <div className="ip-em-count">
+        <div className="ip-cm-count">
           <MessageSquare className="size-4" aria-hidden />
           <span>
             {threads.length} Active Conversation{threads.length === 1 ? '' : 's'}
@@ -973,10 +873,19 @@ export default function MessagesSplitPane({ role = 'employer' }) {
         </div>
       </div>
 
-      <div className="ip-em-split">
-        <aside className="ip-em-list">
-          <div className="ip-em-list-head">
-            <div className="ip-em-search">
+      <div className="ip-cm-policy">
+        <div className="ip-cm-policy-icon" aria-hidden>i</div>
+        <div>
+          <strong>Messaging Workflow:</strong> You open direct contact after reviewing an
+          application. Use this inbox to run technical screening, schedule interviews, and
+          discuss offers with candidates who have already applied.
+        </div>
+      </div>
+
+      <div className="ip-cm-split">
+        <aside className="ip-cm-list">
+          <div className="ip-cm-list-head">
+            <div className="ip-cm-search">
               <Search aria-hidden />
               <input
                 type="search"
@@ -986,92 +895,107 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                 aria-label="Search conversations"
               />
             </div>
-            <div className="ip-em-tabs">
-              <button
-                type="button"
-                className={`ip-em-tab${tab === 'all' ? ' ip-em-tab--on' : ''}`}
-                onClick={() => setTab('all')}
-              >
-                All
-              </button>
-              <button
-                type="button"
-                className={`ip-em-tab${tab === 'unread' ? ' ip-em-tab--on' : ''}`}
-                onClick={() => setTab('unread')}
-              >
-                Unread ({inboxMeta.unread})
-              </button>
-              <button
-                type="button"
-                className={`ip-em-tab${tab === 'unreplied' ? ' ip-em-tab--on' : ''}`}
-                onClick={() => setTab('unreplied')}
-              >
-                Awaiting reply
-              </button>
-              <button
-                type="button"
-                className={`ip-em-tab${tab === 'archived' ? ' ip-em-tab--on' : ''}`}
-                onClick={() => setTab('archived')}
-              >
-                Archived
-              </button>
-            </div>
-            <div className="ip-em-filters px-3 pb-2 space-y-2">
-              <ListPresetsBar {...prefs} />
-              <div className="ip-cm-adv-bar">
-                <button
-                  type="button"
-                  className={`ip-cm-adv-btn${advancedOpen || advancedActive ? ' is-on' : ''}`}
-                  aria-expanded={advancedOpen}
-                  onClick={() => setAdvancedOpen((v) => !v)}
-                >
-                  <SlidersHorizontal className="size-3.5" aria-hidden />
-                  Advanced filters
-                  {advancedActive ? <span className="ip-cm-adv-on">On</span> : null}
-                </button>
-                {filtersActive ? (
-                  <button type="button" className="ip-cm-adv-btn" onClick={resetMessageFilters}>
-                    <RotateCcw className="size-3.5" aria-hidden />
-                    Reset filters
+            <div className="ip-cm-tabs-row">
+              <div className="ip-cm-tabs">
+                {[
+                  ['all', 'All'],
+                  ['unread', `Unread${inboxMeta.unread ? ` (${inboxMeta.unread})` : ''}`],
+                  ['action', `Action Req.${inboxMeta.action ? ` (${inboxMeta.action})` : ''}`],
+                  ['unreplied', 'Awaiting reply'],
+                  ['archived', 'Archived'],
+                ].map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`ip-cm-tab${tab === key ? ' ip-cm-tab--on' : ''}`}
+                    onClick={() => setTab(key)}
+                  >
+                    {label}
                   </button>
-                ) : null}
+                ))}
               </div>
-              {advancedOpen ? (
-                <div className="ip-cm-filters" role="region" aria-label="Advanced message filters">
-                  <div>
-                    <label className="ip-cm-filter-label">From</label>
-                    <SearchableMultiSelect
-                      options={fromOptions}
-                      value={fromFilter}
-                      onChange={setFromFilter}
-                      placeholder="Search candidates…"
-                      ariaLabel="Filter by candidate"
-                    />
-                  </div>
-                  <div>
-                    <label className="ip-cm-filter-label">Internship</label>
-                    <SearchableMultiSelect
-                      options={internshipOptions}
-                      value={internshipFilter}
-                      onChange={setInternshipFilter}
-                      placeholder="Search your postings…"
-                      ariaLabel="Filter by internship"
-                    />
-                  </div>
-                </div>
+              <select
+                className="ip-cm-sort"
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+                aria-label="Sort conversations"
+              >
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+              </select>
+            </div>
+
+            <div className="ip-cm-adv">
+              <button
+                type="button"
+                className="ip-cm-adv-toggle"
+                aria-expanded={showAdvanced}
+                onClick={() => setShowAdvanced((v) => !v)}
+              >
+                <SlidersHorizontal className="size-3.5" aria-hidden />
+                Advanced filters
+                {colsActive ? <span className="ip-cm-adv-dot" aria-label="Filters active" /> : null}
+              </button>
+              {colsActive ? (
+                <button type="button" className="ip-cm-adv-clear" onClick={() => setCols(EMPTY_COLS)}>
+                  Clear
+                </button>
               ) : null}
+            </div>
+
+            {showAdvanced ? (
+              <div className="ip-cm-adv-grid">
+                {[
+                  ['candidate', 'Candidate'],
+                  ['internship', 'Internship'],
+                  ['preview', 'Preview'],
+                ].map(([key, label]) => (
+                  <label key={key}>
+                    <span>{label}</span>
+                    <input
+                      type="search"
+                      value={cols[key]}
+                      onChange={(e) => setCols((c) => ({ ...c, [key]: e.target.value }))}
+                      placeholder={`Filter by ${label.toLowerCase()}`}
+                    />
+                  </label>
+                ))}
+                <label>
+                  <span>When</span>
+                  <select
+                    value={cols.when}
+                    onChange={(e) => setCols((c) => ({ ...c, when: e.target.value }))}
+                  >
+                    {WHEN_WINDOWS.map(([key, label]) => (
+                      <option key={key} value={key}>{label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Status</span>
+                  <input
+                    type="search"
+                    value={cols.status}
+                    onChange={(e) => setCols((c) => ({ ...c, status: e.target.value }))}
+                    placeholder="Filter by status"
+                  />
+                </label>
+              </div>
+            ) : null}
+
+            <div className="px-3 pb-2">
+              <ListPresetsBar {...prefs} />
             </div>
           </div>
 
-          <div className="ip-em-list-body">
+          <div className="ip-cm-list-body">
             {loadingList ? (
-              <p className="ip-em-empty-list">Loading…</p>
+              <p className="ip-cm-empty-list">Loading…</p>
             ) : filtered.length ? (
-              <>
               <table className="ip-ph-list ip-msg-table">
                 <thead>
                   <tr>
-                    <th>From</th>
+                    <th>Candidate</th>
                     <th>Internship</th>
                     <th>Preview</th>
                     <th>When</th>
@@ -1079,59 +1003,50 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {pageItems.map((t) => {
+                  {filtered.map((t) => {
                     const unread = Number(t.unread_count) > 0;
                     const on = t.id === selectedId;
                     const name = counterpartName(t, role);
-                    const preview = plainTextFromMessageHtml(t.last_message || t.subject || '') || '—';
                     return (
                       <tr
                         key={t.id}
                         className={on ? 'is-on' : undefined}
-                        title={preview === '—' ? undefined : preview}
                         onClick={() => selectThread(t.id)}
                       >
                         <td>
                           <strong>{name}</strong>
-                          {unread ? <span className="ip-em-unread-dot" aria-hidden /> : null}
+                          {unread ? <span className="ip-cm-unread" aria-label="Unread" /> : null}
                         </td>
                         <td>{roleLine(t)}</td>
-                        <td className="ip-msg-table__preview" title={preview === '—' ? undefined : preview}>{preview}</td>
+                        <td className="ip-msg-table__preview">{t.last_message || t.subject || '—'}</td>
                         <td>{formatWhen(t.last_message_at || t.updated_at)}</td>
-                        <td>{displayApplicationStatus(t.application_status) || 'Open'}</td>
+                        <td>{t.application_status || (Number(t.message_count) ? 'Open' : 'New')}</td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-              {total > 0 ? (
-                <IpTablePagination
-                  page={page}
-                  totalPages={totalPages}
-                  total={total}
-                  pageSize={pageSize}
-                  onPageChange={setPage}
-                />
-              ) : null}
-              </>
             ) : (
-              <p className="ip-em-empty-list">No conversations match.</p>
+              <div className="ip-cm-empty-list">
+                <p style={{ fontWeight: 800, color: '#334155', margin: 0 }}>No conversations found</p>
+                <p style={{ margin: '0.35rem 0 0' }}>No messages match the current filter or search criteria.</p>
+              </div>
             )}
           </div>
         </aside>
 
-        <section className="ip-em-thread">
+        <section className="ip-cm-thread">
           {!selectedId ? (
-            <div className="ip-em-thread-empty">Select a conversation to read and reply.</div>
+            <div className="ip-cm-thread-empty">Select a conversation to read and reply.</div>
           ) : loadingThread && !thread ? (
-            <div className="ip-em-thread-empty">Loading thread…</div>
+            <div className="ip-cm-thread-empty">Loading thread…</div>
           ) : !thread ? (
-            <div className="ip-em-thread-empty">{error || 'Thread not found.'}</div>
+            <div className="ip-cm-thread-empty">{error || 'Thread not found.'}</div>
           ) : (
             <>
-              <div className="ip-em-thread-head">
-                <div className="ip-em-thread-person">
-                  <div className="ip-em-avatar">{initials(counterpartName(thread, role))}</div>
+              <div className="ip-cm-thread-head">
+                <div className="ip-cm-thread-person">
+                  <div className="ip-cm-avatar">{initials(counterpartName(thread, role))}</div>
                   <div>
                     <h3>{counterpartName(thread, role)}</h3>
                     <p>
@@ -1145,53 +1060,45 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                     </p>
                   </div>
                 </div>
-                <div className="ip-em-thread-actions">
+                <div className="ip-cm-thread-actions">
                   {thread.candidate_cgpa != null && thread.candidate_cgpa !== '' ? (
-                    <span className="ip-em-cgpa">{thread.candidate_cgpa} CGPA</span>
+                    <span className="ip-cm-cgpa">{thread.candidate_cgpa} CGPA</span>
                   ) : null}
-                  <button type="button" className="ip-em-btn ip-em-btn--resume" onClick={openResume}>
+                  <button type="button" className="ip-cm-btn ip-cm-btn--resume" onClick={openResume}>
                     <FileText className="size-3.5" aria-hidden />
                     Resume
                   </button>
                   <button
                     type="button"
-                    className="ip-em-btn ip-em-btn--ghost"
-                    title="Archive conversation"
-                    onClick={() => setArchived(selectedId, true)}
+                    className="ip-cm-btn ip-cm-btn--ghost"
+                    title={thread.archived ? 'Unarchive conversation' : 'Archive conversation'}
+                    onClick={() => setArchived(thread.id, !thread.archived)}
                   >
                     <Archive className="size-3.5" aria-hidden />
-                    Archive
-                  </button>
-                  <button
-                    type="button"
-                    className="ip-em-btn ip-em-btn--ghost"
-                    title="Close conversation"
-                    aria-label="Close conversation"
-                    onClick={() => selectThread('')}
-                  >
-                    <X className="size-3.5" aria-hidden />
-                    Close
+                    {thread.archived ? 'Unarchive' : 'Archive'}
                   </button>
                 </div>
               </div>
 
-              {error ? <div className="ip-em-alert">{error}</div> : null}
+              {error ? <div className="ip-cm-alert">{error}</div> : null}
 
-              <div className="ip-em-feed" ref={feedRef}>
-                <span className="ip-em-secure">Secure Application Thread</span>
+              <div className="ip-cm-feed" ref={feedRef}>
+                <span className="ip-cm-secure">Secure Application Thread</span>
                 {messages.map((m) => {
-                  const mine = isMineMessage(m, thread, role, currentUserId);
+                  const mine =
+                    m.sender_role === 'employer' || m.sender_user_id === thread.employer_user_id;
                   return (
                     <div
                       key={m.id}
-                      className={`ip-em-bubble-row ${mine ? 'ip-em-bubble-row--me' : 'ip-em-bubble-row--them'}`}
+                      className={`ip-cm-bubble-row ${mine ? 'ip-cm-bubble-row--me' : 'ip-cm-bubble-row--them'}`}
                     >
-                      <div className={`ip-em-bubble ${mine ? 'ip-em-bubble--me' : 'ip-em-bubble--them'}`}>
-                        {m.body ? (
-                          <p dangerouslySetInnerHTML={{ __html: sanitizeMessageHtml(m.body) }} />
-                        ) : null}
+                      <span className="ip-cm-bubble-meta">
+                        {m.sender_name} • {formatBubbleTime(m.sent_at)}
+                      </span>
+                      <div className={`ip-cm-bubble ${mine ? 'ip-cm-bubble--me' : 'ip-cm-bubble--them'}`}>
+                        {m.body ? <p>{m.body}</p> : null}
                         {m.attachment_url ? (
-                          <div className="ip-em-file">
+                          <div className="ip-cm-file">
                             <Paperclip className="size-3.5" aria-hidden />
                             <a href={m.attachment_url} target="_blank" rel="noopener noreferrer">
                               {m.attachment_name || 'Attachment'}
@@ -1199,22 +1106,22 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                             {m.attachment_size ? <span>({formatBytes(m.attachment_size)})</span> : null}
                           </div>
                         ) : null}
-                        <time dateTime={m.sent_at}>{formatBubbleTime(m.sent_at)}</time>
                       </div>
                     </div>
                   );
                 })}
                 {!messages.length ? (
                   <p style={{ textAlign: 'center', fontSize: '0.75rem', color: '#94a3b8' }}>
-                    No messages yet — say hello below.
+                    No messages yet — open the conversation with a short intro below.
                   </p>
                 ) : null}
               </div>
 
-              {pendingFile ? (
-                <div className="ip-em-attach-bar">
+              {pendingFile && !thread.archived ? (
+                <div className="ip-cm-attach-bar">
                   <span>
-                    <strong>{pendingFile.name}</strong> ({formatBytes(pendingFile.size)})
+                    <strong>{pendingFile.name}</strong>{' '}
+                    <span style={{ color: '#94a3b8' }}>({formatBytes(pendingFile.size)})</span>
                   </span>
                   <button
                     type="button"
@@ -1223,46 +1130,45 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                       if (fileRef.current) fileRef.current.value = '';
                     }}
                   >
-                    Remove
+                    ✕ Remove
                   </button>
                 </div>
               ) : null}
 
-              <form className="ip-em-composer" onSubmit={send}>
-                <div className="ip-em-composer-row ip-em-composer-row--rich">
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept={ATTACH_ACCEPT}
-                    onChange={onPickFile}
-                  />
-                  <button
-                    type="button"
-                    className="ip-em-attach"
-                    title="Attach file"
-                    onClick={() => fileRef.current?.click()}
-                  >
-                    <Paperclip className="size-5" aria-hidden />
-                  </button>
-                  <MessageRichComposer
-                    value={draft}
-                    onChange={setDraft}
-                    disabled={sending || Boolean(thread?.archived)}
-                    placeholder={`Reply to ${activeName}...`}
-                    aria-label="Reply"
-                    className="ip-em-rich-wrap"
-                    toolbarClassName="ip-msg-fmt"
-                    editorClassName="ip-msg-rich-editor"
-                  />
-                  <button
-                    type="submit"
-                    className="ip-em-btn ip-em-btn--primary"
-                    disabled={!canSend}
-                  >
-                    <Send className="size-3.5" aria-hidden />
-                    Send
-                  </button>
-                </div>
+              <form className="ip-cm-composer" onSubmit={send}>
+                {thread.archived ? (
+                  <div className="ip-cm-archived">
+                    This conversation is archived. Unarchive the thread to send messages.
+                  </div>
+                ) : (
+                  <div className="ip-cm-composer-row">
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept={ATTACH_ACCEPT}
+                      onChange={onPickFile}
+                    />
+                    <button
+                      type="button"
+                      className="ip-cm-attach"
+                      title="Attach file"
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      <Paperclip className="size-5" aria-hidden />
+                    </button>
+                    <input
+                      type="text"
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      placeholder={`Reply to ${activeName}...`}
+                      aria-label="Reply"
+                    />
+                    <button type="submit" className="ip-cm-btn ip-cm-btn--primary" disabled={!canSend}>
+                      Send
+                      <Send className="size-4" aria-hidden />
+                    </button>
+                  </div>
+                )}
               </form>
             </>
           )}

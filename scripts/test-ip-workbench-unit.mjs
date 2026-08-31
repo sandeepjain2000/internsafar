@@ -21,10 +21,10 @@ const {
 } = require('./lib/ipCoreSampleConfig.js');
 
 assertProtectedConfigValid();
-assert.ok(PROTECTED_ACCOUNT_EMAILS.includes('placementhubsupport@gmail.com'));
+assert.ok(PROTECTED_ACCOUNT_EMAILS.includes('support@placementhub.online'));
 assert.ok(PROTECTED_ACCOUNT_EMAILS.includes('lawsonlclintern+1@gmail.com'));
-assert.ok(PROTECTED_ACCOUNT_EMAILS.includes('shreekar.nyayapathi23+2@vit.edu'));
-assert.ok(isProtectedEmail('placementhubsupport@gmail.com'));
+assert.ok(PROTECTED_ACCOUNT_EMAILS.includes('placementhubsupport@gmail.com'));
+assert.ok(isProtectedEmail('support@placementhub.online'));
 assert.ok(!isProtectedEmail('random@example.com'));
 assert.equal(DEMO_PASSWORD, 'Admin@123');
 

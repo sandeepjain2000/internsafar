@@ -35,10 +35,6 @@ import {
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import '@/components/ip/ip-candidate-referral-gemini.css';
-import { useClientPagination } from '@/hooks/useClientPagination';
-import IpTablePagination from '@/components/ip/IpTablePagination';
-
-const PAGE_SIZE = 10;
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -105,7 +101,7 @@ export default function CandidateReferralPage() {
     snapshot,
     applySnapshot: (s) => {
       const f = s.filters || {};
-      if (f.filter != null) setFilter(f.filter);
+      if (f.filter) setFilter(f.filter);
     },
   });
 
@@ -158,24 +154,6 @@ export default function CandidateReferralPage() {
     if (filter === 'all') return referrals;
     return referrals.filter((r) => r.filter_key === filter);
   }, [referrals, filter]);
-
-  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(filtered, PAGE_SIZE);
-  const {
-    page: ledgerPage,
-    setPage: setLedgerPage,
-    totalPages: ledgerTotalPages,
-    total: ledgerTotal,
-    pageItems: ledgerPageItems,
-    pageSize: ledgerPageSize,
-  } = useClientPagination(ledger, PAGE_SIZE);
-
-  useEffect(() => {
-    setPage(1);
-  }, [filter, setPage]);
-
-  useEffect(() => {
-    setLedgerPage(1);
-  }, [ledger, setLedgerPage]);
 
   function copyLink() {
     if (!link) return;
@@ -504,7 +482,7 @@ export default function CandidateReferralPage() {
                 </tr>
               </thead>
               <tbody>
-                {pageItems.map((r) => {
+                {filtered.map((r) => {
                   const badge = badgeFor(r.filter_key);
                   const pts = pointsCell(r);
                   const Icon = badge.Icon;
@@ -525,15 +503,6 @@ export default function CandidateReferralPage() {
                 })}
               </tbody>
             </table>
-            {total > 0 ? (
-              <IpTablePagination
-                page={page}
-                totalPages={totalPages}
-                total={total}
-                pageSize={pageSize}
-                onPageChange={setPage}
-              />
-            ) : null}
           </div>
         )}
 
@@ -585,7 +554,7 @@ export default function CandidateReferralPage() {
                 </tr>
               </thead>
               <tbody>
-                {ledgerPageItems.map((row) => {
+                {ledger.map((row) => {
                   const pos = row.delta >= 0;
                   return (
                     <tr key={row.id}>
@@ -609,15 +578,6 @@ export default function CandidateReferralPage() {
                 })}
               </tbody>
             </table>
-            {ledgerTotal > 0 ? (
-              <IpTablePagination
-                page={ledgerPage}
-                totalPages={ledgerTotalPages}
-                total={ledgerTotal}
-                pageSize={ledgerPageSize}
-                onPageChange={setLedgerPage}
-              />
-            ) : null}
           </div>
         )}
       </div>

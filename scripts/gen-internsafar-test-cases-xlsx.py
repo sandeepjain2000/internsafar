@@ -50,9 +50,9 @@ DEMO = {
     "candidate": "lawsonlclintern+1@gmail.com / Admin@123",
     "candidate2": "lawsonlclintern+2@gmail.com / Admin@123",
     "candidate_hidden": "lawsonlclintern+3@gmail.com / Admin@123",
-    "employer": "shreekar.nyayapathi23+2@vit.edu / Admin@123",
-    "employer_pending": "shreekar.nyayapathi23+3@vit.edu (pending)",
-    "superadmin": "placementhubsupport@gmail.com / Admin@123",
+    "employer": "placementhubsupport@gmail.com / Admin@123",
+    "employer_pending": "support+3@placementhub.online (pending)",
+    "superadmin": "support@placementhub.online / Admin@123",
 }
 
 # Prefix → InternSafar module (current product, not Reference A 25-module list)
@@ -104,8 +104,8 @@ CORRECTED = {
     "PUB-1": "Home sign-in uses #email and #password.",
     "PUB-2": "/login redirects to `/` and keeps query params.",
     "AUTH-1": "Candidate/employer: Gmail+ cores on `/` with captcha.",
-    "AUTH-15": "SuperAdmin: placementhubsupport@gmail.com on /superadmin/login (#sa-email, #sa-password).",
-    "BOOT-1": "Bootstrap keeps placementhubsupport@gmail.com and the Gmail+ showcase users.",
+    "AUTH-15": "SuperAdmin: support@placementhub.online on /superadmin/login (#sa-email, #sa-password).",
+    "BOOT-1": "Bootstrap keeps support@placementhub.online and the Gmail+ showcase users.",
     "CAND-P-1": "Profile is five tabs: Basics, Academic, Work Readiness, Privacy & Photo, Endorsements (read-only).",
     "CAND-P-2": "Photo/privacy on tab 4; academics via /api/ip/candidate/academics.",
     "CAND-P-3": "Incomplete-profile banner on /candidate and /candidate/profile.",
@@ -156,7 +156,7 @@ LIVE = {
         "steps": (
             "1. Open `/`.\n"
             "2. Candidate: lawsonlclintern+1@gmail.com / Admin@123 + captcha → submit.\n"
-            "3. Sign out. Repeat as employer shreekar.nyayapathi23+2@vit.edu / Admin@123.\n"
+            "3. Sign out. Repeat as employer placementhubsupport@gmail.com / Admin@123.\n"
             "4. SuperAdmin uses /superadmin/login with #sa-email / #sa-password, not the home form."
         ),
         "expected": "Candidate → /candidate. Employer → /employer. SuperAdmin from /superadmin/login → /superadmin. Home form is for candidate/employer.",
@@ -175,7 +175,7 @@ LIVE = {
         "title": "SuperAdmin signs in only on /superadmin/login",
         "steps": (
             "1. Open /superadmin/login.\n"
-            "2. Sign in with placementhubsupport@gmail.com / Admin@123 + captcha (#sa-email, #sa-password).\n"
+            "2. Sign in with support@placementhub.online / Admin@123 + captcha (#sa-email, #sa-password).\n"
             "3. On `/` try the same SuperAdmin email in #email/#password.\n"
             "4. On /superadmin/login try lawsonlclintern+1@gmail.com."
         ),
@@ -204,10 +204,10 @@ LIVE = {
         "title": "App bootstrap keeps SuperAdmin seed",
         "steps": (
             "1. POST /api/ip/bootstrap (happens on SA login page load too).\n"
-            "2. Sign in placementhubsupport@gmail.com / Admin@123 on /superadmin/login.\n"
+            "2. Sign in support@placementhub.online / Admin@123 on /superadmin/login.\n"
             "3. Confirm core candidate/employer are the Gmail+ accounts, not deleted by bootstrap."
         ),
-        "expected": "SuperAdmin can sign in. Showcase accounts stay lawsonlclintern+1@gmail.com and shreekar.nyayapathi23+2@vit.edu.",
+        "expected": "SuperAdmin can sign in. Showcase accounts stay lawsonlclintern+1@gmail.com and placementhubsupport@gmail.com.",
     },
     "PTS-2": {
         "title": "There is no convert-points-to-credits action",

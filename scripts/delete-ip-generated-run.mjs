@@ -6,10 +6,6 @@
  *   --mode=except-cores   Delete ALL users except the three CORE accounts
  *
  * Dry-run unless confirmed. Never changes core email / password / role.
- *
- * After delete, re-run generate (`--mode=core-fill` or `gen-accounts`) so new
- * accounts again use distinct realistic candidate/employer names, structured JD
- * sections (About / Requirements / Ideal), and distributed offers.
  * See scripts/IP_TEST_DATA_GUIDE.md
  */
 import path from 'path';

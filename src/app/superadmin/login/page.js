@@ -26,10 +26,77 @@ export default function SuperAdminLoginPage() {
   const captchaFieldRef = useRef(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [otpStep, setOtpStep] = useState(false);
+  const [otpChallengeId, setOtpChallengeId] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpHint, setOtpHint] = useState('');
 
   useEffect(() => {
     fetch('/api/ip/bootstrap', { method: 'POST' }).catch(() => {});
   }, []);
+
+  function parseTwoFactorRequired(err) {
+    const raw = decodeURIComponent(String(err || ''));
+    const m = raw.match(/TWO_FACTOR_REQUIRED:([A-Za-z0-9_-]+)/);
+    return m ? m[1] : null;
+  }
+
+  // Shared by the password and OTP submits: this page must refuse non-superadmins either way.
+  async function finishLogin() {
+    const sess = await fetch('/api/auth/session').then((r) => r.json());
+    if (sess?.user?.role !== 'superadmin') {
+      setError('This account is not a SuperAdmin account.');
+      return;
+    }
+    router.replace('/superadmin');
+  }
+
+  async function onSubmitOtp(e) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const res = await signIn('credentials', {
+        redirect: false,
+        email,
+        otpChallengeId,
+        otpCode: otpCode.trim(),
+      });
+      if (res?.error) {
+        setError(res.error);
+        return;
+      }
+      await finishLogin();
+    } catch (err) {
+      setError(err.message || 'Verification failed');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function resendOtp() {
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/ip/auth/2fa/resend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ challengeId: otpChallengeId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'Could not resend code');
+        return;
+      }
+      if (data.challengeId) setOtpChallengeId(data.challengeId);
+      setOtpHint(data.sentToHint ? `Code sent (check ${data.sentToHint})` : 'Code sent');
+      setOtpCode('');
+    } catch (err) {
+      setError(err.message || 'Could not resend code');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user?.role === 'superadmin') {
@@ -66,15 +133,19 @@ export default function SuperAdminLoginPage() {
         captchaAnswer: captchaAnswerToSend,
       });
       if (res?.error) {
+        const challengeId = parseTwoFactorRequired(res.error);
+        if (challengeId) {
+          setOtpChallengeId(challengeId);
+          setOtpStep(true);
+          setOtpCode('');
+          setOtpHint('We emailed a 6-digit code. Check your inbox (or QA override inbox if configured).');
+          setError('');
+          return;
+        }
         setError(res.error);
         return;
       }
-      const sess = await fetch('/api/auth/session').then((r) => r.json());
-      if (sess?.user?.role !== 'superadmin') {
-        setError('This account is not a SuperAdmin account.');
-        return;
-      }
-      router.replace('/superadmin');
+      await finishLogin();
     } catch (err) {
       setError(err.message || 'Sign in failed');
     } finally {
@@ -91,10 +162,65 @@ export default function SuperAdminLoginPage() {
     >
       <Card className="border-border/80 shadow-sm border-t-4 border-t-destructive">
         <CardHeader>
-          <CardTitle className="text-destructive">SuperAdmin login</CardTitle>
-          <CardDescription>Separate from candidate/employer login.</CardDescription>
+          <CardTitle className="text-destructive">
+            {otpStep ? 'Two-factor verification' : 'SuperAdmin login'}
+          </CardTitle>
+          <CardDescription>
+            {otpStep ? 'Enter the 6-digit code we emailed you.' : 'Separate from candidate/employer login.'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
+          {otpStep ? (
+            <form className="space-y-4" onSubmit={onSubmitOtp}>
+              {error ? (
+                <Alert variant="destructive">
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              ) : null}
+              {otpHint ? (
+                <Alert>
+                  <AlertDescription>{otpHint}</AlertDescription>
+                </Alert>
+              ) : null}
+              <Field>
+                <FieldLabel htmlFor="sa-otp">Verification code</FieldLabel>
+                <Input
+                  id="sa-otp"
+                  name="sa-otp"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value)}
+                  required
+                />
+              </Field>
+              <Button type="submit" className="w-full" variant="destructive" disabled={loading}>
+                {loading ? 'Verifying…' : 'Verify & continue'}
+              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={resendOtp} disabled={loading}>
+                  Resend code
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="flex-1"
+                  disabled={loading}
+                  onClick={() => {
+                    setOtpStep(false);
+                    setOtpChallengeId('');
+                    setOtpCode('');
+                    setOtpHint('');
+                    setError('');
+                  }}
+                >
+                  Back to password
+                </Button>
+              </div>
+            </form>
+          ) : (
           <form className="space-y-4" onSubmit={onLogin}>
             {error ? (
               <Alert variant="destructive">
@@ -139,6 +265,7 @@ export default function SuperAdminLoginPage() {
               {loading ? 'Signing in…' : 'Login'}
             </Button>
           </form>
+          )}
         </CardContent>
       </Card>
     </AuthShell>

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Batch QA sheets 15 â†’ 11 (Promotions, Viral, Points/Referrals, Messages, Offers).
  */
 const BASE = process.argv[2] || process.env.IP_BASE || 'http://localhost:3000';
@@ -73,8 +73,8 @@ async function main() {
   const executedAt = new Date().toISOString();
   const batches = [];
   const cand = await apiLogin('lawsonlclintern+1@gmail.com', 'Admin@123');
-  const emp = await apiLogin('shreekar.nyayapathi23+2@vit.edu', 'Admin@123');
-  const sa = await apiLogin('placementhubsupport@gmail.com', 'Admin@123');
+  const emp = await apiLogin('placementhubsupport@gmail.com', 'Admin@123');
+  const sa = await apiLogin('support@placementhub.online', 'Admin@123');
 
   // ----- 15 LinkedIn Promotions -----
   {

@@ -1,5 +1,5 @@
 @startuml Internship Portal ER — CORE vs NON-ESSENTIAL
-title InternSafar / Internship Portal — logical ER\nPK + FK listed under each table name · bodies are keys only (not full schemas)\nSynced 2026-08-27 from live DB + migrations 001–029 + ensureIp*.js
+title InternSafar / Internship Portal — logical ER\nPK + FK listed under each table name · bodies are keys only (not full schemas)\nSynced 2026-08-31 from live DB + migrations 001–031 + ensureIp*.js
 
 ' RULES (explicit):
 ' 1) PK and FK appear under the table name (entity title), not as a full column dump.
@@ -138,6 +138,10 @@ package "NON-ESSENTIAL" <<NONESSENTIAL>> {
     }
     entity "ip_notification_preferences\nPK: user_id + category\nFK: user_id → ip_users" as ip_notification_preferences {
     }
+    entity "ip_google_identities\nPK: user_id → ip_users\nUNIQUE: google_sub" as ip_google_identities {
+    }
+    entity "ip_google_verifications\nPK: id\nFK: —\nUNIQUE: token_hash" as ip_google_verifications {
+    }
   }
 
   package "Lookup" <<NONESSENTIAL>> {
@@ -256,9 +260,17 @@ ip_users ||--o{ ip_2fa_challenges
 ip_users ||--o{ ip_email_change_challenges
 ip_users ||--o{ ip_phone_change_challenges
 ip_users ||--o{ ip_notification_preferences
+ip_users ||--o| ip_google_identities
 ip_users ||--o{ ip_saved_applicant_views
 ip_employers ||--o{ ip_saved_applicant_views
 ip_users ||--o{ ip_table_filter_prefs
 ip_employers ||--o{ ip_rejection_templates
+
+note bottom of ip_google_verifications
+  Deliberately has **no FK**: a Google account is
+  verified mid-registration, before any ip_users row
+  exists. Consumed single-use, then ip_google_identities
+  becomes the lasting proof of Google sign-in.
+end note
 
 @enduml
