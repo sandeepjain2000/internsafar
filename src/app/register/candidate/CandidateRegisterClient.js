@@ -10,15 +10,12 @@ import {
   ArrowRight,
   CheckCircle2,
   GraduationCap,
-  Key,
   Mail,
   Sparkles,
-  XCircle,
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { IpGeminiBrand } from '@/components/ip/IpGeminiBrand';
 import { isGmailAddress, normalizeEmail } from '@/lib/authRegisterRules';
-import { REFERRAL_POINTS } from '@/lib/pointsEconomy';
 import '@/components/ip/ip-login-gemini.css';
 import '@/components/ip/ip-candidate-register-gemini.css';
 
@@ -259,18 +256,8 @@ export default function CandidateRegisterPage() {
                     </div>
                     <CheckCircle2 aria-hidden />
                   </div>
-                  {!verifiedIsGmail ? (
-                    <div className="ip-crg-domain-err" role="alert">
-                      <strong>
-                        <XCircle aria-hidden />
-                        Institutional domains not supported
-                      </strong>
-                      <p>
-                        Addresses such as @{verifiedDomain} are not permitted. Use a personal
-                        @gmail.com or @googlemail.com account.
-                      </p>
-                    </div>
-                  ) : null}
+                  {/* The non-Gmail rejection is raised as an error by the verification effect
+                      before the account is created, so it surfaces in the Alert above. */}
                   {/* The token is single-use, so recovery is a fresh Google run, not a retry. */}
                   <button
                     type="button"
@@ -289,10 +276,10 @@ export default function CandidateRegisterPage() {
               <div className="ip-crg-done-ico">
                 <CheckCircle2 aria-hidden />
               </div>
-              <h2>Candidate Account Created!</h2>
+              <h2>Registration complete</h2>
               <p>
-                Welcome{done?.name ? `, ${done.name}` : ''}. Your account is ready. Sign in with the
-                temporary password sent to your Gmail.
+                <strong>{done?.email}</strong> has been registered. A temporary password has been
+                emailed to that address — use it to sign in, then change it under Account.
               </p>
               {done?.warning ? (
                 <Alert>
@@ -300,53 +287,8 @@ export default function CandidateRegisterPage() {
                 </Alert>
               ) : null}
 
-              <div className="ip-crg-summary">
-                <div className="ip-crg-summary-row">
-                  <span>Full Name</span>
-                  <strong>{done?.name || '—'}</strong>
-                </div>
-                <div className="ip-crg-summary-row">
-                  <span>Registered Gmail</span>
-                  <strong>{done?.email || '—'}</strong>
-                </div>
-                <div className="ip-crg-summary-row">
-                  <span>Authentication</span>
-                  <strong>Gmail + emailed password</strong>
-                </div>
-              </div>
-
-              <div className="ip-crg-mail">
-                <h3>
-                  <Key aria-hidden />
-                  Temporary initial password sent
-                </h3>
-                <p>
-                  A temporary password has been emailed to <strong>{done?.email}</strong>. Use it on
-                  the sign-in page, then change it under Account.
-                </p>
-              </div>
-
-              <div className="ip-crg-points">
-                <div className="ip-crg-points-head">
-                  <span>Starting points</span>
-                  <span className="ip-crg-points-pill">{done?.startingPoints || 50} points</span>
-                </div>
-                <ul>
-                  <li>
-                    <span>Signup balance</span>
-                    <span>+{done?.startingPoints || 50}</span>
-                  </li>
-                  {done?.referralApplied ? (
-                    <li>
-                      <span>Referral applied</span>
-                      <span>Referrer earns +{REFERRAL_POINTS}</span>
-                    </li>
-                  ) : null}
-                </ul>
-              </div>
-
               <Link href="/" className="ip-crg-submit">
-                Proceed to Sign In
+                Back to Sign In
                 <ArrowRight className="size-4" aria-hidden />
               </Link>
             </div>

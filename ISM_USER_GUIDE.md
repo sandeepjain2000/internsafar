@@ -1,6 +1,6 @@
 # Internship Portal (InternSafar) - Full User & Ops Guide
 
-**Document type:** Source of truth for humans and for AI assistants.
+**Document type:** Source of truth for humans and for AI assistants.  
 **Scope:** Code in `internship-portal` only (this folder).
 **Package name:** `internship-portal`
 **Roles:** exactly three - `candidate`, `employer`, `superadmin`.

@@ -8,8 +8,7 @@ import { ArrowLeft, Building2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import LoginCaptchaField from '@/components/auth/LoginCaptchaField';
 import { IpGeminiBrand } from '@/components/ip/IpGeminiBrand';
-import { domainsMatch } from '@/lib/authRegisterRules';
-import { emailDomain } from '@/lib/emailDomains';
+import { companyLabelFromWebsite, emailDomain, isFreeMailDomain } from '@/lib/emailDomains';
 import { readCaptchaField } from '@/lib/captchaClient';
 import '@/components/ip/ip-register-gemini.css';
 import '@/components/ip/ip-login-gemini.css';
@@ -45,7 +44,6 @@ export default function EmployerRegisterPage() {
   const referralCode = sp.get('ref') || '';
   const gv = sp.get('gv') || '';
   const [path, setPath] = useState(gv ? 'domain' : 'choose'); // choose | domain-google | domain | form | done
-  const [website, setWebsite] = useState('');
   const [email, setEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [contactName, setContactName] = useState('');
@@ -64,6 +62,47 @@ export default function EmployerRegisterPage() {
   const [checkingGv, setCheckingGv] = useState(Boolean(gv));
   const [startingGoogle, setStartingGoogle] = useState(false);
 
+  /**
+   * Register straight from the Google verification, with no form. The work email is the
+   * verified account and the website is derived from its domain, which is exactly what the
+   * API checks the two against — so there is nothing left for the recruiter to type.
+   */
+  const createdRef = useRef('');
+  const createFromGoogle = useCallback(
+    async (account) => {
+      if (!account || createdRef.current === gv) return;
+      createdRef.current = gv;
+      setLoading(true);
+      setError('');
+      try {
+        const domain = emailDomain(account.email);
+        const res = await fetch('/api/ip/auth/register-employer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            website: `https://${domain}`,
+            email: account.email,
+            companyName: companyLabelFromWebsite(`https://${domain}`),
+            contactName: account.name || '',
+            googleVerificationToken: gv,
+            manualRequest: false,
+            referralCode: referralCode || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Registration failed');
+        setDone(data);
+        setPath('done');
+      } catch (err) {
+        setError(err.message);
+        setPath('domain-google');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [gv, referralCode],
+  );
+
   useEffect(() => {
     if (!gv) return;
     let alive = true;
@@ -75,16 +114,21 @@ export default function EmployerRegisterPage() {
         const data = await res.json();
         if (!alive) return;
         if (!res.ok) throw new Error(data.error || 'Verification could not be read');
-        setVerified({ email: data.email, name: data.name || '' });
-        // The work email IS the verified account — it is no longer a field, so a recruiter
-        // cannot claim a mailbox they have not signed in to. Website is prefilled from the
-        // same domain, which is what the API checks it against.
-        setEmail(data.email);
-        setContactName((v) => v || data.name || '');
-        setWebsite((v) => v || `https://${emailDomain(data.email)}`);
-        setHint(
-          `Google verified ${data.email}. Confirm your company website and we email a temporary password to that Google inbox.`,
-        );
+        const account = { email: data.email, name: data.name || '' };
+        setVerified(account);
+        setEmail(account.email);
+        setContactName((v) => v || account.name || '');
+        // A personal Gmail would derive "https://gmail.com" as the company website, which
+        // would satisfy the domain-match rule while meaning nothing. Company Google accounts
+        // only; everyone else uses the Form path, which SuperAdmin reviews.
+        if (isFreeMailDomain(emailDomain(account.email))) {
+          setPath('domain-google');
+          setError(
+            `${account.email} is a personal Google account, not a company one. Use your work Google account, or register through the Form path for SuperAdmin review.`,
+          );
+          return;
+        }
+        await createFromGoogle(account);
       } catch (err) {
         if (alive) {
           setError(err.message);
@@ -97,7 +141,7 @@ export default function EmployerRegisterPage() {
     return () => {
       alive = false;
     };
-  }, [gv]);
+  }, [gv, createFromGoogle]);
 
   const continueWithGoogle = useCallback(async () => {
     setError('');
@@ -124,45 +168,6 @@ export default function EmployerRegisterPage() {
     setPath('choose');
     setError('');
     setHint('');
-  }
-
-  async function submitDomain(e) {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    if (!verified) {
-      setError('Verify with Google first — the domain path needs your company Google account.');
-      setLoading(false);
-      return;
-    }
-    if (!domainsMatch(website, email)) {
-      setError('Website domain and work-email domain must match (e.g. company.com and hr@company.com).');
-      setLoading(false);
-      return;
-    }
-    try {
-      const res = await fetch('/api/ip/auth/register-employer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          website,
-          email,
-          companyName,
-          contactName,
-          googleVerificationToken: gv,
-          manualRequest: false,
-          referralCode: referralCode || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed');
-      setDone(data);
-      setPath('done');
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
   }
 
   async function submitForm(e) {
@@ -281,68 +286,36 @@ export default function EmployerRegisterPage() {
               </div>
             ) : null}
 
-            {path === 'domain-google' ? (
+            {path === 'domain-google' || path === 'domain' ? (
               <div className="flex flex-col gap-3">
-                <p className="m-0 text-center text-sm text-slate-500">
-                  Verify with Google, then enter your website and matching work email.
-                </p>
-                <div className="ip-reg-social">
-                  <button type="button" onClick={continueWithGoogle} disabled={startingGoogle || checkingGv}>
+                {verified && loading ? (
+                  <div className="ip-reg-verified">
                     <GoogleMark />
-                    {startingGoogle ? 'Opening Google…' : 'Continue with Google'}
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
-            {path === 'domain' ? (
-              <form className="flex flex-col gap-4" onSubmit={submitDomain}>
-                <div className="ip-reg-panel">
-                  <h3>Automated domain verification</h3>
-                  {verified ? (
-                    <div className="ip-reg-verified">
-                      <GoogleMark />
-                      <div>
-                        <strong>{verified.email}</strong>
-                        <span>Verified with Google</span>
-                      </div>
-                      <button type="button" onClick={continueWithGoogle}>
-                        Change account
-                      </button>
+                    <div>
+                      <strong>{verified.email}</strong>
+                      <span>Creating your employer account…</span>
                     </div>
-                  ) : (
-                    <p className="ip-reg-hint">
+                  </div>
+                ) : (
+                  <>
+                    <p className="m-0 text-center text-sm text-slate-500">
                       {checkingGv
                         ? 'Reading your Google verification…'
-                        : 'Google verification is required for this path.'}
+                        : 'Sign in with your company Google account. Your work email and company domain come from Google, so there is nothing to fill in.'}
                     </p>
-                  )}
-                  {/* Website is prefilled from the verified Google domain and the work email is
-                      fixed to the verified account, so the usual "domains must match" rule is
-                      satisfied without retyping either. Website stays editable because a company
-                      may serve its site on a different host than its mail domain. Company and
-                      contact name are no longer asked: Google supplies the name, and SuperAdmin
-                      can correct the company on approval. */}
-                  <div className="ip-reg-field">
-                    <label htmlFor="website">Company website</label>
-                    <input
-                      id="website"
-                      className="ip-reg-input"
-                      value={website}
-                      onChange={(e) => setWebsite(e.target.value)}
-                      placeholder="https://yourcompany.com"
-                      required
-                    />
-                    <p className="ip-reg-hint">
-                      Must be on the same domain as your Google account
-                      {verified ? ` (${emailDomain(verified.email)})` : ''}.
-                    </p>
-                  </div>
-                </div>
-                <button type="submit" className="ip-reg-submit ip-reg-submit--accent" disabled={loading}>
-                  {loading ? 'Registering…' : 'Register & email password'}
-                </button>
-              </form>
+                    <div className="ip-reg-social">
+                      <button
+                        type="button"
+                        onClick={continueWithGoogle}
+                        disabled={startingGoogle || checkingGv}
+                      >
+                        <GoogleMark />
+                        {startingGoogle ? 'Opening Google…' : 'Continue with Google'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             ) : null}
 
             {path === 'form' ? (
@@ -436,17 +409,26 @@ export default function EmployerRegisterPage() {
             {path === 'done' && done ? (
               <div className="flex flex-col gap-4">
                 <Alert>
-                  <AlertTitle>{done.mode === 'manual_request' ? 'Request submitted' : 'Account created'}</AlertTitle>
+                  <AlertTitle>
+                    {done.mode === 'manual_request' ? 'Request submitted' : 'Registration complete'}
+                  </AlertTitle>
                   <AlertDescription>
-                    {done.message}
+                    {done.mode === 'manual_request' ? (
+                      <>
+                        {done.message} SuperAdmin will create your account if approved — watch for
+                        follow-up.
+                      </>
+                    ) : (
+                      <>
+                        <strong>{email}</strong> has been registered. A temporary password has been
+                        emailed to that address — use it to sign in.
+                      </>
+                    )}
                     {done.warning ? ` ${done.warning}` : ''}
-                    {done.mode === 'manual_request'
-                      ? ' SuperAdmin will create your account if approved — watch for follow-up.'
-                      : ' Use the emailed password on the login page to enter the employer portal.'}
                   </AlertDescription>
                 </Alert>
                 <Link href="/" className="ip-reg-submit ip-reg-submit--accent" style={{ textDecoration: 'none' }}>
-                  Go to login
+                  Back to Sign In
                 </Link>
               </div>
             ) : null}
