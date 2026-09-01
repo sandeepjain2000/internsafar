@@ -1,5 +1,7 @@
 # Internship Portal — Combined UI Prototype
 
+> **Reference only (Aug 2026 wireframes).** Not the production InternSafar app. Product spec: [`../InternSafar_Business_Requirements.txt`](../InternSafar_Business_Requirements.txt).
+
 A single-file, clickable HTML prototype that merges the base wireframe set with the offer-flow add-on, restyled with a **Placement Hub / ISM-style** production look (indigo primary, slate neutrals, card-based layout, Outfit/Inter typography) instead of the original dashed "wireframe-box" look.
 
 ## How to open

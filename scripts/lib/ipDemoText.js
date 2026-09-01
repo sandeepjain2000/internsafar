@@ -31,11 +31,11 @@ const TEAMS = [
 const COMPANIES = COMPANY_CATALOG;
 
 const COLLEGES = [
-  'College of Engineering, Pune', 'Vishwakarma Institute of Technology, Pune',
+  'College of Engineering, Pune', 'Pimpri Chinchwad College of Engineering, Pune',
   'MIT World Peace University, Pune', 'Pune Institute of Computer Technology',
   'Symbiosis Institute of Technology, Pune', 'VJTI, Mumbai',
   'K. J. Somaiya College of Engineering, Mumbai', 'Sardar Patel Institute of Technology, Mumbai',
-  'VNIT, Nagpur', 'Government College of Engineering, Aurangabad',
+  'Yeshwantrao Chavan College of Engineering, Nagpur', 'Government College of Engineering, Aurangabad',
   'Manipal Institute of Technology', 'BITS Pilani', 'SRM Institute of Science and Technology',
   'Amity University, Noida', 'Christ University, Bengaluru',
   'PES University, Bengaluru', 'Thapar Institute of Engineering and Technology',

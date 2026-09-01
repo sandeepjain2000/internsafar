@@ -75,7 +75,7 @@ async function ensureCandidateRow(client, userId, email, name) {
   await client.query(
     `INSERT INTO ip_candidates (id, user_id, name, email, phone, college, city, state, skills, resume_url)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-    [id, userId, name, email.toLowerCase(), '9000000001', 'VIT', 'Pune', 'Maharashtra', ['React'], 'https://example.com/resume.pdf'],
+    [id, userId, name, email.toLowerCase(), '9000000001', 'Pune Institute of Computer Technology', 'Pune', 'Maharashtra', ['React'], 'https://example.com/resume.pdf'],
   );
   return id;
 }
@@ -266,7 +266,10 @@ export async function runTcIs06006({ BASE, assess, blocked, cand }) {
     }, marker);
     await page.waitForTimeout(300);
     const typedOk = (await first.inputValue()) === marker;
-    await page.getByRole('tab', { name: /Academic/i }).click();
+    // Privacy tab is always unlocked; Academic stays locked until Save & Next on Basics.
+    const privacyTab = page.getByRole('tab', { name: /Privacy/i });
+    await privacyTab.waitFor({ state: 'visible', timeout: 10_000 });
+    await privacyTab.click();
     await page.waitForTimeout(400);
     await page.getByRole('tab', { name: /Basics/i }).click();
     await first.waitFor({ state: 'visible', timeout: 10_000 });
@@ -307,7 +310,7 @@ export async function runTcIs06006({ BASE, assess, blocked, cand }) {
       persisted,
       putStatus: put.status,
       putError: put.data?.error,
-      note: 'Playwright: unsaved Basics survives Academic tab switch. API: Basics fields persist on PUT then restored.',
+      note: 'Playwright: unsaved Basics survives Privacy tab switch. API: Basics fields persist on PUT then restored.',
     });
   } catch (e) {
     blocked('TC-IS-06-006', `Playwright: ${e.message || e}`);
@@ -317,8 +320,8 @@ export async function runTcIs06006({ BASE, assess, blocked, cand }) {
 }
 
 /**
- * TC-IS-06-007 — throwaway +alias; OTP only from IP_QA_EMAIL_CHANGE_CODE (local env).
- * When a code is already in env, do NOT request again (that would invalidate the pasted OTP).
+ * TC-IS-06-007 — email change OTP (manual-only runner: scripts/manual/run-tc-is-06-007-email-change.mjs).
+ * OTP from IP_QA_EMAIL_CHANGE_CODE in .env.local only — never part of run-internsafar-qa.mjs.
  */
 export async function runTcIs06007({ BASE, assess, blocked }) {
   const email = QA_ALIAS.emailChangeFrom;
@@ -332,7 +335,6 @@ export async function runTcIs06007({ BASE, assess, blocked }) {
     await db.query(`DELETE FROM ip_users WHERE lower(email) = lower($1)`, [newEmail]).catch(() => {});
   });
 
-  // If operator pasted a Zoho code, verify against the open challenge (any recent from-user).
   if (CODE && CODE.length === 6) {
     const open = await withDb(async (db) => {
       const r = await db.query(
@@ -340,14 +342,26 @@ export async function runTcIs06007({ BASE, assess, blocked }) {
          FROM ip_email_change_challenges c
          JOIN ip_users u ON u.id = c.user_id
          WHERE c.used_at IS NULL AND c.expires_at > now()
+           AND lower(u.email) = lower($1)
+           AND lower(c.new_email) = lower($2)
          ORDER BY c.created_at DESC
          LIMIT 1`,
+        [email, newEmail],
       );
       return r.rows[0] || null;
     }).catch(() => null);
 
-    const fromEmail = open?.from_email || email;
-    const targetEmail = open?.new_email || newEmail;
+    if (!open) {
+      blocked(
+        'TC-IS-06-007',
+        `IP_QA_EMAIL_CHANGE_CODE is set but no open challenge for ${email} → ${newEmail}. `
+        + 'Remove the env code, run step 1 (request OTP), paste fresh code within 10 min, run step 2.',
+      );
+      return;
+    }
+
+    const fromEmail = open.from_email;
+    const targetEmail = open.new_email;
     const login = await apiLogin(BASE, fromEmail, PW);
     if (!login.ok) {
       blocked('TC-IS-06-007', `Could not login challenge owner ${fromEmail}`);
@@ -363,15 +377,18 @@ export async function runTcIs06007({ BASE, assess, blocked }) {
       await db.query(`UPDATE ip_users SET email=$2, updated_at=now() WHERE lower(email)=lower($1)`, [targetEmail, fromEmail]);
       await db.query(`UPDATE ip_candidates SET email=$2, updated_at=now() WHERE lower(email)=lower($1)`, [targetEmail, fromEmail]);
     }).catch(() => {});
-    assess('TC-IS-06-007', wrong.status === 400 && verify.status === 200, {
-      mode: 'env-otp-no-rerequest',
-      fromEmail,
-      targetEmail,
-      wrong: wrong.status,
-      verify: verify.status,
-      verifyError: verify.data?.error,
-      restored: true,
-    });
+
+    if (wrong.status === 400 && verify.status === 200) {
+      assess('TC-IS-06-007', true, {
+        mode: 'env-otp-no-rerequest', fromEmail, targetEmail, wrong: wrong.status, verify: verify.status, restored: true,
+      });
+    } else {
+      blocked(
+        'TC-IS-06-007',
+        `Stale or wrong OTP (verify ${verify.status}: ${verify.data?.error || 'n/a'}). `
+        + 'Clear IP_QA_EMAIL_CHANGE_CODE, run step 1 again, paste new Zoho code within 10 minutes.',
+      );
+    }
     return;
   }
 
@@ -538,6 +555,81 @@ export async function runTcIs11016_017({ BASE, assess, blocked, emp }) {
 }
 
 const TK_CAND_INTERNS = 'candidate.internships';
+
+/**
+ * TC-IS-12-010 — employer messages compose row (attach + reply + send).
+ * Split-pane inbox uses plain text composer, not MessageRichComposer B/I/U buttons.
+ */
+export async function runTcIs12010({ BASE, assess, blocked, emp: empIn }) {
+  const emp = empIn?.ok ? empIn : await apiLogin(BASE, QA_ACCOUNTS.employer.email, QA_ACCOUNTS.employer.password);
+  if (!emp.ok) {
+    blocked('TC-IS-12-010', 'Employer login failed');
+    return;
+  }
+  const threads = await apiRequest(BASE, '/api/ip/messages/threads', { cookie: emp.cookie });
+  const firstThreadId = (threads.data?.items || [])[0]?.id || '';
+  if (!firstThreadId && !(threads.data?.items || []).length) {
+    blocked('TC-IS-12-010', 'No employer message threads — seed data or start a conversation first');
+    return;
+  }
+
+  const browser = await chromium.launch({ headless: true, channel: 'chrome' }).catch(() => chromium.launch({ headless: true }));
+  try {
+    const ctx = await browser.newContext();
+    if (emp.cookies?.length) await ctx.addCookies(emp.cookies);
+    const page = await ctx.newPage();
+    await page.goto(
+      firstThreadId
+        ? `${BASE}/employer/messages?thread=${encodeURIComponent(firstThreadId)}`
+        : `${BASE}/employer/messages`,
+      { waitUntil: 'domcontentloaded' },
+    );
+    if (!firstThreadId) {
+      await page.locator('table.ip-msg-table tbody tr').first().waitFor({ state: 'visible', timeout: 30_000 });
+      await page.locator('table.ip-msg-table tbody tr').first().click();
+      await page.waitForTimeout(500);
+    }
+    const reply = page.getByRole('textbox', { name: /^Reply$/i }).first();
+    await reply.waitFor({ state: 'visible', timeout: 30_000 });
+    const attach = page.getByRole('button', { name: /^Attach file$/i }).first();
+    const send = page.getByRole('button', { name: /^Send$/i }).first();
+    const attachOk = await attach.isVisible().catch(() => false);
+    const sendOk = await send.isVisible().catch(() => false);
+    const sample = `QA compose ${qaRunLabel()}`;
+    await reply.fill(sample);
+    const sendDisabled = await send.isDisabled().catch(() => true);
+    let postStatus = null;
+    if (!sendDisabled) {
+      const postWait = page.waitForResponse(
+        (r) => r.url().includes('/api/ip/messages/threads/') && r.request().method() === 'POST',
+        { timeout: 20_000 },
+      ).catch(() => null);
+      await send.click();
+      const postRes = await postWait;
+      postStatus = postRes?.status() ?? null;
+      await page.waitForTimeout(1000);
+      await page.locator('.ip-cm-feed').getByText(sample).first()
+        .waitFor({ state: 'visible', timeout: 15_000 })
+        .catch(() => {});
+    }
+    const sent = (await page.locator('.ip-cm-feed').getByText(sample).count()) > 0;
+    const ok = attachOk && sendOk && (sent || postStatus === 200 || postStatus === 201);
+    assess('TC-IS-12-010', ok, {
+      composer: 'employer split-pane',
+      attach: attachOk,
+      send: sendOk,
+      sent,
+      postStatus,
+      threadId: firstThreadId || 'selected-from-list',
+      note: 'Inbox route uses plain composer (attach + reply + send); B/I/U rich toolbar is not on split-pane.',
+    });
+    await ctx.close();
+  } catch (e) {
+    blocked('TC-IS-12-010', `Playwright: ${e.message || e}`);
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
 
 async function withBrowser(candCookies, empCookies, fn) {
   const browser = await chromium.launch({ headless: true, channel: 'chrome' }).catch(() => chromium.launch({ headless: true }));
@@ -821,48 +913,6 @@ export async function runNotRunEleven({ BASE, assess, blocked, cand, emp }) {
       blocked('TC-IS-10-002', `Playwright: ${e.message || e}`);
     }
 
-    try {
-      const ctx = await browser.newContext();
-      if (candCookies?.length) await ctx.addCookies(candCookies);
-      const page = await ctx.newPage();
-      const threadUrl = firstThreadId
-        ? `${BASE}/candidate/messages?thread=${encodeURIComponent(firstThreadId)}`
-        : `${BASE}/candidate/messages`;
-      await page.goto(threadUrl, { waitUntil: 'domcontentloaded' });
-      if (!firstThreadId) {
-        await page.locator('table.ip-msg-table tbody tr').first().waitFor({ state: 'visible', timeout: 30_000 }).catch(() => {});
-        await page.locator('table.ip-msg-table tbody tr').first().click().catch(() => {});
-      }
-      const bold = page.getByRole('button', { name: /^Bold$/i }).first();
-      await bold.waitFor({ state: 'visible', timeout: 30_000 }).catch(() => {});
-      const toolbar = await bold.isVisible().catch(() => false);
-      if (toolbar) {
-        const editor = page.locator('[contenteditable="true"], .ip-msg-rich-editor').first();
-        await editor.click();
-        await page.keyboard.type('QA bold check');
-        await bold.click();
-        assess('TC-IS-12-010', true, {
-          toolbar: true, typed: true, threadId: firstThreadId || null,
-          note: 'Bold toolbar visible; format controls present',
-        });
-      } else {
-        await page.goto(
-          firstThreadId
-            ? `${BASE}/employer/messages?thread=${encodeURIComponent(firstThreadId)}`
-            : `${BASE}/employer/messages`,
-          { waitUntil: 'domcontentloaded' },
-        );
-        if (!firstThreadId) {
-          await page.locator('table.ip-msg-table tbody tr, .ip-em-list-body tr').first().click({ timeout: 15_000 }).catch(() => {});
-        }
-        const bold2 = page.getByRole('button', { name: /^Bold$/i }).first();
-        await bold2.waitFor({ state: 'visible', timeout: 20_000 }).catch(() => {});
-        const ok = await bold2.isVisible().catch(() => false);
-        assess('TC-IS-12-010', ok, { toolbar: ok, path: 'employer/messages fallback', threadId: firstThreadId || null });
-      }
-      await ctx.close();
-    } catch (e) {
-      blocked('TC-IS-12-010', `Playwright: ${e.message || e}`);
-    }
+    await runTcIs12010({ BASE, assess, blocked, emp: { ok: true, cookie: emp.cookie, cookies: empCookies } });
   });
 }

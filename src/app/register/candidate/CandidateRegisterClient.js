@@ -208,7 +208,7 @@ export default function CandidateRegisterPage() {
                 <div className="ip-crg-notice-warn">
                   <AlertCircle aria-hidden />
                   <span>
-                    Institutional or university email addresses (e.g., @vit.edu, @mit.edu) are not
+                    Institutional or university email addresses (e.g., @college.edu, @mit.edu) are not
                     accepted. Only @gmail.com and @googlemail.com addresses are permitted.
                   </span>
                 </div>

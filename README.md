@@ -39,7 +39,28 @@ QA / ops inbox: Zoho Mail → `support.placementhub@placementhub.online` (Placem
 
 ## Wireframe reference
 
-See `reference-wireframes/` for the previous combined HTML prototype.
+See `reference-wireframes/` for the previous combined HTML prototype (historical; superseded by `InternSafar_Business_Requirements.txt`).
+
+## Documents index
+
+Local paths below — add Google Drive links in your master index when uploaded.
+
+| Document | Path |
+|---|---|
+| User guide (all roles) | [`ISM_USER_GUIDE.md`](ISM_USER_GUIDE.md) |
+| Route inventory | [`ISM_ROUTE_INVENTORY.md`](ISM_ROUTE_INVENTORY.md) |
+| Business requirements | [`InternSafar_Business_Requirements.txt`](InternSafar_Business_Requirements.txt) |
+| Workbench feature guide | [`WORKBENCH_FEATURE_GUIDE.md`](WORKBENCH_FEATURE_GUIDE.md) |
+| Workbench implementation report | [`WORKBENCH_IMPLEMENTATION_REPORT.md`](WORKBENCH_IMPLEMENTATION_REPORT.md) |
+| Validation score rules | [`docs/VALIDATION_SCORE.md`](docs/VALIDATION_SCORE.md) |
+| ER / DB notes | [`docs/ip-er-diagram-notes.md`](docs/ip-er-diagram-notes.md) |
+| Test data & core accounts | [`scripts/IP_TEST_DATA_GUIDE.md`](scripts/IP_TEST_DATA_GUIDE.md) |
+| Scripts catalogue | [`scripts/SCRIPTS-README.md`](scripts/SCRIPTS-README.md) |
+| Test cases workbook | [`test-cases/InternSafar-Test-Cases.xlsx`](test-cases/InternSafar-Test-Cases.xlsx) |
+| QA runner playbook | [`qa/docs/internsafar-runner-playbook.md`](qa/docs/internsafar-runner-playbook.md) |
+| Agent instructions | [`AGENTS.md`](AGENTS.md) |
+
+Workspace-level prompts and `.docx` specs live under `C:\Users\place\Work\UIUX Migration\` (Development prompts, `UIUX_Merged_HtmlMock_Handoff_Prompt.md`, feature-refinement `.docx` files).
 
 ## Vercel
 

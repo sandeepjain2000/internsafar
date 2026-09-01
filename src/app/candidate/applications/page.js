@@ -65,6 +65,7 @@ export default function MyApplicationsPage() {
   const [detail, setDetail] = useState(null);
   const [viewMode, setViewMode] = useViewMode('ip_apps_view', 'list');
   const [loadError, setLoadError] = useState('');
+  const [loading, setLoading] = useState(true);
 
   const snapshot = useMemo(
     () => ({ filters: { q, tab, interviewFilter, offerFilter, commFilter }, sort }),
@@ -119,21 +120,26 @@ export default function MyApplicationsPage() {
   }, [q, sort, tab, setPage]);
 
   async function load() {
+    setLoading(true);
     setLoadError('');
-    const res = await fetch('/api/ip/candidate/applications?pageSize=200', {
-      cache: 'no-store',
-      credentials: 'include',
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setItems([]);
-      setTotalServer(0);
-      setLoadError(data.error || 'Could not load applications');
-      return;
+    try {
+      const res = await fetch('/api/ip/candidate/applications?pageSize=200', {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setItems([]);
+        setTotalServer(0);
+        setLoadError(data.error || 'Could not load applications');
+        return;
+      }
+      const list = Array.isArray(data.items) ? data.items : [];
+      setItems(list);
+      setTotalServer(Number(data.total) || list.length);
+    } finally {
+      setLoading(false);
     }
-    const list = Array.isArray(data.items) ? data.items : [];
-    setItems(list);
-    setTotalServer(Number(data.total) || list.length);
   }
 
   async function loadThreads() {
@@ -180,7 +186,7 @@ export default function MyApplicationsPage() {
         <div>
           <div className="ip-ap-hero__title">
             <h1>My Applications</h1>
-            <span className="ip-ap-chip">{metrics.total} Submission{metrics.total === 1 ? '' : 's'}</span>
+            <span className="ip-ap-chip">{loading ? '…' : metrics.total} Submission{!loading && metrics.total === 1 ? '' : 's'}</span>
           </div>
           <p>Track status, interview schedules, recruiter messages, and outcomes for all applied roles.</p>
         </div>
@@ -230,6 +236,10 @@ export default function MyApplicationsPage() {
       </div>
 
       <div className="ip-ap-sheet">
+        {loading ? (
+          <p className="ip-ap-loading">Loading applications…</p>
+        ) : (
+          <>
         {viewMode === 'cards' ? (
           <div className="grid gap-3 sm:grid-cols-2">
             {pageItems.map((a) => (
@@ -312,7 +322,7 @@ export default function MyApplicationsPage() {
         </div>
         ) : null}
 
-        {!filtered.length ? (
+        {!loading && !filtered.length ? (
           <div className="ip-ap-empty">
             <h3>No applications found</h3>
             <p>
@@ -340,6 +350,8 @@ export default function MyApplicationsPage() {
             </div>
           </div>
         ) : null}
+          </>
+        )}
       </div>
 
       <div className="ip-ap-metrics">

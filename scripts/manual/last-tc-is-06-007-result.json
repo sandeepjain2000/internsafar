@@ -1,0 +1,8 @@
+{
+  "sheet": "06 Candidate Profile",
+  "tc_id": "TC-IS-06-007",
+  "automation": "Manual",
+  "status": "Blocked",
+  "actual": "Request+wrong-code OK. Paste the 6-digit Zoho code for lawsonlclintern+qa-email-change-to@gmail.com into IP_QA_EMAIL_CHANGE_CODE in .env.local (not git) and re-run. Do not re-request first — that invalidates the code.",
+  "executed": "2026-09-01T07:20:45.563Z"
+}

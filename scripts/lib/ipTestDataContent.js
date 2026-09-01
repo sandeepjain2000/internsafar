@@ -27,7 +27,7 @@ const CITIES = [
 ];
 
 const COLLEGES = [
-  'VIT Vellore', 'BITS Pilani', 'NIT Trichy', 'IIIT Hyderabad', 'SRM Chennai',
+  'RV College of Engineering', 'BITS Pilani', 'NIT Trichy', 'IIIT Hyderabad', 'SRM Chennai',
   'Manipal Institute of Technology', 'PES University', 'DTU Delhi',
   'COEP Pune', 'Amrita School of Engineering', 'RV College of Engineering',
   'IIT Madras',

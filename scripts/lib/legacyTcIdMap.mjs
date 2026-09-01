@@ -1,6 +1,6 @@
 /**
- * Legacy TC-IP-* ids (old docs workbook) → Internship_Portal_Test_Checklist.xlsx ids.
- * Extend as legacy run-sheet scripts are reconciled with the new checklist.
+ * Legacy TC-IP-* ids (old docs workbook) → InternSafar / checklist Legacy IDs.
+ * Kept for apply-qa-results.mjs when older result JSON still uses TC-IP-*.
  */
 export const LEGACY_TC_MAP = {
   'TC-IP-10-001': 'EMP-C-1',

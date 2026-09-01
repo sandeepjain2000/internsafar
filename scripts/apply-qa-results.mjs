@@ -1,6 +1,6 @@
 /**
- * Apply QA JSON (stdout from run-sheet* or run-ip-checklist-qa) to the manual checklist xlsx.
- * Maps legacy TC-IP-* ids to new checklist ids when present in legacyTcIdMap.mjs.
+ * Apply QA JSON (from run-internsafar-qa / run-ip-checklist-qa) into qa-results.json
+ * then the InternSafar workbook helper. Maps legacy TC-IP-* ids via legacyTcIdMap.mjs.
  */
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { execFileSync } from 'child_process';

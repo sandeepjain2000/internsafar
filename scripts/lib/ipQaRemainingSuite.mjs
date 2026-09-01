@@ -1,6 +1,7 @@
 /**
  * InternSafar TC-IS cases (no Legacy ID) — called from the combined QA runner.
- * OTP / mail codes: local .env.local only (IP_QA_2FA_LOGIN_CODE, IP_QA_EMAIL_CHANGE_CODE).
+ * OTP / mail codes: local .env.local only (IP_QA_2FA_LOGIN_CODE).
+ * Email-change OTP (TC-IS-06-007): manual script only — see scripts/manual/.
  */
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -11,9 +12,9 @@ import { ensureCoreQaAccountsReady } from './ipQaFixtureCases.mjs';
 import {
   runTcIs02023,
   runTcIs06006,
-  runTcIs06007,
   runTcIs11016_017,
   runNotRunEleven,
+  runTcIs12010,
 } from './ipQaRemainingExtras.mjs';
 
 const require = createRequire(import.meta.url);
@@ -59,33 +60,13 @@ export async function runRemainingSuite(opts = {}) {
 
   await runTcIs02023({ BASE, assess, blocked });
 
-  const cap = await fetch(`${BASE}/api/auth/captcha`).then((r) => r.json());
-  const ans = cap.dummyAnswer ?? 7;
-  const shortPw = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
-    method: 'POST',
-    body: {
-      path: 'form',
-      email: 'qa.pwlen.7@gmail.com',
-      name: 'QA Len7',
-      university: 'Test University',
-      graduationYear: 2026,
-      password: '1234567',
-      captchaToken: cap.token,
-      captchaAnswer: String(ans),
-    },
-  });
-  assess(
+  blocked(
     'TC-IS-03-018',
-    shortPw.status === 400 && /8 character/i.test(String(shortPw.data?.error || '')),
-    {
-      sevenCharStatus: shortPw.status,
-      error: shortPw.data?.error,
-      note: 'Did not complete 8-char signup (would create a pending user). Length rule is enforced at 7.',
-    },
+    'Manual only — registration/account creation excluded from automated QA suite',
   );
 
   await runTcIs06006({ BASE, assess, blocked, cand });
-  await runTcIs06007({ BASE, assess, blocked });
+  // TC-IS-06-007 — manual OTP (email change). Not run here; see scripts/manual/run-tc-is-06-007-email-change.mjs
 
   const list0 = await apiRequest(BASE, '/api/ip/candidate/internships?minMatch=0', { cookie: cand.cookie });
   const list1 = await apiRequest(BASE, '/api/ip/candidate/internships?minMatch=1', { cookie: cand.cookie });
@@ -576,5 +557,44 @@ export async function runRemainingSuite(opts = {}) {
   const failN = Object.values(byTcId).filter((c) => c.status === 'Fail').length;
   const blockedN = Object.values(byTcId).filter((c) => c.status === 'Blocked').length;
   console.log(JSON.stringify({ tcIs: n, pass: passN, fail: failN, blocked: blockedN }));
+  return { byTcId, executedAt, base: BASE };
+}
+
+/** Run one TC-IS-* case by id (for --only TC-IS-12-010 etc.). */
+export async function runSingleTcIsCase(tcId, opts = {}) {
+  const BASE = opts.base || process.env.IP_BASE || 'http://localhost:3000';
+  const byTcId = {};
+  const executedAt = new Date().toISOString();
+
+  function pass(id, actual) {
+    byTcId[id] = { status: 'Pass', actual: typeof actual === 'string' ? actual : JSON.stringify(actual) };
+  }
+  function fail(id, actual) {
+    byTcId[id] = { status: 'Fail', actual: typeof actual === 'string' ? actual : JSON.stringify(actual) };
+  }
+  function blocked(id, actual) {
+    byTcId[id] = { status: 'Blocked', actual: typeof actual === 'string' ? actual : JSON.stringify(actual) };
+  }
+  function assess(id, ok, actual) {
+    (ok ? pass : fail)(id, actual);
+  }
+
+  await ensureCoreQaAccountsReady().catch((e) => console.warn('ensureCoreQaAccountsReady:', e.message || e));
+
+  const cand = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, QA_ACCOUNTS.candidate.password);
+  if (!cand.ok && tcId === 'TC-IS-06-006') {
+    throw new Error('Candidate login failed for TC-IS-06-006');
+  }
+
+  if (tcId === 'TC-IS-12-010') {
+    await runTcIs12010({ BASE, assess, blocked });
+  } else if (tcId === 'TC-IS-06-006') {
+    await runTcIs06006({ BASE, assess, blocked, cand });
+  } else {
+    throw new Error(`Unknown TC-IS case for --only: ${tcId}`);
+  }
+
+  const rec = byTcId[tcId];
+  console.log(JSON.stringify({ tcId, ...(rec || { status: 'Not Run' }) }));
   return { byTcId, executedAt, base: BASE };
 }

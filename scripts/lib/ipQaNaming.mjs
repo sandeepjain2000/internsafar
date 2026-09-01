@@ -17,10 +17,11 @@ export function qaDbId(prefix) {
   return `${prefix}_${qaRunLabel()}-${String(seq).padStart(3, '0')}`;
 }
 
-/** Referral codes for QA users — readable prefix + run. */
+/** Referral codes for QA users — readable prefix + sequence + run (unique per call). */
 export function qaReferralCode(label = 'QA') {
-  const base = String(label || 'QA').replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase() || 'QA';
-  return `${base}${qaRunLabel().replace(/-/g, '').slice(-8)}`;
+  seq += 1;
+  const base = String(label || 'QA').replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'QA';
+  return `${base}${String(seq).padStart(3, '0')}${qaRunLabel().replace(/-/g, '').slice(-6)}`;
 }
 
 /** Stable +alias emails reused across runs (ensureUser upserts). */

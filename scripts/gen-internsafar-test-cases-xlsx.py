@@ -121,13 +121,13 @@ CORRECTED = {
     "EMP-I-2": "Publish costs 50 points; draft does not.",
     "PTS-2": "No convert-points UI or API. Apply costs 5; publish costs 50.",
     "SHELL-1": "Only candidate and employer have a Notifications nav item.",
-    "REGX-1": "Google button on register is dummy; login is email/password.",
+    "REGX-1": "Register uses real Google OAuth verification; login on `/` is email/password only.",
     "AUTH-4": "Captcha must be solved on home login.",
     "FILE-1": "Files go through /api/ip/files.",
     "AUTH-17": "Account password change requires upper + digit + special.",
     "AUTH-18": "Weak new password on /account is rejected.",
-    "REG-C-1": "Gmail path emails temp password; sign in on `/`.",
-    "REG-C-4": "Form path: password length ≥ 8 only; account stays pending.",
+    "REG-C-1": "Gmail path: Sign up with Google → gv token → temp password emailed; sign in on `/`.",
+    "REG-C-4": "Form path (API): password length ≥ 8 only; account stays pending until SuperAdmin.",
     "EMP-N-1": "Employer notifications: /employer/notifications.",
 }
 
@@ -227,33 +227,43 @@ LIVE = {
         "expected": "InternSafar pages and /api/ip/* succeed.",
     },
     "REGX-1": {
-        "title": "Google on register is a dummy step; login is email/password only",
+        "title": "Google OAuth on register verifies identity; login is email/password only",
         "steps": (
             "1. Open /register/candidate and /register/employer.\n"
-            "2. Use Continue with Google / Create account with Gmail as shown.\n"
+            "2. Confirm real Sign up / Continue with Google (opens Google account chooser).\n"
             "3. Open `/` login — confirm there is no Google button.\n"
-            "4. Confirm there is no redirect to accounts.google.com."
+            "4. Attempt Google sign-in from `/` without registration intent → /?error=GoogleLoginDisabled."
         ),
-        "expected": "Register may show a Google-looking button but it still collects Gmail + captcha and emails a temp password (or form-path pending). Home sign-in is #email/#password only.",
+        "expected": (
+            "Register uses real Google OAuth (gv token handoff). "
+            "Home sign-in is #email/#password only; Google never creates a portal login session."
+        ),
     },
     "REG-C-1": {
         "title": "Gmail candidate signup emails a temp password and can sign in on home",
         "steps": (
-            "1. Open /register/candidate (Google-looking path).\n"
-            "2. Use a unique unused @gmail.com + captcha.\n"
-            "3. Sign in on `/` with #email/#password using the emailed temp password."
+            "1. Open /register/candidate signed out.\n"
+            "2. Click Sign up with Google; complete consent with a unique unused @gmail.com.\n"
+            "3. Confirm Registration complete and temp password email.\n"
+            "4. Sign in on `/` with #email/#password using the emailed temp password."
         ),
-        "expected": "Account is active immediately on this path. Login is on `/`, not Google OAuth.",
+        "expected": (
+            "Account active immediately (registration_source=google). "
+            "Login on `/` is email/password — not Google OAuth session."
+        ),
     },
     "REG-C-4": {
-        "title": "Form-path signup: university, year, password ≥8, captcha; stays pending",
+        "title": "Form-path signup (API): university, year, password ≥8, captcha; stays pending",
         "steps": (
-            "1. Use the form path on /register/candidate.\n"
-            "2. Password of 7 characters → rejected.\n"
-            "3. Password of 8 characters (no extra complexity required on this path) + college + year + captcha.\n"
+            "1. POST /api/ip/auth/register-candidate path=form (no UI on /register/candidate).\n"
+            "2. Password 7 characters → rejected.\n"
+            "3. Password 8+ characters + college + year + captcha → pending account.\n"
             "4. Try signing in on `/` before SuperAdmin approval."
         ),
-        "expected": "7 chars fail. 8 chars creates a pending account. Login on home is blocked until SuperAdmin approves. Later /account password change is stricter (upper+digit+special).",
+        "expected": (
+            "7 chars fail. 8+ creates pending account. Login blocked until SuperAdmin approves. "
+            "Account change-password later is stricter (upper+digit+special)."
+        ),
     },
     "SHELL-1": {
         "title": "Sidebar matches the signed-in role",

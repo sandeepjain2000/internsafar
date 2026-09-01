@@ -523,6 +523,13 @@
 .ip-apps .ip-ap-empty h3 { font-size: 0.875rem; font-weight: 700; color: #0f172a; }
 .ip-apps .ip-ap-empty p { font-size: 0.75rem; color: #64748b; max-width: 24rem; }
 
+.ip-apps .ip-ap-loading {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
 .ip-apps .ip-ap-pager {
   display: flex;
   align-items: center;

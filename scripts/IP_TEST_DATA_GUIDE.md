@@ -34,10 +34,10 @@ superadmin role.
 every `ip_*` table and fails on machine text — a token mixing letters and digits
 (`mt140t02xc0e`), a bare epoch (`1786356065134`), or a QA / Gen / Coverage /
 fixture word. It exits non-zero, so it can gate a seeding or QA run. This
-applies to the QA suites too (`run-internsafar-qa.mjs`, `ipQaFixtureCases.mjs`,
-`run-sheets-20-to-16-qa.mjs`): when a generated row needs to be distinguishable
-per run, use `ipDemoText.runLabel(run)` for a readable qualifier such as
-"Monsoon batch" instead of `Date.now()` or a random id.
+applies to the QA suites too (`run-internsafar-qa.mjs`, `ipQaFixtureCases.mjs`):
+when a generated row needs to be distinguishable per run, use
+`ipDemoText.runLabel(run)` for a readable qualifier such as "Monsoon batch"
+instead of `Date.now()` or a random id.
 
 All seeded names, titles, and body text come from `scripts/lib/ipDemoText.js` —
 real role titles, company names, Indian colleges, and person names, chosen
@@ -268,4 +268,4 @@ npm run delete:ip-generated-run -- --mode=run --confirm-generated-run <RUN_ID>
 - Always dry-run first when unsure
 - Never put a core email into a generate run as a new user
 - After any delete, confirm you can still login with the three core passwords above
-- This guide is separate from the full nuclear `IP_Reset_Core_Sample.js` tool (different, older reset path)
+- For a **nuclear reset** back to the three-core baseline, use `node scripts/IP_Reset_Core_Sample.js` (emails in `scripts/lib/ipCoreSampleConfig.js`). This guide covers incremental generate / delete / fill on top of that baseline.

@@ -1,5 +1,7 @@
 # InternSafar sibling — requested fixes checklist
 
+> **Status (2026-08-31):** Historical log — all items below marked **Done**. Not an open-work checklist. Current product spec: [`InternSafar_Business_Requirements.txt`](InternSafar_Business_Requirements.txt).
+
 Work tree: `internship-portal` only.
 
 | # | Request | Done? | Notes |

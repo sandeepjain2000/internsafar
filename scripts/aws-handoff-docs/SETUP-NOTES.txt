@@ -1,0 +1,34 @@
+InternSafar — AWS setup checklist (short)
+======================================
+
+Authoritative steps: InternSafar_AWS_Deployment_Runbook_CRISP_COMPLETE_FINAL (1).docx
+
+1. Runbook Parts A–B
+   - EC2 (Ubuntu 24.04, Elastic IP, security groups)
+   - Private RDS PostgreSQL (internsafar DB, 5432 from EC2 SG only)
+
+2. Upload deploy zip to EC2 and extract to ~/internship-portal
+
+3. On EC2: create .env (NEVER upload local .env / .env.local)
+   - DATABASE_URL=postgresql://...@<RDS_ENDPOINT>:5432/internsafar
+   - NEXTAUTH_URL, NEXTAUTH_SECRET, mail, S3 keys
+
+4. RDS connection test (runbook Step 22) — expect RDS CONNECTION SUCCESS
+
+5. cd ~/internship-portal
+   npm install --legacy-peer-deps
+   npm run db:migrate:all
+   npm run db:check-integrity
+
+6. npm run build
+   pm2 start npm --name internsafar -- start
+   pm2 save
+
+7. Runbook Parts F–G: Nginx, domain DNS, Certbot HTTPS, pm2 startup
+
+8. Open https://<DOMAIN> — bootstrap superadmin if needed (/api/ip/bootstrap)
+
+Notes:
+- db:migrate:all runs all 38 IP SQL files (replaces runbook partial 001-only migrate)
+- If SSL errors: DATABASE_SSL_CA=/etc/ssl/rds/global-bundle.pem
+- Do not rerun migrations after EC2/RDS reboot alone

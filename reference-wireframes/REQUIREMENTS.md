@@ -1,5 +1,7 @@
 # Internship Portal — Requirements Document (Draft)
 
+> **Superseded for product truth:** use [`../InternSafar_Business_Requirements.txt`](../InternSafar_Business_Requirements.txt) and the live app docs (`ISM_USER_GUIDE.md`, `ISM_ROUTE_INVENTORY.md`). Keep this file as the Aug 2026 wireframe-era baseline only.
+
 **Status:** Draft from stakeholder prompts + wireframe consolidation (2026-08-08)  
 **Prototype:** `combined.html` (clickable UI only)  
 **Sources merged:** `internship_portal_wireframes (6).html` + `internship_incremental_only.html`  

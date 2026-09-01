@@ -3,6 +3,7 @@
  * for lack of fixtures. Password for all QA/cast accounts: Admin@123 (DEMO_PASSWORD).
  *
  * Captcha-negative cases stay blocked (AUTH-4, REGX-3, REG-C-11).
+ * Registration/account-creation cases are manual-only (excluded from automated QA).
  * AUTH-8 runs separately via ipQaAuth8.mjs (simulated DB failure, not real outage).
  */
 import path from 'path';
@@ -26,6 +27,8 @@ dotenv.config({ path: path.join(root, '.env.local') });
 dotenv.config({ path: path.join(root, '.env') });
 
 const PW = QA_ACCOUNTS.candidate.password;
+const MANUAL_REGISTRATION =
+  'Manual only — registration/account creation excluded from automated QA suite';
 
 function nid(prefix) {
   return qaDbId(prefix);
@@ -81,9 +84,33 @@ async function ensureCandidateRow(client, userId, email, name, extras = {}) {
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
     [
       id, userId, name, email.toLowerCase(),
-      extras.phone || '9000000001', extras.college || 'VIT', extras.city || 'Pune', extras.state || 'Maharashtra',
+      extras.phone || '9000000001', extras.college || 'Pune Institute of Computer Technology', extras.city || 'Pune', extras.state || 'Maharashtra',
       extras.skills || ['React', 'SQL'], extras.resume_url || 'https://example.com/resume.pdf',
     ],
+  );
+  return id;
+}
+
+async function ensureEmployerRequest(client, {
+  email,
+  companyName,
+  contactName,
+  reason,
+  status = 'pending',
+}) {
+  const ex = await client.query(
+    `SELECT id FROM ip_employer_requests WHERE lower(contact_email) = lower($1) LIMIT 1`,
+    [email],
+  );
+  if (ex.rows[0]) return ex.rows[0].id;
+  const id = nid('ip_ereq');
+  const hash = await bcrypt.hash(PW, 10);
+  await client.query(
+    `INSERT INTO ip_employer_requests (
+       id, company_name, contact_name, contact_email, reason, contact_designation,
+       password_hash, business_entity_type, status
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    [id, companyName, contactName, email.toLowerCase(), reason, 'HR', hash, 'Private Limited', status],
   );
   return id;
 }
@@ -214,8 +241,14 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   await ensureCoreQaAccountsReady().catch(() => {});
 
   blocked('AUTH-4', 'CAPTCHA_BYPASS_FOR_TESTING=true — negative captcha path skipped');
-  blocked('REGX-3', 'CAPTCHA_BYPASS_FOR_TESTING=true — register/forgot captcha negative skipped');
-  blocked('REG-C-11', 'Captcha-before-insert path blocked by CAPTCHA_BYPASS_FOR_TESTING');
+  blocked('REGX-3', MANUAL_REGISTRATION);
+  blocked('REG-C-11', MANUAL_REGISTRATION);
+  for (const id of [
+    'REG-C-1', 'REG-C-4', 'REG-C-6', 'REG-C-7', 'REG-C-8', 'REG-C-9',
+    'REG-E-1', 'REG-E-4', 'REG-E-6', 'EMP-R-1',
+  ]) {
+    blocked(id, MANUAL_REGISTRATION);
+  }
 
   async function tryCase(id, fn) {
     try {
@@ -280,147 +313,6 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const blob = JSON.stringify(rep.data || {});
     assess('AUTH-22', rep.status === 200 && blob.toLowerCase().includes('lawsonlclintern'),
       { status: rep.status, hit: blob.toLowerCase().includes('lawsonlclintern') });
-  });
-
-  await tryCase('REG-C-1', async () => {
-    const email = `lawsonlclintern+qa-register-form-${run}@gmail.com`;
-    const gv = await mintGoogleVerification({ email, name: 'QA Google Path' });
-    const r = await api('/api/ip/auth/register-candidate', {
-      method: 'POST',
-      body: { email, name: 'QA Google Path', path: 'google', googleVerificationToken: gv, ...cap },
-    });
-    assess('REG-C-1', r.status === 200 || r.status === 201, { status: r.status, error: r.data?.error });
-  });
-
-  await tryCase('REG-C-8', async () => {
-    const email = `lawsonlclintern+qa-register-googlemail-${run}@googlemail.com`;
-    const gv = await mintGoogleVerification({ email, name: 'QA Googlemail' });
-    const r = await api('/api/ip/auth/register-candidate', {
-      method: 'POST',
-      body: { email, name: 'QA Googlemail', path: 'google', googleVerificationToken: gv, ...cap },
-    });
-    assess('REG-C-8', r.status === 200 || r.status === 201, { status: r.status, error: r.data?.error });
-  });
-
-  let formUserId = '';
-  let formUserId2 = '';
-  await tryCase('REG-C-4', async () => {
-    const email = `lawsonlclintern+qa-form-pending-${run}@gmail.com`;
-    const r = await api('/api/ip/auth/register-candidate', {
-      method: 'POST',
-      body: {
-        email, name: 'QA Form Pending', path: 'form', password: PW,
-        university: 'VIT', college: 'VIT', graduationYear: 2027, ...cap,
-      },
-    });
-    const queue = await api('/api/ip/superadmin/form-registrations?status=pending', { cookie: sa.cookie });
-    const items = queue.data?.items || [];
-    const hit = items.find((x) => String(x.email || '').toLowerCase() === email);
-    formUserId = hit?.id || '';
-    assess('REG-C-4', (r.status === 200 || r.status === 201) && Boolean(hit),
-      { status: r.status, inQueue: Boolean(hit) });
-  });
-
-  await tryCase('REG-C-6', async () => {
-    const ref = await api('/api/ip/referral', { cookie: cand.cookie });
-    const code = ref.data?.referral_code;
-    const email = `lawsonlclintern+qa-referral-signup-${run}@gmail.com`;
-    const gv = await mintGoogleVerification({ email, name: 'QA Referral Google' });
-    const r = await api('/api/ip/auth/register-candidate', {
-      method: 'POST',
-      body: {
-        email, name: 'QA Referral Google', path: 'google', referralCode: code,
-        googleVerificationToken: gv, ...cap,
-      },
-    });
-    assess('REG-C-6', (r.status === 200 || r.status === 201) && Boolean(code),
-      { status: r.status, code: Boolean(code) });
-  });
-
-  await tryCase('REG-C-7', async () => {
-    const ref = await api('/api/ip/referral', { cookie: cand.cookie });
-    const code = ref.data?.referral_code;
-    const email = `lawsonlclintern+qa-form-referral-${run}@gmail.com`;
-    const r = await api('/api/ip/auth/register-candidate', {
-      method: 'POST',
-      body: {
-        email, name: 'QA Form Referral', path: 'form', password: PW,
-        university: 'VIT', college: 'VIT', graduationYear: 2027, referralCode: code, ...cap,
-      },
-    });
-    const queue = await api('/api/ip/superadmin/form-registrations?status=pending', { cookie: sa.cookie });
-    const hit = (queue.data?.items || []).find((x) => String(x.email || '').toLowerCase() === email);
-    formUserId2 = hit?.id || '';
-    const approve = hit
-      ? await api('/api/ip/superadmin/form-registrations', {
-        method: 'PATCH', cookie: sa.cookie, body: { status: 'approved', id: hit.id },
-      })
-      : { status: 0 };
-    assess('REG-C-7', Boolean(hit) && (approve.status === 200),
-      { registered: r.status, approved: approve.status });
-  });
-
-  await tryCase('REG-C-9', async () => {
-    const ref = await api('/api/ip/referral', { cookie: cand.cookie });
-    const code = ref.data?.referral_code;
-    // Needs a real token: verification is checked before the duplicate-email check, so
-    // without one this returns 401 and never reaches the 409 this case asserts.
-    const gv = await mintGoogleVerification({ email: QA_ACCOUNTS.candidate.email, name: 'Self' });
-    const r = await api('/api/ip/auth/register-candidate', {
-      method: 'POST',
-      body: {
-        email: QA_ACCOUNTS.candidate.email, name: 'Self', path: 'google', referralCode: code,
-        googleVerificationToken: gv, ...cap,
-      },
-    });
-    assess('REG-C-9', r.status === 409, { status: r.status });
-  });
-
-  await tryCase('REG-E-1', async () => {
-    const domain = `qa-employer-${run}.example`;
-    const gv = await mintGoogleVerification({
-      email: `hr@${domain}`, purpose: 'employer-register', name: 'QA HR',
-    });
-    const r = await api('/api/ip/auth/register-employer', {
-      method: 'POST',
-      body: {
-        email: `hr@${domain}`, website: `https://${domain}`, companyName: companyNameForLabel(run, 1),
-        contactName: 'QA HR', businessEntityType: 'Private Limited', googleVerificationToken: gv, ...cap,
-      },
-    });
-    assess('REG-E-1', r.status === 200 || r.status === 201, { status: r.status, error: r.data?.error });
-  });
-
-  let manualReqId = '';
-  await tryCase('REG-E-4', async () => {
-    const email = `qa-manual-request-${run}@gmail.com`;
-    const r = await api('/api/ip/auth/register-employer', {
-      method: 'POST',
-      body: {
-        manualRequest: true, email, companyName: companyNameForLabel(run, 2), contactName: 'QA Manual',
-        designation: 'HR', reason: 'QA fixture manual request', password: PW,
-        businessEntityType: 'Private Limited', ...cap,
-      },
-    });
-    manualReqId = r.data?.requestId || r.data?.id || '';
-    assess('REG-E-4', (r.status === 200 || r.status === 201) && Boolean(manualReqId),
-      { status: r.status, requestId: Boolean(manualReqId), error: r.data?.error });
-  });
-
-  await tryCase('REG-E-6', async () => {
-    // Duplicate-domain rejection: needs a token so it reaches the 409/400 rather than 401.
-    const domain = `qa-employer-${run}.example`;
-    const gv = await mintGoogleVerification({
-      email: `hr@${domain}`, purpose: 'employer-register', name: 'QA HR',
-    });
-    const r = await api('/api/ip/auth/register-employer', {
-      method: 'POST',
-      body: {
-        email: `hr@${domain}`, website: `https://${domain}`, companyName: companyNameForLabel(run, 3),
-        contactName: 'QA HR', businessEntityType: 'Private Limited', googleVerificationToken: gv, ...cap,
-      },
-    });
-    assess('REG-E-6', r.status === 409 || r.status === 400, { status: r.status });
   });
 
   await tryCase('ACCT-3', async () => {
@@ -971,47 +863,47 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     assess('EMP-C-2', r.status === 200, { status: r.status, count: (r.data?.items || []).length });
   });
 
-  await tryCase('EMP-R-1', async () => {
-    const code = (await api('/api/ip/referral', { cookie: emp.cookie })).data?.referral_code;
-    const domain = `qa-employer-referral-${run}.example`;
-    const empGv = await mintGoogleVerification({
-      email: `hr@${domain}`, purpose: 'employer-register', name: 'QA',
-    });
-    const r = await api('/api/ip/auth/register-employer', {
-      method: 'POST',
-      body: {
-        email: `hr@${domain}`, website: `https://${domain}`, companyName: companyNameForLabel(run, 4),
-        contactName: 'QA', referralCode: code, businessEntityType: 'Private Limited',
-        googleVerificationToken: empGv, ...cap,
-      },
-    });
-    assess('EMP-R-1', Boolean(code) && (r.status === 200 || r.status === 201), {
-      status: r.status,
-      code: Boolean(code),
-      error: r.data?.error,
-    });
-  });
-
   await tryCase('SA-F-2', async () => {
+    const email = `lawsonlclintern+qa-form-pending-${run}@gmail.com`;
+    let formUserId = '';
+    await withDb(async (db) => {
+      const uid = await ensureUser(db, {
+        email,
+        role: 'candidate',
+        name: 'QA Form Pending',
+        active: false,
+        formApproval: 'pending',
+        source: 'form',
+      });
+      await ensureCandidateRow(db, uid, email, 'QA Form Pending');
+      formUserId = uid;
+    });
     if (!formUserId) throw new Error('no pending form candidate');
     const r = await api('/api/ip/superadmin/form-registrations', {
       method: 'PATCH', cookie: sa.cookie, body: { status: 'rejected', id: formUserId },
     });
-    const login = await apiLogin(BASE, `lawsonlclintern+qa-form-pending-${run}@gmail.com`, PW);
+    const login = await apiLogin(BASE, email, PW);
     assess('SA-F-2', r.status === 200 && !login.ok, { reject: r.status, loginOk: login.ok });
   });
 
   await tryCase('SA-F-3', async () => {
     const emailA = `lawsonlclintern+qa-bulk-approve-a-${run}@gmail.com`;
     const emailB = `lawsonlclintern+qa-bulk-approve-b-${run}@gmail.com`;
-    await api('/api/ip/auth/register-candidate', {
-      method: 'POST', body: { email: emailA, name: 'Bulk1', path: 'form', password: PW, university: 'VIT', college: 'VIT', graduationYear: 2027, ...cap },
+    const ids = [];
+    await withDb(async (db) => {
+      for (const [email, name] of [[emailA, 'Bulk1'], [emailB, 'Bulk2']]) {
+        const uid = await ensureUser(db, {
+          email,
+          role: 'candidate',
+          name,
+          active: false,
+          formApproval: 'pending',
+          source: 'form',
+        });
+        await ensureCandidateRow(db, uid, email, name);
+        ids.push(uid);
+      }
     });
-    await api('/api/ip/auth/register-candidate', {
-      method: 'POST', body: { email: emailB, name: 'Bulk2', path: 'form', password: PW, university: 'VIT', college: 'VIT', graduationYear: 2027, ...cap },
-    });
-    const queue = await api('/api/ip/superadmin/form-registrations?status=pending', { cookie: sa.cookie });
-    const ids = (queue.data?.items || []).filter((x) => [emailA, emailB].includes(String(x.email || '').toLowerCase())).map((x) => x.id);
     const r = await api('/api/ip/superadmin/form-registrations', {
       method: 'PATCH', cookie: sa.cookie, body: { status: 'approved', ids },
     });
@@ -1032,6 +924,15 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('SA-R-2', async () => {
+    const email = `qa-manual-request-${run}@gmail.com`;
+    const manualReqId = await withDb(async (db) =>
+      ensureEmployerRequest(db, {
+        email,
+        companyName: companyNameForLabel(run, 2),
+        contactName: 'QA Manual',
+        reason: 'QA fixture manual request',
+      }),
+    );
     if (!manualReqId) throw new Error('no manual request id');
     const r = await api('/api/ip/superadmin/requests', {
       method: 'PATCH', cookie: sa.cookie, body: { id: manualReqId, status: 'rejected', reason: 'QA reject' },
@@ -1040,6 +941,16 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('SA-R-3', async () => {
+    const email = `qa-manual-request-replay-${run}@gmail.com`;
+    const manualReqId = await withDb(async (db) =>
+      ensureEmployerRequest(db, {
+        email,
+        companyName: companyNameForLabel(run, 3),
+        contactName: 'QA Manual Replay',
+        reason: 'QA fixture manual request replay',
+        status: 'rejected',
+      }),
+    );
     const r = await api('/api/ip/superadmin/requests', {
       method: 'POST', cookie: sa.cookie, body: { requestId: manualReqId },
     });

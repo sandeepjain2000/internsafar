@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Apply qa-results.json (Legacy IDs) onto InternSafar-Test-Cases.xlsx."""
+"""Apply qa-results.json onto InternSafar-Test-Cases.xlsx (Legacy ID + TC ID unified)."""
 from __future__ import annotations
 
 import json
@@ -13,6 +13,8 @@ ROOT = Path(__file__).resolve().parent.parent
 XLSX = ROOT / "test-cases" / "InternSafar-Test-Cases.xlsx"
 RESULTS = ROOT / "test-cases" / "qa-results.json"
 SKIP = frozenset({"Index", "Coverage", "Notes", "How to use"})
+# Updated only via scripts/manual/* — never from run-internsafar-qa.mjs --apply
+MANUAL_ONLY_TC_IDS = frozenset({"TC-IS-06-007"})
 
 PASS_FILL = PatternFill("solid", fgColor="C6EFCE")
 PASS_FONT = Font(bold=True, color="006100", name="Calibri")
@@ -48,9 +50,12 @@ def style_status(cell, status: str):
 
 def main():
     payload = json.loads(RESULTS.read_text(encoding="utf-8"))
-    cases = payload.get("cases") or {}
-    executed = payload.get("executedAt") or datetime.now(timezone.utc).isoformat()
+    legacy_cases = payload.get("cases") or {}
     extra = payload.get("byTcId") or {}
+    unified = dict(legacy_cases)
+    unified.update(extra)
+    unified.update(payload.get("results") or {})
+    executed = payload.get("executedAt") or datetime.now(timezone.utc).isoformat()
 
     wb = load_workbook(XLSX)
     updated = 0
@@ -74,11 +79,13 @@ def main():
             tc_id = ws.cell(r, tc).value if tc else None
             legacy = (ws.cell(r, lc).value if lc else None) or ""
             legacy = str(legacy).strip()
+            if tc_id and str(tc_id) in MANUAL_ONLY_TC_IDS:
+                continue
             rec = None
-            if tc_id and str(tc_id) in extra:
-                rec = extra[str(tc_id)]
-            elif legacy and legacy in cases:
-                rec = cases[legacy]
+            if tc_id and str(tc_id) in unified:
+                rec = unified[str(tc_id)]
+            elif legacy and legacy in unified:
+                rec = unified[legacy]
                 seen_legacy.add(legacy)
             if not rec:
                 continue
@@ -94,13 +101,13 @@ def main():
                 ws.cell(r, ec).value = executed
             updated += 1
 
-    leftover = sorted(set(cases) - seen_legacy)
+    leftover = sorted(k for k in legacy_cases if k not in seen_legacy)
     wb.save(XLSX)
     print(
         json.dumps(
             {
                 "updatedRows": updated,
-                "resultCases": len(cases),
+                "resultCases": len(unified),
                 "extraTcIds": len(extra),
                 "unmatchedLegacyIds": leftover,
             }

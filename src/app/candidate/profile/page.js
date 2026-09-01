@@ -635,7 +635,7 @@ export default function CandidateProfilePage() {
                     type="email"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
-                    placeholder="Enter new email address (e.g., name.new@vit.edu)"
+                    placeholder="Enter new email address (e.g., name.new@college.edu)"
                   />
                   <button type="button" className="ip-cp-btn ip-cp-btn--primary" onClick={requestEmailCode} disabled={!newEmail}>
                     Send Verification Code

@@ -49,18 +49,13 @@ normal product flows.
 
 | Script | What it does |
 |---|---|
-| `run-internsafar-qa.mjs` | The combined suite — legacy checklist cases plus TC-IS workbook cases. Writes `test-cases/qa-results.json`; `--apply` updates the workbook. |
-| `run-ip-checklist-qa.mjs` | Thin alias kept so older npm scripts and docs still work. |
+| `run-internsafar-qa.mjs` | **Current suite** — legacy checklist cases plus TC-IS workbook cases. Writes `test-cases/qa-results.json`; `--apply` updates `InternSafar-Test-Cases.xlsx`. |
+| `run-ip-checklist-qa.mjs` | Thin alias → `run-internsafar-qa.mjs` (kept for old npm script names). |
 | `run-ip-workbench-qa.mjs` | Broader workbench matrix (A5 / P0 rules). |
-| `run-sheet10-qa.mjs` | Sheet 10 — candidate search and invite. |
-| `run-sheets-15-to-11-qa.mjs` | Sheets 15–11 — promotions, viral, points and referrals, messages, offers. |
-| `run-sheets-20-to-16-qa.mjs` | Sheets 20–16 — uploads, SuperAdmin, notifications, ideas, ratings. |
-| `run-sheet21-qa.mjs` | Sheet 21 — security and access control. |
-| `run-sheet22-qa.mjs` | Sheet 22 — mobile UI at 375px. |
-| `run-sheet23-qa.mjs` | Sheet 23 — error handling. |
-| `run-sheet24-qa.mjs` | Sheet 24 — public content and help pages. |
-| `run-sheet25-qa.mjs` | Sheet 25 — sandbox demo. |
-| `apply-qa-results.mjs` | Applies QA result JSON to the manual checklist workbook. |
+| `apply-qa-results.mjs` | Merges a results JSON into `qa-results.json` (maps old TC-IP ids via `legacyTcIdMap`) then applies to the workbook. |
+| `manual/run-tc-is-06-007-email-change.mjs` | Manual OTP email-change case only (not in the combined suite). |
+
+Legacy `run-sheet10` … `run-sheet25` runners were removed — they targeted the old checklist sheet numbers, not the current InternSafar workbook.
 
 ## Background jobs
 

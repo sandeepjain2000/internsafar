@@ -7,7 +7,14 @@
  *   node scripts/run-internsafar-qa.mjs [baseUrl]
  *   node scripts/run-internsafar-qa.mjs --apply [baseUrl]
  *   node scripts/run-internsafar-qa.mjs --only AUTH-8 --apply [baseUrl]
- *   node scripts/run-internsafar-qa.mjs --skip-tc-is   # Legacy checklist only
+ *   node scripts/run-internsafar-qa.mjs --only TC-IS-12-010 --apply [baseUrl]
+ *   node scripts/run-internsafar-qa.mjs --skip-tc-is   # skip TC-IS workbook cases only
+ *
+ * Registration/account-creation (REG-*, TC-IS-03-*, REGX-1/3) are manual-only in the
+ * workbook and are recorded as Blocked in this runner — not exercised here.
+ *
+ * Manual OTP cases (not in this runner): see scripts/manual/README.md
+ *   TC-IS-06-007 → scripts/manual/run-tc-is-06-007-email-change.mjs
  *
  * Requires: npm run dev (default http://localhost:3000), seeded cast accounts.
  */
@@ -23,10 +30,9 @@ import {
   runFixtureCases,
   setTwoFactorFlag,
   ensureCoreQaAccountsReady,
-  mintGoogleVerification,
 } from './lib/ipQaFixtureCases.mjs';
 import { runAuth8Case } from './lib/ipQaAuth8.mjs';
-import { runRemainingSuite } from './lib/ipQaRemainingSuite.mjs';
+import { runRemainingSuite, runSingleTcIsCase } from './lib/ipQaRemainingSuite.mjs';
 import { createRequire as createRequireForDemoText } from 'module';
 
 const demoText = createRequireForDemoText(import.meta.url)('./lib/ipDemoText.js');
@@ -276,7 +282,15 @@ async function runApiSuite() {
 
   // CAPTCHA bypass is on — negative captcha cannot be meaningfully tested
   blocked('AUTH-4', 'CAPTCHA_BYPASS_FOR_TESTING=true — negative captcha path skipped');
-  blocked('REGX-3', 'CAPTCHA_BYPASS_FOR_TESTING=true — register/forgot captcha negative skipped');
+  const MANUAL_REGISTRATION =
+    'Manual only — registration/account creation excluded from automated QA suite';
+  blocked('REGX-3', MANUAL_REGISTRATION);
+  for (const id of [
+    'REG-C-2', 'REG-C-3', 'REG-C-5', 'REG-C-10',
+    'REG-E-2', 'REG-E-3', 'REG-E-5', 'REGX-1',
+  ]) {
+    blocked(id, MANUAL_REGISTRATION);
+  }
 
   // ── 2FA OTP cases (AUTH-12/13/14/19) ─────────────────────────────────────
   // OTP codes are emailed, so automation needs you to provide them from Zoho.
@@ -494,66 +508,6 @@ async function runApiSuite() {
   assess('AUTH-10', fmtBad.status === 400 || fmtBad.status === 422,
     { status: fmtBad.status });
 
-  // Register negative — non-Gmail candidate
-  const regBad = await api('/api/ip/auth/register-candidate', {
-    method: 'POST',
-    body: { email: 'notgmail@yahoo.com', name: 'Test', path: 'google', captchaToken: 'x', captchaAnswer: '7' },
-  });
-  assess('REG-C-2', regBad.status === 400 || regBad.status === 422,
-    { status: regBad.status, error: regBad.data?.error });
-
-  // Duplicate email. Google verification is checked before the duplicate lookup, so this
-  // needs a real token to reach the 409 (the non-Gmail and bad-format cases above still
-  // fail at validation, which runs earlier).
-  const dupeGv = await mintGoogleVerification({ email: QA_ACCOUNTS.candidate.email, name: 'Dupe' });
-  const regDupe = await api('/api/ip/auth/register-candidate', {
-    method: 'POST',
-    body: {
-      email: QA_ACCOUNTS.candidate.email, name: 'Dupe', path: 'google',
-      googleVerificationToken: dupeGv, captchaToken: 'x', captchaAnswer: '7',
-    },
-  });
-  assess('REG-C-3', regDupe.status === 409,
-    { status: regDupe.status });
-
-  // Invalid email format
-  const regFmt = await api('/api/ip/auth/register-candidate', {
-    method: 'POST',
-    body: { email: 'not-an-email', name: 'Fmt', path: 'google', captchaToken: 'x', captchaAnswer: '7' },
-  });
-  assess('REG-C-10', regFmt.status === 400 || regFmt.status === 422,
-    { status: regFmt.status });
-
-  // Employer reg — domain mismatch
-  const regEmpMismatch = await api('/api/ip/auth/register-employer', {
-    method: 'POST',
-    body: {
-      email: 'person@gmail.com', website: 'https://example.com', companyName: 'Mismatch Co',
-      businessEntityType: 'Private Limited', captchaToken: 'x', captchaAnswer: '7', mode: 'auto',
-    },
-  });
-  assess('REG-E-2', regEmpMismatch.status === 400 || regEmpMismatch.status === 422,
-    { status: regEmpMismatch.status, error: regEmpMismatch.data?.error });
-
-  // Employer reg — missing website
-  const regEmpNoWeb = await api('/api/ip/auth/register-employer', {
-    method: 'POST',
-    body: {
-      email: 'person@example.com', companyName: 'No Website',
-      businessEntityType: 'Private Limited', captchaToken: 'x', captchaAnswer: '7', mode: 'auto',
-    },
-  });
-  assess('REG-E-3', regEmpNoWeb.status === 400 || regEmpNoWeb.status === 422,
-    { status: regEmpNoWeb.status });
-
-  // Employer reg — manual request missing fields
-  const regEmpManBad = await api('/api/ip/auth/register-employer', {
-    method: 'POST',
-    body: { mode: 'manual_request', captchaToken: 'x', captchaAnswer: '7' },
-  });
-  assess('REG-E-5', regEmpManBad.status === 400 || regEmpManBad.status === 422,
-    { status: regEmpManBad.status });
-
   // PERMISSIONS
   const candOnEmpApi = await api('/api/ip/employer/candidates', { cookie: cand.cookie });
   const anonProfile = await api('/api/ip/candidate/profile');
@@ -611,7 +565,7 @@ async function runApiSuite() {
     { count: items.length });
 
   // Search candidates (employer)
-  const search = await api('/api/ip/employer/candidates?q=vit', { cookie: emp.cookie });
+  const search = await api('/api/ip/employer/candidates?q=priya', { cookie: emp.cookie });
   const searchItems = search.data?.items || [];
   assess('EMP-C-1', search.status === 200 && Array.isArray(searchItems),
     { count: searchItems.length });
@@ -1011,30 +965,12 @@ async function runBrowserSuite(logins) {
       await visible(page, 'input[type="email"], #email, form'),
       { url: page.url() });
 
-    // REG-C-5: candidate register chrome
-    await page.goto(`${BASE}/register/candidate`, { waitUntil: 'domcontentloaded' });
-    await page.locator('main, form').first().waitFor({ state: 'visible', timeout: 20_000 }).catch(() => {});
-    assess('REG-C-5',
-      await visible(page, 'form, input, button[type="submit"]'),
-      { url: page.url() });
-
     // HELP-1: guidelines page
     await page.goto(`${BASE}/guidelines`, { waitUntil: 'domcontentloaded' });
     await page.locator('main, h1, h2').first().waitFor({ state: 'visible', timeout: 20_000 }).catch(() => {});
     assess('HELP-1',
       (await page.locator('h1, h2, main').first().isVisible().catch(() => false)),
       { url: page.url() });
-
-    // REGX-1: no real Google OAuth redirect
-    await page.goto(`${BASE}/register/candidate`, { waitUntil: 'domcontentloaded' });
-    const googleBtn = page.locator('button, a').filter({ hasText: /google/i }).first();
-    if ((await googleBtn.count()) > 0) {
-      const href = await googleBtn.getAttribute('href') || '';
-      assess('REGX-1', !href.includes('accounts.google.com'),
-        { href: href.slice(0, 100) });
-    } else {
-      pass('REGX-1', 'no external Google OAuth button found');
-    }
 
     // --- Authenticated context (candidate) ------------------------------------
     await ctx.clearCookies();
@@ -1358,6 +1294,9 @@ async function main() {
 
   if (ONLY === 'AUTH-8') {
     await runAuth8Case({ BASE, assess, blocked });
+  } else if (ONLY?.startsWith('TC-IS-')) {
+    const rem = await runSingleTcIsCase(ONLY, { base: BASE });
+    byTcId = rem.byTcId || {};
   } else if (ONLY) {
     console.error(`Unknown --only case: ${ONLY}`);
     process.exitCode = 1;
@@ -1380,20 +1319,27 @@ function persistResults() {
   const outPath = resolve(appRoot, 'test-cases/qa-results.json');
   let priorByTcId = {};
   let priorCases = {};
+  let priorResults = {};
   try {
     const prior = JSON.parse(readFileSync(outPath, 'utf8'));
     priorByTcId = prior.byTcId || {};
     priorCases = prior.cases || {};
+    priorResults = prior.results || { ...priorCases, ...priorByTcId };
   } catch {
     /* first run */
   }
-  // Full combined run replaces both maps; --only / --skip-tc-is keep the other map.
-  const outCases = ONLY ? { ...priorCases, ...cases } : cases;
-  const outByTcId = (ONLY || SKIP_TC_IS) ? { ...priorByTcId, ...byTcId } : byTcId;
-  const payload = { executedAt, base: BASE, cases: outCases, byTcId: outByTcId };
+  const isTcIsOnly = ONLY?.startsWith('TC-IS-');
+  const outCases = (ONLY && !isTcIsOnly) ? { ...priorCases, ...cases } : (isTcIsOnly ? priorCases : cases);
+  const outByTcId = (ONLY && !isTcIsOnly) || SKIP_TC_IS ? { ...priorByTcId, ...byTcId } : (isTcIsOnly ? { ...priorByTcId, ...byTcId } : byTcId);
+  const results = isTcIsOnly
+    ? { ...priorResults, ...outByTcId }
+    : ONLY
+      ? { ...priorResults, ...outCases, ...outByTcId }
+      : { ...outCases, ...outByTcId };
+  const payload = { executedAt, base: BASE, results, cases: outCases, byTcId: outByTcId };
   writeFileSync(outPath, JSON.stringify(payload, null, 2));
 
-  const all = { ...outCases, ...outByTcId };
+  const all = results;
   const passN = Object.values(all).filter((c) => c.status === 'Pass').length;
   const failN = Object.values(all).filter((c) => c.status === 'Fail').length;
   const blockedN = Object.values(all).filter((c) => c.status === 'Blocked').length;
@@ -1403,6 +1349,7 @@ function persistResults() {
     executedAt,
     base: BASE,
     combined: { total, pass: passN, fail: failN, blocked: blockedN },
+    results: Object.keys(results).length,
     legacyCases: Object.keys(outCases).length,
     tcIs: Object.keys(outByTcId).length,
     resultsFile: 'test-cases/qa-results.json',

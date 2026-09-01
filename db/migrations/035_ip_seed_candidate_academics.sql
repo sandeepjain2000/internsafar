@@ -49,10 +49,10 @@ INSERT INTO ip_acad_seed VALUES
   ('lawsonlclintern+1@gmail.com', 'Pune Institute of Computer Technology', 'B.E.',
    'Information Technology', 2027, '8.62',
    'Kendriya Vidyalaya, Pune', 'Science (PCM)', '89%'),
-  ('lawsonlclintern+2@gmail.com', 'VIT', 'B.Tech',
+  ('lawsonlclintern+2@gmail.com', 'BMS College of Engineering', 'B.Tech',
    'Electronics and Communication', 2026, '8.15',
    'Delhi Public School, Bengaluru', 'Science (PCM)', '84%'),
-  ('lawsonlclintern+3@gmail.com', 'VIT', 'B.Tech',
+  ('lawsonlclintern+3@gmail.com', 'SRM Institute of Science and Technology', 'B.Tech',
    'CSE', 2027, '8.40',
    'Loyola Junior College, Chennai', 'Science (PCM + CS)', '91%');
 
