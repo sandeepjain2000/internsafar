@@ -4,6 +4,7 @@ import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { LINKEDIN_PROMO_CREDITS, LINKEDIN_PROMO_POINTS } from '@/lib/pointsEconomy';
 import { notifyUser } from '@/lib/ipNotify';
+import { resolveAppOrigin } from '@/lib/ipAppOrigin';
 
 function promoToken() {
   return `ip_li_${randomBytes(8).toString('hex')}`;
@@ -71,7 +72,7 @@ export async function POST(request) {
 
   const id = newId('ip_promo');
   const token = promoToken();
-  const origin = process.env.NEXTAUTH_URL || 'https://internship-portal-sigma-mauve.vercel.app';
+  const origin = resolveAppOrigin(request.url);
   const shareUrl = `${origin}/candidate/internships/${internshipId}?promo=${token}`;
 
   await query(

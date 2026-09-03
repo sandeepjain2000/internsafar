@@ -1,9 +1,12 @@
 /**
- * Apply ISM migrations + seed demo users (ism_/is_ tables).
- * Also seeds ip_employer_documents demo rows for approved Internship Portal
- * employers (ip_employers) so the SuperAdmin Documents tab has data —
- * uses files under public/seed-docs/ (run `node scripts/create-seed-docs.mjs` first if missing).
- * Usage: node scripts/migrate-and-seed.mjs
+ * Apply ISM migrations + seed demo users (ism_/is_ tables) — WRONG PRODUCT for InternSafar AWS.
+ *
+ * InternSafar (ip_*) on AWS:
+ *   Path C fresh RDS → npm run deploy:fresh-aws-db
+ *   SQL only → npm run db:migrate:sql-only
+ *
+ * This file exits 1 by default so Cursor cannot run it by mistake.
+ * Only proceed with: node scripts/migrate-and-seed.mjs --force-ism
  */
 import fs from 'fs';
 import path from 'path';
@@ -11,6 +14,20 @@ import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
 import pg from 'pg';
 import dotenv from 'dotenv';
+
+if (!process.argv.includes('--force-ism')) {
+  console.error('');
+  console.error('=== STOP: migrate-and-seed.mjs is for ISM (ism_*), not InternSafar (ip_*) ===');
+  console.error('');
+  console.error('For InternSafar AWS:');
+  console.error('  Fresh RDS → npm run deploy:fresh-aws-db');
+  console.error('  SQL only  → npm run db:migrate:sql-only');
+  console.error('  App update (Path B) → do not run DB migrate');
+  console.error('');
+  console.error('To run this ISM script on purpose: add --force-ism');
+  console.error('');
+  process.exit(1);
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');

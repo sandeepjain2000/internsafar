@@ -1,34 +1,46 @@
 InternSafar — AWS setup checklist (short)
 ======================================
 
-Authoritative steps: InternSafar_AWS_Deployment_Runbook_CRISP_COMPLETE_FINAL (1).docx
+Authoritative steps: InternSafar_AWS_Deployment_Runbook_CRISP_COMPLETE_FINAL (1) (1).docx
 
-1. Runbook Parts A–B
-   - EC2 (Ubuntu 24.04, Elastic IP, security groups)
-   - Private RDS PostgreSQL (internsafar DB, 5432 from EC2 SG only)
+PATH B — App update (RDS unchanged)
+---------------------------------
+Full pastable blocks: AWS-DEPLOY.md section "Path B — full pastable"
+Also in runbook docx: Part M
 
-2. Upload deploy zip to EC2 and extract to ~/internship-portal
+1. SCP handoff zip to EC2; unzip to ~/internship-portal-aws-handoff
+2. Paste Block 1 (extract + chmod/chown) from AWS-DEPLOY.md
+3. Paste Block 2 (app-swap set -e) from AWS-DEPLOY.md
+4. Paste Block 3 (npm install → build → pm2 restart --update-env)
+5. Do NOT run database migrate/seed on Path B
+5b. Do NOT set IP_ALLOW_DB_MIGRATE on Path B (migrate is code-blocked without it)
+6. Verify https://internsafar.com (sign-out must NOT redirect to localhost)
 
-3. On EC2: create .env (NEVER upload local .env / .env.local)
-   - DATABASE_URL=postgresql://...@<RDS_ENDPOINT>:5432/internsafar
-   - NEXTAUTH_URL, NEXTAUTH_SECRET, mail, S3 keys
+PATH C — Fresh RDS
+------------------
+1. Runbook Parts A–B (EC2 + RDS) if needed
+2. Extract app tar to ~/internship-portal, create .env on EC2
+3. npm install --legacy-peer-deps
+4. RDS connection test (runbook Step 22)
+5. IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db
+6. Watch for === OK === / === FAIL === / === BLOCKED ===; exit 0 only = success
+7. npm run build && pm2 start/restart internsafar
+8. Runbook Parts F–G: Nginx, DNS, Certbot
 
-4. RDS connection test (runbook Step 22) — expect RDS CONNECTION SUCCESS
+Later SQL-only (demo users already exist):
+  IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:sql-only
 
-5. cd ~/internship-portal
-   npm install --legacy-peer-deps
-   npm run db:migrate:all
-   npm run db:check-integrity
+Why Cursor must not migrate on Path B / how code stops it: PATH-B-NO-DB-MIGRATE.txt
 
-6. npm run build
-   pm2 start npm --name internsafar -- start
-   pm2 save
+.env must include (NEW values provided separately — NOT in the zip):
+  NEXTAUTH_URL=https://internsafar.com
+  NEXTAUTH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+Do NOT reuse old EC2 .env or laptop .env.local (caused localhost / login issues).
+If given a Google client secret JSON outside the zip: copy id/secret into .env only.
+After .env changes: npm run build BEFORE pm2 restart --update-env
+(See README.txt and runbook Part O / Part R.)
 
-7. Runbook Parts F–G: Nginx, domain DNS, Certbot HTTPS, pm2 startup
-
-8. Open https://<DOMAIN> — bootstrap superadmin if needed (/api/ip/bootstrap)
-
-Notes:
-- db:migrate:all runs all 38 IP SQL files (replaces runbook partial 001-only migrate)
-- If SSL errors: DATABASE_SSL_CA=/etc/ssl/rds/global-bundle.pem
-- Do not rerun migrations after EC2/RDS reboot alone
+Migration count: 40 SQL files (001–039, two 008_*).
+Project deploy archive: .tar.gz only (no .zip for the app folder).
+App folder map: APP-TAR-FOLDER-STRUCTURE.txt (handoff) = APP-FOLDER-STRUCTURE.txt (inside tar).
+Handoff file tree: README.txt

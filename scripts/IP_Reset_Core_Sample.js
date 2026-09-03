@@ -19,6 +19,8 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const { createRequire } = require('module');
+const { assertDbMigrateAllowed } = require('./assert-db-migrate-allowed');
+assertDbMigrateAllowed(process.argv);
 
 const coreCfg = require('./lib/ipCoreSampleConfig.js');
 const { CORE_BASELINE_POSTINGS } = require('./lib/ipCoreBaselinePostings.js');

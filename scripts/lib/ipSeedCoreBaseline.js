@@ -76,9 +76,9 @@ async function ensureUser(client, bcrypt, nid, { email, role, name, points = 80,
   const id = nid('ip_user');
   const hash = await bcrypt.hash(password, 10);
   await client.query(
-    `INSERT INTO ip_users (id,email,password_hash,role,name,points,free_post_credits,application_allowance,referral_code,profile_complete,active)
-     VALUES ($1,$2,$3,$4,$5,$6,0,0,$7,true,true)`,
-    [id, email.toLowerCase(), hash, role, name, points, refCode(email)],
+    `INSERT INTO ip_users (id,email,password_hash,role,name,points,free_post_credits,application_allowance,profile_complete,active)
+     VALUES ($1,$2,$3,$4,$5,$6,0,0,true,true)`,
+    [id, email.toLowerCase(), hash, role, name, points],
   );
   return id;
 }
@@ -314,15 +314,15 @@ async function seedCoreBaseline(client, bcrypt) {
     if (ex.rows[0]) {
       candidateIds[c.email] = ex.rows[0].id;
       await client.query(
-        `UPDATE ip_candidates SET name=$2, skills=$3::jsonb, updated_at=now() WHERE id=$1`,
-        [ex.rows[0].id, c.name, JSON.stringify(c.skills || ['JavaScript'])],
+        `UPDATE ip_candidates SET name=$2, skills=$3::text[], updated_at=now() WHERE id=$1`,
+        [ex.rows[0].id, c.name, c.skills || ['JavaScript']],
       );
     } else {
       const id = nid('ip_cand');
       const edu = educationFor(c, i);
       await client.query(
         `INSERT INTO ip_candidates (id,user_id,name,email,phone,college,degree,specialization,study_status,graduation_year,cgpa,city,state,skills,preferred_work_mode,preferred_locations,resume_url,prior_experience,searchable,show_profile_picture)
-         VALUES ($1,$2,$3,$4,'9000000001',$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,'Remote',$14::jsonb,'https://example.com/resume.pdf',$15,true,true)`,
+         VALUES ($1,$2,$3,$4,'9000000001',$5,$6,$7,$8,$9,$10,$11,$12,$13::text[],'Remote',$14::text[],'https://example.com/resume.pdf',$15,true,true)`,
         [
           id,
           userId,
@@ -336,8 +336,8 @@ async function seedCoreBaseline(client, bcrypt) {
           edu.cgpa,
           edu.city,
           edu.state,
-          JSON.stringify(c.skills || ['JavaScript']),
-          JSON.stringify(['Remote', 'Bengaluru']),
+          c.skills || ['JavaScript'],
+          ['Remote', 'Bengaluru'],
           content.experienceEntriesJsonAt(i),
         ],
       );

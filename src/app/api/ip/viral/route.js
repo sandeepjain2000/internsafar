@@ -3,6 +3,7 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { LINKEDIN_PROMO_POINTS } from '@/lib/pointsEconomy';
+import { resolveAppOrigin } from '@/lib/ipAppOrigin';
 
 const CHECK_DELAY_MS = 24 * 60 * 60 * 1000;
 
@@ -61,7 +62,7 @@ export async function POST(request) {
   const code = user.rows[0]?.referral_code;
   if (!code) return jsonError('Referral code missing', 400);
 
-  const origin = process.env.NEXTAUTH_URL || 'https://internship-portal-sigma-mauve.vercel.app';
+  const origin = resolveAppOrigin(request.url);
   const t = token();
   const shareUrl = `${origin}/r/${code}?viral=${t}`;
   const id = newId('ip_viral');

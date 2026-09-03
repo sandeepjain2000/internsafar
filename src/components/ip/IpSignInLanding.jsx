@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Lock } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import LoginCaptchaField from '@/components/auth/LoginCaptchaField';
@@ -55,8 +55,17 @@ function BrandMark({ variant = 'dark' }) {
   );
 }
 
+const GOOGLE_AUTH_ERRORS = {
+  GoogleLoginDisabled:
+    'Google sign-in verifies registration only. Sign in with email and password, or register first.',
+  GoogleNoEmail: 'Google did not return an email address. Try another Google account or use email sign-in.',
+  GoogleEmailUnverified:
+    'That Google email is not verified. Verify it in Google or register with email instead.',
+};
+
 export default function IpSignInLanding() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -74,6 +83,13 @@ export default function IpSignInLanding() {
   useEffect(() => {
     fetch('/api/ip/bootstrap', { method: 'POST' }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const authError = searchParams.get('error');
+    if (authError && GOOGLE_AUTH_ERRORS[authError]) {
+      setError(GOOGLE_AUTH_ERRORS[authError]);
+    }
+  }, [searchParams]);
 
   function parseTwoFactorRequired(err) {
     const raw = decodeURIComponent(String(err || ''));

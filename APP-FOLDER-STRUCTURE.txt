@@ -1,0 +1,134 @@
+InternSafar — App archive folder structure
+==========================================
+
+This file is inside internship-portal-aws-deploy-*.tar.gz (and copied to the
+handoff zip as APP-TAR-FOLDER-STRUCTURE.txt).
+
+App root after extract: internship-portal/  (~1399 files in this archive;
+node_modules / .next / secrets are excluded from the pack).
+
+AWS DB routing (read AGENTS.md before any migrate):
+  Path B (app update)     → do NOT run any DB migrate/seed
+  Path C (fresh RDS)      → npm run deploy:fresh-aws-db
+  Demo users already exist → npm run db:migrate:sql-only
+  Success = === OK === banners + exit 0; === FAIL === = stop
+
+Tree (appropriate folders + key files — not every source file)
+--------------------------------------------------------------
+internship-portal/
+├── .env.example  ← template only (no real secrets in pack)
+├── .gitignore
+├── AGENTS.md  ← Cursor: AWS DB script routing
+├── APP-FOLDER-STRUCTURE.txt  ← this file
+├── components.json
+├── InternSafar_Business_Requirements.txt
+├── IP_FIX_CHECKLIST.md
+├── ISM_ROUTE_INVENTORY.md
+├── ISM_USER_GUIDE.md
+├── jsconfig.json
+├── next.config.mjs
+├── package-lock.json
+├── package.json
+├── playwright.config.js
+├── postcss.config.mjs
+├── README.md  ← product overview / local setup
+├── vercel.json
+├── WORKBENCH_FEATURE_GUIDE.md
+├── WORKBENCH_IMPLEMENTATION_REPORT.md
+├── .agents/  (850 files)
+│   └── skills/  (850 files)
+├── db/  (40 files)
+│   └── migrations/  ← 40 SQL files (001–039 in handoff manifest)
+├── docs/  (3 files)
+│   ├── ip-er-diagram-notes.md
+│   ├── ip-er-diagram.puml
+│   └── VALIDATION_SCORE.md
+├── git-scripts/  (9 files)
+│   ├── git-clone.bat
+│   ├── git-clone.ps1
+│   ├── git-pull.bat
+│   ├── git-pull.ps1
+│   ├── git-push.bat
+│   ├── git-push.ps1
+│   ├── GIT-SCRIPTS-README.md
+│   ├── git-setup.bat
+│   └── git-setup.ps1
+├── public/  (28 files)
+│   ├── sample-cvs/  (6 files)
+│   ├── sample-docs/  (6 files)
+│   ├── seed-cvs/  (6 files)
+│   ├── seed-docs/  (5 files)
+│   ├── internsafar-icon.png
+│   ├── internsafar.png
+│   ├── logo-icon.png
+│   ├── logo-transparent.png
+│   └── logo.png
+├── qa/  (9 files)
+│   ├── docs/  (2 files)
+│   ├── helpers/  (2 files)
+│   ├── runners/  (1 files)
+│   ├── tests/  (3 files)
+│   └── routes-by-role.js
+├── reference-screenshots/  (5 files)
+│   └── … (see live tree after extract)
+├── reference-wireframes/  (8 files)
+│   └── … (see live tree after extract)
+├── scripts/  (85 files)
+│   ├── deploy-fresh-aws-db.mjs
+│   ├── db_migrate_sql_only_ip.mjs
+│   ├── db_exec_sql_file.js
+│   ├── IP_Reset_Core_Sample.js
+│   ├── MIGRATION_MANIFEST.txt
+│   ├── SCRIPTS-README.md
+│   ├── build-aws-handoff.ps1
+│   ├── write-handoff-readme.py
+│   ├── write-app-folder-structure.py
+│   ├── linux-safe-archive.py
+│   ├── aws-handoff-docs/  ← 5 handoff doc sources
+│   └── … +51 other scripts  ← see SCRIPTS-README.md
+├── src/  (339 files)
+│   ├── app/  (158 files)
+│   │   ├── account/
+│   │   ├── api/
+│   │   ├── app/
+│   │   ├── candidate/
+│   │   ├── employer/
+│   │   ├── forgot-password/
+│   │   ├── guidelines/
+│   │   ├── help/
+│   │   ├── how-it-works/
+│   │   ├── ideas/
+│   │   ├── login/
+│   │   ├── r/
+│   │   ├── register/
+│   │   ├── superadmin/
+│   │   └── (3 files at this level)
+│   ├── components/  (89 files)
+│   │   ├── auth/
+│   │   ├── ip/
+│   │   ├── ui/
+│   │   └── (6 files at this level)
+│   ├── config/  (1 files)
+│   ├── data/  (0 files)
+│   ├── hooks/  (4 files)
+│   ├── lib/  (86 files)
+│   │   └── (86 files at this level)
+│   └── styles/  (1 files)
+└── test-cases/  (4 files)
+    ├── manual/  (1 files)
+    ├── _gen_ip_checklist.py
+    ├── InternSafar-Test-Cases.xlsx
+    └── qa-results.json
+
+Handoff deliverables (outside this tar — see zip README.txt)
+-----------------------------------------------------------
+internship-portal-aws-handoff.zip
+├── README.txt                         ← full handoff file tree + inventory
+├── APP-TAR-FOLDER-STRUCTURE.txt       ← copy of this structure (no need to untar)
+├── AWS-DEPLOY.md / SETUP-NOTES.txt / DB-*.md|txt / ISSUES-FIXED.txt
+├── internship-portal-aws-deploy-*.tar.gz   ← this app archive
+├── migrations/                        ← 40 SQL files
+└── runner/                            ← SQL-only helper (demo users already exist)
+
+Also share: InternSafar_AWS_Deployment_Runbook_CRISP_COMPLETE_FINAL (1) (1).docx
+

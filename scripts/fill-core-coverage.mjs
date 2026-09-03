@@ -100,6 +100,15 @@ function noted(label, n) {
   if (n > 0) done.push(`${label}: +${n}`);
 }
 
+async function columnExists(table, column) {
+  const r = await client.query(
+    `SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name=$1 AND column_name=$2`,
+    [table, column],
+  );
+  return Boolean(r.rows[0]);
+}
+
 /**
  * Company names for accounts this script creates.
  *
@@ -695,6 +704,10 @@ async function main() {
 
   // ----------------------------------------------- superadmin: feature ideas
   const [categoryRow] = await rows(`SELECT id FROM ip_idea_categories ORDER BY sort_order LIMIT 1`);
+  const hasProblem = await columnExists('ip_feature_ideas', 'problem');
+  const hasSolution = await columnExists('ip_feature_ideas', 'solution');
+  const hasAdminNote = await columnExists('ip_feature_ideas', 'admin_note');
+  const useDetailCols = hasProblem && hasSolution;
   const IDEA_STATUS = ['Pending approval', 'Under review', 'In progress', 'Planned', 'Shipped', 'Declined'];
   for (const [statusIndex, status] of IDEA_STATUS.entries()) {
     // A distinct block of the idea pool per roadmap column, so no two columns
@@ -703,20 +716,39 @@ async function main() {
     const current = await count(`SELECT count(*)::int n FROM ip_feature_ideas WHERE status = $1`, [status]);
     const need = deficit(`superadmin.feature_ideas.${status}`, current);
     for (let i = 0; i < need; i += 1) {
-      await write(
-        `INSERT INTO ip_feature_ideas (
-           id, author_user_id, title, description, status, category_id, priority, problem, solution, admin_note
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-        [
+      const ideaTitle = text.featureIdea(ideaSeed + i).title;
+      const ideaDescription = text.featureIdea(ideaSeed + i).description;
+      const ideaProblem = 'Recruiters lose context when switching between tabs.';
+      const ideaSolution = 'Keep filters and sort persistent across navigation.';
+      const ideaAdminNote = status === 'Declined' ? 'Out of scope for this quarter.' : null;
+      if (useDetailCols) {
+        const cols = ['id', 'author_user_id', 'title', 'description', 'status', 'category_id', 'priority', 'problem', 'solution'];
+        const vals = ['$1', '$2', '$3', '$4', '$5', '$6', '$7', '$8', '$9'];
+        const params = [
           qaDbId('ip_idea'), i % 2 === 0 ? cand.id : emp.id,
-          text.featureIdea(ideaSeed + i).title,
-          text.featureIdea(ideaSeed + i).description,
-          status, categoryRow?.id || null, (i % 4) + 1,
-          'Recruiters lose context when switching between tabs.',
-          'Keep filters and sort persistent across navigation.',
-          status === 'Declined' ? 'Out of scope for this quarter.' : null,
-        ],
-      );
+          ideaTitle, ideaDescription, status, categoryRow?.id || null, (i % 4) + 1,
+          ideaProblem, ideaSolution,
+        ];
+        if (hasAdminNote) {
+          cols.push('admin_note');
+          vals.push(`$${params.length + 1}`);
+          params.push(ideaAdminNote);
+        }
+        await write(
+          `INSERT INTO ip_feature_ideas (${cols.join(', ')}) VALUES (${vals.join(', ')})`,
+          params,
+        );
+      } else {
+        await write(
+          `INSERT INTO ip_feature_ideas (
+             id, author_user_id, title, description, status, category_id, priority
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          [
+            qaDbId('ip_idea'), i % 2 === 0 ? cand.id : emp.id,
+            ideaTitle, ideaDescription, status, categoryRow?.id || null, (i % 4) + 1,
+          ],
+        );
+      }
     }
     noted(`superadmin.feature_ideas.${status}`, need);
   }

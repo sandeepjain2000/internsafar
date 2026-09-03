@@ -2,11 +2,12 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import bcrypt from 'bcryptjs';
 import { headers } from 'next/headers';
+import { cookies } from 'next/headers';
 import { query } from '@/lib/db';
 import { isCaptchaBypassed, verifyLoginCaptcha, verifyCaptchaGate } from '@/lib/simpleCaptcha';
 import { newId } from '@/lib/ids';
 import { ROLE_HOME } from '@/lib/roleHome';
-import { createAuthSession, touchAuthSession } from '@/lib/ipAuthSessions';
+import { createAuthSession, touchAuthSession, revokeAuthSession } from '@/lib/ipAuthSessions';
 import {
   createTwoFactorChallenge,
   ensureIpTwoFactorSchema,
@@ -14,10 +15,12 @@ import {
   verifyTwoFactorChallenge,
 } from '@/lib/ipTwoFactor';
 import { consumeLoginDbFailureSimulation } from '@/lib/ipQaSimulate';
+import { warnIfProductionAuthMisconfigured } from '@/lib/ipAppOrigin';
 import { normalizeEmail } from '@/lib/authRegisterRules';
 import {
   createGoogleVerification,
   ensureIpGoogleAuthSchema,
+  GOOGLE_INTENT_COOKIE,
   googleIntentFromCookieHeader,
 } from '@/lib/ipGoogleAuth';
 
@@ -25,6 +28,8 @@ import {
 const SESSION_SHORT_SEC = 60 * 60 * 12; // 12 hours
 /** Max session when "Remember this device for 30 days" is checked. */
 const SESSION_LONG_SEC = 60 * 60 * 24 * 30; // 30 days
+
+warnIfProductionAuthMisconfigured();
 
 /**
  * Internship Portal auth — Credentials login + Google as registration verification.
@@ -93,6 +98,7 @@ async function requestMeta() {
 }
 
 export const authOptions = {
+  trustHost: true,
   providers: [
     CredentialsProvider({
       name: 'Credentials',
@@ -280,6 +286,12 @@ export const authOptions = {
           name: profile?.name || user?.name || '',
           pictureUrl: profile?.picture || user?.image || '',
         });
+        try {
+          const cookieStore = await cookies();
+          cookieStore.delete(GOOGLE_INTENT_COOKIE);
+        } catch {
+          /* non-fatal */
+        }
         return `${intent.returnTo}?gv=${encodeURIComponent(token)}`;
       }
 
@@ -379,6 +391,17 @@ export const authOptions = {
         if (token.name) session.user.name = token.name;
       }
       return session;
+    },
+  },
+  events: {
+    async signOut({ token }) {
+      if (token?.sid && token?.uid) {
+        try {
+          await revokeAuthSession({ sessionId: token.sid, userId: token.uid });
+        } catch (e) {
+          console.error('[ip auth] signOut session revoke failed', e.message);
+        }
+      }
     },
   },
   secret: process.env.NEXTAUTH_SECRET,

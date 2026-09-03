@@ -3,9 +3,10 @@ import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { query } from '@/lib/db';
 import { newId } from '@/lib/ids';
 import { sendMail } from '@/lib/mail';
+import { resolveAppOrigin } from '@/lib/ipAppOrigin';
 
 /** Signed-in reset: uses the login email. No captcha (identity already known). */
-export async function POST() {
+export async function POST(request) {
   const { session, error } = await requireSession(['candidate', 'employer', 'superadmin']);
   if (error) return error;
 
@@ -23,7 +24,7 @@ export async function POST() {
     token,
     expiresAt,
   ]);
-  const resetUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/forgot-password?token=${token}`;
+  const resetUrl = `${resolveAppOrigin(request.url)}/forgot-password?token=${token}`;
   try {
     await sendMail({
       to: user.email,

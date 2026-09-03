@@ -1,0 +1,51 @@
+InternSafar — Why Path B must not run DB migrate (and how code stops it)
+=======================================================================
+
+The issue
+---------
+During an AWS app update (Path B: new code, same RDS), Cursor ran a database
+migration script. That was wrong: Path B is app swap + npm build + PM2 only.
+RDS schema/data must not change on Path B.
+
+Separately, when SQL failed, the agent still treated the run as success
+(no hard fail). That is fixed with === OK === / === FAIL === and exit 1.
+
+Why it happened
+---------------
+1. Agents saw npm scripts / files whose names contain "migrate" and ran them.
+2. Path B pastable steps did not make "no database" impossible in code — only
+   documentation — so an agent could still invoke migrate.
+3. Older runners could exit 0 or look "done" even when a SQL file failed.
+
+How humans/agents must stop it
+------------------------------
+Path B (app update, RDS unchanged):
+  - Follow AWS-DEPLOY.md / runbook Part M Blocks 1–3 only.
+  - Do NOT set IP_ALLOW_DB_MIGRATE.
+  - Do NOT run deploy:fresh-aws-db, db:migrate:*, or runner/*.mjs migrate.
+  - Tell Cursor explicitly: "Path B only — no database."
+
+Path C (fresh/empty RDS) — only when intentional:
+  IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db
+
+SQL only when demo users already exist:
+  IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:sql-only
+
+How it is stopped in code (current pack)
+----------------------------------------
+File: scripts/assert-db-migrate-allowed.js
+
+Called first by:
+  - scripts/db_exec_sql_file.js          (every SQL file apply)
+  - scripts/deploy-fresh-aws-db.mjs      (Path C orchestrator)
+  - scripts/db_migrate_sql_only_ip.mjs   (SQL-only orchestrator)
+  - handoff runner/db_migrate_sql_only_ip.mjs + runner/db_exec_sql_file.js
+
+Without IP_ALLOW_DB_MIGRATE=1 (or an explicit confirm flag), the process prints:
+  === BLOCKED: database migrate/seed refused ===
+and exits 1. Casual `npm run deploy:fresh-aws-db` without the env is refused.
+
+Also fail-closed: SQL errors print === FAIL === and exit 1 (do not claim success).
+
+Cursor rule: .cursor/rules/aws-path-b-no-db.mdc
+AGENTS.md: AWS / RDS database scripts table

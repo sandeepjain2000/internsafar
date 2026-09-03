@@ -1,5 +1,6 @@
-# Internship Portal — IP migration manifest (001–038)
-# Run in order via: npm run db:migrate:all
+# Internship Portal — IP migration manifest (001–039)
+# Fresh RDS: npm run deploy:fresh-aws-db
+# SQL only (demo users exist): npm run db:migrate:sql-only
 
 001_ip_schema.sql
 002_ip_employer_ethics.sql
@@ -40,3 +41,4 @@
 036_ip_single_superadmin.sql
 037_ip_retire_vit_college_names.sql
 038_ip_retire_vishwakarma_vnit_college_names.sql
+039_ip_feature_idea_detail_columns.sql

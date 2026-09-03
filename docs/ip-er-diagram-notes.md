@@ -1,7 +1,8 @@
 # Internship Portal ER diagram
 
-**Last synced:** 2026-08-31 (sibling `internship-portal`)  
-**Sources:** live Postgres catalog + `db/migrations/001`–`031` (`*ip*`) + `src/lib/ensureIp*.js` + `ipTwoFactor.js`
+**Last synced:** 2026-09-03 (sibling `internship-portal`)  
+**Sources:** `db/migrations/001`–`039` (`*ip*`) + `src/lib/ensureIp*.js` + `ipTwoFactor.js`  
+**Table count:** still **47** `ip_*` tables — no new entities since migration **031**
 
 ## PlantUML file
 
@@ -11,6 +12,8 @@ C:\Users\place\Work\UIUX Migration\internship-portal\docs\ip-er-diagram.puml
 
 Relative: `docs/ip-er-diagram.puml`  
 Render with VS Code PlantUML, IntelliJ, or https://www.plantuml.com/plantuml
+
+The `.puml` PK/FK layout from 2026-08-31 is still valid. Migrations **032–039** do not add/drop tables or change primary/foreign keys (see delta below).
 
 ---
 
@@ -25,7 +28,19 @@ Render with VS Code PlantUML, IntelliJ, or https://www.plantuml.com/plantuml
 
 ---
 
-## Sync delta (2026-08-31 vs 2026-08-27 draw)
+## Sync delta (2026-09-03 vs 2026-08-31 draw)
+
+| Change | Detail |
+|---|---|
+| Migrations covered | Through **039** (was through **031**) |
+| New / dropped tables | **None** — still 47 entities |
+| PK / FK / UNIQUE title lines | **Unchanged** — diagram structure unchanged |
+| `032`–`034`, `037`–`038` | Data-only company/college name cleanups — no schema for the ER |
+| `035` | Seeds `ip_candidate_academics` for cast candidates (temp helper table dropped in-file) |
+| `036` | Single-SuperAdmin data repair (`support@placementhub.online`) — no new table |
+| `039` | Adds columns on existing `ip_feature_ideas` (`problem`, `solution`, `admin_note`) — not shown on diagram by design (bodies stay empty) |
+
+### Prior delta (2026-08-31 vs 2026-08-27 draw)
 
 | Change | Detail |
 |---|---|
@@ -121,4 +136,6 @@ The diagram is hand-maintained; there is no generator. To re-check it against re
 - tables — `information_schema.tables` where `table_name LIKE 'ip\_%'` and `table_type = 'BASE TABLE'`
 - keys — `pg_constraint` filtered to `contype in ('p','f','u')`, joined through `unnest(conkey)` to `pg_attribute` for column names
 
-Then confirm every live table has an entity, and that each entity's `PK:` / `FK:` / `UNIQUE:` title lines match. Verified clean on 2026-08-31 alongside `npm run db:check-integrity` (**ok**), `npm run audit:demo-consistency` (40 checks) and `npm run audit:demo-text`.
+Then confirm every live table has an entity, and that each entity's `PK:` / `FK:` / `UNIQUE:` title lines match.
+
+**2026-09-03:** Re-checked migrations `032`–`039` for `CREATE TABLE` / PK / FK / UNIQUE changes — none that affect this diagram. Structure last fully matched to live catalog on **2026-08-31** (`db:check-integrity` **ok**).

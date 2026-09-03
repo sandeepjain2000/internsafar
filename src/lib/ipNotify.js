@@ -3,6 +3,7 @@ import { newId } from '@/lib/ids';
 import { ensureIpNotificationCategorySchema } from '@/lib/ensureIpNotificationCategorySchema';
 import { getNotifyChannels } from '@/lib/ipNotificationPreferences';
 import { sendMail } from '@/lib/mail';
+import { resolveAppOrigin } from '@/lib/ipAppOrigin';
 
 /**
  * Insert a notification for one ip_users row.
@@ -67,7 +68,7 @@ export async function notifyUser({
       const user = await query(`SELECT email, name FROM ip_users WHERE id = $1`, [userId]);
       const to = user.rows[0]?.email;
       if (to) {
-        const origin = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+        const origin = resolveAppOrigin();
         const href = link && link !== '#' ? `${origin}${link.startsWith('/') ? link : `/${link}`}` : origin;
         await sendMail({
           to,

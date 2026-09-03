@@ -1,5 +1,5 @@
 @startuml Internship Portal ER — CORE vs NON-ESSENTIAL
-title InternSafar / Internship Portal — logical ER\nPK + FK listed under each table name · bodies are keys only (not full schemas)\nSynced 2026-08-31 from live DB + migrations 001–031 + ensureIp*.js
+title InternSafar / Internship Portal — logical ER\nPK + FK listed under each table name · bodies are keys only (not full schemas)\nSynced 2026-09-03 · structure unchanged since 2026-08-31 (migrations 001–039; 032–039 add no tables/PKs/FKs)
 
 ' RULES (explicit):
 ' 1) PK and FK appear under the table name (entity title), not as a full column dump.
@@ -7,7 +7,8 @@ title InternSafar / Internship Portal — logical ER\nPK + FK listed under each 
 ' 3) CORE (blue) = hire-pipeline integrity only.
 ' 4) NON-ESSENTIAL (orange) = feature ideas, sharing, points, referrals, login/auth,
 '    lookup, plus further support/workbench tables identified while shrinking CORE.
-' Sources: live pg catalog + db/migrations/*ip* + src/lib/ensureIp*.js + ipTwoFactor.js
+' Sources: live pg catalog (2026-08-31) + db/migrations/*ip* 001–039 + ensureIp*.js + ipTwoFactor.js
+' 032–039: data fixes / column adds only — no new entities (see docs/ip-er-diagram-notes.md)
 ' Dropped table (not shown): ip_list_presets (migration 022 → ip_saved_applicant_views)
 
 top to bottom direction

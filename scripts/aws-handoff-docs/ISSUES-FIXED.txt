@@ -1,0 +1,171 @@
+InternSafar AWS handoff — issues fixed
+======================================
+Generated: 2026-09-02
+Plan: InternSafar AWS Fix Pack
+Handoff zip: internship-portal-aws-handoff.zip
+Handoff folder: internship-portal-aws-handoff/
+App archive inside: internship-portal-aws-deploy-*.tar.gz (see handoff folder for exact timestamp)
+Runbook (separate): InternSafar_AWS_Deployment_Runbook_CRISP_COMPLETE_FINAL (1) (1).docx
+
+Folder vs zip check
+-------------------
+- Folder and zip are built together by build-aws-handoff.ps1 (same contents).
+- README.txt lists the COMPLETE handoff folder structure and every file path.
+- APP-TAR-FOLDER-STRUCTURE.txt maps appropriate folders/files inside the app .tar.gz
+  (same text as APP-FOLDER-STRUCTURE.txt after extract).
+- App .tar.gz is Linux-safe (forward slashes).
+- Verdict: zip is a faithful archive of the handoff folder.
+
+Plan fulfillment
+----------------
+All plan parts are delivered:
+
+1) Code (inside app .tar.gz)
+   - Seed: skills + preferred_locations use ::text[] (not jsonb).
+   - referral_code re-seed collision handled.
+   - fill-core-coverage detects problem/solution/admin_note columns.
+   - Migration 039 adds those feature-idea columns.
+   - npm run deploy:fresh-aws-db (001–034 → IP_Reset_Core_Sample → 035–039).
+   - Auth: trustHost, signOut session revoke, NEXTAUTH guards, Signing out UX,
+     Google ?error= on landing, .env.example production keys, safer URL fallbacks.
+
+2) Handoff packaging
+   - Linux-safe app .tar.gz (forward slashes; no inner app .zip).
+   - 40 SQL files in migrations/ (001–039, two 008_*).
+   - runner/ with NODE_PATH / .env guidance.
+   - AWS-DEPLOY.md + SETUP-NOTES.txt include Path B pastable blocks
+     and Path C deploy:fresh-aws-db.
+   - README.txt includes the COMPLETE handoff folder tree and full file inventory.
+
+3) Runbook docx (share alongside zip)
+   - Part L: deployment lessons from the Sept 2026 session.
+   - Part M: Path B pastable Blocks 1–3 (extract, app-swap, install/build/PM2).
+   - Steps 18b, 23, 23d, 23e, 26, 40, 41, tool routing.
+
+Out of scope (by plan — not bugs left in the zip)
+-------------------------------------------------
+- Running the deploy on AWS Console / EC2 for you.
+- Editing nested campus-placement-multiuser/internship-portal.
+- Git push.
+
+---
+
+18 deployment issues — what this pack fixes
+-------------------------------------------
+
+#1  ZIP backslash / bad Linux paths
+    Fixed by: Linux-safe .tar.gz builder (forward slashes); Path B uses tar -xzf.
+    Where: build-aws-handoff.ps1 → app .tar.gz; AWS-DEPLOY.md / Part M Block 1.
+
+#2  Next.js cannot find app (permissions after extract)
+    Fixed by: chmod -R u+rwX + chown after extract.
+    Where: AWS-DEPLOY.md / SETUP-NOTES / Part M Block 1 / Step 18b.
+
+#3  chmod repair required after handoff extract
+    Fixed by: same Step 18b / Path B Block 1 commands documented and pastable.
+
+#4  Wrong directory replacement / rollback path
+    Fixed by: extract to ~/internship-portal-new then
+    mv ~/internship-portal-new/internship-portal ~/internship-portal
+    (not mv from handoff root). App-swap set -e + .env backup.
+    Where: AWS-DEPLOY.md Path B Block 2; docx Part M + corrected Section A paths.
+
+#5  PM2 stopped / stale after app replace
+    Fixed by: Path B Block 3 — npm install → npm run build →
+    pm2 restart internsafar --update-env.
+    Where: AWS-DEPLOY.md / Part M Block 3.
+
+#6  PM2 “Server Reference ID did not match the expected format”
+    Documented: usually stale browser JS vs new server build; log-only if HTTP 200.
+    If UI breaks: rebuild + PM2 --update-env + hard refresh.
+    Where: docx Step 26 (extend); AWS-DEPLOY.md safety notes.
+
+#7  Handoff runner cannot find pg module
+    Fixed by: document NODE_PATH=~/internship-portal/node_modules;
+    prefer npm run deploy:fresh-aws-db from the app.
+    Where: AWS-DEPLOY.md; docx Handoff runner section; runner/.
+
+#8  Handoff runner cannot find .env
+    Fixed by: cp ~/internship-portal/.env into handoff root, or run from app;
+    runner loads .env when present.
+    Where: AWS-DEPLOY.md; runner/db_migrate_sql_only_ip.mjs; docx.
+
+#9  DB looked empty (only ~1 user after early migrations)
+    Documented: after 001–034 on fresh RDS, only SuperAdmin is expected until core seed.
+    Fixed by: Path C orchestrator runs IP_Reset_Core_Sample before 035+.
+    Where: deploy:fresh-aws-db; docx Step 23.
+
+#10 Migration 035 fails without demo candidates
+    Fixed by: deploy:fresh-aws-db (001–034 → seed → 035–039).
+
+#11 Wrong migrate script / Cursor ran migrate when it should not
+    Why: agent ran DB migrate during Path B app-only update.
+    Fixed by: Path B = no DB migrate (do not set IP_ALLOW_DB_MIGRATE);
+      Path C = IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db;
+      SQL-only = IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:sql-only;
+      code gate scripts/assert-db-migrate-allowed.js → === BLOCKED === exit 1;
+      PATH-B-NO-DB-MIGRATE.txt, AGENTS.md, .cursor/rules/aws-path-b-no-db.mdc.
+    Wrong-product seed scripts excluded from handoff tar.
+
+#11b Migration reported success when SQL failed
+    Fixed by: fail-closed === OK === / === FAIL === banners + exit 1;
+    orchestrators stop on first failure.
+
+#11c CAPTCHA bypass left on — documented
+    Why: missing NEXTAUTH_SECRET caused /api/auth/captcha HTTP 500.
+    Still set NEXTAUTH_URL + NEXTAUTH_SECRET on EC2.
+    To enable real captcha later: secret set → curl 200 → set
+    CAPTCHA_BYPASS_FOR_TESTING=false → Path B redeploy.
+    Where: README, AWS-DEPLOY.md, ISSUES-FIXED, docx Part R.
+
+#12 Seed error: skills cast as jsonb (DB is text[])
+    Fixed by: ipSeedCoreBaseline.js uses $n::text[] for skills.
+    Where: scripts/lib/ipSeedCoreBaseline.js (inside app .tar.gz).
+
+#13 Seed error: preferred_locations cast as jsonb (DB is text[])
+    Fixed by: same file — preferred_locations uses ::text[].
+    Where: scripts/lib/ipSeedCoreBaseline.js.
+
+#14 referral_code collision on re-seed
+    Fixed by: omit/safe handling of referral_code on user insert/re-seed path.
+    Where: scripts/lib/ipSeedCoreBaseline.js.
+
+#15 fill-core-coverage fails on missing problem/solution/admin_note columns
+    Fixed by: column detection before insert + migration 039 adds the columns.
+    Where: scripts/fill-core-coverage.mjs; db/migrations/039_…sql; migrations/ in handoff.
+
+#16 Google Auth / sign-out redirects to localhost:3000
+    Fixed by: code guards (trustHost, NEXTAUTH checks, session revoke, UX) +
+    deploy docs: NEXTAUTH_URL=https://internsafar.com → npm run build →
+    pm2 restart --update-env; Google Console redirect URI must match.
+    Where: src/lib/auth.js, PortalShell, IpSignInLanding; Step 23d/23e; Part M verify.
+
+#17 Migration count wrong (docs said 38/39)
+    Fixed by: manifest + handoff now 40 SQL files (001–039 including two 008_* + 039).
+    Where: migrations/; MIGRATION_MANIFEST; SETUP-NOTES; docx.
+
+#18 Migrations 035–039 left pending after manual seed attempts
+    Fixed by: orchestrator always runs 035–039 after core seed on Path C.
+    Where: deploy:fresh-aws-db.mjs; AWS-DEPLOY Path C; Step 23.
+
+---
+
+How the recipient should use this pack
+--------------------------------------
+Path B (live EC2, RDS unchanged): unzip handoff → follow AWS-DEPLOY.md
+  “Path B — full pastable” OR runbook Part M (Blocks 1–3).
+
+Path C (fresh/empty RDS): IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db then build/PM2
+  (see runbook Step 23). Do NOT use Path B’s swap alone without DB setup.
+  Without IP_ALLOW_DB_MIGRATE=1, migrate is BLOCKED in code (exit 1).
+  See PATH-B-NO-DB-MIGRATE.txt.
+
+Always share BOTH:
+  1) internship-portal-aws-handoff.zip
+  2) InternSafar_AWS_Deployment_Runbook_CRISP_COMPLETE_FINAL (1) (1).docx
+
+Plus (separately, outside the zip): NEW production .env values and/or Google
+OAuth client credentials. Do NOT reuse old EC2 .env. See README + runbook Part O.
+
+Inside the zip, open README.txt first — it contains the complete folder structure
+and every file path. Runbook Part N also describes the handoff layout.

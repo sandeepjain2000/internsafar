@@ -4,6 +4,7 @@ import { query } from '@/lib/db';
 import { newId } from '@/lib/ids';
 import { sendMail } from '@/lib/mail';
 import { verifyLoginCaptcha, captchaFailureMessage } from '@/lib/simpleCaptcha';
+import { resolveAppOrigin } from '@/lib/ipAppOrigin';
 
 /** Always returns ok:true (does not reveal whether the email exists). */
 export async function POST(request) {
@@ -32,7 +33,7 @@ export async function POST(request) {
         `INSERT INTO ip_password_resets (id, user_id, token, expires_at) VALUES ($1,$2,$3,$4)`,
         [newId('ip_reset'), user.id, token, expiresAt],
       );
-      const resetUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/forgot-password?token=${token}`;
+      const resetUrl = `${resolveAppOrigin(request.url)}/forgot-password?token=${token}`;
       try {
         await sendMail({
           to: email,

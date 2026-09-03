@@ -82,6 +82,7 @@ export default function PortalShell({
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [navBadges, setNavBadges] = useState({});
   const homePath = ROLE_HOME[role] || '/';
 
@@ -125,7 +126,7 @@ export default function PortalShell({
       <div className="flex min-h-svh items-center justify-center bg-background text-muted-foreground">
         <div className="flex flex-col items-center gap-3">
           <div className="size-8 animate-pulse rounded-lg bg-primary/20" />
-          <p className="text-sm">Signing you in…</p>
+          <p className="text-sm">{signingOut ? 'Signing out…' : 'Signing you in…'}</p>
         </div>
       </div>
     );
@@ -384,7 +385,10 @@ export default function PortalShell({
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => signOut({ callbackUrl: loginHref })}
+                onClick={() => {
+                  setSigningOut(true);
+                  signOut({ callbackUrl: loginHref });
+                }}
               >
                 <LogOut data-icon="inline-start" className="size-4" />
                 Sign out

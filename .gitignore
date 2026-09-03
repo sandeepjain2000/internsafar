@@ -82,3 +82,6 @@ _tmp_*
 .cursor/
 .vercel
 .env*
+
+.vercel
+.env*

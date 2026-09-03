@@ -30,9 +30,10 @@ to the database. Deep detail on generating and deleting test data lives in
 | `seed-ip-completed-for-core.mjs` | data | Gives the core candidate completed applications so "Internships Completed" isn't empty. |
 | `fill-ip-posting-requirements.mjs` | data | Backfills `eligibility.requirements_text` and `ideal_profile_text` on published internships missing them. Data only. |
 | `sanitize-ip-demo-labels.mjs` | data | Renames visible "seed/seeded" labels so demo rows read like normal data. |
-| `migrate-and-seed.mjs` | data + schema | Applies the older ISM migrations and seeds those demo users. |
-| `db_exec_sql_file.js` | schema | Runs a given `.sql` file against the database. |
-| `seed-gmail-plus-cast.mjs` | data | **Deprecated** — use `IP_Reset_Core_Sample.js` instead. |
+| `assert-db-migrate-allowed.js` | no | **Hard gate.** Refuses migrate/seed unless `IP_ALLOW_DB_MIGRATE=1` (or confirm flag). Path B must never set this. |
+| `deploy-fresh-aws-db.mjs` | data + schema | **AWS Path C.** Requires allow. `IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db` |
+| `db_migrate_sql_only_ip.mjs` | schema | SQL 001–039 when demo users exist. `IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:sql-only` |
+| `db_exec_sql_file.js` | schema | Runs one `.sql` file. Calls the allow gate; fail-closed (`=== OK ===` / `=== FAIL ===` / `=== BLOCKED ===`). |
 
 ## Account tools (destructive — read before running)
 

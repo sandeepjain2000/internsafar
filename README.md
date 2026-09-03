@@ -2,6 +2,8 @@
 
 Full stack app (Next.js) for the Internship Portal requirements.
 
+**AWS / handoff layout:** see `APP-FOLDER-STRUCTURE.txt` (in the deploy `.tar.gz`; handoff zip has `APP-TAR-FOLDER-STRUCTURE.txt`). For DB on AWS: Path B = no migrate; Path C = `IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db` (see `AGENTS.md` and handoff `PATH-B-NO-DB-MIGRATE.txt`). Casual migrate without that env is **blocked in code**.
+
 ## Key decisions
 
 - Tables: **`ip_*` only** on the shared Supabase Postgres (does not alter `ism_*` or Placement Hub tables).
