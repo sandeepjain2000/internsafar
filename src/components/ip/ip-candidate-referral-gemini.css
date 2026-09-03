@@ -1,5 +1,6 @@
 /**
  * Candidate Refer & Earn — placementhub_candidate_refer_earn.html (content only).
+ * Mobile ≤767px: referral.html (stacked metrics, share card, tabs) — desktop unchanged.
  * Unlayered so globals.css / shadcn do not flatten native controls.
  */
 .ip-cand-ref {
@@ -957,8 +958,158 @@
 }
 
 @media (max-width: 767px) {
+  .ip-cand-ref {
+    max-width: none;
+    gap: 0.75rem;
+    background: #f8fafc;
+    margin: -0.5rem -1rem 0;
+    padding: 0 0 1.25rem;
+  }
+
+  .ip-cand-ref .ip-cr-header {
+    padding: 0.85rem 1rem 0.75rem;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+    gap: 0.75rem;
+  }
+
+  .ip-cand-ref .ip-cr-header h1 {
+    font-size: 1.25rem;
+    letter-spacing: -0.025em;
+  }
+
+  .ip-cand-ref .ip-cr-header p {
+    font-size: 0.8125rem;
+  }
+
+  .ip-cand-ref .ip-cr-btn {
+    width: 100%;
+    min-height: 2.75rem;
+    border-radius: 0.65rem;
+    justify-content: center;
+  }
+
+  /* Keep metrics visible — stacked like referral.html (do not hide) */
   .ip-cand-ref .ip-cr-metrics {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+    margin: 0 1rem;
+  }
+
+  .ip-cand-ref .ip-cr-metric {
+    border-radius: 0.75rem;
+    padding: 0.85rem 1rem;
+  }
+
+  .ip-cand-ref .ip-cr-metric__val strong {
+    font-size: 1.35rem;
+  }
+
+  .ip-cand-ref .ip-cr-card {
+    margin: 0 1rem;
+    border-radius: 0.75rem;
+  }
+
+  .ip-cand-ref .ip-cr-split {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin: 0 1rem;
+  }
+
+  .ip-cand-ref .ip-cr-split > .ip-cr-card {
+    margin: 0;
+  }
+
+  .ip-cand-ref .ip-cr-hist {
+    margin: 0 1rem;
+  }
+
+  .ip-cand-ref .ip-cr-link-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .ip-cand-ref .ip-cr-link {
+    width: 100%;
+  }
+
+  .ip-cand-ref .ip-cr-link input {
+    min-height: 2.75rem;
+    font-size: 0.75rem;
+  }
+
+  .ip-cand-ref .ip-cr-link-row .ip-cr-btn {
+    width: 100%;
+  }
+
+  .ip-cand-ref .ip-cr-share {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .ip-cand-ref .ip-cr-share a,
+  .ip-cand-ref .ip-cr-share button {
+    min-height: 2.75rem;
+    justify-content: center;
+    border-radius: 0.65rem;
+  }
+
+  .ip-cand-ref .ip-cr-card__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .ip-cand-ref .ip-cr-tabs {
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 0.35rem;
+  }
+
+  .ip-cand-ref .ip-cr-tabs::-webkit-scrollbar {
     display: none;
+  }
+
+  .ip-cand-ref .ip-cr-tabs button {
+    flex-shrink: 0;
+    min-height: 2.5rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.75rem;
+  }
+
+  .ip-cand-ref .ip-cr-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .ip-cand-ref .ip-cr-modal {
+    width: 100%;
+    max-width: none;
+    max-height: 90vh;
+    overflow: auto;
+    border-radius: 1.25rem 1.25rem 0 0;
+  }
+
+  .ip-cand-ref .ip-cr-modal__foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-cand-ref .ip-cr-modal__foot .ip-cr-btn {
+    width: 100%;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .ip-cand-ref {
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
   }
 }
 

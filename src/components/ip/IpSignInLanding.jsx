@@ -204,7 +204,7 @@ export default function IpSignInLanding() {
   return (
     <div className="ip-gemini-login flex min-h-svh flex-col">
       <div className="grid min-h-svh flex-1 lg:grid-cols-12">
-        <div className="ip-gemini-hero relative hidden overflow-hidden p-8 text-white lg:col-span-5 lg:flex lg:flex-col lg:justify-between lg:p-14">
+        <div className="ip-gemini-hero relative hidden overflow-hidden p-8 text-white lg:col-span-3 lg:flex lg:flex-col lg:justify-between lg:p-10">
           <div className="ip-gemini-hero__glow ip-gemini-hero__glow--tl" aria-hidden />
           <div className="ip-gemini-hero__glow ip-gemini-hero__glow--br" aria-hidden />
 
@@ -243,7 +243,7 @@ export default function IpSignInLanding() {
           <p className="ip-gemini-hero__foot">Enterprise Career Portal</p>
         </div>
 
-        <div className="ip-gemini-form-col flex flex-col justify-between p-6 sm:p-12 lg:col-span-7 lg:p-16">
+        <div className="ip-gemini-form-col flex flex-col justify-between p-6 sm:p-12 lg:col-span-9 lg:p-16">
           <div className="mb-6 lg:hidden">
             <BrandMark variant="light" />
           </div>

@@ -64,8 +64,25 @@ export default function MyApplicationsPage() {
   const [commFilter, setCommFilter] = useState('');
   const [detail, setDetail] = useState(null);
   const [viewMode, setViewMode] = useViewMode('ip_apps_view', 'list');
+  const [isPhone, setIsPhone] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const sync = () => setIsPhone(Boolean(mq.matches));
+    sync();
+    if (mq.addEventListener) {
+      mq.addEventListener('change', sync);
+      return () => mq.removeEventListener('change', sync);
+    }
+    mq.addListener(sync);
+    return () => mq.removeListener(sync);
+  }, []);
+
+  /** Phones always use cards (mock); desktop keeps saved list/cards preference. */
+  const displayMode = isPhone ? 'cards' : viewMode;
 
   const snapshot = useMemo(
     () => ({ filters: { q, tab, interviewFilter, offerFilter, commFilter }, sort }),
@@ -190,10 +207,12 @@ export default function MyApplicationsPage() {
           </div>
           <p>Track status, interview schedules, recruiter messages, and outcomes for all applied roles.</p>
         </div>
-        <Link href="/candidate/internships" className="ip-ap-btn ip-ap-btn--primary">
+        <Link href="/candidate/internships" className="ip-ap-btn ip-ap-btn--primary ip-ap-browse">
           + Browse More Internships
         </Link>
-        <ViewModeToggle value={viewMode} onChange={setViewMode} />
+        <div className="ip-ap-view-toggle">
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+        </div>
       </div>
 
       {loadError ? <p className="ip-ap-empty" style={{ margin: '0.75rem 0' }}>{loadError}</p> : null}
@@ -240,23 +259,52 @@ export default function MyApplicationsPage() {
           <p className="ip-ap-loading">Loading applications…</p>
         ) : (
           <>
-        {viewMode === 'cards' ? (
-          <div className="grid gap-3 sm:grid-cols-2">
+        {displayMode === 'cards' ? (
+          <div className="ip-ap-cards">
             {pageItems.map((a) => (
-              <div key={a.id} className="rounded-lg border bg-white p-4">
-                <Link href={`/candidate/internships/${a.internship_id}`} className="font-semibold">
-                  {a.title || 'Internship'}
-                </Link>
-                <p className="text-sm text-slate-500">{a.company_name}</p>
-                <p className="mt-2 text-sm">{a.display_status}</p>
-                <button type="button" className="ip-ap-btn ip-ap-btn--ghost mt-2" onClick={() => setDetail(a)}>
-                  View Details
-                </button>
-              </div>
+              <article key={a.id} className="ip-ap-card">
+                <div className="ip-ap-card__row">
+                  <Link href={`/candidate/internships/${a.internship_id}`} className="ip-ap-card__title">
+                    {a.title || 'Internship'}
+                  </Link>
+                  <span className={`ip-ap-badge ${statusClass(a.status)}`}>
+                    {a.display_status || 'Applied'}
+                  </span>
+                </div>
+                <p className="ip-ap-card__company">{a.company_name || '—'}</p>
+                <p className="ip-ap-card__meta">
+                  Applied {appliedDate(a.created_at)}
+                  {a.match_score != null ? ` · Match ${Math.round(Number(a.match_score))}%` : ''}
+                </p>
+                <div className="ip-ap-card__foot">
+                  <button type="button" className="ip-ap-btn ip-ap-btn--primary" onClick={() => setDetail(a)}>
+                    View Details
+                  </button>
+                  <button
+                    type="button"
+                    className="ip-ap-icon"
+                    title="Message employer"
+                    aria-label="Message employer"
+                    onClick={() => openThread(a.internship_id)}
+                  >
+                    <MessageSquare />
+                  </button>
+                  <button
+                    type="button"
+                    className="ip-ap-icon is-withdraw"
+                    title="Withdraw application"
+                    aria-label="Withdraw application"
+                    disabled={!canWithdraw(a.status)}
+                    onClick={() => withdraw(a.id)}
+                  >
+                    <XCircle />
+                  </button>
+                </div>
+              </article>
             ))}
           </div>
         ) : null}
-        {viewMode === 'list' ? (
+        {displayMode === 'list' ? (
         <div className="ip-ph-list-wrap">
           <table className="ip-ph-list">
             <thead>

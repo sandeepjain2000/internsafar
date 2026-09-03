@@ -1,5 +1,6 @@
 /**
  * Candidate notifications — placementhub_candidate_notifications.html (content only).
+ * Mobile ≤767px: notifications.html (search, filter sheet, cards) — desktop unchanged.
  * Unlayered so globals.css / shadcn do not flatten native controls.
  */
 .ip-cand-nf {
@@ -666,4 +667,254 @@
   font-size: 0.75rem;
   font-weight: 600;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+}
+
+/* Desktop: hide mobile-only chrome */
+.ip-cand-nf .ip-cn-filters-btn,
+.ip-cand-nf .ip-cn-sheet-scrim,
+.ip-cand-nf .ip-cn-sheet {
+  display: none;
+}
+
+/* —— Mobile notifications —— */
+@media (max-width: 767px) {
+  .ip-cand-nf {
+    max-width: none;
+    gap: 0.75rem;
+    background: #f8fafc;
+    margin: -0.5rem -1rem 0;
+    padding: 0 0 1.25rem;
+  }
+
+  .ip-cand-nf .ip-cn-header {
+    padding: 0.85rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+    gap: 0.75rem;
+  }
+
+  .ip-cand-nf .ip-cn-header h1 {
+    font-size: 1.25rem;
+  }
+
+  .ip-cand-nf .ip-cn-header p {
+    font-size: 0.8125rem;
+  }
+
+  .ip-cand-nf .ip-cn-btn {
+    width: 100%;
+    min-height: 2.75rem;
+    border-radius: 0.65rem;
+  }
+
+  .ip-cand-nf .ip-cn-view-toggle {
+    display: none;
+  }
+
+  .ip-cand-nf .ip-cn-toolbar {
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    border-left: none;
+    border-right: none;
+    padding: 0.75rem 1rem;
+    gap: 0.65rem;
+  }
+
+  .ip-cand-nf .ip-cn-search-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .ip-cand-nf .ip-cn-search input {
+    min-height: 2.75rem;
+    border-radius: 0.65rem;
+    font-size: 0.8125rem;
+  }
+
+  .ip-cand-nf .ip-cn-filters-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    width: 100%;
+    min-height: 2.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.65rem;
+    background: #fff;
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #0f172a;
+    cursor: pointer;
+  }
+
+  .ip-cand-nf .ip-cn-filters-btn.is-on {
+    border-color: #c7d2fe;
+    background: #eef2ff;
+    color: #4338ca;
+  }
+
+  .ip-cand-nf .ip-cn-filters-chip {
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: #4f46e5;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ip-cand-nf .ip-cn-tabs--desk {
+    display: none;
+  }
+
+  .ip-cand-nf .ip-cn-showing {
+    white-space: normal;
+  }
+
+  .ip-cand-nf .ip-ph-list-wrap {
+    display: none !important;
+  }
+
+  .ip-cand-nf .ip-cn-list {
+    padding: 0 1rem;
+    gap: 0.65rem;
+  }
+
+  .ip-cand-nf .ip-cn-card {
+    border-radius: 0.75rem;
+  }
+
+  .ip-cand-nf .ip-cn-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-cand-nf .ip-cn-actions .ip-cn-btn,
+  .ip-cand-nf .ip-cn-mark {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+
+  .ip-cand-nf .ip-cn-empty {
+    margin: 0 1rem;
+  }
+
+  .ip-cand-nf .ip-cn-sheet-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(15, 23, 42, 0.5);
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .ip-cand-nf .ip-cn-sheet {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    max-height: 85vh;
+    overflow: auto;
+    background: #fff;
+    border-radius: 1.25rem 1.25rem 0 0;
+    box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.12);
+    padding: 0.5rem 0 calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ip-cand-nf .ip-cn-sheet__handle {
+    width: 2.25rem;
+    height: 0.25rem;
+    margin: 0.4rem auto;
+    border-radius: 999px;
+    background: #94a3b8;
+  }
+
+  .ip-cand-nf .ip-cn-sheet__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .ip-cand-nf .ip-cn-sheet__head h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .ip-cand-nf .ip-cn-sheet__x {
+    border: none;
+    background: transparent;
+    color: #64748b;
+    font-size: 1.35rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .ip-cand-nf .ip-cn-sheet__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.65rem 1rem;
+  }
+
+  .ip-cand-nf .ip-cn-sheet__body button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.65rem;
+    background: #fff;
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .ip-cand-nf .ip-cn-sheet__body button.is-on {
+    border-color: #c7d2fe;
+    background: #eef2ff;
+    color: #4338ca;
+  }
+
+  .ip-cand-nf .ip-cn-sheet__body .ip-cn-tab-count {
+    margin-left: auto;
+  }
+
+  .ip-cand-nf .ip-cn-sheet__actions {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.65rem 1rem 0;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .ip-cand-nf .ip-cn-sheet__actions .ip-cn-btn {
+    flex: 1;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .ip-cand-nf {
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+  }
 }

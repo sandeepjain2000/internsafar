@@ -1,5 +1,6 @@
 /**
  * Candidate messages inbox — placementhub_candidate_browse_workspace (4).html.
+ * Mobile ≤767px: messages-inbox.html + messages-thread.html (full-screen thread swap).
  * Unlayered so globals.css / shadcn do not flatten native controls.
  */
 .ip-cand-msg {
@@ -1059,5 +1060,348 @@
 @media (max-width: 640px) {
   .ip-cand-msg--employer .ip-cm-adv-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* —— Desktop: hide mobile-only candidate chrome —— */
+.ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-banner__title-mob,
+.ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-banner__mob,
+.ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-policy__mob,
+.ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-back,
+.ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-archive-label,
+.ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-related {
+  display: none;
+}
+
+.ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-presets {
+  padding: 0 0.75rem 0.5rem;
+}
+
+/* Card list — hidden on desktop; flex on mobile (see ≤767 block) */
+.ip-cand-msg .ip-cm-cards {
+  display: none;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 1rem;
+}
+
+.ip-cand-msg .ip-cm-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #fff;
+  padding: 0.75rem;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.ip-cand-msg .ip-cm-card.is-on {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+}
+
+.ip-cand-msg .ip-cm-card__av {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #6366f1, #818cf8);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ip-cand-msg .ip-cm-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ip-cand-msg .ip-cm-card__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.ip-cand-msg .ip-cm-card__name {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.ip-cand-msg .ip-cm-card__top time {
+  font-size: 0.6875rem;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.ip-cand-msg .ip-cm-card__preview {
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ip-cand-msg .ip-cm-back {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #334155;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.ip-cand-msg .ip-cm-related {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.ip-cand-msg .ip-cm-related__title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.ip-cand-msg .ip-cm-related__meta {
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+/* —— Candidate mobile inbox + full-screen thread —— */
+@media (max-width: 767px) {
+  .ip-cand-msg:not(.ip-cand-msg--employer) {
+    max-width: none;
+    gap: 0.75rem;
+    background: #f8fafc;
+    margin: -0.5rem -1rem 0;
+    padding: 0 0 1.25rem;
+    min-height: calc(100dvh - 4.5rem);
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-banner__title-desk,
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-banner__desk,
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-policy__desk {
+    display: none;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-banner__title-mob {
+    display: block;
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    color: #0f172a !important;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-banner__mob {
+    display: block;
+    margin: 0.2rem 0 0;
+    font-size: 0.8125rem;
+    color: #64748b;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-policy__mob {
+    display: inline;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-banner,
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-policy,
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-split {
+    border-radius: 0;
+    box-shadow: none;
+    border-left: none;
+    border-right: none;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-banner {
+    padding: 0.85rem 1rem;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-policy {
+    margin: 0 1rem;
+    border-radius: 0.75rem;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-search input {
+    min-height: 2.75rem;
+    border-radius: 0.65rem;
+    font-size: 0.8125rem;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-tab {
+    flex-shrink: 0;
+    min-height: 2.5rem;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-cards {
+    display: flex;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-msg-table,
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-ph-list {
+    display: none !important;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-list {
+    max-height: none;
+    min-height: 0;
+    border-bottom: none;
+    background: transparent;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-list-body {
+    overflow: visible;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-split {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: transparent;
+    border: none;
+  }
+
+  /* Inbox: hide thread + party until a conversation is open */
+  .ip-cand-msg:not(.ip-cand-msg--employer):not(.ip-cand-msg--thread-open) .ip-cm-thread,
+  .ip-cand-msg:not(.ip-cand-msg--employer):not(.ip-cand-msg--thread-open) .ip-msg-party {
+    display: none;
+  }
+
+  /* Thread open: full-screen chat; hide inbox chrome */
+  .ip-cand-msg:not(.ip-cand-msg--employer).ip-cand-msg--thread-open .ip-cm-banner,
+  .ip-cand-msg:not(.ip-cand-msg--employer).ip-cand-msg--thread-open .ip-cm-policy,
+  .ip-cand-msg:not(.ip-cand-msg--employer).ip-cand-msg--thread-open .ip-cm-list,
+  .ip-cand-msg:not(.ip-cand-msg--employer).ip-cand-msg--thread-open .ip-msg-party {
+    display: none;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer).ip-cand-msg--thread-open .ip-cm-split {
+    flex: 1;
+    min-height: calc(100dvh - 4rem);
+    border: none;
+    background: #f8fafc;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer).ip-cand-msg--thread-open .ip-cm-thread {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    background: #f8fafc;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-back {
+    display: inline-flex;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-thread-head {
+    gap: 0.5rem;
+    padding: 0.65rem 0.75rem;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-btn--desk {
+    display: none;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-archive-label {
+    display: inline;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-btn--icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    width: auto;
+    padding: 0 0.65rem;
+    min-height: 2.25rem;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    border-radius: 0.5rem;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-related {
+    display: block;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-feed {
+    flex: 1;
+    min-height: 0;
+    padding: 0.85rem;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-composer {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    background: #fff;
+    border-top: 1px solid #e2e8f0;
+    padding: 0.55rem 0.75rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.06);
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-composer-row input[type='text'] {
+    min-height: 2.75rem;
+    border-radius: 0.65rem;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-composer-row .ip-cm-btn--primary {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    border-radius: 0.65rem;
+    padding: 0 0.75rem;
+  }
+
+  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-send-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .ip-cand-msg:not(.ip-cand-msg--employer) {
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
   }
 }

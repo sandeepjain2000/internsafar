@@ -1,6 +1,8 @@
 /**
  * Candidate profile — content pane from placementhub_candidate_workspace_profile.html
  * (content area only; PortalShell keeps live sidebar/topbar).
+ * Mobile viewport (≤767px): layout from mobile reference profile.html + patterns.html
+ * sticky CTA — desktop unchanged; all live tabs/fields kept.
  * Unlayered so it beats globals @layer base / shadcn defaults.
  */
 .ip-cand-profile {
@@ -1319,7 +1321,94 @@
   color: #0f172a;
 }
 
-@media (max-width: 700px) {
+/* —— Mobile profile (phone viewport only; desktop layout unchanged) —— */
+@media (max-width: 767px) {
+  .ip-cand-profile {
+    max-width: none;
+    gap: 0.75rem;
+    background: #f8fafc;
+    margin: -0.5rem -1rem 0;
+    padding: 0 0 1.25rem;
+  }
+
+  .ip-cand-profile .ip-cp-hero,
+  .ip-cand-profile .ip-cp-unlock,
+  .ip-cand-profile .ip-cp-sheet,
+  .ip-cand-profile .ip-cp-export,
+  .ip-cand-profile .ip-cp-alert {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .ip-cand-profile .ip-cp-hero,
+  .ip-cand-profile .ip-cp-unlock,
+  .ip-cand-profile .ip-cp-export {
+    border-left: none;
+    border-right: none;
+  }
+
+  .ip-cand-profile .ip-cp-hero {
+    padding: 0.85rem 1rem;
+    gap: 0.75rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .ip-cand-profile .ip-cp-hero h1 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+  }
+
+  .ip-cand-profile .ip-cp-hero p {
+    font-size: 0.8125rem;
+  }
+
+  .ip-cand-profile .ip-cp-complete {
+    width: 100%;
+  }
+
+  .ip-cand-profile .ip-cp-unlock {
+    padding: 1rem;
+  }
+
+  .ip-cand-profile .ip-cp-unlock__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ip-cand-profile .ip-cp-sheet {
+    overflow: visible;
+    border-left: none;
+    border-right: none;
+    background: #fff;
+  }
+
+  .ip-cand-profile .ip-cp-tabs {
+    gap: 0.15rem;
+    padding: 0 0.35rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .ip-cand-profile .ip-cp-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ip-cand-profile .ip-cp-tabs button[role='tab'] {
+    min-height: 2.75rem;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.6875rem;
+  }
+
+  .ip-cand-profile .ip-cp-wizard {
+    margin: 0.75rem 1rem 0;
+  }
+
+  .ip-cand-profile .ip-cp-stack {
+    padding: 1rem;
+    gap: 1.15rem;
+  }
+
+  .ip-cand-profile .ip-cp-grid,
   .ip-cand-profile .ip-cp-grid--3 {
     grid-template-columns: 1fr;
   }
@@ -1331,6 +1420,94 @@
 
   .ip-cand-profile .ip-cp-link-row .ip-cp-btn,
   .ip-cand-profile .ip-cp-link-draft .ip-cp-btn {
-    justify-self: start;
+    justify-self: stretch;
+    width: 100%;
+    min-height: 2.75rem;
+  }
+
+  .ip-cand-profile .ip-cp-input,
+  .ip-cand-profile .ip-cp-phone,
+  .ip-cand-profile .ip-cp-resume-file,
+  .ip-cand-profile select.ip-cp-input {
+    min-height: 2.75rem;
+  }
+
+  .ip-cand-profile .ip-cp-upload-wrap button {
+    min-height: 2.75rem !important;
+    height: 2.75rem !important;
+  }
+
+  .ip-cand-profile .ip-cp-resume-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-cand-profile .ip-cp-resume-row .ip-cp-input {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  /* Sticky save bar — patterns.html / profile.html mobile CTA */
+  .ip-cand-profile .ip-cp-save {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+    margin: 0;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    background: #fff;
+    border-top: 1px solid #e2e8f0;
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
+  }
+
+  .ip-cand-profile .ip-cp-save p {
+    flex: none;
+    order: 1;
+  }
+
+  .ip-cand-profile .ip-cp-save__actions {
+    order: 0;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-cand-profile .ip-cp-save__actions .ip-cp-btn {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+    border-radius: 0.65rem;
+    font-size: 0.8125rem;
+  }
+
+  .ip-cand-profile .ip-cp-export {
+    margin: 0;
+    padding: 1rem;
+    flex-direction: column;
+    align-items: stretch;
+    border-left: none;
+    border-right: none;
+  }
+
+  .ip-cand-profile .ip-cp-export .ip-cp-btn {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+
+  .ip-cand-profile .ip-cp-photo__actions .ip-cp-btn,
+  .ip-cand-profile .ip-cp-email__row .ip-cp-btn,
+  .ip-cand-profile .ip-cp-email__otp-row .ip-cp-btn,
+  .ip-cand-profile .ip-cp-skill-add .ip-cp-btn {
+    min-height: 2.75rem;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .ip-cand-profile {
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
   }
 }

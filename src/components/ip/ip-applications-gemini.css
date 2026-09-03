@@ -1,6 +1,8 @@
 /**
  * My applications — placementhub_candidate_browse_workspace (1).html applications view.
  * Content pane only; PortalShell keeps live sidebar/topbar.
+ * Mobile ≤767px: applications.html (bleed, statbar, tabs, cards) — desktop unchanged.
+ * Unlayered so it beats globals @layer base / shadcn defaults.
  */
 .ip-apps {
   --ip-brand: #4f46e5;
@@ -640,4 +642,295 @@
   border-top: 1px solid #f1f5f9;
   justify-content: flex-end;
   flex-wrap: wrap;
+}
+
+.ip-apps .ip-ap-cards {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .ip-apps .ip-ap-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.ip-apps .ip-ap-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ip-apps .ip-ap-card__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ip-apps .ip-ap-card__title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0f172a;
+  text-decoration: none;
+  line-height: 1.3;
+}
+
+.ip-apps .ip-ap-card__title:hover {
+  color: var(--ip-brand);
+  text-decoration: underline;
+}
+
+.ip-apps .ip-ap-card__company {
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.ip-apps .ip-ap-card__meta {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.ip-apps .ip-ap-card__foot {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.ip-apps .ip-ap-card__foot .ip-ap-btn--primary {
+  flex: 1;
+  min-height: 2.25rem;
+  justify-content: center;
+}
+
+/* —— Mobile applications (phone viewport only; desktop unchanged) —— */
+@media (max-width: 767px) {
+  .ip-apps {
+    max-width: none;
+    gap: 0.75rem;
+    background: #f8fafc;
+    margin: -0.5rem -1rem 0;
+    padding: 0 0 1.25rem;
+  }
+
+  .ip-apps .ip-ap-hero {
+    order: 1;
+    border-radius: 0;
+    box-shadow: none;
+    border-left: none;
+    border-right: none;
+    padding: 0.85rem 1rem;
+    gap: 0.75rem;
+  }
+
+  .ip-apps .ip-ap-metrics {
+    order: 2;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1px;
+    background: #e2e8f0;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    margin: 0 1rem;
+  }
+
+  .ip-apps .ip-ap-toolbar {
+    order: 3;
+    border-radius: 0;
+    box-shadow: none;
+    border-left: none;
+    border-right: none;
+    padding: 0.75rem 1rem;
+    gap: 0.65rem;
+  }
+
+  .ip-apps .ip-ap-sheet {
+    order: 4;
+    border-radius: 0;
+    box-shadow: none;
+    border-left: none;
+    border-right: none;
+    overflow: visible;
+  }
+
+  .ip-apps .ip-ap-hero h1 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+  }
+
+  .ip-apps .ip-ap-hero p {
+    font-size: 0.8125rem;
+  }
+
+  .ip-apps .ip-ap-browse {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+    border-radius: 0.65rem;
+  }
+
+  .ip-apps .ip-ap-view-toggle {
+    display: none;
+  }
+
+  .ip-apps .ip-ap-metric {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 0.15rem;
+    padding: 0.55rem 0.25rem;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: #fff;
+  }
+
+  .ip-apps .ip-ap-metric__ico {
+    display: none;
+  }
+
+  .ip-apps .ip-ap-metric > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+  }
+
+  .ip-apps .ip-ap-metric > div span {
+    font-size: 0.5625rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: #94a3b8;
+    order: 2;
+  }
+
+  .ip-apps .ip-ap-metric > div strong {
+    font-size: 1rem;
+    order: 1;
+  }
+
+  .ip-apps .ip-ap-search input,
+  .ip-apps .ip-ap-sort select {
+    min-height: 2.75rem;
+    border-radius: 0.65rem;
+    font-size: 0.8125rem;
+  }
+
+  .ip-apps .ip-ap-sort {
+    width: 100%;
+  }
+
+  .ip-apps .ip-ap-sort select {
+    width: 100%;
+  }
+
+  .ip-apps .ip-ap-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 0.35rem;
+    padding-bottom: 0.15rem;
+  }
+
+  .ip-apps .ip-ap-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ip-apps .ip-ap-tabs button {
+    flex-shrink: 0;
+    min-height: 2.5rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.75rem;
+    border-radius: 0.65rem;
+  }
+
+  /* Hide table to prevent list flash; JS also coerces cards on phone */
+  .ip-apps .ip-ph-list-wrap,
+  .ip-apps .ip-ap-table-wrap {
+    display: none !important;
+  }
+
+  .ip-apps .ip-ap-cards {
+    padding: 0.85rem 1rem 1rem;
+    gap: 0.65rem;
+    grid-template-columns: 1fr;
+  }
+
+  .ip-apps .ip-ap-card {
+    border-radius: 0.75rem;
+  }
+
+  .ip-apps .ip-ap-card__foot .ip-ap-btn--primary {
+    min-height: 2.75rem;
+    border-radius: 0.65rem;
+    font-size: 0.8125rem;
+  }
+
+  .ip-apps .ip-ap-card__foot .ip-ap-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    flex-shrink: 0;
+  }
+
+  .ip-apps .ip-ap-pager {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+    padding: 0.85rem 1rem;
+  }
+
+  .ip-apps .ip-ap-pager__btns {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .ip-apps .ip-ap-pager__btns .ip-ap-btn {
+    min-height: 2.75rem;
+  }
+
+  .ip-apps .ip-ap-modal {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .ip-apps .ip-ap-modal__card {
+    width: 100%;
+    max-height: 90vh;
+    overflow: auto;
+    border-radius: 1.25rem 1.25rem 0 0;
+  }
+
+  .ip-apps .ip-ap-modal__body dl {
+    grid-template-columns: 1fr;
+  }
+
+  .ip-apps .ip-ap-modal__foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-apps .ip-ap-modal__foot .ip-ap-btn {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .ip-apps {
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+  }
 }

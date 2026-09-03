@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Archive,
   Calendar,
+  ChevronLeft,
   FileText,
   MessageSquare,
   Paperclip,
@@ -556,16 +557,22 @@ export default function MessagesSplitPane({ role = 'employer' }) {
 
   if (!isEmployer) {
     return (
-      <div className="ip-cand-msg">
+      <div className={`ip-cand-msg${selectedId ? ' ip-cand-msg--thread-open' : ''}`}>
         {toastEl}
         <div className="ip-cm-banner">
-          <h1>Employer Communications Inbox</h1>
-          <p>Direct messaging hub for interview scheduling, technical screening, and offer discussions.</p>
+          <h1 className="ip-cm-banner__title-desk">Employer Communications Inbox</h1>
+          <h1 className="ip-cm-banner__title-mob">Messages</h1>
+          <p className="ip-cm-banner__desk">Direct messaging hub for interview scheduling, technical screening, and offer discussions.</p>
+          <p className="ip-cm-banner__mob">Conversations with employers</p>
         </div>
         <div className="ip-cm-policy">
           <div className="ip-cm-policy-icon" aria-hidden>i</div>
           <div>
-            <strong>Messaging Workflow:</strong> Employers initiate direct communication after reviewing submitted applications. Candidates can reply to active employer threads below.
+            <strong>Keep it professional.</strong>{' '}
+            <span className="ip-cm-policy__desk">
+              Messaging Workflow: Employers initiate direct communication after reviewing submitted applications. Candidates can reply to active employer threads below.
+            </span>
+            <span className="ip-cm-policy__mob">Share files only through InternSafar when possible.</span>
           </div>
         </div>
 
@@ -578,7 +585,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                   type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search employer or role..."
+                  placeholder="Search conversations…"
                   aria-label="Search conversations"
                 />
               </div>
@@ -611,7 +618,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                   <option value="oldest">Oldest</option>
                 </select>
               </div>
-              <div className="px-3 pb-2">
+              <div className="ip-cm-presets">
                 <ListPresetsBar {...prefs} />
               </div>
             </div>
@@ -619,40 +626,68 @@ export default function MessagesSplitPane({ role = 'employer' }) {
               {loadingList ? (
                 <p className="ip-cm-empty-list">Loading…</p>
               ) : filtered.length ? (
-                <table className="ip-ph-list ip-msg-table">
-                  <thead>
-                    <tr>
-                      <th>From</th>
-                      <th>Internship</th>
-                      <th>Preview</th>
-                      <th>When</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <>
+                  <div className="ip-cm-cards" role="list">
                     {filtered.map((t) => {
                       const unread = Number(t.unread_count) > 0;
                       const on = t.id === selectedId;
                       const name = counterpartName(t, role);
                       return (
-                        <tr
+                        <button
                           key={t.id}
-                          className={on ? 'is-on' : undefined}
+                          type="button"
+                          role="listitem"
+                          className={`ip-cm-card${on ? ' is-on' : ''}${unread ? ' is-unread' : ''}`}
                           onClick={() => selectThread(t.id)}
                         >
-                          <td>
-                            <strong>{name}</strong>
-                            {unread ? <span className="ip-cm-unread" aria-label="Unread" /> : null}
-                          </td>
-                          <td>{roleLine(t)}</td>
-                          <td className="ip-msg-table__preview">{t.last_message || t.subject || '—'}</td>
-                          <td>{formatWhen(t.last_message_at || t.updated_at)}</td>
-                          <td>{t.application_status || (Number(t.message_count) ? 'Open' : 'New')}</td>
-                        </tr>
+                          <div className="ip-cm-card__av" aria-hidden>{initials(name)}</div>
+                          <div className="ip-cm-card__body">
+                            <div className="ip-cm-card__top">
+                              <span className="ip-cm-card__name">{name}</span>
+                              <time>{formatWhen(t.last_message_at || t.updated_at)}</time>
+                            </div>
+                            <div className="ip-cm-card__preview">{t.last_message || t.subject || roleLine(t)}</div>
+                          </div>
+                          {unread ? <span className="ip-cm-unread" aria-label="Unread" /> : null}
+                        </button>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </div>
+                  <table className="ip-ph-list ip-msg-table">
+                    <thead>
+                      <tr>
+                        <th>From</th>
+                        <th>Internship</th>
+                        <th>Preview</th>
+                        <th>When</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((t) => {
+                        const unread = Number(t.unread_count) > 0;
+                        const on = t.id === selectedId;
+                        const name = counterpartName(t, role);
+                        return (
+                          <tr
+                            key={t.id}
+                            className={on ? 'is-on' : undefined}
+                            onClick={() => selectThread(t.id)}
+                          >
+                            <td>
+                              <strong>{name}</strong>
+                              {unread ? <span className="ip-cm-unread" aria-label="Unread" /> : null}
+                            </td>
+                            <td>{roleLine(t)}</td>
+                            <td className="ip-msg-table__preview">{t.last_message || t.subject || '—'}</td>
+                            <td>{formatWhen(t.last_message_at || t.updated_at)}</td>
+                            <td>{t.application_status || (Number(t.message_count) ? 'Open' : 'New')}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </>
               ) : (
                 <div className="ip-cm-empty-list">
                   <p style={{ fontWeight: 800, color: '#334155', margin: 0 }}>No conversations found</p>
@@ -672,6 +707,14 @@ export default function MessagesSplitPane({ role = 'employer' }) {
             ) : (
               <>
                 <div className="ip-cm-thread-head">
+                  <button
+                    type="button"
+                    className="ip-cm-back"
+                    aria-label="Back to inbox"
+                    onClick={() => selectThread('')}
+                  >
+                    <ChevronLeft className="size-5" aria-hidden />
+                  </button>
                   <div className="ip-cm-thread-person">
                     <div className="ip-cm-avatar">{initials(counterpartName(thread, role))}</div>
                     <div>
@@ -685,7 +728,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                     </div>
                   </div>
                   <div className="ip-cm-thread-actions">
-                    <Link href="/candidate/applications" className="ip-cm-btn ip-cm-btn--ghost">
+                    <Link href="/candidate/applications" className="ip-cm-btn ip-cm-btn--ghost ip-cm-btn--desk">
                       View Timeline
                     </Link>
                     <button
@@ -695,6 +738,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                       onClick={() => setArchived(thread.id, !thread.archived)}
                     >
                       <Archive className="size-3.5" aria-hidden />
+                      <span className="ip-cm-archive-label">{thread.archived ? 'Unarchive' : 'Archive'}</span>
                     </button>
                   </div>
                 </div>
@@ -788,6 +832,16 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                       No messages yet — reply below when the employer writes first.
                     </p>
                   ) : null}
+                  {thread.internship_title ? (
+                    <div className="ip-cm-related">
+                      <div className="ip-cm-related__title">Related internship</div>
+                      <div className="ip-cm-related__meta">
+                        {[thread.internship_title, counterpartName(thread, role), thread.internship_work_mode]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 {pendingFile && !thread.archived ? (
@@ -833,11 +887,11 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                         type="text"
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
-                        placeholder="Type reply message to recruiter..."
+                        placeholder="Type a message…"
                         aria-label="Reply"
                       />
                       <button type="submit" className="ip-cm-btn ip-cm-btn--primary" disabled={!canSend}>
-                        Send
+                        <span className="ip-cm-send-label">Send</span>
                         <Send className="size-4" aria-hidden />
                       </button>
                     </div>

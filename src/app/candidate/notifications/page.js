@@ -75,6 +75,24 @@ export default function CandidateNotificationsPage() {
   const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useViewMode('ip_cand_notif_view', 'cards');
+  const [isPhone, setIsPhone] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const sync = () => setIsPhone(Boolean(mq.matches));
+    sync();
+    if (mq.addEventListener) {
+      mq.addEventListener('change', sync);
+      return () => mq.removeEventListener('change', sync);
+    }
+    mq.addListener(sync);
+    return () => mq.removeListener(sync);
+  }, []);
+
+  /** Phones always use cards; desktop keeps saved list/cards preference. */
+  const displayMode = isPhone ? 'cards' : viewMode;
 
   const snapshot = useMemo(() => ({ filters: { filter, search }, sort: '' }), [filter, search]);
   const prefs = useListPrefsSync({
@@ -192,7 +210,9 @@ export default function CandidateNotificationsPage() {
           <CheckCheck aria-hidden />
           Mark all as read
         </button>
-        <ViewModeToggle value={viewMode} onChange={setViewMode} />
+        <div className="ip-cn-view-toggle">
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+        </div>
       </div>
 
       <div className="ip-cn-toolbar">
@@ -203,7 +223,7 @@ export default function CandidateNotificationsPage() {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search notifications by keyword, company, or role..."
+              placeholder="Search notifications…"
               aria-label="Search notifications"
             />
             {search ? (
@@ -212,6 +232,14 @@ export default function CandidateNotificationsPage() {
               </button>
             ) : null}
           </div>
+          <button
+            type="button"
+            className={`ip-cn-filters-btn${filtersOpen || filter !== 'all' ? ' is-on' : ''}`}
+            onClick={() => setFiltersOpen(true)}
+          >
+            Filters
+            {filter !== 'all' ? <span className="ip-cn-filters-chip">1</span> : null}
+          </button>
           <div className="ip-cn-showing">
             Showing:{' '}
             <strong style={{ color: '#0f172a' }}>
@@ -220,7 +248,7 @@ export default function CandidateNotificationsPage() {
           </div>
         </div>
 
-        <div className="ip-cn-tabs" role="tablist" aria-label="Notification category">
+        <div className="ip-cn-tabs ip-cn-tabs--desk" role="tablist" aria-label="Notification category">
           {FILTERS.map((f) => {
             const Icon = f.Icon;
             const count = counts[f.id] ?? 0;
@@ -246,12 +274,64 @@ export default function CandidateNotificationsPage() {
         <ListPresetsBar {...prefs} />
       </div>
 
+      {filtersOpen ? (
+        <>
+          <button
+            type="button"
+            className="ip-cn-sheet-scrim"
+            aria-label="Close filters"
+            onClick={() => setFiltersOpen(false)}
+          />
+          <div className="ip-cn-sheet" role="dialog" aria-label="Filter notifications">
+            <div className="ip-cn-sheet__handle" aria-hidden />
+            <div className="ip-cn-sheet__head">
+              <h3>Filters</h3>
+              <button type="button" className="ip-cn-sheet__x" onClick={() => setFiltersOpen(false)} aria-label="Close">
+                ×
+              </button>
+            </div>
+            <div className="ip-cn-sheet__body">
+              {FILTERS.map((f) => {
+                const Icon = f.Icon;
+                const count = counts[f.id] ?? 0;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    className={filter === f.id ? 'is-on' : ''}
+                    onClick={() => {
+                      setFilter(f.id);
+                      setFiltersOpen(false);
+                    }}
+                  >
+                    {f.unreadDot ? <span className="ip-cn-dot" aria-hidden /> : null}
+                    {Icon ? <Icon size={14} aria-hidden /> : null}
+                    <span>{f.label}</span>
+                    {f.id === 'all' || f.id === 'unread' || count > 0 ? (
+                      <span className="ip-cn-tab-count">{count}</span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="ip-cn-sheet__actions">
+              <button type="button" className="ip-cn-btn" onClick={() => { resetFilters(); setFiltersOpen(false); }}>
+                Reset
+              </button>
+              <button type="button" className="ip-cn-btn ip-cn-btn--primary" onClick={() => setFiltersOpen(false)}>
+                Done
+              </button>
+            </div>
+          </div>
+        </>
+      ) : null}
+
       {loading ? (
         <div className="ip-cn-empty">
           <p>Loading notifications…</p>
         </div>
       ) : filtered.length ? (
-        viewMode === 'list' ? (
+        displayMode === 'list' ? (
           <div className="ip-ph-list-wrap">
             <table className="ip-ph-list">
               <thead>

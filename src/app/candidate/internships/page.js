@@ -224,10 +224,15 @@ export default function BrowseInternshipsPage() {
     setFiltersOpen(false);
   }
 
-  const filtersActive = useMemo(
-    () => Number(minStipend) > 0 || workMode !== 'all' || selectedCities.length > 0 || Number(minMatch) > 0 || Boolean(minValidation),
-    [minStipend, workMode, selectedCities, minMatch, minValidation],
-  );
+  const filtersActiveCount = useMemo(() => {
+    let n = 0;
+    if (Number(minStipend) > 0) n += 1;
+    if (workMode !== 'all') n += 1;
+    if (selectedCities.length > 0) n += 1;
+    if (Number(minMatch) > 0) n += 1;
+    if (Boolean(minValidation)) n += 1;
+    return n;
+  }, [minStipend, workMode, selectedCities, minMatch, minValidation]);
 
   const cityChoices = useMemo(() => {
     const needle = cityQuery.trim().toLowerCase();
@@ -244,7 +249,8 @@ export default function BrowseInternshipsPage() {
         <div>
           <div className="ip-br-hero__title">
             <h1>Browse Internships</h1>
-            <span className="ip-br-chip">Marketplace</span>
+            <span className="ip-br-chip ip-br-chip--desk">Marketplace</span>
+            <span className="ip-br-chip ip-br-chip--mob">{loading ? '…' : counts.all} open</span>
             <button
               type="button"
               className="ip-br-m-saved"
@@ -293,7 +299,7 @@ export default function BrowseInternshipsPage() {
               <SlidersHorizontal />
               <span className="ip-br-filter-desk">Filter Options</span>
               <span className="ip-br-filter-mob">Filters</span>
-              {filtersActive ? <span className="ip-br-dot">!</span> : null}
+              {filtersActiveCount > 0 ? <span className="ip-br-dot">{filtersActiveCount}</span> : null}
             </button>
             <label className="ip-br-sort">
               <span>Sort:</span>
