@@ -74,25 +74,8 @@ export default function CandidateNotificationsPage() {
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useViewMode('ip_cand_notif_view', 'cards');
-  const [isPhone, setIsPhone] = useState(false);
+  const [displayMode, setViewMode, { stored: viewMode }] = useViewMode('ip_cand_notif_view', 'cards');
   const [filtersOpen, setFiltersOpen] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-    const mq = window.matchMedia('(max-width: 767px)');
-    const sync = () => setIsPhone(Boolean(mq.matches));
-    sync();
-    if (mq.addEventListener) {
-      mq.addEventListener('change', sync);
-      return () => mq.removeEventListener('change', sync);
-    }
-    mq.addListener(sync);
-    return () => mq.removeListener(sync);
-  }, []);
-
-  /** Phones always use cards; desktop keeps saved list/cards preference. */
-  const displayMode = isPhone ? 'cards' : viewMode;
 
   const snapshot = useMemo(() => ({ filters: { filter, search }, sort: '' }), [filter, search]);
   const prefs = useListPrefsSync({

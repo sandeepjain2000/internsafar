@@ -147,7 +147,7 @@ export default function SuperAdminRequestsPage() {
   }
 
   return (
-    <div className="ip-sa-q">
+    <div className="ip-sa-q ip-mobile-bleed">
       {toast ? (
         <div className="ip-saq-toast" role="status">
           {toast}

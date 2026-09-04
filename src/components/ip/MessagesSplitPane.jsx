@@ -911,13 +911,15 @@ export default function MessagesSplitPane({ role = 'employer' }) {
     'Direct messaging hub for discussing interview availability, project briefs, and application updates.';
 
   return (
-    <div className="ip-cand-msg ip-cand-msg--employer">
+    <div className={`ip-cand-msg ip-cand-msg--employer${selectedId ? ' ip-cand-msg--thread-open' : ''}`}>
       {toastEl}
 
       <div className="ip-cm-banner">
         <div>
-          <h1>{bannerTitle}</h1>
-          <p>{bannerDesc}</p>
+          <h1 className="ip-cm-banner__title-desk">{bannerTitle}</h1>
+          <h1 className="ip-cm-banner__title-mob">Messages</h1>
+          <p className="ip-cm-banner__desk">{bannerDesc}</p>
+          <p className="ip-cm-banner__mob">Conversations with candidates</p>
         </div>
         <div className="ip-cm-count">
           <MessageSquare className="size-4" aria-hidden />
@@ -930,9 +932,12 @@ export default function MessagesSplitPane({ role = 'employer' }) {
       <div className="ip-cm-policy">
         <div className="ip-cm-policy-icon" aria-hidden>i</div>
         <div>
-          <strong>Messaging Workflow:</strong> You open direct contact after reviewing an
-          application. Use this inbox to run technical screening, schedule interviews, and
-          discuss offers with candidates who have already applied.
+          <strong>Messaging Workflow:</strong>{' '}
+          <span className="ip-cm-policy__desk">
+            You open direct contact after reviewing an application. Use this inbox to run technical
+            screening, schedule interviews, and discuss offers with candidates who have already applied.
+          </span>
+          <span className="ip-cm-policy__mob">Share files only through InternSafar when possible.</span>
         </div>
       </div>
 
@@ -1046,40 +1051,68 @@ export default function MessagesSplitPane({ role = 'employer' }) {
             {loadingList ? (
               <p className="ip-cm-empty-list">Loading…</p>
             ) : filtered.length ? (
-              <table className="ip-ph-list ip-msg-table">
-                <thead>
-                  <tr>
-                    <th>Candidate</th>
-                    <th>Internship</th>
-                    <th>Preview</th>
-                    <th>When</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <>
+                <div className="ip-cm-cards" role="list">
                   {filtered.map((t) => {
                     const unread = Number(t.unread_count) > 0;
                     const on = t.id === selectedId;
                     const name = counterpartName(t, role);
                     return (
-                      <tr
+                      <button
                         key={t.id}
-                        className={on ? 'is-on' : undefined}
+                        type="button"
+                        role="listitem"
+                        className={`ip-cm-card${on ? ' is-on' : ''}${unread ? ' is-unread' : ''}`}
                         onClick={() => selectThread(t.id)}
                       >
-                        <td>
-                          <strong>{name}</strong>
-                          {unread ? <span className="ip-cm-unread" aria-label="Unread" /> : null}
-                        </td>
-                        <td>{roleLine(t)}</td>
-                        <td className="ip-msg-table__preview">{t.last_message || t.subject || '—'}</td>
-                        <td>{formatWhen(t.last_message_at || t.updated_at)}</td>
-                        <td>{t.application_status || (Number(t.message_count) ? 'Open' : 'New')}</td>
-                      </tr>
+                        <div className="ip-cm-card__av" aria-hidden>{initials(name)}</div>
+                        <div className="ip-cm-card__body">
+                          <div className="ip-cm-card__top">
+                            <span className="ip-cm-card__name">{name}</span>
+                            <time>{formatWhen(t.last_message_at || t.updated_at)}</time>
+                          </div>
+                          <div className="ip-cm-card__preview">{t.last_message || t.subject || roleLine(t)}</div>
+                        </div>
+                        {unread ? <span className="ip-cm-unread" aria-label="Unread" /> : null}
+                      </button>
                     );
                   })}
-                </tbody>
-              </table>
+                </div>
+                <table className="ip-ph-list ip-msg-table">
+                  <thead>
+                    <tr>
+                      <th>Candidate</th>
+                      <th>Internship</th>
+                      <th>Preview</th>
+                      <th>When</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((t) => {
+                      const unread = Number(t.unread_count) > 0;
+                      const on = t.id === selectedId;
+                      const name = counterpartName(t, role);
+                      return (
+                        <tr
+                          key={t.id}
+                          className={on ? 'is-on' : undefined}
+                          onClick={() => selectThread(t.id)}
+                        >
+                          <td>
+                            <strong>{name}</strong>
+                            {unread ? <span className="ip-cm-unread" aria-label="Unread" /> : null}
+                          </td>
+                          <td>{roleLine(t)}</td>
+                          <td className="ip-msg-table__preview">{t.last_message || t.subject || '—'}</td>
+                          <td>{formatWhen(t.last_message_at || t.updated_at)}</td>
+                          <td>{t.application_status || (Number(t.message_count) ? 'Open' : 'New')}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </>
             ) : (
               <div className="ip-cm-empty-list">
                 <p style={{ fontWeight: 800, color: '#334155', margin: 0 }}>No conversations found</p>
@@ -1099,6 +1132,14 @@ export default function MessagesSplitPane({ role = 'employer' }) {
           ) : (
             <>
               <div className="ip-cm-thread-head">
+                <button
+                  type="button"
+                  className="ip-cm-back"
+                  aria-label="Back to inbox"
+                  onClick={() => selectThread('')}
+                >
+                  <ChevronLeft className="size-5" aria-hidden />
+                </button>
                 <div className="ip-cm-thread-person">
                   <div className="ip-cm-avatar">{initials(counterpartName(thread, role))}</div>
                   <div>

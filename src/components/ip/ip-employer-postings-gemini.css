@@ -449,3 +449,143 @@
   background: #fef2f2;
   color: #991b1b;
 }
+
+/* Mobile cards — desktop table only by default */
+.ip-emp-postings .ip-epo-cards {
+  display: none;
+}
+
+/* —— Mobile postings (≤767; desktop table unchanged) —— */
+@media (max-width: 767px) {
+  .ip-emp-postings {
+    max-width: none;
+    gap: 0.75rem;
+    background: #f8fafc;
+    margin-top: -0.5rem;
+    padding: 0 0 1.25rem;
+  }
+
+  .ip-emp-postings .ip-epo-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .ip-emp-postings .ip-epo-header h1 {
+    font-size: 1.25rem;
+  }
+
+  .ip-emp-postings .ip-epo-header .ip-epo-btn--primary {
+    width: 100%;
+    min-height: 2.75rem;
+  }
+
+  .ip-emp-postings .ip-epo-stats {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+    margin: 0 1rem;
+  }
+
+  .ip-emp-postings .ip-epo-card {
+    margin: 0 1rem;
+    border-radius: 1rem;
+  }
+
+  .ip-emp-postings .ip-epo-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-emp-postings .ip-epo-filters {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .ip-emp-postings .ip-epo-search {
+    max-width: none;
+    width: 100%;
+  }
+
+  .ip-emp-postings .ip-epo-search input,
+  .ip-emp-postings .ip-epo-select {
+    height: 2.75rem;
+    min-height: 2.75rem;
+    width: 100%;
+  }
+
+  .ip-emp-postings .ip-epo-table-wrap {
+    display: none !important;
+  }
+
+  .ip-emp-postings .ip-epo-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0 1rem 1rem;
+  }
+
+  .ip-emp-postings .ip-epo-mcard {
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    padding: 0.9rem 1rem;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .ip-emp-postings .ip-epo-mcard__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .ip-emp-postings .ip-epo-mcard__meta {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: #64748b;
+  }
+
+  .ip-emp-postings .ip-epo-mcard__manage {
+    width: 100%;
+    min-height: 2.75rem;
+  }
+
+  .ip-emp-postings .ip-epo-mcard .ip-epo-row-actions {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .ip-emp-postings .ip-epo-mcard .ip-epo-btn--icon {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .ip-emp-postings .ip-epo-foot {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .ip-emp-postings .ip-epo-foot-nav {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .ip-emp-postings .ip-epo-foot-nav .ip-epo-btn {
+    min-height: 2.75rem;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .ip-emp-postings.ip-mobile-bleed {
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+  }
+}

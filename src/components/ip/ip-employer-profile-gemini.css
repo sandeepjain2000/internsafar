@@ -584,3 +584,95 @@
   font-size: 0.75rem;
   color: #dc2626;
 }
+
+/* —— Mobile employer profile (≤767; desktop unchanged) —— */
+@media (max-width: 767px) {
+  .ip-emp-profile {
+    max-width: none;
+    gap: 0.75rem;
+    background: #f8fafc;
+    margin-top: -0.5rem;
+    padding: 0 0 calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ip-emp-profile .ip-ep-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.85rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .ip-emp-profile .ip-ep-header h1 {
+    font-size: 1.25rem;
+  }
+
+  .ip-emp-profile .ip-ep-alert,
+  .ip-emp-profile .ip-ep-card {
+    margin-left: 1rem;
+    margin-right: 1rem;
+  }
+
+  .ip-emp-profile .ip-ep-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ip-emp-profile .ip-ep-logo-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-emp-profile .ip-ep-input,
+  .ip-emp-profile .ip-ep-select {
+    height: 2.75rem;
+    min-height: 2.75rem;
+  }
+
+  .ip-emp-profile .ip-ep-actions .ip-ep-btn {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+
+  .ip-emp-profile .ip-ep-actions--save {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    margin: 0;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    background: #fff;
+    border-top: 1px solid #e2e8f0;
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
+  }
+
+  .ip-emp-profile .ip-ep-upload-row {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .ip-emp-profile .ip-ep-upload-wrap,
+  .ip-emp-profile .ip-ep-upload-wrap button {
+    width: 100% !important;
+  }
+
+  .ip-emp-profile .ip-ep-upload-wrap button {
+    min-height: 2.75rem !important;
+    height: 2.75rem !important;
+  }
+
+  .ip-emp-profile .ip-ep-doc {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .ip-emp-profile.ip-mobile-bleed {
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+  }
+}

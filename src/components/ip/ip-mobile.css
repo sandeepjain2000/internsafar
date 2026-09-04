@@ -1,0 +1,361 @@
+/**
+ * InternSafar shared mobile foundation (Phase 0).
+ * Breakpoint: ≤767px mobile · ≥768px desktop.
+ * Presentation utilities only — do not add page-specific chrome here.
+ */
+
+:root {
+  --ip-tap-min: 2.75rem;
+  --ip-sheet-radius: 1.25rem;
+  --ip-sheet-scrim: rgba(15, 23, 42, 0.5);
+}
+
+/* —— Viewport visibility —— */
+.ip-only-mobile {
+  display: none !important;
+}
+
+@media (max-width: 767px) {
+  .ip-only-mobile {
+    display: flex !important;
+  }
+
+  .ip-only-mobile.ip-only-mobile--block {
+    display: block !important;
+  }
+
+  .ip-only-desktop {
+    display: none !important;
+  }
+}
+
+/* —— Bleed / inset (cancel PortalShell main px-4 / sm:px-6) —— */
+@media (max-width: 767px) {
+  .ip-mobile-bleed {
+    margin-left: -1rem;
+    margin-right: -1rem;
+  }
+
+  .ip-mobile-inset {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .ip-mobile-bleed {
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+  }
+
+  .ip-mobile-inset {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+/* —— Body scroll lock while sheet/drawer open —— */
+html.ip-scroll-locked,
+body.ip-scroll-locked {
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* —— Bottom sheet (filters / overlays) —— */
+@media (min-width: 768px) {
+  .ip-sheet {
+    display: contents;
+  }
+
+  .ip-sheet-scrim,
+  .ip-sheet__handle,
+  .ip-sheet__head,
+  .ip-sheet__actions {
+    display: none !important;
+  }
+
+  .ip-sheet__body {
+    display: contents;
+  }
+}
+
+@media (max-width: 767px) {
+  .ip-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .ip-sheet.is-open {
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .ip-sheet-scrim {
+    position: absolute;
+    inset: 0;
+    background: var(--ip-sheet-scrim);
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .ip-sheet__panel {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    max-height: min(78vh, 36rem);
+    background: #fff;
+    border-radius: var(--ip-sheet-radius) var(--ip-sheet-radius) 0 0;
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.12);
+    transform: translateY(100%);
+    transition: transform 0.22s ease;
+  }
+
+  .ip-sheet.is-open .ip-sheet__panel {
+    transform: translateY(0);
+  }
+
+  .ip-sheet__handle {
+    width: 2.25rem;
+    height: 0.25rem;
+    margin: 0.45rem auto 0.15rem;
+    border-radius: 999px;
+    background: #94a3b8;
+    flex-shrink: 0;
+  }
+
+  .ip-sheet__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: var(--ip-tap-min);
+    padding: 0.35rem 1rem 0.65rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .ip-sheet__title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .ip-sheet__x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--ip-tap-min);
+    height: var(--ip-tap-min);
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: #64748b;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .ip-sheet__body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0.85rem 1rem;
+  }
+
+  .ip-sheet__actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    padding: 0.65rem 1rem calc(0.65rem + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid #e2e8f0;
+    background: #fff;
+  }
+
+  .ip-sheet__actions > * {
+    flex: 1 1 0;
+    min-height: var(--ip-tap-min);
+  }
+}
+
+/* —— Mobile list toolbar —— */
+@media (max-width: 767px) {
+  .ip-m-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .ip-m-toolbar__row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .ip-m-search {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: var(--ip-tap-min);
+    width: 100%;
+  }
+
+  .ip-m-search input,
+  .ip-m-search > * {
+    min-height: var(--ip-tap-min);
+    width: 100%;
+  }
+
+  .ip-m-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: var(--ip-tap-min);
+    width: 100%;
+    padding: 0 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.65rem;
+    background: #fff;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #1e293b;
+    cursor: pointer;
+  }
+
+  .ip-m-filter-btn__count,
+  .ip-m-filter-btn .count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: #4f46e5;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+  }
+
+  .ip-m-tabstrip {
+    display: flex;
+    gap: 0.4rem;
+    overflow-x: auto;
+    padding: 0.15rem 0 0.25rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ip-m-tabstrip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ip-m-tabstrip > * {
+    flex: 0 0 auto;
+  }
+
+  .ip-m-statbar {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1px;
+    background: #e2e8f0;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+  }
+
+  .ip-m-statbar > * {
+    background: #fff;
+    text-align: center;
+    padding: 0.55rem 0.25rem;
+  }
+}
+
+/* —— Sticky apply / bulk / save bars —— */
+@media (max-width: 767px) {
+  .ip-id-apply-bar,
+  .ip-m-sticky-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1rem calc(0.65rem + env(safe-area-inset-bottom, 0px));
+    background: #fff;
+    border-top: 1px solid #e2e8f0;
+    box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.04);
+  }
+
+  .ip-id-apply-bar > *,
+  .ip-m-sticky-bar > * {
+    min-height: var(--ip-tap-min);
+  }
+
+  .ip-id-apply-bar .ip-id-apply-bar__btn,
+  .ip-id-apply-bar > button {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  /* Candidate internship detail — bleed + fixed apply (≤767) */
+  .ip-cand-intern-detail {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ip-cand-intern-detail .ip-id-apply-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+  }
+
+  .ip-cand-intern-detail .ip-id-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-cand-intern-detail .ip-id-save {
+    width: 100%;
+    min-height: var(--ip-tap-min);
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .ip-cand-intern-detail.ip-mobile-bleed {
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+  }
+
+  .ip-cand-intern-detail .ip-id-apply-bar {
+    left: 0;
+    right: 0;
+  }
+}
+
+/* —— Landscape: keep sheets usable —— */
+@media (max-width: 767px) and (orientation: landscape) {
+  .ip-sheet__panel {
+    max-height: min(92vh, 100%);
+  }
+
+  .ip-sheet__body {
+    max-height: none;
+  }
+
+  .ip-id-apply-bar,
+  .ip-m-sticky-bar {
+    padding-bottom: calc(0.45rem + env(safe-area-inset-bottom, 0px));
+  }
+}

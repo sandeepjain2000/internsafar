@@ -817,8 +817,189 @@
   color: #64748b;
 }
 
+/* History cards: mobile only */
+.ip-emp-ref .ip-er-cards {
+  display: none;
+}
+
 @media (max-width: 767px) {
+  /* Keep metrics visible — stacked like employer/referral.html (do not hide) */
   .ip-emp-ref .ip-er-metrics {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+
+  .ip-emp-ref .ip-er-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-emp-ref .ip-er-toolbar-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-emp-ref .ip-er-pts-pill,
+  .ip-emp-ref .ip-er-btn-primary {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+
+  .ip-emp-ref .ip-er-hero h1 {
+    font-size: 1.25rem;
+  }
+
+  .ip-emp-ref .ip-er-metric {
+    padding: 0.85rem 1rem;
+  }
+
+  .ip-emp-ref .ip-er-metric h3 {
+    font-size: 1.25rem;
+  }
+
+  .ip-emp-ref .ip-er-link-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-emp-ref .ip-er-link {
+    width: 100%;
+  }
+
+  .ip-emp-ref .ip-er-link input {
+    min-height: 2.75rem;
+    font-size: 0.75rem;
+  }
+
+  .ip-emp-ref .ip-er-link-row .ip-er-btn-primary {
+    width: 100%;
+  }
+
+  .ip-emp-ref .ip-er-share {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  .ip-emp-ref .ip-er-share a,
+  .ip-emp-ref .ip-er-share button {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+
+  .ip-emp-ref .ip-er-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-emp-ref .ip-er-search {
+    width: 100%;
+  }
+
+  .ip-emp-ref .ip-er-tabs {
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .ip-emp-ref .ip-er-tabs::-webkit-scrollbar {
     display: none;
+  }
+
+  .ip-emp-ref .ip-er-tab {
+    flex: 0 0 auto;
+    min-height: 2.5rem;
+  }
+
+  .ip-emp-ref .ip-er-hist-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ip-emp-ref .ip-er-table-wrap {
+    display: none !important;
+  }
+
+  .ip-emp-ref .ip-er-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .ip-emp-ref .ip-er-mcard {
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    padding: 0.85rem;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .ip-emp-ref .ip-er-mcard__row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .ip-emp-ref .ip-er-mcard__meta {
+    margin: 0;
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+
+  .ip-emp-ref .ip-er-mcard__pts {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #4338ca;
+  }
+
+  .ip-emp-ref .ip-er-pager {
+    justify-content: space-between;
+  }
+
+  .ip-emp-ref .ip-er-pager .ip-er-btn-ghost {
+    min-height: 2.5rem;
+  }
+
+  /* Invite modal → bottom sheet */
+  .ip-emp-ref .ip-er-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .ip-emp-ref .ip-er-modal {
+    width: 100%;
+    max-width: none;
+    max-height: 90vh;
+    overflow: auto;
+    border-radius: 1.25rem 1.25rem 0 0;
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ip-emp-ref .ip-er-modal-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-emp-ref .ip-er-modal-actions .ip-er-btn-primary,
+  .ip-emp-ref .ip-er-modal-actions .ip-er-btn-ghost {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+
+  .ip-emp-ref .ip-er-toast {
+    left: 1rem;
+    right: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
   }
 }

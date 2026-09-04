@@ -231,7 +231,7 @@ export default function CandidateDashboard() {
   }
 
   return (
-    <div className="ip-cand-dash">
+    <div className="ip-cand-dash ip-mobile-bleed">
       <div className="ip-cd-welcome">
         <div>
           <h1>Welcome, {session?.user?.name || 'candidate'}</h1>

@@ -449,7 +449,125 @@
   .ip-emp-cand .ip-ec-card-main { grid-template-columns: auto minmax(0, 1fr); }
   .ip-emp-cand .ip-ec-match { grid-column: 2; text-align: left; }
 }
-@media (max-width: 760px) {
+
+/* Mobile toolbar hidden on ≥768 — desktop panel stays as before */
+.ip-emp-cand .ip-ec-m-toolbar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .ip-emp-cand .ip-ec-m-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+    padding: 0 0 0.25rem;
+  }
+
+  .ip-emp-cand .ip-ec-panel--desktop {
+    display: none;
+  }
+
+  .ip-emp-cand .ip-ec-filters-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 2.75rem;
+    width: 100%;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.65rem;
+    background: #fff;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #172033;
+    cursor: pointer;
+  }
+
+  .ip-emp-cand .ip-ec-filters-btn.is-on {
+    border-color: #c7d2fe;
+    background: #eef2ff;
+    color: #4338ca;
+  }
+
+  .ip-emp-cand .ip-ec-filters-btn__count {
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: #4f46e5;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ip-emp-cand .ip-ec-m-toolbar .ip-ec-primary {
+    width: 100%;
+    min-height: 2.75rem;
+  }
+
+  .ip-emp-cand .ip-ec-head {
+    flex-direction: column;
+  }
+
+  .ip-emp-cand .ip-ec-head h1 {
+    font-size: 1.25rem;
+  }
+
+  .ip-emp-cand .ip-ec-privacy {
+    white-space: normal;
+  }
+
+  .ip-emp-cand .ip-ec-context {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .ip-emp-cand .ip-ec-view-toggle {
+    display: none;
+  }
+
+  .ip-emp-cand .ip-ec-foot {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ip-emp-cand .ip-ec-actions {
+    width: 100%;
+  }
+
+  .ip-emp-cand .ip-ec-actions .ip-ec-sbtn {
+    flex: 1 1 auto;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+
+  .ip-emp-cand .ip-ec-facts {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ip-emp-cand .ip-ec-sheet-body .ip-ec-select {
+    width: 100%;
+    margin-bottom: 0.45rem;
+  }
+
+  .ip-emp-cand .ip-ec-chip-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .ip-emp-cand .ip-sheet__actions .ip-ec-sbtn {
+    flex: 1 1 0;
+    min-height: 2.75rem;
+  }
+}
+
+/* Desktop: keep prior ≤760 stacking for search row */
+@media (min-width: 768px) and (max-width: 1050px) {
   .ip-emp-cand .ip-ec-head { flex-direction: column; }
   .ip-emp-cand .ip-ec-search-row { flex-direction: column; }
   .ip-emp-cand .ip-ec-primary { width: 100%; }

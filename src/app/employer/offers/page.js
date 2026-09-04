@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
+import { useIsMobile } from '@/hooks/useViewMode';
 import '@/components/ip/ip-employer-offers-gemini.css';
 
 const TABS = ['All', 'Pending', 'Accepted', 'Declined'];
@@ -63,6 +64,21 @@ function daysUntil(dateVal) {
   return Math.ceil((t - Date.now()) / (24 * 60 * 60 * 1000));
 }
 
+function sentRelative(dateVal) {
+  if (!dateVal) return 'Sent —';
+  const t = new Date(dateVal).getTime();
+  if (Number.isNaN(t)) return 'Sent —';
+  const days = Math.round((Date.now() - t) / 86400000);
+  if (days <= 0) return 'Sent today';
+  if (days === 1) return 'Sent 1 day ago';
+  if (days < 14) return `Sent ${days} days ago`;
+  try {
+    return `Sent ${new Date(dateVal).toLocaleDateString()}`;
+  } catch {
+    return 'Sent —';
+  }
+}
+
 function remindBlockedReason(o) {
   if (String(o.status || '').toLowerCase() !== 'pending') {
     return 'Remind only applies while the offer is still pending.';
@@ -102,6 +118,8 @@ export default function EmployerOffersPage() {
   const [endorseForm, setEndorseForm] = useState({ periodLabel: '', skillsEndorsed: '' });
   const [rateFor, setRateFor] = useState(null);
   const [stars, setStars] = useState(5);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const snapshot = useMemo(() => ({ filters: { tab, q }, sort: '' }), [tab, q]);
   const prefs = useListPrefsSync({
@@ -123,6 +141,23 @@ export default function EmployerOffersPage() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (!isMobile) setFiltersOpen(false);
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (!filtersOpen) return undefined;
+    document.body.classList.add('ip-scroll-locked');
+    return () => document.body.classList.remove('ip-scroll-locked');
+  }, [filtersOpen]);
+
+  const filterActive = Boolean(q.trim()) || tab !== 'All';
+
+  function resetFilters() {
+    setQ('');
+    setTab('All');
+  }
 
   const metrics = useMemo(() => {
     const total = items.length;
@@ -267,8 +302,58 @@ export default function EmployerOffersPage() {
     setLetterOffer(o);
   }
 
+  function renderOfferActions(o, { includeLetter = true } = {}) {
+    const st = displayStatus(o);
+    const canRemind = st.key === 'pending' && !remindBlockedReason(o);
+    const remindHint = remindBlockedReason(o);
+    return (
+      <div className="ip-eo-actions">
+        {includeLetter ? (
+          <button type="button" className="ip-eo-btn-letter" onClick={() => openLetter(o)}>
+            View Letter
+          </button>
+        ) : null}
+        {st.key === 'pending' ? (
+          <button
+            type="button"
+            className="ip-eo-btn-remind"
+            disabled={!canRemind || busyId === o.id}
+            title={remindHint || 'Send in-app + email reminder'}
+            onClick={() => remind(o)}
+          >
+            {busyId === o.id ? 'Sending…' : 'Remind'}
+          </button>
+        ) : null}
+        {st.key === 'accepted' ? (
+          <>
+            <button
+              type="button"
+              className="ip-eo-btn-ghost"
+              onClick={() => {
+                setEndorseFor(o);
+                setEndorseForm({ periodLabel: '', skillsEndorsed: '' });
+              }}
+            >
+              Endorse
+            </button>
+            <button
+              type="button"
+              className="ip-eo-btn-ghost"
+              onClick={() => {
+                setRateFor(o);
+                setStars(5);
+              }}
+            >
+              Rate
+            </button>
+          </>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
-    <div className="ip-emp-offers">
+    <div className="ip-emp-offers ip-mobile-bleed">
       <div className="ip-eo-banner">
         <div>
           <h1>Offer Management & Conversion Pipeline</h1>
@@ -330,7 +415,46 @@ export default function EmployerOffersPage() {
       </div>
 
       <div className="ip-eo-panel">
-        <div className="ip-eo-toolbar">
+        {/* Mobile toolbar */}
+        <div className="ip-eo-m-toolbar">
+          <div className="ip-eo-search">
+            <Search size={16} aria-hidden />
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search…"
+              aria-label="Search candidate or role"
+            />
+          </div>
+          <button
+            type="button"
+            className={`ip-eo-filters-btn${filterActive || filtersOpen ? ' is-on' : ''}`}
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen(true)}
+          >
+            Filters
+            {filterActive ? <span className="ip-eo-filters-dot" aria-hidden /> : null}
+          </button>
+        </div>
+
+        <div className="ip-eo-tabstrip ip-m-tabstrip" role="tablist" aria-label="Offer status">
+          {TABS.map((t) => (
+            <button
+              key={`m-${t}`}
+              type="button"
+              role="tab"
+              aria-selected={tab === t}
+              className={`ip-eo-tab${tab === t ? ' ip-eo-tab--on' : ''}`}
+              onClick={() => setTab(t)}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {/* Desktop toolbar */}
+        <div className="ip-eo-toolbar ip-eo-toolbar--desk">
           <div className="ip-eo-tabs" role="tablist" aria-label="Offer status">
             {TABS.map((t) => (
               <button
@@ -356,8 +480,52 @@ export default function EmployerOffersPage() {
             />
           </div>
         </div>
-        <div className="px-4 pb-3">
+        <div className="ip-eo-presets-desk px-4 pb-3">
           <ListPresetsBar {...prefs} />
+        </div>
+
+        {/* Mobile cards */}
+        <div className="ip-eo-cards" aria-label="Offers cards">
+          {!filtered.length ? (
+            <p className="ip-eo-empty">
+              {items.length
+                ? 'No offers match the selected filter.'
+                : 'No offers yet — send one from a posting’s applicant list or Search Candidates.'}
+            </p>
+          ) : (
+            filtered.map((o) => {
+              const st = displayStatus(o);
+              return (
+                <article key={o.id} className="ip-eo-mcard">
+                  <div className="ip-eo-mcard__row">
+                    <div className="ip-eo-cand">
+                      <div className="ip-eo-avatar" aria-hidden>
+                        {initials(o.candidate_name)}
+                      </div>
+                      <div className="min-w-0">
+                        <h4>
+                          {o.candidate_name || 'Candidate'}
+                          {o.role_title || o.title ? ` · ${o.role_title || o.title}` : ''}
+                        </h4>
+                        {o.candidate_college ? <p><span>{o.candidate_college}</span></p> : null}
+                      </div>
+                    </div>
+                    <span className={`ip-eo-badge ${st.className}`}>{st.label}</span>
+                  </div>
+                  <p className="ip-eo-mcard__meta">
+                    {sentRelative(o.created_at)} · {stipendLabel(o)}
+                    {o.start_date ? ` · Start ${startLabel(o)}` : ''}
+                  </p>
+                  <div className="ip-eo-mcard__foot">
+                    <button type="button" className="ip-eo-btn-letter ip-eo-mcard__manage" onClick={() => openLetter(o)}>
+                      Manage
+                    </button>
+                    {renderOfferActions(o, { includeLetter: false })}
+                  </div>
+                </article>
+              );
+            })
+          )}
         </div>
 
         <div className="ip-eo-table-wrap">
@@ -381,86 +549,84 @@ export default function EmployerOffersPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((o) => {
-                  const st = displayStatus(o);
-                  const canRemind = st.key === 'pending' && !remindBlockedReason(o);
-                  const remindHint = remindBlockedReason(o);
-                  return (
-                    <tr key={o.id}>
-                      <td>
-                        <div className="ip-eo-cand">
-                          <div className="ip-eo-avatar" aria-hidden>
-                            {initials(o.candidate_name)}
-                          </div>
-                          <div>
-                            <h4>{o.candidate_name || 'Candidate'}</h4>
-                            <p>
-                              {o.role_title || o.title || 'Role'}
-                              {o.candidate_college ? (
-                                <>
-                                  {' '}
-                                  · <span>{o.candidate_college}</span>
-                                </>
-                              ) : null}
-                            </p>
-                          </div>
+                filtered.map((o) => (
+                  <tr key={o.id}>
+                    <td>
+                      <div className="ip-eo-cand">
+                        <div className="ip-eo-avatar" aria-hidden>
+                          {initials(o.candidate_name)}
                         </div>
-                      </td>
-                      <td className="ip-eo-stipend">{stipendLabel(o)}</td>
-                      <td className="ip-eo-date">{startLabel(o)}</td>
-                      <td>
-                        <span className={`ip-eo-badge ${st.className}`}>{st.label}</span>
-                      </td>
-                      <td>
-                        <div className="ip-eo-actions">
-                          <button type="button" className="ip-eo-btn-letter" onClick={() => openLetter(o)}>
-                            View Letter
-                          </button>
-                          {st.key === 'pending' ? (
-                            <button
-                              type="button"
-                              className="ip-eo-btn-remind"
-                              disabled={!canRemind || busyId === o.id}
-                              title={remindHint || 'Send in-app + email reminder'}
-                              onClick={() => remind(o)}
-                            >
-                              {busyId === o.id ? 'Sending…' : 'Remind'}
-                            </button>
-                          ) : null}
-                          {st.key === 'accepted' ? (
-                            <>
-                              <button
-                                type="button"
-                                className="ip-eo-btn-ghost"
-                                onClick={() => {
-                                  setEndorseFor(o);
-                                  setEndorseForm({ periodLabel: '', skillsEndorsed: '' });
-                                }}
-                              >
-                                Endorse
-                              </button>
-                              <button
-                                type="button"
-                                className="ip-eo-btn-ghost"
-                                onClick={() => {
-                                  setRateFor(o);
-                                  setStars(5);
-                                }}
-                              >
-                                Rate
-                              </button>
-                            </>
-                          ) : null}
+                        <div>
+                          <h4>{o.candidate_name || 'Candidate'}</h4>
+                          <p>
+                            {o.role_title || o.title || 'Role'}
+                            {o.candidate_college ? (
+                              <>
+                                {' '}
+                                · <span>{o.candidate_college}</span>
+                              </>
+                            ) : null}
+                          </p>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })
+                      </div>
+                    </td>
+                    <td className="ip-eo-stipend">{stipendLabel(o)}</td>
+                    <td className="ip-eo-date">{startLabel(o)}</td>
+                    <td>
+                      <span className={`ip-eo-badge ${displayStatus(o).className}`}>{displayStatus(o).label}</span>
+                    </td>
+                    <td>{renderOfferActions(o)}</td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {filtersOpen ? (
+        <div className="ip-sheet is-open">
+          <button
+            type="button"
+            className="ip-sheet-scrim"
+            aria-label="Close filters"
+            onClick={() => setFiltersOpen(false)}
+          />
+          <div className="ip-sheet__panel" role="dialog" aria-label="Filter offers">
+            <div className="ip-sheet__handle" aria-hidden />
+            <div className="ip-sheet__head">
+              <h3 className="ip-sheet__title">Filters</h3>
+              <button type="button" className="ip-sheet__x" onClick={() => setFiltersOpen(false)} aria-label="Close">
+                ×
+              </button>
+            </div>
+            <div className="ip-sheet__body ip-eo-sheet-body">
+              <p className="ip-eo-sheet-hint">Status</p>
+              {TABS.map((t) => (
+                <button
+                  key={`sheet-${t}`}
+                  type="button"
+                  className={`ip-eo-sheet-opt${tab === t ? ' is-on' : ''}`}
+                  onClick={() => setTab(t)}
+                >
+                  {t}
+                </button>
+              ))}
+              <div className="ip-eo-sheet-presets">
+                <ListPresetsBar {...prefs} />
+              </div>
+            </div>
+            <div className="ip-sheet__actions">
+              <button type="button" className="ip-eo-btn-ghost" onClick={resetFilters}>
+                Reset
+              </button>
+              <button type="button" className="ip-eo-btn-primary" onClick={() => setFiltersOpen(false)}>
+                Show {filtered.length}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {letterOffer ? (
         <div className="ip-eo-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-eo-letter-title">

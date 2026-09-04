@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Search,
   Share2,
+  SlidersHorizontal,
   X,
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
@@ -57,7 +58,11 @@ export default function CandidateOffersPage() {
   const [shareFor, setShareFor] = useState(null);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
-  const [viewMode, setViewMode] = useViewMode('ip_offers_view', 'cards');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [displayMode, setViewMode, { stored: viewMode, isMobile }] = useViewMode(
+    'ip_offers_view',
+    'cards',
+  );
 
   const snapshot = useMemo(() => ({ filters: { q, tab }, sort: '' }), [q, tab]);
   const prefs = useListPrefsSync({
@@ -70,9 +75,16 @@ export default function CandidateOffersPage() {
     },
   });
 
+  const filterActive = Boolean(q.trim()) || tab !== 'all';
+
   function showToast(msg) {
     setToast(msg);
     setTimeout(() => setToast(''), 2800);
+  }
+
+  function resetFilters() {
+    setQ('');
+    setTab('all');
   }
 
   async function load() {
@@ -89,6 +101,16 @@ export default function CandidateOffersPage() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (!isMobile) setFiltersOpen(false);
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (!filtersOpen) return undefined;
+    document.body.classList.add('ip-scroll-locked');
+    return () => document.body.classList.remove('ip-scroll-locked');
+  }, [filtersOpen]);
 
   const counts = useMemo(() => {
     const c = { all: items.length, action_required: 0, accepted: 0, declined: 0, expired: 0 };
@@ -191,8 +213,23 @@ export default function CandidateOffersPage() {
     return Boolean(o.onboarding_instructions || o.hr_email || o.hr_phone || o.mentor_name);
   }
 
+  function renderTabButton(t) {
+    return (
+      <button
+        key={t.id}
+        type="button"
+        className={`ip-of-tab${tab === t.id ? ' ip-of-tab--on' : ''}`}
+        onClick={() => setTab(t.id)}
+      >
+        {t.dot ? <span className={`ip-of-dot ip-of-dot--${t.dot}`} aria-hidden /> : null}
+        <span>{t.label}</span>
+        <span className="ip-of-count">{counts[t.id] || 0}</span>
+      </button>
+    );
+  }
+
   return (
-    <div className="ip-offers">
+    <div className="ip-offers ip-mobile-bleed">
       {toast ? <div className="ip-of-toast">{toast}</div> : null}
 
       <div className="ip-of-header">
@@ -213,40 +250,95 @@ export default function CandidateOffersPage() {
           </div>
           <button
             type="button"
-            className="ip-of-reset"
-            onClick={() => {
-              setQ('');
-              setTab('all');
-            }}
+            className={`ip-of-filters-btn${filtersOpen || filterActive ? ' is-on' : ''}`}
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen(true)}
           >
+            <SlidersHorizontal className="size-3.5" aria-hidden />
+            Filters
+            {filterActive ? <span className="ip-of-filters-chip">1</span> : null}
+          </button>
+          <button type="button" className="ip-of-reset" onClick={resetFilters}>
             <RotateCcw className="size-3.5" aria-hidden />
             Reset
           </button>
         </div>
       </div>
 
-      <ListPresetsBar {...prefs} />
-
-      <div className="ip-of-tabs">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            className={`ip-of-tab${tab === t.id ? ' ip-of-tab--on' : ''}`}
-            onClick={() => setTab(t.id)}
-          >
-            {t.dot ? <span className={`ip-of-dot ip-of-dot--${t.dot}`} aria-hidden /> : null}
-            <span>{t.label}</span>
-            <span className="ip-of-count">{counts[t.id] || 0}</span>
-          </button>
-        ))}
-        <ViewModeToggle value={viewMode} onChange={setViewMode} />
+      <div className="ip-of-presets-desk">
+        <ListPresetsBar {...prefs} />
       </div>
 
-      {error ? <div className="ip-of-alert">{error}</div> : null}
+      <div className="ip-of-tabs ip-of-tabs--desk">
+        {TABS.map(renderTabButton)}
+        <div className="ip-of-view-toggle">
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+        </div>
+      </div>
+
+      <div className="ip-of-tabstrip" role="tablist" aria-label="Offer status">
+        {TABS.map(renderTabButton)}
+      </div>
+
+      {filtersOpen ? (
+        <>
+          <button
+            type="button"
+            className="ip-of-sheet-scrim"
+            aria-label="Close filters"
+            onClick={() => setFiltersOpen(false)}
+          />
+          <div className="ip-of-sheet" role="dialog" aria-label="Filter offers">
+            <div className="ip-of-sheet__handle" aria-hidden />
+            <div className="ip-of-sheet__head">
+              <h3>Filters</h3>
+              <button
+                type="button"
+                className="ip-of-sheet__x"
+                onClick={() => setFiltersOpen(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="ip-of-sheet__body">
+              <p className="ip-of-sheet__hint">Status</p>
+              {TABS.map((t) => (
+                <button
+                  key={`sheet-${t.id}`}
+                  type="button"
+                  className={tab === t.id ? 'is-on' : ''}
+                  onClick={() => setTab(t.id)}
+                >
+                  {t.dot ? <span className={`ip-of-dot ip-of-dot--${t.dot}`} aria-hidden /> : null}
+                  <span>{t.label}</span>
+                  <span className="ip-of-count">{counts[t.id] || 0}</span>
+                </button>
+              ))}
+              <div className="ip-of-sheet__presets">
+                <ListPresetsBar {...prefs} />
+              </div>
+            </div>
+            <div className="ip-of-sheet__actions">
+              <button type="button" className="ip-of-btn ip-of-btn--outline" onClick={resetFilters}>
+                Reset
+              </button>
+              <button
+                type="button"
+                className="ip-of-btn ip-of-btn--primary"
+                onClick={() => setFiltersOpen(false)}
+              >
+                Show {filtered.length}
+              </button>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {error ? <div className="ip-of-alert ip-mobile-inset">{error}</div> : null}
 
       {!loading && !filtered.length ? (
-        <div className="ip-of-empty">
+        <div className="ip-of-empty ip-mobile-inset">
           <Inbox strokeWidth={1.5} className="size-10" style={{ margin: '0 auto', color: '#4f46e5' }} />
           <h3>{items.length ? 'No offers found' : 'No offers yet'}</h3>
           <p>
@@ -255,7 +347,7 @@ export default function CandidateOffersPage() {
               : "You haven't received any internship offers at the moment. Continue browsing and applying to open roles."}
           </p>
           {items.length ? (
-            <button type="button" className="ip-of-btn ip-of-btn--primary" onClick={() => { setQ(''); setTab('all'); }}>
+            <button type="button" className="ip-of-btn ip-of-btn--primary" onClick={resetFilters}>
               Reset filters
             </button>
           ) : (
@@ -267,8 +359,8 @@ export default function CandidateOffersPage() {
         </div>
       ) : null}
 
-      <div className={viewMode === 'list' ? 'ip-ph-list-wrap' : 'ip-of-list'}>
-        {viewMode === 'list' ? (
+      <div className={displayMode === 'list' ? 'ip-ph-list-wrap' : 'ip-of-list'}>
+        {displayMode === 'list' ? (
           <table className="ip-ph-list">
             <thead>
               <tr className="border-b text-left text-slate-500">
@@ -287,8 +379,7 @@ export default function CandidateOffersPage() {
               ))}
             </tbody>
           </table>
-        ) : filtered.map((o) => {
-          const pending = o.display_status === 'action_required';
+        ) : filtered.map((o) => {          const pending = o.display_status === 'action_required';
           const accepted = o.display_status === 'accepted';
           const role = o.role_title || o.title || 'Internship offer';
           return (

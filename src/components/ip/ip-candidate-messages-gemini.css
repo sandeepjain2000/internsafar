@@ -1064,16 +1064,16 @@
 }
 
 /* —— Desktop: hide mobile-only candidate chrome —— */
-.ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-banner__title-mob,
-.ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-banner__mob,
-.ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-policy__mob,
-.ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-back,
-.ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-archive-label,
-.ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-related {
+.ip-cand-msg .ip-cm-banner__title-mob,
+.ip-cand-msg .ip-cm-banner__mob,
+.ip-cand-msg .ip-cm-policy__mob,
+.ip-cand-msg .ip-cm-back,
+.ip-cand-msg .ip-cm-archive-label,
+.ip-cand-msg .ip-cm-related {
   display: none;
 }
 
-.ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-presets {
+.ip-cand-msg .ip-cm-presets {
   padding: 0 0.75rem 0.5rem;
 }
 
@@ -1190,7 +1190,7 @@
 
 /* —— Candidate mobile inbox + full-screen thread —— */
 @media (max-width: 767px) {
-  .ip-cand-msg:not(.ip-cand-msg--employer) {
+  .ip-cand-msg {
     max-width: none;
     gap: 0.75rem;
     background: #f8fafc;
@@ -1199,13 +1199,13 @@
     min-height: calc(100dvh - 4.5rem);
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-banner__title-desk,
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-banner__desk,
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-policy__desk {
+  .ip-cand-msg .ip-cm-banner__title-desk,
+  .ip-cand-msg .ip-cm-banner__desk,
+  .ip-cand-msg .ip-cm-policy__desk {
     display: none;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-banner__title-mob {
+  .ip-cand-msg .ip-cm-banner__title-mob {
     display: block;
     margin: 0;
     font-size: 1.25rem;
@@ -1214,78 +1214,78 @@
     color: #0f172a !important;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-banner__mob {
+  .ip-cand-msg .ip-cm-banner__mob {
     display: block;
     margin: 0.2rem 0 0;
     font-size: 0.8125rem;
     color: #64748b;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-policy__mob {
+  .ip-cand-msg .ip-cm-policy__mob {
     display: inline;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-banner,
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-policy,
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-split {
+  .ip-cand-msg .ip-cm-banner,
+  .ip-cand-msg .ip-cm-policy,
+  .ip-cand-msg .ip-cm-split {
     border-radius: 0;
     box-shadow: none;
     border-left: none;
     border-right: none;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-banner {
+  .ip-cand-msg .ip-cm-banner {
     padding: 0.85rem 1rem;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-policy {
+  .ip-cand-msg .ip-cm-policy {
     margin: 0 1rem;
     border-radius: 0.75rem;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-search input {
+  .ip-cand-msg .ip-cm-search input {
     min-height: 2.75rem;
     border-radius: 0.65rem;
     font-size: 0.8125rem;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-tabs {
+  .ip-cand-msg .ip-cm-tabs {
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-tabs::-webkit-scrollbar {
+  .ip-cand-msg .ip-cm-tabs::-webkit-scrollbar {
     display: none;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-tab {
+  .ip-cand-msg .ip-cm-tab {
     flex-shrink: 0;
     min-height: 2.5rem;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-cards {
+  .ip-cand-msg .ip-cm-cards {
     display: flex;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-msg-table,
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-ph-list {
+  .ip-cand-msg .ip-msg-table,
+  .ip-cand-msg .ip-ph-list {
     display: none !important;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-list {
+  .ip-cand-msg .ip-cm-list {
     max-height: none;
     min-height: 0;
     border-bottom: none;
     background: transparent;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-list-body {
+  .ip-cand-msg .ip-cm-list-body {
     overflow: visible;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-split {
+  .ip-cand-msg .ip-cm-split {
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -1296,27 +1296,27 @@
   }
 
   /* Inbox: hide thread + party until a conversation is open */
-  .ip-cand-msg:not(.ip-cand-msg--employer):not(.ip-cand-msg--thread-open) .ip-cm-thread,
-  .ip-cand-msg:not(.ip-cand-msg--employer):not(.ip-cand-msg--thread-open) .ip-msg-party {
+  .ip-cand-msg:not(.ip-cand-msg--thread-open) .ip-cm-thread,
+  .ip-cand-msg:not(.ip-cand-msg--thread-open) .ip-msg-party {
     display: none;
   }
 
   /* Thread open: full-screen chat; hide inbox chrome */
-  .ip-cand-msg:not(.ip-cand-msg--employer).ip-cand-msg--thread-open .ip-cm-banner,
-  .ip-cand-msg:not(.ip-cand-msg--employer).ip-cand-msg--thread-open .ip-cm-policy,
-  .ip-cand-msg:not(.ip-cand-msg--employer).ip-cand-msg--thread-open .ip-cm-list,
-  .ip-cand-msg:not(.ip-cand-msg--employer).ip-cand-msg--thread-open .ip-msg-party {
+  .ip-cand-msg.ip-cand-msg--thread-open .ip-cm-banner,
+  .ip-cand-msg.ip-cand-msg--thread-open .ip-cm-policy,
+  .ip-cand-msg.ip-cand-msg--thread-open .ip-cm-list,
+  .ip-cand-msg.ip-cand-msg--thread-open .ip-msg-party {
     display: none;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer).ip-cand-msg--thread-open .ip-cm-split {
+  .ip-cand-msg.ip-cand-msg--thread-open .ip-cm-split {
     flex: 1;
     min-height: calc(100dvh - 4rem);
     border: none;
     background: #f8fafc;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer).ip-cand-msg--thread-open .ip-cm-thread {
+  .ip-cand-msg.ip-cand-msg--thread-open .ip-cm-thread {
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -1325,28 +1325,28 @@
     background: #f8fafc;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-back {
+  .ip-cand-msg .ip-cm-back {
     display: inline-flex;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-thread-head {
+  .ip-cand-msg .ip-cm-thread-head {
     gap: 0.5rem;
     padding: 0.65rem 0.75rem;
     background: #fff;
     border-bottom: 1px solid #e2e8f0;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-btn--desk {
+  .ip-cand-msg .ip-cm-btn--desk {
     display: none;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-archive-label {
+  .ip-cand-msg .ip-cm-archive-label {
     display: inline;
     font-size: 0.75rem;
     font-weight: 600;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-btn--icon {
+  .ip-cand-msg .ip-cm-btn--icon {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
@@ -1358,17 +1358,17 @@
     border-radius: 0.5rem;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-related {
+  .ip-cand-msg .ip-cm-related {
     display: block;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-feed {
+  .ip-cand-msg .ip-cm-feed {
     flex: 1;
     min-height: 0;
     padding: 0.85rem;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-composer {
+  .ip-cand-msg .ip-cm-composer {
     position: sticky;
     bottom: 0;
     z-index: 20;
@@ -1378,19 +1378,19 @@
     box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.06);
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-composer-row input[type='text'] {
+  .ip-cand-msg .ip-cm-composer-row input[type='text'] {
     min-height: 2.75rem;
     border-radius: 0.65rem;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-composer-row .ip-cm-btn--primary {
+  .ip-cand-msg .ip-cm-composer-row .ip-cm-btn--primary {
     min-height: 2.75rem;
     min-width: 2.75rem;
     border-radius: 0.65rem;
     padding: 0 0.75rem;
   }
 
-  .ip-cand-msg:not(.ip-cand-msg--employer) .ip-cm-send-label {
+  .ip-cand-msg .ip-cm-send-label {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -1400,8 +1400,35 @@
 }
 
 @media (min-width: 640px) and (max-width: 767px) {
-  .ip-cand-msg:not(.ip-cand-msg--employer) {
+  .ip-cand-msg {
     margin-left: -1.5rem;
     margin-right: -1.5rem;
+  }
+}
+
+/* Employer mobile: Filters control + keep advanced panel usable */
+@media (max-width: 767px) {
+  .ip-cand-msg--employer .ip-cm-count {
+    display: none;
+  }
+
+  .ip-cand-msg--employer .ip-cm-adv {
+    width: 100%;
+  }
+
+  .ip-cand-msg--employer .ip-cm-adv-toggle {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+
+  .ip-cand-msg--employer .ip-cm-thread-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .ip-cand-msg--employer .ip-cm-btn--resume,
+  .ip-cand-msg--employer .ip-cm-btn--ghost {
+    min-height: 2.5rem;
   }
 }

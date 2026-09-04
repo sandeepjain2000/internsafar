@@ -146,7 +146,7 @@ export default function SuperAdminApprovalsPage() {
   const pendingCount = meta.pending ?? enriched.filter((e) => e.approval_status === 'pending').length;
 
   return (
-    <div className="ip-sa-q">
+    <div className="ip-sa-q ip-mobile-bleed">
       {toast ? (
         <div className="ip-saq-toast" role="status">
           {toast}

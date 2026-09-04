@@ -631,3 +631,222 @@
   font-size: 0.75rem;
   font-weight: 600;
 }
+
+/* —— Mobile SuperAdmin dashboard (≤767; desktop ≥768 unchanged) —— */
+@media (max-width: 767px) {
+  .ip-sa-dash {
+    max-width: none;
+    gap: 0.75rem;
+    background: #f8fafc;
+    margin-top: -0.5rem;
+    padding: 0 0 calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ip-sa-dash .ip-sad-head {
+    margin: 0;
+    padding: 0.85rem 1rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+    gap: 0.75rem;
+  }
+
+  .ip-sa-dash .ip-sad-head h1 {
+    font-size: 1.25rem;
+  }
+
+  .ip-sa-dash .ip-sad-btn {
+    width: 100%;
+    min-height: var(--ip-tap-min, 2.75rem);
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  .ip-sa-dash .ip-sad-error {
+    margin: 0 1rem;
+  }
+
+  .ip-sa-dash .ip-sad-metrics {
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+    margin: 0 1rem;
+  }
+
+  .ip-sa-dash .ip-sad-metric {
+    padding: 1rem;
+    border-radius: 0.75rem;
+  }
+
+  .ip-sa-dash .ip-sad-alert {
+    margin: 0 1rem;
+    gap: 0.75rem;
+  }
+
+  .ip-sa-dash .ip-sad-alert-btn {
+    width: 100%;
+    min-height: var(--ip-tap-min, 2.75rem);
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  .ip-sa-dash .ip-sad-card {
+    margin: 0 1rem;
+    padding: 1rem;
+    border-radius: 0.75rem;
+  }
+
+  .ip-sa-dash .ip-sad-card-head {
+    gap: 0.65rem;
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .ip-sa-dash .ip-sad-card-head h2 {
+    font-size: 1rem;
+  }
+
+  .ip-sa-dash .ip-sad-search {
+    width: 100%;
+  }
+
+  .ip-sa-dash .ip-sad-search input {
+    min-height: var(--ip-tap-min, 2.75rem);
+    font-size: 0.875rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  /* Triage table → stacked cards (keep DOM / actions) */
+  .ip-sa-dash .ip-sad-table-wrap {
+    overflow: visible;
+    border: none;
+    border-radius: 0;
+  }
+
+  .ip-sa-dash .ip-sad-table thead {
+    display: none;
+  }
+
+  .ip-sa-dash table.ip-sad-table,
+  .ip-sa-dash .ip-sad-table tbody,
+  .ip-sa-dash .ip-sad-table tr,
+  .ip-sa-dash .ip-sad-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .ip-sa-dash .ip-sad-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .ip-sa-dash .ip-sad-table tbody tr {
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    background: #fff;
+    padding: 0.85rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+
+  .ip-sa-dash .ip-sad-table tbody tr:hover {
+    background: #fff;
+  }
+
+  .ip-sa-dash .ip-sad-table th,
+  .ip-sa-dash .ip-sad-table td {
+    padding: 0.35rem 0;
+    border: none;
+  }
+
+  .ip-sa-dash .ip-sad-area {
+    white-space: normal;
+    font-size: 0.875rem;
+  }
+
+  .ip-sa-dash .ip-sad-desc {
+    max-width: none;
+    font-size: 0.8125rem;
+    color: #64748b;
+    padding-bottom: 0.45rem;
+    margin-bottom: 0.45rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .ip-sa-dash .ip-sad-action {
+    text-align: left;
+    white-space: normal;
+    padding-top: 0.55rem;
+  }
+
+  .ip-sa-dash .ip-sad-action a,
+  .ip-sa-dash .ip-sad-action button {
+    width: 100%;
+    min-height: var(--ip-tap-min, 2.75rem);
+    justify-content: center;
+    font-size: 0.8125rem;
+    padding: 0.5rem 0.75rem;
+    box-sizing: border-box;
+    background: #4f46e5;
+    color: #fff;
+  }
+
+  .ip-sa-dash .ip-sad-action a:hover,
+  .ip-sa-dash .ip-sad-action button:hover {
+    background: #4338ca;
+    color: #fff;
+  }
+
+  /* Approval modal → bottom sheet */
+  .ip-sa-dash .ip-sad-overlay {
+    align-items: flex-end;
+    justify-content: stretch;
+    padding: 0;
+  }
+
+  .ip-sa-dash .ip-sad-modal {
+    max-width: none;
+    width: 100%;
+    max-height: min(92vh, 100%);
+    overflow-y: auto;
+    border-radius: 1.25rem 1.25rem 0 0;
+    padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.12);
+  }
+
+  .ip-sa-dash .ip-sad-modal-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+  }
+
+  .ip-sa-dash .ip-sad-modal-row strong {
+    text-align: left;
+  }
+
+  .ip-sa-dash .ip-sad-modal-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .ip-sa-dash .ip-sad-btn-reject,
+  .ip-sa-dash .ip-sad-btn-approve {
+    width: 100%;
+    min-height: var(--ip-tap-min, 2.75rem);
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  .ip-sa-dash .ip-sad-toast {
+    left: 1rem;
+    right: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .ip-sa-dash.ip-mobile-bleed {
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+  }
+}

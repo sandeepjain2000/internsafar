@@ -63,26 +63,9 @@ export default function MyApplicationsPage() {
   const [offerFilter, setOfferFilter] = useState('');
   const [commFilter, setCommFilter] = useState('');
   const [detail, setDetail] = useState(null);
-  const [viewMode, setViewMode] = useViewMode('ip_apps_view', 'list');
-  const [isPhone, setIsPhone] = useState(false);
+  const [displayMode, setViewMode, { stored: viewMode }] = useViewMode('ip_apps_view', 'list');
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-    const mq = window.matchMedia('(max-width: 767px)');
-    const sync = () => setIsPhone(Boolean(mq.matches));
-    sync();
-    if (mq.addEventListener) {
-      mq.addEventListener('change', sync);
-      return () => mq.removeEventListener('change', sync);
-    }
-    mq.addListener(sync);
-    return () => mq.removeListener(sync);
-  }, []);
-
-  /** Phones always use cards (mock); desktop keeps saved list/cards preference. */
-  const displayMode = isPhone ? 'cards' : viewMode;
 
   const snapshot = useMemo(
     () => ({ filters: { q, tab, interviewFilter, offerFilter, commFilter }, sort }),

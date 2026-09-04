@@ -1,4 +1,5 @@
 import './globals.css';
+import '@/components/ip/ip-mobile.css';
 import '@/components/ip/ip-gemini-dark-surface.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { ToastProvider } from '@/components/ToastProvider';

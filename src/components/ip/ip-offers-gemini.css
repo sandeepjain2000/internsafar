@@ -855,3 +855,379 @@
   border-radius: 0.5rem;
   font-size: 0.75rem;
 }
+
+/* Mobile-only chrome — hidden on desktop */
+.ip-offers .ip-of-filters-btn,
+.ip-offers .ip-of-tabstrip,
+.ip-offers .ip-of-sheet-scrim,
+.ip-offers .ip-of-sheet {
+  display: none;
+}
+
+.ip-offers .ip-of-view-toggle {
+  margin-left: auto;
+}
+
+/* —— Mobile offers (phone viewport only; desktop unchanged) —— */
+@media (max-width: 767px) {
+  .ip-offers {
+    max-width: none;
+    gap: 0.75rem;
+    background: #f8fafc;
+    margin-top: -0.5rem;
+    padding: 0 0 1.25rem;
+  }
+
+  .ip-offers .ip-of-header {
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .ip-offers .ip-of-header h1 {
+    font-size: 1.25rem;
+  }
+
+  .ip-offers .ip-of-header p {
+    font-size: 0.8125rem;
+  }
+
+  .ip-offers .ip-of-tools {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .ip-offers .ip-of-search {
+    width: 100%;
+  }
+
+  .ip-offers .ip-of-search input {
+    min-height: 2.75rem;
+    border-radius: 0.65rem;
+  }
+
+  .ip-offers .ip-of-reset {
+    display: none;
+  }
+
+  .ip-offers .ip-of-filters-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    width: 100%;
+    min-height: 2.75rem;
+    margin: 0;
+    padding: 0 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.65rem;
+    background: #fff;
+    color: #1e293b;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .ip-offers .ip-of-filters-btn.is-on {
+    border-color: #c7d2fe;
+    background: #eef2ff;
+    color: #4338ca;
+  }
+
+  .ip-offers .ip-of-filters-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: #4f46e5;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+  }
+
+  .ip-offers .ip-of-presets-desk {
+    display: none;
+  }
+
+  .ip-offers .ip-of-tabs--desk {
+    display: none;
+  }
+
+  .ip-offers .ip-of-tabstrip {
+    display: flex;
+    gap: 0.4rem;
+    overflow-x: auto;
+    padding: 0.5rem 1rem 0.65rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .ip-offers .ip-of-tabstrip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ip-offers .ip-of-tabstrip .ip-of-tab {
+    flex: 0 0 auto;
+    min-height: 2.25rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #475569;
+    font-size: 0.75rem;
+  }
+
+  .ip-offers .ip-of-tabstrip .ip-of-tab--on {
+    background: #0f172a;
+    border-color: #0f172a;
+    color: #fff;
+  }
+
+  .ip-offers .ip-of-tabstrip .ip-of-tab--on .ip-of-count {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+  }
+
+  .ip-offers .ip-ph-list-wrap {
+    display: none !important;
+  }
+
+  .ip-offers .ip-of-list {
+    gap: 0.65rem;
+    padding: 0 1rem;
+  }
+
+  .ip-offers .ip-of-card {
+    border-radius: 1rem;
+  }
+
+  .ip-offers .ip-of-card__head {
+    padding: 0.9rem 1rem;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-offers .ip-of-head-meta {
+    text-align: left;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .ip-offers .ip-of-body {
+    grid-template-columns: 1fr;
+    padding: 0.85rem 1rem;
+    gap: 0.85rem;
+  }
+
+  .ip-offers .ip-of-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+  }
+
+  .ip-offers .ip-of-docs {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-offers .ip-of-docs .ip-of-btn {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+
+  .ip-offers .ip-of-foot {
+    padding: 0.85rem 1rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .ip-offers .ip-of-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .ip-offers .ip-of-actions .ip-of-btn {
+    width: 100%;
+    min-height: 2.75rem;
+  }
+
+  .ip-offers .ip-of-empty {
+    margin: 0 1rem;
+    padding: 2rem 1rem;
+  }
+
+  .ip-offers .ip-of-empty .ip-of-btn {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+
+  .ip-offers .ip-of-sheet-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(15, 23, 42, 0.5);
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .ip-offers .ip-of-sheet {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    max-height: 85vh;
+    overflow: auto;
+    background: #fff;
+    border-radius: 1.25rem 1.25rem 0 0;
+    box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.12);
+    padding: 0.5rem 0 calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ip-offers .ip-of-sheet__handle {
+    width: 2.25rem;
+    height: 0.25rem;
+    margin: 0.4rem auto;
+    border-radius: 999px;
+    background: #94a3b8;
+  }
+
+  .ip-offers .ip-of-sheet__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .ip-offers .ip-of-sheet__head h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .ip-offers .ip-of-sheet__x {
+    border: none;
+    background: transparent;
+    color: #64748b;
+    font-size: 1.35rem;
+    line-height: 1;
+    cursor: pointer;
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .ip-offers .ip-of-sheet__hint {
+    margin: 0 0 0.35rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #94a3b8;
+  }
+
+  .ip-offers .ip-of-sheet__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.65rem 1rem;
+  }
+
+  .ip-offers .ip-of-sheet__body > button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 2.75rem;
+    margin: 0;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.65rem;
+    background: #fff;
+    color: #334155;
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .ip-offers .ip-of-sheet__body > button.is-on {
+    border-color: #4f46e5;
+    background: #eef2ff;
+    color: #4338ca;
+  }
+
+  .ip-offers .ip-of-sheet__body > button .ip-of-count {
+    margin-left: auto;
+  }
+
+  .ip-offers .ip-of-sheet__presets {
+    margin-top: 0.75rem;
+  }
+
+  .ip-offers .ip-of-sheet__actions {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.65rem 1rem 0;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .ip-offers .ip-of-sheet__actions .ip-of-btn {
+    flex: 1;
+    min-height: 2.75rem;
+  }
+
+  .ip-offers .ip-of-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .ip-offers .ip-of-modal {
+    max-width: none;
+    width: 100%;
+    border-radius: 1.25rem 1.25rem 0 0;
+    padding: 1.25rem 1rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ip-offers .ip-of-modal-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .ip-offers .ip-of-modal-actions .ip-of-btn {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+
+  .ip-offers .ip-of-toast {
+    left: 1rem;
+    right: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .ip-offers.ip-mobile-bleed {
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+  }
+}

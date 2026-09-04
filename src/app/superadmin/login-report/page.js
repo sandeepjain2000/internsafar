@@ -93,7 +93,7 @@ export default function LoginReportPage() {
   }, [totalPages, page]);
 
   return (
-    <div className="ip-sa-q">
+    <div className="ip-sa-q ip-mobile-bleed">
       <div className="ip-saq-head">
         <div>
           <div className="ip-saq-head__title">

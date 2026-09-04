@@ -65,12 +65,12 @@ export default function InternshipDetailPage() {
     setError('');
     try {
       if (questions.length) {
-        const missing = questions.some((q, idx) => {
+        const missingQ = questions.some((q, idx) => {
           if (q.required === false) return false;
           const key = q.id || `q${idx}`;
           return !String(answers[key] || '').trim();
         });
-        if (missing) {
+        if (missingQ) {
           throw new Error('Please answer all required screening questions before applying.');
         }
       }
@@ -93,6 +93,9 @@ export default function InternshipDetailPage() {
     }
   }
 
+  const applyLabel = applying ? 'Applying…' : message ? 'Applied' : 'Apply now';
+  const applyDisabled = applying || Boolean(message);
+
   if (missing) {
     return (
       <div className="p-8">
@@ -107,11 +110,11 @@ export default function InternshipDetailPage() {
   if (!internship) return <div className="p-8 text-muted-foreground">Loading…</div>;
 
   return (
-    <div className="space-y-4">
+    <div className="ip-cand-intern-detail ip-mobile-bleed space-y-4">
       <Card>
         <CardHeader>
-          <div className="flex justify-between gap-2">
-            <div>
+          <div className="ip-id-head flex justify-between gap-2">
+            <div className="min-w-0">
               <CardTitle className="text-xl">{internship.title}</CardTitle>
               <CardDescription>{internship.company_name} · {internship.location || internship.work_mode}</CardDescription>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -122,7 +125,9 @@ export default function InternshipDetailPage() {
                 />
               </div>
             </div>
-            <Button size="sm" variant="outline" onClick={toggleSave}>{saved ? 'Saved' : 'Save'}</Button>
+            <Button size="sm" variant="outline" className="ip-id-save shrink-0" onClick={toggleSave}>
+              {saved ? 'Saved' : 'Save'}
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -158,7 +163,7 @@ export default function InternshipDetailPage() {
             {internship.work_hours_start && internship.work_hours_end ? (
               <Badge variant="outline">Hours: {internship.work_hours_start}–{internship.work_hours_end}</Badge>
             ) : null}
-          {internship.application_volume_label ? (
+            {internship.application_volume_label ? (
               <Badge variant="secondary" title="Historical applications (range)">
                 {internship.application_volume_label} applications
               </Badge>
@@ -230,11 +235,19 @@ export default function InternshipDetailPage() {
             </AlertDescription>
           </Alert>
 
-          <Button onClick={apply} disabled={applying || Boolean(message)}>
-            {applying ? 'Applying…' : message ? 'Applied' : 'Apply now'}
-          </Button>
+          <div className="ip-only-desktop">
+            <Button onClick={apply} disabled={applyDisabled}>
+              {applyLabel}
+            </Button>
+          </div>
         </CardContent>
       </Card>
+
+      <div className="ip-id-apply-bar ip-only-mobile" role="region" aria-label="Apply">
+        <Button className="ip-id-apply-bar__btn w-full" onClick={apply} disabled={applyDisabled}>
+          {applyLabel}
+        </Button>
+      </div>
     </div>
   );
 }

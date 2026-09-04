@@ -147,7 +147,7 @@ export default function EmployerReferralPage() {
   }
 
   return (
-    <div className="ip-emp-ref">
+    <div className="ip-emp-ref ip-mobile-bleed">
       {toast ? (
         <div className="ip-er-toast" role="status">
           {toast}
@@ -398,6 +398,43 @@ export default function EmployerReferralPage() {
           </div>
         ) : (
           <>
+            {/* Mobile history cards */}
+            <div className="ip-er-cards" aria-label="Referral history cards">
+              {pageItems.map((r) => {
+                const verified = isVerified(r);
+                const pts = Number(r.points_awarded) || 0;
+                return (
+                  <article key={r.id} className="ip-er-mcard">
+                    <div className="ip-er-mcard__row">
+                      <div className="ip-er-org">
+                        <div className="ip-er-avatar" aria-hidden>
+                          {initials(r)}
+                        </div>
+                        <div>
+                          <strong>{orgLabel(r)}</strong>
+                          {r.referred_email ? <span>{r.referred_email}</span> : null}
+                        </div>
+                      </div>
+                      <span className={`ip-er-badge ${verified ? 'ip-er-badge--ok' : 'ip-er-badge--pending'}`}>
+                        {verified ? 'Verified' : r.status || 'Pending'}
+                      </span>
+                    </div>
+                    <p className="ip-er-mcard__meta">
+                      {domainLabel(r)}
+                      {r.created_at ? ` · ${new Date(r.created_at).toLocaleDateString()}` : ''}
+                    </p>
+                    <p className="ip-er-mcard__pts">
+                      {verified
+                        ? `+${pts || REFERRAL_POINTS} Pts`
+                        : pts
+                          ? `+${pts} Pts (Pending)`
+                          : `+${REFERRAL_POINTS} Pts (Pending)`}
+                    </p>
+                  </article>
+                );
+              })}
+            </div>
+
             <div className="ip-er-table-wrap">
               <table className="ip-er-table">
                 <thead>

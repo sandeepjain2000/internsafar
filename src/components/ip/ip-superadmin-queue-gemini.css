@@ -799,3 +799,236 @@
   height: 0.95rem;
   accent-color: var(--ip-indigo);
 }
+
+/* —— Mobile SuperAdmin queues (≤767; desktop ≥768 unchanged) —— */
+@media (max-width: 767px) {
+  .ip-sa-q {
+    max-width: none;
+    gap: 0.75rem;
+    background: #f8fafc;
+    margin-top: -0.5rem;
+    padding: 0 0 calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ip-sa-q .ip-saq-head {
+    margin: 0;
+    padding: 0.85rem 1rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+    gap: 0.75rem;
+  }
+
+  .ip-sa-q .ip-saq-head h1 {
+    font-size: 1.2rem;
+  }
+
+  .ip-sa-q .ip-saq-head > .ip-saq-btn,
+  .ip-sa-q .ip-saq-head > button {
+    width: 100%;
+    min-height: var(--ip-tap-min, 2.75rem);
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  .ip-sa-q .ip-saq-error {
+    margin: 0 1rem;
+  }
+
+  .ip-sa-q .ip-saq-metrics {
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+    margin: 0 1rem;
+  }
+
+  .ip-sa-q .ip-saq-metric {
+    padding: 1rem;
+    border-radius: 0.75rem;
+  }
+
+  .ip-sa-q .ip-saq-panel {
+    margin: 0 1rem;
+    padding: 1rem;
+    border-radius: 0.75rem;
+  }
+
+  .ip-sa-q .ip-saq-banner {
+    margin: 0 1rem;
+  }
+
+  /* Scrollable tabstrip */
+  .ip-sa-q .ip-saq-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    max-width: 100%;
+  }
+
+  .ip-sa-q .ip-saq-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ip-sa-q .ip-saq-tab {
+    flex: 0 0 auto;
+    min-height: 2.25rem;
+    white-space: nowrap;
+  }
+
+  .ip-sa-q .ip-saq-search {
+    max-width: none;
+  }
+
+  .ip-sa-q .ip-saq-search input {
+    min-height: var(--ip-tap-min, 2.75rem);
+    font-size: 0.875rem;
+    border-radius: 0.75rem;
+  }
+
+  /* Table → stacked cards (actions stay in DOM) */
+  .ip-sa-q .ip-saq-table-wrap {
+    overflow: visible;
+    border: none;
+    border-radius: 0;
+  }
+
+  .ip-sa-q .ip-saq-table thead {
+    display: none;
+  }
+
+  .ip-sa-q table.ip-saq-table,
+  .ip-sa-q .ip-saq-table tbody,
+  .ip-sa-q .ip-saq-table tr,
+  .ip-sa-q .ip-saq-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .ip-sa-q .ip-saq-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .ip-sa-q .ip-saq-table tbody tr {
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    background: #fff;
+    padding: 0.85rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+
+  .ip-sa-q .ip-saq-table th,
+  .ip-sa-q .ip-saq-table td {
+    padding: 0.35rem 0;
+    border: none;
+  }
+
+  .ip-sa-q .ip-saq-table tbody tr > td:first-child:has(input[type='checkbox']) {
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.35rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .ip-sa-q .ip-saq-subdate {
+    white-space: normal;
+  }
+
+  .ip-sa-q .ip-saq-actions {
+    justify-content: stretch;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    padding-top: 0.55rem;
+    margin-top: 0.35rem;
+    border-top: 1px solid #f1f5f9;
+  }
+
+  .ip-sa-q .ip-saq-actions .ip-saq-btn,
+  .ip-sa-q .ip-saq-actions button {
+    width: 100%;
+    min-height: var(--ip-tap-min, 2.75rem);
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  .ip-sa-q .ip-saq-actions .ip-saq-btn--icon {
+    width: 100%;
+  }
+
+  /* Modals → bottom sheets */
+  .ip-sa-q .ip-saq-overlay {
+    align-items: flex-end;
+    justify-content: stretch;
+    padding: 0;
+  }
+
+  .ip-sa-q .ip-saq-modal,
+  .ip-sa-q .ip-saq-modal--wide {
+    width: 100%;
+    max-width: none;
+    max-height: min(92vh, 100%);
+    border-radius: 1.25rem 1.25rem 0 0;
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.12);
+  }
+
+  .ip-sa-q .ip-saq-modal-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+  }
+
+  .ip-sa-q .ip-saq-modal-row strong {
+    text-align: left;
+  }
+
+  .ip-sa-q .ip-saq-modal-foot {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    padding-bottom: calc(0.875rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ip-sa-q .ip-saq-modal-foot .ip-saq-btn,
+  .ip-sa-q .ip-saq-modal-foot button {
+    width: 100%;
+    min-height: var(--ip-tap-min, 2.75rem);
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  .ip-sa-q .ip-saq-doc {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-sa-q .ip-saq-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ip-sa-q .ip-saq-preset {
+    min-height: 2.25rem;
+  }
+
+  .ip-sa-q .ip-saq-toast {
+    left: 1rem;
+    right: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ip-sa-q .ip-saq-pager {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .ip-sa-q .ip-saq-pager .ip-saq-btn {
+    min-height: var(--ip-tap-min, 2.75rem);
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .ip-sa-q.ip-mobile-bleed {
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+  }
+}

@@ -247,7 +247,7 @@ export default function SuperAdminDashboard() {
   const offersTotal = Number(stats?.offers?.total || 0);
 
   return (
-    <div className="ip-sa-dash">
+    <div className="ip-sa-dash ip-mobile-bleed">
       {toast ? (
         <div className="ip-sad-toast" role="status">
           {toast}

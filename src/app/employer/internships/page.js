@@ -199,11 +199,107 @@ export default function EmployerInternshipsPage() {
     };
   }
 
+  function renderRowActions(i) {
+    const links = share(i);
+    return (
+      <div className="ip-epo-row-actions">
+        <button
+          type="button"
+          className="ip-epo-btn ip-epo-btn--icon"
+          title="Edit Posting"
+          aria-label="Edit Posting"
+          onClick={() => router.push(`/employer/internships/${i.id}/edit`)}
+        >
+          <Pencil className="size-4" />
+        </button>
+        {i.status === 'published' ? (
+          <button
+            type="button"
+            className="ip-epo-btn ip-epo-btn--icon ip-epo-pause"
+            title="Pause Listing"
+            aria-label="Pause Listing"
+            disabled={busyId === i.id}
+            onClick={() => setStatus(i.id, 'paused')}
+          >
+            <Pause className="size-4" />
+          </button>
+        ) : i.status === 'paused' || i.status === 'draft' ? (
+          <button
+            type="button"
+            className="ip-epo-btn ip-epo-btn--icon ip-epo-play"
+            title="Activate Listing"
+            aria-label="Activate Listing"
+            disabled={busyId === i.id}
+            onClick={() => setStatus(i.id, 'published')}
+          >
+            <Play className="size-4" />
+          </button>
+        ) : null}
+        {i.status === 'closed' || i.lifecycle_label === 'Expired' ? (
+          <button
+            type="button"
+            className="ip-epo-btn ip-epo-btn--icon"
+            title="Repost / Duplicate"
+            aria-label="Repost Duplicate"
+            disabled={busyId === i.id}
+            onClick={async () => {
+              setBusyId(i.id);
+              try {
+                const res = await fetch(`/api/ip/employer/internships/${i.id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ action: 'repost' }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                router.push(`/employer/internships/${data.id}/edit`);
+              } catch (e) {
+                setError(e.message);
+              } finally {
+                setBusyId('');
+              }
+            }}
+          >
+            <Plus className="size-4" />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="ip-epo-btn ip-epo-btn--icon"
+          title="Promote + verify"
+          aria-label="Promote + verify"
+          disabled={busyId === i.id}
+          onClick={() => startPromote(i)}
+        >
+          <TrendingUp className="size-4" />
+        </button>
+        <button
+          type="button"
+          className="ip-epo-btn ip-epo-btn--icon"
+          title="Share on WhatsApp"
+          aria-label="Share on WhatsApp"
+          onClick={() => window.open(links.whatsapp, '_blank', 'noreferrer')}
+        >
+          <MessageCircle className="size-4" />
+        </button>
+        <button
+          type="button"
+          className="ip-epo-btn ip-epo-btn--icon"
+          title="Share on LinkedIn"
+          aria-label="Share on LinkedIn"
+          onClick={() => window.open(links.linkedin, '_blank', 'noreferrer')}
+        >
+          <Share2 className="size-4" />
+        </button>
+      </div>
+    );
+  }
+
   const from = total ? (page - 1) * PAGE_SIZE + 1 : 0;
   const to = Math.min(page * PAGE_SIZE, total);
 
   return (
-    <div className="ip-emp-postings">
+    <div className="ip-emp-postings ip-mobile-bleed">
       <div className="ip-epo-header">
         <div>
           <h1>Postings</h1>
@@ -217,8 +313,8 @@ export default function EmployerInternshipsPage() {
         </Link>
       </div>
 
-      {error ? <div className="ip-epo-alert ip-epo-alert--err">{error}</div> : null}
-      {msg ? <div className="ip-epo-alert">{msg}</div> : null}
+      {error ? <div className="ip-epo-alert ip-epo-alert--err ip-mobile-inset">{error}</div> : null}
+      {msg ? <div className="ip-epo-alert ip-mobile-inset">{msg}</div> : null}
 
       <div className="ip-epo-stats">
         <div className="ip-epo-stat">
@@ -270,6 +366,47 @@ export default function EmployerInternshipsPage() {
           <ListPresetsBar {...prefs} />
         </div>
 
+        <div className="ip-epo-cards" aria-label="Postings cards">
+          {pageItems.map((i) => {
+            const bucket = statusBucket(i.status, i.lifecycle_label);
+            return (
+              <article key={i.id} className="ip-epo-mcard">
+                <div className="ip-epo-mcard__head">
+                  <div className="min-w-0">
+                    <Link href={`/employer/internships/${i.id}`} className="ip-epo-title">
+                      {i.title}
+                    </Link>
+                    <p className="ip-epo-date">
+                      Posted on {postedLabel(i)}
+                      {i.capacity_label ? ` · ${i.capacity_label}` : ''}
+                      {i.lifecycle_label ? ` · ${i.lifecycle_label}` : ''}
+                    </p>
+                  </div>
+                  <span className={`ip-epo-badge ip-epo-badge--${bucket}`}>
+                    {statusBadgeText(bucket)}
+                  </span>
+                </div>
+                <p className="ip-epo-mcard__meta">
+                  {stipendLabel(i)} · {Number(i.applicant_count || 0)} applicants
+                  {i.active_applicant_count != null ? ` · ${i.active_applicant_count} active` : ''}
+                </p>
+                <Link href={`/employer/internships/${i.id}`} className="ip-epo-btn ip-epo-btn--primary ip-epo-mcard__manage">
+                  <Users className="size-4" aria-hidden />
+                  Manage applicants
+                </Link>
+                {renderRowActions(i)}
+              </article>
+            );
+          })}
+          {!filtered.length ? (
+            <p className="ip-epo-empty">
+              {items.length
+                ? 'No internship postings found matching your search.'
+                : 'No postings yet.'}
+            </p>
+          ) : null}
+        </div>
+
         <div className="ip-ph-list-wrap ip-epo-table-wrap">
           <table className="ip-ph-list ip-epo-table">
             <thead>
@@ -285,7 +422,6 @@ export default function EmployerInternshipsPage() {
             <tbody>
               {pageItems.map((i, idx) => {
                 const bucket = statusBucket(i.status, i.lifecycle_label);
-                const links = share(i);
                 return (
                   <tr key={i.id}>
                     <td className="ip-epo-num">{serialOffset + idx + 1}</td>
@@ -314,98 +450,7 @@ export default function EmployerInternshipsPage() {
                         {statusBadgeText(bucket)}
                       </span>
                     </td>
-                    <td>
-                      <div className="ip-epo-row-actions">
-                        <button
-                          type="button"
-                          className="ip-epo-btn ip-epo-btn--icon"
-                          title="Edit Posting"
-                          aria-label="Edit Posting"
-                          onClick={() => router.push(`/employer/internships/${i.id}/edit`)}
-                        >
-                          <Pencil className="size-4" />
-                        </button>
-                        {i.status === 'published' ? (
-                          <button
-                            type="button"
-                            className="ip-epo-btn ip-epo-btn--icon ip-epo-pause"
-                            title="Pause Listing"
-                            aria-label="Pause Listing"
-                            disabled={busyId === i.id}
-                            onClick={() => setStatus(i.id, 'paused')}
-                          >
-                            <Pause className="size-4" />
-                          </button>
-                        ) : i.status === 'paused' || i.status === 'draft' ? (
-                          <button
-                            type="button"
-                            className="ip-epo-btn ip-epo-btn--icon ip-epo-play"
-                            title="Activate Listing"
-                            aria-label="Activate Listing"
-                            disabled={busyId === i.id}
-                            onClick={() => setStatus(i.id, 'published')}
-                          >
-                            <Play className="size-4" />
-                          </button>
-                        ) : null}
-                        {i.status === 'closed' || i.lifecycle_label === 'Expired' ? (
-                          <button
-                            type="button"
-                            className="ip-epo-btn ip-epo-btn--icon"
-                            title="Repost / Duplicate"
-                            aria-label="Repost Duplicate"
-                            disabled={busyId === i.id}
-                            onClick={async () => {
-                              setBusyId(i.id);
-                              try {
-                                const res = await fetch(`/api/ip/employer/internships/${i.id}`, {
-                                  method: 'PUT',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ action: 'repost' }),
-                                });
-                                const data = await res.json();
-                                if (!res.ok) throw new Error(data.error);
-                                router.push(`/employer/internships/${data.id}/edit`);
-                              } catch (e) {
-                                setError(e.message);
-                              } finally {
-                                setBusyId('');
-                              }
-                            }}
-                          >
-                            <Plus className="size-4" />
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          className="ip-epo-btn ip-epo-btn--icon"
-                          title="Promote + verify"
-                          aria-label="Promote + verify"
-                          disabled={busyId === i.id}
-                          onClick={() => startPromote(i)}
-                        >
-                          <TrendingUp className="size-4" />
-                        </button>
-                        <button
-                          type="button"
-                          className="ip-epo-btn ip-epo-btn--icon"
-                          title="Share on WhatsApp"
-                          aria-label="Share on WhatsApp"
-                          onClick={() => window.open(links.whatsapp, '_blank', 'noreferrer')}
-                        >
-                          <MessageCircle className="size-4" />
-                        </button>
-                        <button
-                          type="button"
-                          className="ip-epo-btn ip-epo-btn--icon"
-                          title="Share on LinkedIn"
-                          aria-label="Share on LinkedIn"
-                          onClick={() => window.open(links.linkedin, '_blank', 'noreferrer')}
-                        >
-                          <Share2 className="size-4" />
-                        </button>
-                      </div>
-                    </td>
+                    <td>{renderRowActions(i)}</td>
                   </tr>
                 );
               })}

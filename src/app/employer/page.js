@@ -68,7 +68,7 @@ export default function EmployerDashboard() {
 
   if (loading && !data) {
     return (
-      <div className="ip-emp-dash">
+      <div className="ip-emp-dash ip-mobile-bleed">
         <div className="ip-ed-banner">
           <div>
             <span className="ip-ed-org-pill">Organization Portal</span>
@@ -93,7 +93,7 @@ export default function EmployerDashboard() {
   }
 
   return (
-    <div className="ip-emp-dash">
+    <div className="ip-emp-dash ip-mobile-bleed">
       {employer?.approvalStatus && employer.approvalStatus !== 'approved' ? (
         <div className="ip-ed-alert">
           Waiting for SuperAdmin approval — you can prepare draft postings meanwhile.

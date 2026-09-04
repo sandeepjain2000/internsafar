@@ -223,7 +223,7 @@ export default function SuperAdminMessagesPage() {
   }
 
   return (
-    <div className="ip-sa-q">
+    <div className="ip-sa-q ip-mobile-bleed">
       {toast ? (
         <div className="ip-saq-toast" role="status">
           {toast}
@@ -353,6 +353,7 @@ export default function SuperAdminMessagesPage() {
               <input
                 type="search"
                 placeholder="Search title, details..."
+                aria-label="Search alerts by title or details"
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);

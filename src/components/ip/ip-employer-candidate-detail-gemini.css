@@ -1,0 +1,77 @@
+/**
+ * Employer candidate detail — pack candidate-details.html (≤767 polish).
+ * Desktop ≥768 keeps Tailwind Card layout unchanged.
+ */
+
+.ip-emp-cand-detail {
+  color: #0f172a;
+}
+
+.ip-emp-cand-detail .ip-ecd-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ip-emp-cand-detail .ip-ecd-actions > * {
+  flex: 1 1 8rem;
+}
+
+.ip-emp-cand-detail .ip-ecd-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+@media (max-width: 767px) {
+  .ip-emp-cand-detail {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ip-emp-cand-detail .ip-mobile-inset {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .ip-emp-cand-detail .ip-ecd-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .ip-emp-cand-detail .ip-ecd-head [data-slot='button'],
+  .ip-emp-cand-detail .ip-ecd-actions [data-slot='button'] {
+    min-height: var(--ip-tap-min, 2.75rem);
+    width: 100%;
+  }
+
+  .ip-emp-cand-detail .ip-ecd-actions {
+    flex-direction: column;
+  }
+
+  .ip-emp-cand-detail .ip-ecd-actions > * {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  /* Stack profile + side rails; cards keep readable tap targets */
+  .ip-emp-cand-detail .ip-ecd-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .ip-emp-cand-detail .ip-ecd-grid > * {
+    width: 100%;
+  }
+
+  .ip-emp-cand-detail [data-slot='card'] {
+    border-radius: 0.75rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .ip-emp-cand-detail .ip-ecd-m-only {
+    display: none !important;
+  }
+}

@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import PageHeader from '@/components/ip/PageHeader';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
+import { useIsMobile } from '@/hooks/useViewMode';
 import { StandardTableIconAction } from '@/components/ui/StandardTableIconAction';
 
 const STATUS_OPTIONS = ['applied', 'shortlisted', 'interviewing', 'rejected', 'hired', 'completed'];
@@ -81,6 +82,8 @@ export default function ApplicantsPipelinePage() {
   const [newListName, setNewListName] = useState('');
   const [bulkResult, setBulkResult] = useState(null);
   const [mcqSummary, setMcqSummary] = useState([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const snapshot = useMemo(() => ({ filters, sort }), [filters, sort]);
   const prefs = useListPrefsSync({
@@ -160,6 +163,37 @@ export default function ApplicantsPipelinePage() {
     setFilters({ ...DEFAULT_FILTERS });
     setSort('match');
     setPage(1);
+  }
+
+  useEffect(() => {
+    if (!isMobile) setFiltersOpen(false);
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (!filtersOpen) return undefined;
+    document.body.classList.add('ip-scroll-locked');
+    return () => document.body.classList.remove('ip-scroll-locked');
+  }, [filtersOpen]);
+
+  const filterActive = Boolean(
+    filters.q
+      || filters.status
+      || filters.minMatch
+      || filters.screeningDisabled
+      || filters.listId
+      || filters.unread
+      || filters.responded
+      || filters.mcqQuestionId
+      || filters.minHistTotal
+      || filters.minHistCompleted
+      || filters.minHistOngoing
+      || sort !== 'match',
+  );
+
+  function applyFiltersNow() {
+    setPage(1);
+    load();
+    setFiltersOpen(false);
   }
 
   function toggleSelect(appId) {
@@ -290,8 +324,79 @@ export default function ApplicantsPipelinePage() {
 
   if (!internship) return <div className="p-8 text-muted-foreground">Loading…</div>;
 
+  const renderFilterControls = () => (
+    <>
+      <Input placeholder="Search name/college" value={filters.q} onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))} className="max-w-xs w-full" />
+      <select className="h-9 rounded-md border px-2 text-sm w-full max-w-xs" value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}>
+        <option value="">All statuses</option>
+        {STATUS_OPTIONS.concat('offered').map((s) => <option key={s} value={s}>{s}</option>)}
+      </select>
+      <Input placeholder="Min match %" type="number" value={filters.minMatch} onChange={(e) => setFilters((f) => ({ ...f, minMatch: e.target.value }))} className="max-w-[120px] w-full" />
+      <select className="h-9 rounded-md border px-2 text-sm w-full max-w-xs" value={filters.screeningDisabled} onChange={(e) => setFilters((f) => ({ ...f, screeningDisabled: e.target.value }))}>
+        <option value="">All screening</option>
+        <option value="1">Greyed-out / disabled</option>
+        <option value="0">Not disabled</option>
+      </select>
+      <select className="h-9 rounded-md border px-2 text-sm w-full max-w-xs" value={filters.listId} onChange={(e) => setFilters((f) => ({ ...f, listId: e.target.value }))}>
+        <option value="">All lists</option>
+        {lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+      </select>
+      <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={filters.unread} onChange={(e) => setFilters((f) => ({ ...f, unread: e.target.checked }))} /> Unread</label>
+      <select className="h-9 rounded-md border px-2 text-sm w-full max-w-xs" value={filters.responded} onChange={(e) => setFilters((f) => ({ ...f, responded: e.target.value }))}>
+        <option value="">Responded: any</option>
+        <option value="0">Unresponded</option>
+        <option value="1">Responded</option>
+      </select>
+      <select className="h-9 rounded-md border px-2 text-sm w-full max-w-xs" value={filters.mcqQuestionId} onChange={(e) => setFilters((f) => ({ ...f, mcqQuestionId: e.target.value, mcqAnswer: '' }))}>
+        <option value="">Screening question</option>
+        {(questions || []).filter((q) => q.type === 'mcq' || q.options).map((q) => (
+          <option key={q.id} value={q.id}>{q.prompt}</option>
+        ))}
+      </select>
+      {filters.mcqQuestionId ? (
+        <select className="h-9 rounded-md border px-2 text-sm w-full max-w-xs" value={filters.mcqAnswer} onChange={(e) => setFilters((f) => ({ ...f, mcqAnswer: e.target.value }))}>
+          <option value="">Any answer</option>
+          {(questions.find((q) => q.id === filters.mcqQuestionId)?.options || []).map((o) => (
+            <option key={o.id} value={o.id}>{o.label}</option>
+          ))}
+        </select>
+      ) : null}
+      <Input className="max-w-[110px] w-full" type="number" min={0} placeholder="Min total internships" value={filters.minHistTotal} onChange={(e) => setFilters((f) => ({ ...f, minHistTotal: e.target.value }))} title="Min total internships" />
+      <Input className="max-w-[110px] w-full" type="number" min={0} placeholder="Min completed" value={filters.minHistCompleted} onChange={(e) => setFilters((f) => ({ ...f, minHistCompleted: e.target.value }))} title="Min completed internships" />
+      <Input className="max-w-[110px] w-full" type="number" min={0} placeholder="Min ongoing" value={filters.minHistOngoing} onChange={(e) => setFilters((f) => ({ ...f, minHistOngoing: e.target.value }))} title="Min ongoing internships" />
+      <select className="h-9 rounded-md border px-2 text-sm w-full max-w-xs" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort applicants">
+        <option value="match">Best match</option>
+        <option value="newest">Newest</option>
+        <option value="name">Name A–Z</option>
+        <option value="status">Status</option>
+      </select>
+    </>
+  );
+
+  function renderApplicantActions(a) {
+    return (
+      <div className="flex flex-wrap gap-1">
+        {STATUS_OPTIONS.filter((s) => s !== a.status && s !== 'completed').map((s) => (
+          <StandardTableIconAction key={s} action={STATUS_ACTIONS[s] || 'edit'} tooltip={`Move to ${s}`} onClick={() => setStatus(a.id, s)} />
+        ))}
+        <StandardTableIconAction action="offer" onClick={() => openOffer(a)} />
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setCompareIds((ids) => {
+            if (ids.includes(a.id)) return ids.filter((x) => x !== a.id);
+            if (ids.length >= 4) return ids;
+            return [...ids, a.id];
+          })}
+        >
+          {compareIds.includes(a.id) ? 'Uncompare' : 'Compare'}
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-4 pb-24">
+    <div className="ip-emp-applicants ip-mobile-bleed space-y-4 pb-24">
       <PageHeader
         title={internship.title}
         description={`${total} result(s) · ${capacity ? `${capacity.active}/${capacity.max} active · ${capacity.historical} historical` : ''} · ${internship.lifecycle_label || ''}`}
@@ -301,59 +406,68 @@ export default function ApplicantsPipelinePage() {
         <ClosureSummary internshipId={id} capacity={capacity} />
       ) : null}
 
-      <Card>
+      {/* Mobile toolbar */}
+      <Card className="md:hidden">
+        <CardContent className="flex flex-col gap-2 pt-4">
+          <Input
+            placeholder="Search applicants…"
+            value={filters.q}
+            onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
+            aria-label="Search applicants"
+          />
+          <Button
+            type="button"
+            variant={filterActive ? 'default' : 'outline'}
+            className="min-h-11 w-full"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen(true)}
+          >
+            Filters{filterActive ? ' · on' : ''}
+          </Button>
+          <ListPresetsBar {...prefs} />
+        </CardContent>
+      </Card>
+
+      {/* Desktop filters */}
+      <Card className="hidden md:block">
         <CardContent className="flex flex-wrap gap-2 pt-4 items-end">
-          <Input placeholder="Search name/college" value={filters.q} onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))} className="max-w-xs" />
-          <select className="h-9 rounded-md border px-2 text-sm" value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}>
-            <option value="">All statuses</option>
-            {STATUS_OPTIONS.concat('offered').map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <Input placeholder="Min match %" type="number" value={filters.minMatch} onChange={(e) => setFilters((f) => ({ ...f, minMatch: e.target.value }))} className="max-w-[120px]" />
-          <select className="h-9 rounded-md border px-2 text-sm" value={filters.screeningDisabled} onChange={(e) => setFilters((f) => ({ ...f, screeningDisabled: e.target.value }))}>
-            <option value="">All screening</option>
-            <option value="1">Greyed-out / disabled</option>
-            <option value="0">Not disabled</option>
-          </select>
-          <select className="h-9 rounded-md border px-2 text-sm" value={filters.listId} onChange={(e) => setFilters((f) => ({ ...f, listId: e.target.value }))}>
-            <option value="">All lists</option>
-            {lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-          </select>
-          <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={filters.unread} onChange={(e) => setFilters((f) => ({ ...f, unread: e.target.checked }))} /> Unread</label>
-          <select className="h-9 rounded-md border px-2 text-sm" value={filters.responded} onChange={(e) => setFilters((f) => ({ ...f, responded: e.target.value }))}>
-            <option value="">Responded: any</option>
-            <option value="0">Unresponded</option>
-            <option value="1">Responded</option>
-          </select>
-          <select className="h-9 rounded-md border px-2 text-sm" value={filters.mcqQuestionId} onChange={(e) => setFilters((f) => ({ ...f, mcqQuestionId: e.target.value, mcqAnswer: '' }))}>
-            <option value="">Screening question</option>
-            {(questions || []).filter((q) => q.type === 'mcq' || q.options).map((q) => (
-              <option key={q.id} value={q.id}>{q.prompt}</option>
-            ))}
-          </select>
-          {filters.mcqQuestionId ? (
-            <select className="h-9 rounded-md border px-2 text-sm" value={filters.mcqAnswer} onChange={(e) => setFilters((f) => ({ ...f, mcqAnswer: e.target.value }))}>
-              <option value="">Any answer</option>
-              {(questions.find((q) => q.id === filters.mcqQuestionId)?.options || []).map((o) => (
-                <option key={o.id} value={o.id}>{o.label}</option>
-              ))}
-            </select>
-          ) : null}
-          <Input className="max-w-[110px]" type="number" min={0} placeholder="Min total internships" value={filters.minHistTotal} onChange={(e) => setFilters((f) => ({ ...f, minHistTotal: e.target.value }))} title="Min total internships" />
-          <Input className="max-w-[110px]" type="number" min={0} placeholder="Min completed" value={filters.minHistCompleted} onChange={(e) => setFilters((f) => ({ ...f, minHistCompleted: e.target.value }))} title="Min completed internships" />
-          <Input className="max-w-[110px]" type="number" min={0} placeholder="Min ongoing" value={filters.minHistOngoing} onChange={(e) => setFilters((f) => ({ ...f, minHistOngoing: e.target.value }))} title="Min ongoing internships" />
+          {renderFilterControls()}
           <Button size="sm" onClick={() => { setPage(1); load(); }}>Apply filters</Button>
           <Button size="sm" variant="outline" onClick={clearFilters}>Reset</Button>
-          <select className="h-9 rounded-md border px-2 text-sm" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort applicants">
-            <option value="match">Best match</option>
-            <option value="newest">Newest</option>
-            <option value="name">Name A–Z</option>
-            <option value="status">Status</option>
-          </select>
           <div className="w-full">
             <ListPresetsBar {...prefs} />
           </div>
         </CardContent>
       </Card>
+
+      {filtersOpen ? (
+        <div className="ip-sheet is-open">
+          <button
+            type="button"
+            className="ip-sheet-scrim"
+            aria-label="Close filters"
+            onClick={() => setFiltersOpen(false)}
+          />
+          <div className="ip-sheet__panel" role="dialog" aria-label="Filter applicants">
+            <div className="ip-sheet__handle" aria-hidden />
+            <div className="ip-sheet__head">
+              <h3 className="ip-sheet__title">Filters</h3>
+              <button type="button" className="ip-sheet__x" onClick={() => setFiltersOpen(false)} aria-label="Close">
+                ×
+              </button>
+            </div>
+            <div className="ip-sheet__body flex flex-col gap-3">{renderFilterControls()}</div>
+            <div className="ip-sheet__actions">
+              <Button type="button" variant="outline" onClick={clearFilters}>
+                Reset
+              </Button>
+              <Button type="button" onClick={applyFiltersNow}>
+                Show {total}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {mcqSummary?.length ? (
         <Card>
@@ -403,95 +517,171 @@ export default function ApplicantsPipelinePage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10"><input type="checkbox" aria-label="Select all" checked={applicants.length > 0 && selected.size === applicants.length} onChange={toggleSelectAll} /></TableHead>
-                <TableHead>Candidate</TableHead>
-                <TableHead>History</TableHead>
-                <TableHead>Match</TableHead>
-                <TableHead>Answers</TableHead>
-                <TableHead>Comm</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {applicants.map((a) => (
-                <TableRow
+          {/* Mobile applicant cards */}
+          <div className="md:hidden space-y-3" aria-label="Applicants cards">
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  aria-label="Select all"
+                  checked={applicants.length > 0 && selected.size === applicants.length}
+                  onChange={toggleSelectAll}
+                />
+                Select all on page
+              </label>
+            </div>
+            {applicants.map((a) => {
+              const viewHref = `/employer/candidates/${a.candidate_id}?applicationId=${a.id}&internshipId=${id}&from=${encodeURIComponent(`/employer/internships/${id}`)}`;
+              return (
+                <article
                   key={a.id}
-                  className={undefined}
+                  className="rounded-xl border bg-card p-3 space-y-2"
                   data-screening-disabled={a.screening_disabled ? 'true' : 'false'}
                 >
-                  <TableCell>
-                    <input type="checkbox" aria-label={`Select ${a.name}`} checked={selected.has(a.id)} onChange={() => toggleSelect(a.id)} />
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    <Link
-                      href={`/employer/candidates/${a.candidate_id}?applicationId=${a.id}&internshipId=${id}&from=${encodeURIComponent(`/employer/internships/${id}`)}`}
-                      className="text-left underline-offset-2 hover:underline"
-                    >
-                      {a.name}
-                    </Link>
-                    {a.screening_disabled ? (
-                      <div className="text-xs font-medium text-muted-foreground" role="status">
-                        Screening disabled
-                        {a.screening_disable_reason?.optionLabel
-                          ? `: ${a.screening_disable_reason.prompt} → ${a.screening_disable_reason.optionLabel}`
-                          : ''}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-start gap-2">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        aria-label={`Select ${a.name}`}
+                        checked={selected.has(a.id)}
+                        onChange={() => toggleSelect(a.id)}
+                      />
+                      <div className="min-w-0">
+                        <Link href={viewHref} className="font-semibold underline-offset-2 hover:underline">
+                          {a.name}
+                        </Link>
+                        {a.screening_disabled ? (
+                          <div className="text-xs font-medium text-muted-foreground" role="status">
+                            Screening disabled
+                            {a.screening_disable_reason?.optionLabel
+                              ? `: ${a.screening_disable_reason.prompt} → ${a.screening_disable_reason.optionLabel}`
+                              : ''}
+                          </div>
+                        ) : null}
+                        <p className="text-xs text-muted-foreground">
+                          {[a.college, a.city].filter(Boolean).join(' · ') || '—'}
+                          {a.match_score != null ? ` · Match ${a.match_score}%` : ''}
+                        </p>
+                        {a.list_names ? (
+                          <p className="text-xs text-muted-foreground">Lists: {a.list_names}</p>
+                        ) : null}
                       </div>
-                    ) : null}
-                    <div className="text-xs text-muted-foreground">
-                      {[a.college, a.city, a.match_score != null ? `${a.match_score}% match` : null].filter(Boolean).join(' · ') || '—'}
                     </div>
-                    {a.list_names ? <div className="text-xs text-muted-foreground">Lists: {a.list_names}</div> : null}
-                  </TableCell>
-                  <TableCell className="text-xs">
+                    <Badge variant={STATUS_VARIANT[a.status] || 'outline'}>{a.status}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
                     {a.internship_history
                       ? `${a.internship_history.total_internships} total` +
                         (a.internship_history.completed_hidden
                           ? ' · completed hidden'
                           : ` · ${a.internship_history.completed_internships} done`) +
                         ` · ${a.internship_history.ongoing_internships} ongoing`
-                      : '—'}
-                  </TableCell>
-                  <TableCell>{a.match_score != null ? `${a.match_score}%` : '—'}</TableCell>
-                  <TableCell className="max-w-[180px] text-xs text-muted-foreground">
+                      : 'History —'}
+                    {' · '}
                     {a.answers && Object.keys(a.answers).length
                       ? `${Object.keys(a.answers).length} answer(s)`
-                      : '—'}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {a.communication?.unread ? <div role="status">Unread</div> : <div className="text-muted-foreground">Read</div>}
-                    {a.communication?.unresponded ? <div role="status">Needs response</div> : <div className="text-muted-foreground">Responded</div>}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={STATUS_VARIANT[a.status] || 'outline'}>{a.status}</Badge>
-                  </TableCell>
-                  <TableCell className="space-x-1 whitespace-nowrap">
-                    {STATUS_OPTIONS.filter((s) => s !== a.status && s !== 'completed').map((s) => (
-                      <StandardTableIconAction key={s} action={STATUS_ACTIONS[s] || 'edit'} tooltip={`Move to ${s}`} onClick={() => setStatus(a.id, s)} />
-                    ))}
-                    <StandardTableIconAction action="offer" onClick={() => openOffer(a)} />
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setCompareIds((ids) => {
-                        if (ids.includes(a.id)) return ids.filter((x) => x !== a.id);
-                        if (ids.length >= 4) return ids;
-                        return [...ids, a.id];
-                      })}
+                      : 'No answers'}
+                  </p>
+                  <div className="text-xs flex flex-wrap gap-2">
+                    {a.communication?.unread ? <span role="status">Unread</span> : <span className="text-muted-foreground">Read</span>}
+                    {a.communication?.unresponded ? <span role="status">Needs response</span> : <span className="text-muted-foreground">Responded</span>}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      href={viewHref}
+                      className="inline-flex h-8 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium shadow-sm hover:bg-accent"
                     >
-                      {compareIds.includes(a.id) ? 'Uncompare' : 'Compare'}
-                    </Button>
-                  </TableCell>
+                      View
+                    </Link>
+                  </div>
+                  {renderApplicantActions(a)}
+                </article>
+              );
+            })}
+            {!applicants.length ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">No applicants match filters.</p>
+            ) : null}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10"><input type="checkbox" aria-label="Select all" checked={applicants.length > 0 && selected.size === applicants.length} onChange={toggleSelectAll} /></TableHead>
+                  <TableHead>Candidate</TableHead>
+                  <TableHead>History</TableHead>
+                  <TableHead>Match</TableHead>
+                  <TableHead>Answers</TableHead>
+                  <TableHead>Comm</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-              {!applicants.length ? (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">No applicants match filters.</TableCell></TableRow>
-              ) : null}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {applicants.map((a) => (
+                  <TableRow
+                    key={a.id}
+                    className={undefined}
+                    data-screening-disabled={a.screening_disabled ? 'true' : 'false'}
+                  >
+                    <TableCell>
+                      <input type="checkbox" aria-label={`Select ${a.name}`} checked={selected.has(a.id)} onChange={() => toggleSelect(a.id)} />
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <Link
+                        href={`/employer/candidates/${a.candidate_id}?applicationId=${a.id}&internshipId=${id}&from=${encodeURIComponent(`/employer/internships/${id}`)}`}
+                        className="text-left underline-offset-2 hover:underline"
+                      >
+                        {a.name}
+                      </Link>
+                      {a.screening_disabled ? (
+                        <div className="text-xs font-medium text-muted-foreground" role="status">
+                          Screening disabled
+                          {a.screening_disable_reason?.optionLabel
+                            ? `: ${a.screening_disable_reason.prompt} → ${a.screening_disable_reason.optionLabel}`
+                            : ''}
+                        </div>
+                      ) : null}
+                      <div className="text-xs text-muted-foreground">
+                        {[a.college, a.city, a.match_score != null ? `${a.match_score}% match` : null].filter(Boolean).join(' · ') || '—'}
+                      </div>
+                      {a.list_names ? <div className="text-xs text-muted-foreground">Lists: {a.list_names}</div> : null}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {a.internship_history
+                        ? `${a.internship_history.total_internships} total` +
+                          (a.internship_history.completed_hidden
+                            ? ' · completed hidden'
+                            : ` · ${a.internship_history.completed_internships} done`) +
+                          ` · ${a.internship_history.ongoing_internships} ongoing`
+                        : '—'}
+                    </TableCell>
+                    <TableCell>{a.match_score != null ? `${a.match_score}%` : '—'}</TableCell>
+                    <TableCell className="max-w-[180px] text-xs text-muted-foreground">
+                      {a.answers && Object.keys(a.answers).length
+                        ? `${Object.keys(a.answers).length} answer(s)`
+                        : '—'}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {a.communication?.unread ? <div role="status">Unread</div> : <div className="text-muted-foreground">Read</div>}
+                      {a.communication?.unresponded ? <div role="status">Needs response</div> : <div className="text-muted-foreground">Responded</div>}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={STATUS_VARIANT[a.status] || 'outline'}>{a.status}</Badge>
+                    </TableCell>
+                    <TableCell className="space-x-1 whitespace-nowrap">
+                      {renderApplicantActions(a)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!applicants.length ? (
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">No applicants match filters.</TableCell></TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
+          </div>
           <div className="mt-3 flex items-center gap-2">
             <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Prev</Button>
             <span className="text-sm text-muted-foreground">Page {page} · {total} total</span>
@@ -519,13 +709,14 @@ export default function ApplicantsPipelinePage() {
 
       {selected.size > 0 ? (
         <div className="fixed bottom-0 inset-x-0 z-40 border-t bg-background/95 backdrop-blur p-3 shadow-lg">
-          <div className="mx-auto max-w-6xl flex flex-wrap gap-2 items-center">
+          <div className="mx-auto max-w-6xl flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <span className="text-sm font-medium">{selected.size} selected</span>
+            <div className="flex flex-wrap gap-2 items-center">
             <Button size="sm" onClick={() => bulk('shortlist')}>Shortlist</Button>
             <Button size="sm" variant="destructive" onClick={() => setRejectOpen(true)}>Reject…</Button>
             <Button size="sm" variant="secondary" onClick={() => setBulkMsgOpen(true)}>Message…</Button>
             <select
-              className="h-8 rounded-md border px-2 text-sm"
+              className="h-8 min-h-11 sm:min-h-8 rounded-md border px-2 text-sm"
               defaultValue=""
               onChange={(e) => {
                 if (e.target.value) bulk('add_to_list', { listId: e.target.value });
@@ -624,6 +815,7 @@ export default function ApplicantsPipelinePage() {
                 URL.revokeObjectURL(url);
               }
             }}>Export CSV/ZIP</Button>
+            </div>
           </div>
         </div>
       ) : null}

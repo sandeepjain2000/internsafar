@@ -108,7 +108,8 @@ export default function EmployerNotificationsPage() {
   const [search, setSearch] = useState('');
   const [toastMsg, setToastMsg] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useViewMode('ip_emp_notif_view', 'cards');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [viewMode, setViewMode, { isMobile }] = useViewMode('ip_emp_notif_view', 'cards');
 
   const snapshot = useMemo(() => ({ filters: { tab, search }, sort: '' }), [tab, search]);
   const prefs = useListPrefsSync({
@@ -138,6 +139,18 @@ export default function EmployerNotificationsPage() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (!isMobile) setFiltersOpen(false);
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (!filtersOpen) return undefined;
+    document.body.classList.add('ip-scroll-locked');
+    return () => document.body.classList.remove('ip-scroll-locked');
+  }, [filtersOpen]);
+
+  const filterActive = Boolean(search.trim()) || tab !== 'All';
 
   function showToast(msg) {
     setToastMsg(msg);
@@ -192,7 +205,7 @@ export default function EmployerNotificationsPage() {
   }
 
   return (
-    <div className="ip-emp-notif">
+    <div className="ip-emp-notif ip-mobile-bleed">
       {toastMsg ? (
         <div className="ip-en-toast" role="status">
           <Check size={16} aria-hidden />
@@ -228,10 +241,41 @@ export default function EmployerNotificationsPage() {
           </div>
           <p>Stay updated on candidate applications, offer sign-offs, and platform reward milestones.</p>
         </div>
-        <ViewModeToggle value={viewMode} onChange={setViewMode} />
+        <div className="ip-en-view-toggle">
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+        </div>
       </div>
 
-      <div className="ip-en-filters">
+      {/* Mobile search + Filters */}
+      <div className="ip-en-m-toolbar">
+        <div className="ip-en-search">
+          <Search size={14} aria-hidden />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search…"
+            aria-label="Search notifications"
+          />
+          {search ? (
+            <button type="button" className="ip-en-search-clear" onClick={() => setSearch('')} aria-label="Clear search">
+              <X size={14} />
+            </button>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          className={`ip-en-filters-btn${filterActive || filtersOpen ? ' is-on' : ''}`}
+          aria-expanded={filtersOpen}
+          onClick={() => setFiltersOpen(true)}
+        >
+          Filters
+          {filterActive ? <span className="ip-en-filters-chip">{tab !== 'All' ? tab : '1'}</span> : null}
+        </button>
+        <ListPresetsBar {...prefs} />
+      </div>
+
+      <div className="ip-en-filters ip-en-filters--desk">
         <div className="ip-en-tabs" role="tablist" aria-label="Notification filters">
           {TABS.map((t) => (
             <button
@@ -265,6 +309,60 @@ export default function EmployerNotificationsPage() {
           <ListPresetsBar {...prefs} />
         </div>
       </div>
+
+      {filtersOpen ? (
+        <div className="ip-sheet is-open">
+          <button
+            type="button"
+            className="ip-sheet-scrim"
+            aria-label="Close filters"
+            onClick={() => setFiltersOpen(false)}
+          />
+          <div className="ip-sheet__panel" role="dialog" aria-label="Filter notifications">
+            <div className="ip-sheet__handle" aria-hidden />
+            <div className="ip-sheet__head">
+              <h3 className="ip-sheet__title">Filters</h3>
+              <button type="button" className="ip-sheet__x" onClick={() => setFiltersOpen(false)} aria-label="Close">
+                ×
+              </button>
+            </div>
+            <div className="ip-sheet__body ip-en-sheet-body">
+              <p className="ip-en-sheet-hint">Category</p>
+              {TABS.map((t) => (
+                <button
+                  key={`sheet-${t}`}
+                  type="button"
+                  className={`ip-en-sheet-opt${tab === t ? ' is-on' : ''}`}
+                  onClick={() => setTab(t)}
+                >
+                  {t}
+                  {t === 'Unread' && unreadCount > 0 ? (
+                    <span className="ip-en-filters-chip">{unreadCount}</span>
+                  ) : null}
+                </button>
+              ))}
+              <div className="ip-en-sheet-presets">
+                <ListPresetsBar {...prefs} />
+              </div>
+            </div>
+            <div className="ip-sheet__actions">
+              <button
+                type="button"
+                className="ip-en-mark"
+                onClick={() => {
+                  resetFilters();
+                  setFiltersOpen(false);
+                }}
+              >
+                Reset
+              </button>
+              <button type="button" className="ip-en-cta" onClick={() => setFiltersOpen(false)}>
+                Show {filtered.length}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="ip-en-empty">

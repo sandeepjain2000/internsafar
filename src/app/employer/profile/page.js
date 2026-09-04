@@ -227,7 +227,7 @@ export default function EmployerProfilePage() {
   const ethicsAllOn = ethicsItems.length > 0 && ethicsItems.every((item) => !!form.ethics_acks?.[item.id]);
 
   return (
-    <div className="ip-emp-profile">
+    <div className="ip-emp-profile ip-mobile-bleed">
       <div className="ip-ep-header">
         <div>
           <h1>Employer profile</h1>
@@ -506,7 +506,7 @@ export default function EmployerProfilePage() {
               Opt in to Telegram communications from candidates
             </label>
           </div>
-          <div className="ip-ep-actions">
+          <div className="ip-ep-actions ip-ep-actions--save">
             <button
               type="button"
               className="ip-ep-btn ip-ep-btn--primary"

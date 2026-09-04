@@ -604,3 +604,111 @@
   align-items: center;
   gap: 0.5rem;
 }
+
+/* —— Mobile ≤767 —— */
+.ip-emp-notif .ip-en-m-toolbar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .ip-emp-notif .ip-en-m-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .ip-emp-notif .ip-en-filters--desk {
+    display: none !important;
+  }
+
+  .ip-emp-notif .ip-en-view-toggle {
+    display: none;
+  }
+
+  .ip-emp-notif .ip-en-m-toolbar .ip-en-search {
+    width: 100%;
+  }
+
+  .ip-emp-notif .ip-en-m-toolbar .ip-en-filters-btn {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+
+  .ip-emp-notif .ip-en-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-emp-notif .ip-en-toolbar-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-emp-notif .ip-en-pts-pill,
+  .ip-emp-notif .ip-en-mark {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+
+  .ip-emp-notif .ip-en-header h1 {
+    font-size: 1.25rem;
+  }
+
+  .ip-emp-notif .ip-en-card-actions .ip-en-cta {
+    flex: 1 1 auto;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+
+  .ip-emp-notif .ip-en-sheet-hint {
+    margin: 0 0 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+
+  .ip-emp-notif .ip-en-sheet-opt {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    margin-bottom: 0.35rem;
+    padding: 0 0.85rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.65rem;
+    background: #fff;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+  }
+
+  .ip-emp-notif .ip-en-sheet-opt.is-on {
+    border-color: #c7d2fe;
+    background: #eef2ff;
+    color: #4338ca;
+  }
+
+  .ip-emp-notif .ip-en-sheet-presets {
+    margin-top: 0.75rem;
+  }
+
+  .ip-emp-notif .ip-sheet__actions .ip-en-mark,
+  .ip-emp-notif .ip-sheet__actions .ip-en-cta {
+    flex: 1 1 0;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+
+  .ip-emp-notif .ip-en-toast {
+    left: 1rem;
+    right: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
+}
