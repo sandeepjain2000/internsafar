@@ -22,15 +22,23 @@ This handoff bundle lives in **`internship-portal-aws-handoff/`** (workspace roo
 |------|------|------------------|
 | **A — First-time AWS** | New EC2 + RDS | Runbook Parts A–K |
 | **B — App update** | New code, RDS unchanged | Extract tar → chmod → app-swap → build → PM2 (**no DB migrate**; do **not** set `IP_ALLOW_DB_MIGRATE`) |
-| **C — Fresh RDS** | Empty or reset database | **`IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db`** |
+| **C — Fresh RDS** | **Genuinely empty** database only | **`IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db`** — never use to wipe live/prod data |
+
+### Live data rule
+
+Going forward, migrations must keep existing data intact.
+They cannot be delete-and-insert or truncate-and-insert refresh/replace workflows.
+Prefer additive schema and in-place / idempotent updates.
+Do not treat Path C or “sql-only” as permission to wipe an existing production database.
 
 ### Which DB script?
 
 | Situation | Command |
 |-----------|---------|
 | Path B — app code update | **Do not run DB migrate/seed.** Do not set `IP_ALLOW_DB_MIGRATE`. |
-| Path C — fresh / empty RDS | **`IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db`** |
-| SQL only; demo users already exist | **`IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:sql-only`** |
+| Existing / live RDS — schema change | Only when explicitly requested; **data-preserving** SQL only (inspect first). |
+| Path C — fresh / empty RDS | **`IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db`** (**empty RDS only**) |
+| SQL only; demo users already exist | **`IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:sql-only`** (review SQL; not auto-safe for live prod) |
 
 **Why / how stopped in code:** see `PATH-B-NO-DB-MIGRATE.txt` (gate: `scripts/assert-db-migrate-allowed.js`). Without the allow env/flag, migrate prints `=== BLOCKED ===` and exits 1.
 

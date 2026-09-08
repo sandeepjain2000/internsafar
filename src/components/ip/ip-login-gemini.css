@@ -530,6 +530,60 @@
   cursor: not-allowed;
 }
 
+.ip-gemini-login .ip-gemini-google-btn {
+  appearance: none;
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  margin: 0;
+  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.ip-gemini-login .ip-gemini-google-btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.ip-gemini-login .ip-gemini-google-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.ip-gemini-login .ip-gemini-or {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ip-gemini-login .ip-gemini-or::before,
+.ip-gemini-login .ip-gemini-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.ip-gemini-login .ip-gemini-or span {
+  flex: 0 0 auto;
+}
+
 .ip-gemini-login .ip-gemini-register-callout {
   margin: 0;
   padding-top: 0.5rem;

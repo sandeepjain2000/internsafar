@@ -27,9 +27,18 @@ Path B (app update, RDS unchanged):
 
 Path C (fresh/empty RDS) — only when intentional:
   IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db
+  Genuinely empty/fresh RDS only. Never use Path C to wipe an existing live database.
 
 SQL only when demo users already exist:
   IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:sql-only
+  Review SQL first — "sql-only" is not automatically safe for production live data.
+
+Live data rule (existing / production RDS)
+------------------------------------------
+Going forward, migrations must keep data intact.
+They cannot be delete-and-insert or truncate-and-insert refresh/replace workflows.
+Prefer additive schema changes and in-place / idempotent updates.
+IP_ALLOW_DB_MIGRATE=1 is permission to run the gated flow — not permission to wipe rows.
 
 How it is stopped in code (current pack)
 ----------------------------------------

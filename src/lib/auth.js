@@ -20,8 +20,10 @@ import { normalizeEmail } from '@/lib/authRegisterRules';
 import {
   createGoogleVerification,
   ensureIpGoogleAuthSchema,
+  findLinkedUserForGoogleLogin,
   GOOGLE_INTENT_COOKIE,
   googleIntentFromCookieHeader,
+  recordGoogleIdentity,
 } from '@/lib/ipGoogleAuth';
 
 /** Default session when "Remember this device" is unchecked. */
@@ -32,14 +34,14 @@ const SESSION_LONG_SEC = 60 * 60 * 24 * 30; // 30 days
 warnIfProductionAuthMisconfigured();
 
 /**
- * Internship Portal auth — Credentials login + Google as registration verification.
+ * Internship Portal auth — Credentials login + Google for register verify / linked login.
  *
- * Google never creates a portal session. Every portal login goes through the
- * credentials provider (email + emailed/chosen password + captcha). A Google sign-in
- * is only valid when the browser carries a registration intent cookie: the callback
- * then issues a single-use verification token and sends the browser back to the
- * registration form, which must hand that token to its API. Without an intent the
- * sign-in is refused, so Google can never attach itself to an existing account.
+ * With a registration intent cookie: Google issues a single-use verification token and
+ * returns to the register form (no portal session).
+ *
+ * Without an intent: Google may open a portal session only when ip_google_identities
+ * already links that Google account to an active user (Sign up with Google completed).
+ * Password-only accounts without a Google link cannot be opened via Google.
  */
 
 async function queryWithRetry(text, params, attempts = 3) {
@@ -295,25 +297,73 @@ export const authOptions = {
         return `${intent.returnTo}?gv=${encodeURIComponent(token)}`;
       }
 
-      // No intent: this was an attempt to log in with Google. Refused — signing in
-      // with Google would grant an existing account to whoever holds that Google
-      // address, without ever proving they know the account password.
-      await recordLoginEvent({
-        email,
-        success: false,
-        failureReason: 'Google is registration verification only',
-        authMethod: 'Google OAuth',
-      });
-      return '/?error=GoogleLoginDisabled';
+      // No intent: allow login only for accounts already linked via Google registration.
+      const linked = await findLinkedUserForGoogleLogin({ googleSub, email });
+      if (!linked) {
+        await recordLoginEvent({
+          email,
+          success: false,
+          failureReason: 'Google account not linked — register with Google first',
+          authMethod: 'Google OAuth',
+        });
+        return '/?error=GoogleAccountNotLinked';
+      }
+      if (linked.active === false) {
+        await recordLoginEvent({
+          email,
+          userId: linked.id,
+          role: linked.role,
+          success: false,
+          failureReason: 'Account inactive',
+          authMethod: 'Google OAuth',
+        });
+        return '/?error=GoogleAccountInactive';
+      }
+      return true;
     },
-    async jwt({ token, user, account, trigger, session }) {
+    async jwt({ token, user, account, profile, trigger, session }) {
       if (trigger === 'update' && session?.name) {
         token.name = session.name;
       }
-      // Google never reaches here: signIn refuses it unless it is registration
-      // verification, which redirects instead of creating a session.
       if (account?.provider === 'google') {
-        return { ...token, error: 'inactive' };
+        const email = normalizeEmail(profile?.email || user?.email);
+        const googleSub = profile?.sub || account?.providerAccountId || null;
+        const linked = await findLinkedUserForGoogleLogin({ googleSub, email });
+        if (!linked || linked.active === false) {
+          return { ...token, error: 'inactive' };
+        }
+        try {
+          await recordGoogleIdentity({
+            userId: linked.id,
+            googleSub,
+            email: linked.email || email,
+            name: profile?.name || user?.name || linked.name || '',
+            pictureUrl: profile?.picture || user?.image || '',
+          });
+        } catch (e) {
+          console.error('[ip auth] google identity refresh failed', e.message);
+        }
+        token.role = linked.role;
+        token.uid = linked.id;
+        token.profileComplete = linked.profile_complete;
+        token.rememberMe = true;
+        token.authTime = Math.floor(Date.now() / 1000);
+        if (linked.name) token.name = linked.name;
+        else if (profile?.name || user?.name) token.name = profile?.name || user?.name;
+        try {
+          const { ua, ip } = await requestMeta();
+          token.sid = await createAuthSession({ userId: linked.id, userAgent: ua, ip });
+        } catch (e) {
+          console.error('[ip auth] google session create failed', e.message);
+        }
+        await recordLoginEvent({
+          email: linked.email || email,
+          userId: linked.id,
+          role: linked.role,
+          success: true,
+          authMethod: 'Google OAuth',
+        });
+        return token;
       }
 
       if (user?.role) {

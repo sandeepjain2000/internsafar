@@ -160,6 +160,38 @@ export async function recordGoogleIdentity({ userId, googleSub, email, name, pic
   );
 }
 
+/**
+ * Portal user linked to this Google account (registration completed Google OAuth).
+ * Password-only accounts without a row in ip_google_identities are not returned —
+ * so Google sign-in cannot open an unrelated password account.
+ */
+export async function findLinkedUserForGoogleLogin({ googleSub, email }) {
+  await ensureIpGoogleAuthSchema();
+  const sub = googleSub ? String(googleSub) : null;
+  if (sub) {
+    const bySub = await query(
+      `SELECT u.id, u.email, u.name, u.role, u.profile_complete, u.active
+       FROM ip_google_identities g
+       JOIN ip_users u ON u.id = g.user_id
+       WHERE g.google_sub = $1
+       LIMIT 1`,
+      [sub],
+    );
+    if (bySub.rows[0]) return bySub.rows[0];
+  }
+  const normalized = normalizeEmail(email);
+  if (!normalized) return null;
+  const byEmail = await query(
+    `SELECT u.id, u.email, u.name, u.role, u.profile_complete, u.active
+     FROM ip_google_identities g
+     JOIN ip_users u ON u.id = g.user_id
+     WHERE lower(g.email) = lower($1)
+     LIMIT 1`,
+    [normalized],
+  );
+  return byEmail.rows[0] || null;
+}
+
 /** Parse the registration intent the client set before starting Google sign-in. */
 export function googleIntentFromCookieHeader(cookieHeader) {
   const raw = String(cookieHeader || '');

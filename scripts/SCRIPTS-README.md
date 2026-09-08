@@ -26,13 +26,13 @@ to the database. Deep detail on generating and deleting test data lives in
 |---|---|---|
 | `generate-ip-test-data.mjs` | data + schema | Main generator. `--mode=core-fill` fills the three core accounts; `--mode=gen-accounts` creates disposable `+gen` users. Applies pipeline schema idempotently. |
 | `delete-ip-generated-run.mjs` | data | Deletes one generate run by id, or everything except the three cores. Requires an explicit confirm flag. |
-| `IP_Reset_Core_Sample.js` | data + schema | Nuclear reset to the core baseline: rebuilds the three demo cores plus supporting cast so every major table has content. |
+| `IP_Reset_Core_Sample.js` | data + schema | Demo/core baseline tool. **Not** for wiping live/production data. Do not use delete/truncate-and-reinsert as a live migration strategy. |
 | `seed-ip-completed-for-core.mjs` | data | Gives the core candidate completed applications so "Internships Completed" isn't empty. |
 | `fill-ip-posting-requirements.mjs` | data | Backfills `eligibility.requirements_text` and `ideal_profile_text` on published internships missing them. Data only. |
 | `sanitize-ip-demo-labels.mjs` | data | Renames visible "seed/seeded" labels so demo rows read like normal data. |
-| `assert-db-migrate-allowed.js` | no | **Hard gate.** Refuses migrate/seed unless `IP_ALLOW_DB_MIGRATE=1` (or confirm flag). Path B must never set this. |
-| `deploy-fresh-aws-db.mjs` | data + schema | **AWS Path C.** Requires allow. `IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db` |
-| `db_migrate_sql_only_ip.mjs` | schema | SQL 001–039 when demo users exist. `IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:sql-only` |
+| `assert-db-migrate-allowed.js` | no | **Hard gate.** Refuses migrate/seed unless `IP_ALLOW_DB_MIGRATE=1` (or confirm flag). Path B must never set this. Allow ≠ wipe permission. |
+| `deploy-fresh-aws-db.mjs` | data + schema | **AWS Path C — empty RDS only.** Requires allow. Never use to wipe an existing live database. |
+| `db_migrate_sql_only_ip.mjs` | schema | SQL 001–039 when demo users exist. Review files first; live data must stay intact (no truncate/delete-and-insert refresh). |
 | `db_exec_sql_file.js` | schema | Runs one `.sql` file. Calls the allow gate; fail-closed (`=== OK ===` / `=== FAIL ===` / `=== BLOCKED ===`). |
 
 ## Account tools (destructive — read before running)

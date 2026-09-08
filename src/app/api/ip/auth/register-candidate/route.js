@@ -261,7 +261,7 @@ export async function POST(request) {
           mailSentTo: mailResult.sentTo,
           mailCopiedTo: mailResult.copiedTo,
           message:
-            'Account created. Temporary password emailed. Sign in on the login page with that password.',
+            'Account created. Sign in with Google on the login page (or use the temporary password email if you received it).',
         });
       }
       if (mailResult?.usedFallback) {
@@ -274,8 +274,10 @@ export async function POST(request) {
           referralApplied: Boolean(referredBy && referredBy !== userId),
           mailFallback: true,
           mailSentTo: mailResult.fallbackTo,
-          message: `Account created. We could not deliver mail to ${email}; a copy was sent to an alternate delivery address. Check your inbox (and spam), then sign in.`,
-          warning: `Primary inbox failed. If you did not receive a password email, contact support.`,
+          message:
+            'Account created. Prefer Sign in with Google on the login page. A password copy may also have been sent to an alternate delivery address.',
+          warning:
+            'Primary inbox delivery may have failed. Use Sign in with Google, or contact support if you need a password reset.',
         });
       }
     } catch (mailErr) {
@@ -287,20 +289,23 @@ export async function POST(request) {
         referredByName: referrerName || null,
         startingPoints: 50,
         referralApplied: Boolean(referredBy && referredBy !== userId),
-        warning: 'Account created but email failed to send. Contact support for password reset.',
+        message:
+          'Account created. Use Sign in with Google on the login page — no temporary password email was sent.',
+        warning:
+          'Password email could not be sent. Sign in with the same Google account you used to register.',
         emailError: mailErr.message,
       });
     }
 
     return NextResponse.json({
       ok: true,
-          mode: 'google',
+      mode: 'google',
       userId,
       referredByName: referrerName || null,
       startingPoints: 50,
       referralApplied: Boolean(referredBy && referredBy !== userId),
       message:
-        'Account created. Temporary password emailed to your Gmail. Sign in on the login page with that password.',
+        'Account created. Sign in with Google on the login page, or use the temporary password emailed to your Gmail.',
     });
   } catch (error) {
     console.error('[register-candidate]', error);

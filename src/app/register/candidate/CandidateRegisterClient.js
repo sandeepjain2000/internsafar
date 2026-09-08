@@ -101,7 +101,7 @@ export default function CandidateRegisterPage() {
           email: normalizeEmail(account.email),
           startingPoints: Number(data.startingPoints || 50),
           referralApplied: Boolean(data.referralApplied),
-          message: data.message || 'Account created. Temporary password emailed to your Gmail.',
+          message: data.message || 'Account created. Sign in with Google on the login page.',
           warning: data.warning || '',
         });
         setStep('done');
@@ -151,8 +151,7 @@ export default function CandidateRegisterPage() {
     setError('');
     setStartingGoogle(true);
     try {
-      // Arm the intent first: signIn refuses Google without it, so the consent screen can
-      // never be turned into a login for an existing account.
+      // Arm the intent first: without it, Google OAuth is treated as linked-account login.
       const res = await fetch('/api/ip/auth/google-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -278,8 +277,11 @@ export default function CandidateRegisterPage() {
               </div>
               <h2>Registration complete</h2>
               <p>
-                <strong>{done?.email}</strong> has been registered. A temporary password has been
-                emailed to that address — use it to sign in, then change it under Account.
+                <strong>{done?.email}</strong> has been registered.{' '}
+                {done?.warning
+                  ? 'Use Sign in with Google on the sign-in page with the same Google account.'
+                  : done?.message ||
+                    'Sign in with Google on the login page, or use the temporary password if one was emailed.'}
               </p>
               {done?.warning ? (
                 <Alert>
