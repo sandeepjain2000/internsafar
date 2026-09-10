@@ -1,8 +1,9 @@
 /**
- * Temporary testing switch: captcha stays on screen but never blocks.
- * AWS/hosting of the numbered challenge was failing; re-enable by setting this to false.
+ * Captcha enforcement switch.
+ * false = real numbered challenge (signed token; wrong answer blocks login/register).
+ * true = UI still shows a challenge but verification always passes (testing only).
  */
-export const CAPTCHA_BYPASS_FOR_TESTING = true;
+export const CAPTCHA_BYPASS_FOR_TESTING = false;
 
 export const STATIC_CAPTCHA_A = 3;
 export const STATIC_CAPTCHA_B = 4;

@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { CAPTCHA_BYPASS_FOR_TESTING, STATIC_CAPTCHA_QUESTION, STATIC_CAPTCHA_TOKEN } from '@/lib/captchaBypass';
+import { CAPTCHA_BYPASS_FOR_TESTING, STATIC_CAPTCHA_TOKEN } from '@/lib/captchaBypass';
 
 const TTL_MS = 10 * 60 * 1000;
 const GATE_TTL_MS = 2 * 60 * 1000;
@@ -43,25 +43,31 @@ function splitToken(token) {
 }
 
 /**
- * Laptop / sandbox: same equation every time.
- * Off in production unless DUMMY_CAPTCHA=true.
+ * Fixed 3+4 challenge only when DUMMY_CAPTCHA=true (QA convenience).
+ * Default off so "New Code" rotates and answers must match the shown equation.
  */
 export function isDummyCaptchaEnabled() {
-  if (process.env.DUMMY_CAPTCHA === 'false') return false;
-  if (process.env.DUMMY_CAPTCHA === 'true') return true;
-  if (process.env.NODE_ENV !== 'production') return true;
-  return false;
+  return process.env.DUMMY_CAPTCHA === 'true';
 }
 
 /**
  * @returns {{ question: string, token: string }}
  */
 export function createLoginCaptcha() {
+  // Always vary a/b so "New Code" changes the displayed challenge.
+  // Bypass/dummy only affect whether verification is enforced — not UI freshness.
+  const a = isDummyCaptchaEnabled() && !CAPTCHA_BYPASS_FOR_TESTING
+    ? DUMMY_CAPTCHA_A
+    : Math.floor(Math.random() * 9) + 1;
+  const b = isDummyCaptchaEnabled() && !CAPTCHA_BYPASS_FOR_TESTING
+    ? DUMMY_CAPTCHA_B
+    : Math.floor(Math.random() * 9) + 1;
   if (CAPTCHA_BYPASS_FOR_TESTING) {
-    return { question: STATIC_CAPTCHA_QUESTION, token: STATIC_CAPTCHA_TOKEN };
+    return {
+      question: `What is ${a} + ${b}?`,
+      token: STATIC_CAPTCHA_TOKEN,
+    };
   }
-  const a = isDummyCaptchaEnabled() ? DUMMY_CAPTCHA_A : Math.floor(Math.random() * 9) + 1;
-  const b = isDummyCaptchaEnabled() ? DUMMY_CAPTCHA_B : Math.floor(Math.random() * 9) + 1;
   const exp = Date.now() + TTL_MS;
   const body = Buffer.from(JSON.stringify({ a, b, exp })).toString('base64url');
   const sig = signBody(body);

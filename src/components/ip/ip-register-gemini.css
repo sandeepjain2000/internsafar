@@ -608,6 +608,32 @@
   background: #ffffff;
 }
 
+.ip-gemini-register .ip-reg-info-links {
+  margin: 1.25rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ip-gemini-register .ip-reg-info-links a {
+  color: #4f46e5;
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+
+.ip-gemini-register .ip-reg-info-links a:hover {
+  color: #3730a3;
+  text-decoration: underline;
+}
+
+.ip-gemini-register .ip-reg-info-links span {
+  color: #94a3b8;
+}
+
 /* ---------------------------------------------------------------------------
    Google-verified account on the Domain path. The button used to be cosmetic:
    it only advanced the step and announced "verification complete" without ever

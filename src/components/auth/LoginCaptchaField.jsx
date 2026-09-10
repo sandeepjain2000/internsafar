@@ -5,7 +5,6 @@ import { CheckCircle2, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
 import { verifyCaptchaAnswer } from '@/lib/captchaClient';
 import {
   CAPTCHA_BYPASS_FOR_TESTING,
-  STATIC_CAPTCHA_BADGE,
   STATIC_CAPTCHA_QUESTION,
   STATIC_CAPTCHA_TOKEN,
 } from '@/lib/captchaBypass';
@@ -122,6 +121,16 @@ const LoginCaptchaField = forwardRef(function LoginCaptchaField(
     return false;
   }, [verifyEarly, token, answer, resetVerification, setVerified]);
 
+  const applyChallenge = useCallback((nextQuestion, nextToken) => {
+    setQuestion(nextQuestion || 'Answer the question below');
+    setDummyHint('');
+    tokenRef.current = nextToken || '';
+    onTokenChangeRef.current(tokenRef.current);
+    onAnswerChangeRef.current('');
+    if (inputRef.current) inputRef.current.value = '';
+    setAnswerLocked(!CAPTCHA_BYPASS_FOR_TESTING);
+  }, []);
+
   const loadChallenge = useCallback(async () => {
     const seq = ++loadSeqRef.current;
     abortRef.current?.abort();
@@ -129,43 +138,45 @@ const LoginCaptchaField = forwardRef(function LoginCaptchaField(
     abortRef.current = ac;
 
     resetVerification();
-    if (CAPTCHA_BYPASS_FOR_TESTING) {
-      setLoading(false);
-      setQuestion(STATIC_CAPTCHA_QUESTION);
-      setDummyHint('');
-      tokenRef.current = STATIC_CAPTCHA_TOKEN;
-      onTokenChangeRef.current(STATIC_CAPTCHA_TOKEN);
-      setAnswerLocked(false);
-      return;
-    }
-
     setLoading(true);
     try {
+      // Always hit the API (including bypass builds) so "New Code" rotates the equation.
       const res = await fetch('/api/auth/captcha', { cache: 'no-store', signal: ac.signal });
       const data = await res.json().catch(() => ({}));
       if (seq !== loadSeqRef.current) return;
 
-      if (!res.ok) {
+      if (!res.ok || !data.question) {
+        if (CAPTCHA_BYPASS_FOR_TESTING) {
+          // Keep New Code usable even if the captcha API is briefly unhealthy.
+          const a = Math.floor(Math.random() * 9) + 1;
+          const b = Math.floor(Math.random() * 9) + 1;
+          applyChallenge(`What is ${a} + ${b}?`, STATIC_CAPTCHA_TOKEN);
+          return;
+        }
         setQuestion('Verification unavailable — refresh the page');
         setDummyHint('');
         onTokenChangeRef.current('');
         return;
       }
-      setQuestion(data.question || 'Answer the question below');
-      setDummyHint('');
-      tokenRef.current = data.token || '';
-      onTokenChangeRef.current(tokenRef.current);
-      onAnswerChangeRef.current('');
-      setAnswerLocked(true);
+      applyChallenge(
+        data.question,
+        CAPTCHA_BYPASS_FOR_TESTING ? STATIC_CAPTCHA_TOKEN || data.token : data.token || '',
+      );
     } catch (err) {
       if (err?.name === 'AbortError') return;
       if (seq !== loadSeqRef.current) return;
+      if (CAPTCHA_BYPASS_FOR_TESTING) {
+        const a = Math.floor(Math.random() * 9) + 1;
+        const b = Math.floor(Math.random() * 9) + 1;
+        applyChallenge(`What is ${a} + ${b}?`, STATIC_CAPTCHA_TOKEN);
+        return;
+      }
       setQuestion('Verification unavailable — refresh the page');
       onTokenChangeRef.current('');
     } finally {
       if (seq === loadSeqRef.current) setLoading(false);
     }
-  }, [resetVerification]);
+  }, [resetVerification, applyChallenge]);
 
   useEffect(() => {
     void loadChallenge();
@@ -219,8 +230,8 @@ const LoginCaptchaField = forwardRef(function LoginCaptchaField(
         </div>
 
         <div className="ip-gemini-security__row">
-          <div className="ip-gemini-security__badge">
-            {CAPTCHA_BYPASS_FOR_TESTING ? STATIC_CAPTCHA_BADGE : equationBadge}
+          <div className="ip-gemini-security__badge" aria-live="polite">
+            {equationBadge}
           </div>
           <input
             ref={inputRef}

@@ -464,6 +464,12 @@ export default function IpSignInLanding() {
             </div>
           </div>
 
+          <nav className="ip-gemini-info-links" aria-label="Learn more">
+            <Link href="/how-it-works">How it works</Link>
+            <span aria-hidden="true">·</span>
+            <Link href="/help">Help Center</Link>
+          </nav>
+
           <p className="ip-gemini-page-foot">InternSafar · Confidential · © 2026</p>
         </div>
       </div>

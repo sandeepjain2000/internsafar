@@ -96,13 +96,22 @@ export default function CandidateRegisterPage() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Registration failed');
+        // Server established a normal NextAuth session after Google link — open role home.
+        // Do not send the user back to login for a second Google round trip.
+        if (data.sessionEstablished && data.redirectTo) {
+          window.location.assign(data.redirectTo);
+          return;
+        }
         setDone({
           name: account.name || '',
           email: normalizeEmail(account.email),
           startingPoints: Number(data.startingPoints || 50),
           referralApplied: Boolean(data.referralApplied),
-          message: data.message || 'Account created. Sign in with Google on the login page.',
+          message:
+            data.message ||
+            'Account created. Sign in with Google on the login page to continue.',
           warning: data.warning || '',
+          sessionEstablished: Boolean(data.sessionEstablished),
         });
         setStep('done');
       } catch (err) {
@@ -278,10 +287,8 @@ export default function CandidateRegisterPage() {
               <h2>Registration complete</h2>
               <p>
                 <strong>{done?.email}</strong> has been registered.{' '}
-                {done?.warning
-                  ? 'Use Sign in with Google on the sign-in page with the same Google account.'
-                  : done?.message ||
-                    'Sign in with Google on the login page, or use the temporary password if one was emailed.'}
+                {done?.message ||
+                  'Sign in with Google on the login page, or use the temporary password if one was emailed.'}
               </p>
               {done?.warning ? (
                 <Alert>

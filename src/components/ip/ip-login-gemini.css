@@ -124,10 +124,36 @@
 }
 
 .ip-gemini-login .ip-gemini-page-foot {
-  margin: 2rem 0 0;
+  margin: 0.75rem 0 0;
   text-align: center;
   font-size: 11px;
   color: #64748b;
+}
+
+.ip-gemini-login .ip-gemini-info-links {
+  margin: 1.5rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ip-gemini-login .ip-gemini-info-links a {
+  color: #4f46e5;
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+
+.ip-gemini-login .ip-gemini-info-links a:hover {
+  color: #3730a3;
+  text-decoration: underline;
+}
+
+.ip-gemini-login .ip-gemini-info-links span {
+  color: #94a3b8;
 }
 
 .ip-gemini-login .ip-login-brand__lockup {

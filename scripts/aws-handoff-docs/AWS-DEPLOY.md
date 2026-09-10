@@ -42,29 +42,27 @@ Do not treat Path C or “sql-only” as permission to wipe an existing producti
 
 **Why / how stopped in code:** see `PATH-B-NO-DB-MIGRATE.txt` (gate: `scripts/assert-db-migrate-allowed.js`). Without the allow env/flag, migrate prints `=== BLOCKED ===` and exits 1.
 
-## CAPTCHA (temporary bypass in this build)
+## CAPTCHA
 
-This pack ships with `CAPTCHA_BYPASS_FOR_TESTING = true` in `src/lib/captchaBypass.js`.
+This pack ships with `CAPTCHA_BYPASS_FOR_TESTING = false` in `src/lib/captchaBypass.js`
+(real numbered Security Verification; “New Code” rotates the challenge).
 
-**Why:** numbered CAPTCHA used to fail on AWS when `NEXTAUTH_SECRET` was missing (API returned 500 → “Verification unavailable”). Bypass keeps login usable while env is corrected.
-
-**Bypass does not fix NextAuth.** You still must set on EC2:
+**Required on EC2** (captcha signing uses the same secret as NextAuth):
 
 ```env
 NEXTAUTH_URL=https://internsafar.com
 NEXTAUTH_SECRET=<strong random — openssl rand -base64 32>
 ```
 
+Confirm captcha API after deploy:
+
+`curl -i http://127.0.0.1:3000/api/auth/captcha`
+
+Optional QA-only fixed `3 + 4`: set `DUMMY_CAPTCHA=true` in env (not for production).
+
 Then: `npm run build` && `pm2 restart internsafar --update-env`
 
-**To turn real numbered CAPTCHA back on later:**
-
-1. Confirm `NEXTAUTH_SECRET` is set and captcha API returns HTTP 200:
-   `curl -i http://127.0.0.1:3000/api/auth/captcha`
-2. Set `CAPTCHA_BYPASS_FOR_TESTING = false` in `src/lib/captchaBypass.js`
-3. Redeploy Path B (build + PM2)
-
-Do not enable real CAPTCHA until step 1 returns 200.
+**Emergency bypass only:** set `CAPTCHA_BYPASS_FOR_TESTING = true` in `src/lib/captchaBypass.js` and Path B redeploy — login works without solving the math, but prefer fixing `NEXTAUTH_SECRET` instead.
 
 ## Migration fail-closed (read the banners)
 

@@ -9,10 +9,13 @@ import { isGmailAddress, normalizeEmail } from '@/lib/authRegisterRules';
 import { verifyLoginCaptcha } from '@/lib/simpleCaptcha';
 import {
   consumeGoogleVerification,
+  findLinkedUserForGoogleLogin,
   GOOGLE_INTENTS,
   isGoogleVerificationBypassed,
   recordGoogleIdentity,
 } from '@/lib/ipGoogleAuth';
+import { attachPortalSessionCookie } from '@/lib/ipEstablishPortalSession';
+import { ROLE_HOME } from '@/lib/roleHome';
 import { ensureIpFormRegistrationSchema } from '@/lib/ensureIpFormRegistrationSchema';
 import {
   ensureIpReferralExtraSchema,
@@ -23,12 +26,76 @@ import {
 /**
  * Candidate registration.
  * - path=google (default): real Google OAuth verification (single-use token issued by
- *   the NextAuth signIn callback) + Gmail-only + captcha, system temp password emailed,
+ *   the NextAuth signIn callback) + Gmail-only, system temp password emailed,
  *   active immediately. Stored as registration_source='google' — the only path allowed
- *   to claim that. Google verifies the account only; login is still email + password.
+ *   to claim that. After the verified Google identity is linked, a normal portal session
+ *   is established server-side (same JWT + ip_auth_sessions path as login) and the client
+ *   is told to open ROLE_HOME.candidate — no second Google sign-in.
  * - path=form: Gmail-only + user password + college + graduationYear + captcha;
  *   account stays inactive until SuperAdmin approves (form_approval_status=pending).
  */
+
+/**
+ * Build the Google-path success response. When the Google identity is linked and the
+ * account is eligible, attach a normal NextAuth session cookie; otherwise leave the
+ * user unauthenticated and ask them to sign in (never claim /candidate without a session).
+ */
+async function googlePathSuccessResponse({
+  userId,
+  email,
+  googleIdentity,
+  referrerName,
+  referredBy,
+  message,
+  warning,
+  extra = {},
+}) {
+  const base = {
+    ok: true,
+    mode: 'google',
+    userId,
+    referredByName: referrerName || null,
+    startingPoints: 50,
+    referralApplied: Boolean(referredBy && referredBy !== userId),
+    message,
+    ...extra,
+  };
+  if (warning) base.warning = warning;
+
+  const canTrySession = Boolean(googleIdentity?.googleSub);
+  if (canTrySession) {
+    const linked = await findLinkedUserForGoogleLogin({
+      googleSub: googleIdentity.googleSub,
+      email: googleIdentity.email || email,
+    });
+    if (linked?.id === userId && linked.active !== false) {
+      const redirectTo = ROLE_HOME.candidate;
+      const res = NextResponse.json({
+        ...base,
+        sessionEstablished: true,
+        redirectTo,
+        message: message || 'Account created. Opening your candidate dashboard…',
+      });
+      const attached = await attachPortalSessionCookie(res, {
+        userId,
+        rememberMe: true,
+        authMethod: 'Google OAuth',
+      });
+      if (attached.ok) {
+        return res;
+      }
+      console.error('[register-candidate] session attach failed', attached.error);
+    }
+  }
+
+  return NextResponse.json({
+    ...base,
+    sessionEstablished: false,
+    message:
+      message ||
+      'Account created. Sign in with Google on the login page, or use the temporary password if one was emailed.',
+  });
+}
 export async function POST(request) {
   try {
     await ensureIpFormRegistrationSchema();
@@ -211,13 +278,19 @@ export async function POST(request) {
     }
 
     if (googleIdentity?.googleSub) {
-      await recordGoogleIdentity({
-        userId,
-        googleSub: googleIdentity.googleSub,
-        email: googleIdentity.email,
-        name: googleIdentity.name,
-        pictureUrl: googleIdentity.pictureUrl,
-      }).catch(() => {});
+      try {
+        await recordGoogleIdentity({
+          userId,
+          googleSub: googleIdentity.googleSub,
+          email: googleIdentity.email,
+          name: googleIdentity.name,
+          pictureUrl: googleIdentity.pictureUrl,
+        });
+      } catch (linkErr) {
+        // Account row is already committed. Do not invent a second auth path —
+        // session establishment below requires a successful link via findLinkedUser.
+        console.error('[register-candidate] google identity link', linkErr.message);
+      }
     }
 
     if (referralNotify) {
@@ -242,6 +315,14 @@ export async function POST(request) {
       });
     }
 
+    const common = {
+      userId,
+      email,
+      googleIdentity,
+      referrerName,
+      referredBy,
+    };
+
     try {
       const mailResult = await sendMail({
         to: email,
@@ -250,62 +331,46 @@ export async function POST(request) {
         text: `Hi ${name},\nTemporary password: ${password}\nSign in and change it.`,
       });
       if (mailResult?.usedOverride) {
-        return NextResponse.json({
-          ok: true,
-          mode: 'google',
-          userId,
-          referredByName: referrerName || null,
-          startingPoints: 50,
-          referralApplied: Boolean(referredBy && referredBy !== userId),
-          mailOverride: true,
-          mailSentTo: mailResult.sentTo,
-          mailCopiedTo: mailResult.copiedTo,
+        return googlePathSuccessResponse({
+          ...common,
           message:
-            'Account created. Sign in with Google on the login page (or use the temporary password email if you received it).',
+            'Account created. Opening your candidate dashboard… A temporary password email was also sent (or redirected for QA).',
+          extra: {
+            mailOverride: true,
+            mailSentTo: mailResult.sentTo,
+            mailCopiedTo: mailResult.copiedTo,
+          },
         });
       }
       if (mailResult?.usedFallback) {
-        return NextResponse.json({
-          ok: true,
-          mode: 'google',
-          userId,
-          referredByName: referrerName || null,
-          startingPoints: 50,
-          referralApplied: Boolean(referredBy && referredBy !== userId),
-          mailFallback: true,
-          mailSentTo: mailResult.fallbackTo,
+        return googlePathSuccessResponse({
+          ...common,
           message:
-            'Account created. Prefer Sign in with Google on the login page. A password copy may also have been sent to an alternate delivery address.',
+            'Account created. Opening your candidate dashboard… A password copy may also have been sent to an alternate delivery address.',
           warning:
-            'Primary inbox delivery may have failed. Use Sign in with Google, or contact support if you need a password reset.',
+            'Primary inbox delivery may have failed. You are signed in; contact support if you need a password reset later.',
+          extra: {
+            mailFallback: true,
+            mailSentTo: mailResult.fallbackTo,
+          },
         });
       }
     } catch (mailErr) {
       console.error('[register-candidate] mail', mailErr.message);
-      return NextResponse.json({
-        ok: true,
-        mode: 'google',
-        userId,
-        referredByName: referrerName || null,
-        startingPoints: 50,
-        referralApplied: Boolean(referredBy && referredBy !== userId),
+      return googlePathSuccessResponse({
+        ...common,
         message:
-          'Account created. Use Sign in with Google on the login page — no temporary password email was sent.',
+          'Account created. Opening your candidate dashboard… No temporary password email was sent.',
         warning:
-          'Password email could not be sent. Sign in with the same Google account you used to register.',
-        emailError: mailErr.message,
+          'Password email could not be sent. You are signed in with your Google-linked account.',
+        extra: { emailError: mailErr.message },
       });
     }
 
-    return NextResponse.json({
-      ok: true,
-      mode: 'google',
-      userId,
-      referredByName: referrerName || null,
-      startingPoints: 50,
-      referralApplied: Boolean(referredBy && referredBy !== userId),
+    return googlePathSuccessResponse({
+      ...common,
       message:
-        'Account created. Sign in with Google on the login page, or use the temporary password emailed to your Gmail.',
+        'Account created. Opening your candidate dashboard… A temporary password was also emailed to your Gmail.',
     });
   } catch (error) {
     console.error('[register-candidate]', error);
