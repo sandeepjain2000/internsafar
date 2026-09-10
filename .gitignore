@@ -43,6 +43,11 @@ yarn-error.log*
 *.crt
 *.cer
 
+# NVIDIA NIM API keys (local pool; never commit)
+nvidia_keys/
+**/nvidia_keys/
+nvidia keys/
+
 # Cloud credentials
 .aws/
 azureauth.json

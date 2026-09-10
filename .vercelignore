@@ -1,0 +1,6 @@
+nvidia_keys/
+nvidia keys/
+**/nvidia_keys/
+.env
+.env.*
+!.env.example

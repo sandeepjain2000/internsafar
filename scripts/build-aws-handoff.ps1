@@ -13,7 +13,8 @@ $MigrationsSrc = Join-Path $ProjectRoot 'db\migrations'
 $ExcludeDirNames = @(
     'node_modules', '.next', '.vercel', '.git', 'test-results', 'tmp-screenshots',
     '.local-qa-2fa-bypass-backup', '.cursor', 'coverage', 'playwright-report',
-    '.turbo', 'out', 'build', '.netlify', '.cache', 'aws-migration'
+    '.turbo', 'out', 'build', '.netlify', '.cache', 'aws-migration',
+    'nvidia_keys', 'nvidia keys', '_local-backups-internship-portal'
 )
 
 $ExcludeFilePatterns = @(
