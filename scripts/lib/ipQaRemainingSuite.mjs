@@ -16,6 +16,7 @@ import {
   runNotRunEleven,
   runTcIs12010,
 } from './ipQaRemainingExtras.mjs';
+import { runLatestUpdateTcIsCases } from './ipQaLatestUpdateCases.mjs';
 
 const require = createRequire(import.meta.url);
 const { SUPERADMIN_NAV } = require('../../src/lib/ipNav.js');
@@ -528,6 +529,9 @@ export async function runRemainingSuite(opts = {}) {
     [cronA.status, cronB.status].every((s) => s === 401 || s === 403 || s === 405),
     { schedule: cronA.status, exportJobs: cronB.status },
   );
+
+  console.log('Latest-update TC-IS cases (Google / help / ops / migration)…');
+  await runLatestUpdateTcIsCases({ BASE, assess, pass, fail, blocked });
 
   // cleanup leftover presets on this tableKey
   const leftover = await apiRequest(BASE, `/api/ip/list-presets?tableKey=${encodeURIComponent(tk)}`, {

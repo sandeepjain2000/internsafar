@@ -121,7 +121,7 @@ CORRECTED = {
     "EMP-I-2": "Publish costs 50 points; draft does not.",
     "PTS-2": "No convert-points UI or API. Apply costs 5; publish costs 50.",
     "SHELL-1": "Only candidate and employer have a Notifications nav item.",
-    "REGX-1": "Register uses real Google OAuth verification; login on `/` is email/password only.",
+    "REGX-1": "Home and register use real Google OAuth when configured; password login still works.",
     "AUTH-4": "Captcha must be solved on home login.",
     "FILE-1": "Files go through /api/ip/files.",
     "AUTH-17": "Account password change requires upper + digit + special.",
@@ -227,16 +227,16 @@ LIVE = {
         "expected": "InternSafar pages and /api/ip/* succeed.",
     },
     "REGX-1": {
-        "title": "Google OAuth on register verifies identity; login is email/password only",
+        "title": "Home and register expose real Google OAuth; password login still works",
         "steps": (
-            "1. Open /register/candidate and /register/employer.\n"
-            "2. Confirm real Sign up / Continue with Google (opens Google account chooser).\n"
-            "3. Open `/` login — confirm there is no Google button.\n"
-            "4. Attempt Google sign-in from `/` without registration intent → /?error=GoogleLoginDisabled."
+            "1. Open `/` — confirm Sign in with Google when GOOGLE_* is configured.\n"
+            "2. Click it and confirm accounts.google.com with matching redirect_uri.\n"
+            "3. Sign in with email/password + captcha — role home without Google consent.\n"
+            "4. Open /register/candidate — Google control present."
         ),
         "expected": (
-            "Register uses real Google OAuth (gv token handoff). "
-            "Home sign-in is #email/#password only; Google never creates a portal login session."
+            "GoogleProvider enabled when secrets exist. Credentials login remains independent. "
+            "See also TC-IS-02-024..026."
         ),
     },
     "REG-C-1": {

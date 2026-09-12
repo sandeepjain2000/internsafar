@@ -287,10 +287,11 @@ async function runApiSuite() {
   blocked('REGX-3', MANUAL_REGISTRATION);
   for (const id of [
     'REG-C-2', 'REG-C-3', 'REG-C-5', 'REG-C-10',
-    'REG-E-2', 'REG-E-3', 'REG-E-5', 'REGX-1',
+    'REG-E-2', 'REG-E-3', 'REG-E-5',
   ]) {
     blocked(id, MANUAL_REGISTRATION);
   }
+  // REGX-1 (TC-IS-18-030): covered by latest-update suite TC-IS-02-024..026 — not blocked as "no Google on home"
 
   // ── 2FA OTP cases (AUTH-12/13/14/19) ─────────────────────────────────────
   // OTP codes are emailed, so automation needs you to provide them from Zoho.

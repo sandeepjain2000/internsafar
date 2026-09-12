@@ -243,13 +243,23 @@ export const authOptions = {
         };
       },
     }),
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      authorization: {
-        params: { prompt: 'select_account', access_type: 'online', scope: 'openid email profile' },
-      },
-    }),
+    // Only register Google when both secrets exist — an empty clientId makes NextAuth
+    // start a broken OAuth URL and looks like a hard app failure to users.
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [
+          GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            authorization: {
+              params: {
+                prompt: 'select_account',
+                access_type: 'online',
+                scope: 'openid email profile',
+              },
+            },
+          }),
+        ]
+      : []),
   ],
   // Cookie ceiling = 30 days; jwt callback enforces 12h when rememberMe is false.
   session: { strategy: 'jwt', maxAge: SESSION_LONG_SEC },

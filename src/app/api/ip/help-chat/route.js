@@ -1,27 +1,29 @@
 import { NextResponse } from 'next/server';
-import { nvidiaChat, nvidiaCredentialStatus } from '@/lib/nvidiaLlm';
-import {
-  INTERNSAFAR_HELP_SYSTEM_PROMPT,
-  plainTextHelpReply,
-} from '@/lib/ipHelpChatContext';
+import { getServerSession } from 'next-auth';
+import { headers } from 'next/headers';
+import { authOptions } from '@/lib/auth';
+import { nvidiaCredentialStatus } from '@/lib/nvidiaLlm';
+import { runHelpChat, MAX_MESSAGE_CHARS, sanitizeHistory } from '@/lib/ipHelpChat/runHelpChat';
+import { checkHelpChatRateLimit } from '@/lib/ipHelpChat/rateLimit';
+import { staticFallbackResponse } from '@/lib/ipHelpChat/responseSchema';
+import { recordHelpChatEvent } from '@/lib/ipHelpChat/analytics';
+import { NVIDIA_MODEL } from '@/lib/nvidiaLlm';
+import { helpFollowUps } from '@/lib/ipHelpChat/suggestions';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 /** Allow NVIDIA NIM latency on Vercel (Hobby max often 60s). */
 export const maxDuration = 60;
 
-const MAX_MESSAGE_CHARS = 2000;
-const MAX_HISTORY = 8;
-
-function sanitizeHistory(history) {
-  if (!Array.isArray(history)) return [];
-  return history
-    .slice(-MAX_HISTORY)
-    .map((item) => ({
-      role: item?.role === 'assistant' ? 'assistant' : 'user',
-      content: String(item?.content || '').slice(0, MAX_MESSAGE_CHARS),
-    }))
-    .filter((item) => item.content.trim());
+async function clientKey(userId) {
+  try {
+    const h = await headers();
+    const fwd = h.get('x-forwarded-for') || '';
+    const ip = (fwd.split(',')[0] || h.get('x-real-ip') || 'unknown').trim();
+    return userId ? `u:${userId}` : `ip:${ip}`;
+  } catch {
+    return userId ? `u:${userId}` : 'ip:unknown';
+  }
 }
 
 export async function GET() {
@@ -30,14 +32,34 @@ export async function GET() {
     ok: true,
     configured: status.envKeyConfigured || status.envKeysCount > 0 || status.localKeyFiles > 0,
     model: status.model,
-    // Never expose key material — names/counts only.
     localKeyFiles: status.localKeyFiles,
     envKeyConfigured: status.envKeyConfigured,
   });
 }
 
 export async function POST(request) {
+  const started = Date.now();
+  let role = null;
+  let userId = null;
   try {
+    const session = await getServerSession(authOptions);
+    role = session?.user?.role || null;
+    userId = session?.user?.id || null;
+
+    const limit = checkHelpChatRateLimit(await clientKey(userId), {
+      limit: userId ? 30 : 15,
+      windowMs: 60_000,
+    });
+    if (!limit.ok) {
+      return NextResponse.json(
+        {
+          error: `Help chatbot rate limit reached. Try again in about ${limit.retryAfterSec} seconds.`,
+          fallbackState: 'service_unavailable',
+        },
+        { status: 429 },
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
     const message = String(body.message || body.question || '').trim();
     if (!message) {
@@ -51,39 +73,70 @@ export async function POST(request) {
     }
 
     const history = sanitizeHistory(body.history);
-    const historyBlock = history.length
-      ? `\n\nRecent conversation:\n${history
-          .map((h) => `${h.role === 'assistant' ? 'Assistant' : 'User'}: ${h.content}`)
-          .join('\n')}`
-      : '';
-
-    const userPrompt = `${message}${historyBlock}`;
-
-    const { text, keyId } = await nvidiaChat(userPrompt, INTERNSAFAR_HELP_SYSTEM_PROMPT, {
-      maxTokens: 220,
-      temperature: 0.3,
-      maxKeyAttempts: 4,
-      retriesPerKey: 3,
+    const result = await runHelpChat({
+      message,
+      history,
+      role,
+      page: body.page || null,
+      userId,
       logFn: (line) => console.info('[help-chat]', line),
     });
 
+    // Do not expose NVIDIA keyId / internal credential labels to the browser.
     return NextResponse.json({
       ok: true,
-      reply: plainTextHelpReply(text),
-      // keyId is filename / env label only — never the secret.
-      keyId,
+      reply: result.reply,
+      answer: result.answer,
+      actions: result.actions || [],
+      relatedResources: result.relatedResources || [],
+      fallbackState: result.fallbackState,
+      topic: result.topic,
+      suggestions: result.suggestions || [],
+      eventId: result.eventId || null,
+      knowledgeIds: result.knowledgeIds || [],
     });
   } catch (error) {
     console.error('[help-chat]', error.message);
     const status = Number(error?.status) || 502;
+    const msg = String(error?.message || '');
+    // Unexpected AI hard-fail only: auth/config — not 429 / flaky timeouts (NVIDIA probe handles all-keys-dead).
+    if (status === 401 || status === 403 || /no nvidia credentials/i.test(msg)) {
+      const { reportOpsFailureBackground } = await import('@/lib/ipOpsAlert');
+      reportOpsFailureBackground({
+        kind: status === 401 || status === 403 ? 'AI_AUTH_FAILURE' : 'NVIDIA_NO_CREDENTIALS',
+        message: msg || 'Help chatbot AI provider failure',
+        route: '/api/ip/help-chat',
+        statusCode: status,
+        stack: error?.stack || null,
+      });
+    }
+    const unavailable = staticFallbackResponse({
+      fallbackState: 'service_unavailable',
+      topic: 'troubleshooting',
+      role,
+      answer:
+        status === 429
+          ? 'Help chatbot is busy (rate limit). Wait a few seconds and try again.'
+          : status === 401 || status === 403
+            ? 'Help chatbot could not authenticate with the AI provider. Try again later, or open Help Center.'
+            : 'Help chatbot is temporarily unavailable. Try again in a moment, or open Help Center / How it works.',
+    });
+    await recordHelpChatEvent({
+      userId,
+      role,
+      topic: 'troubleshooting',
+      fallbackState: 'service_unavailable',
+      success: false,
+      latencyMs: Date.now() - started,
+      model: NVIDIA_MODEL,
+      knowledgeIds: [],
+      unanswered: true,
+    });
     return NextResponse.json(
       {
-        error:
-          status === 429
-            ? 'Help chatbot is busy (rate limit). Wait a few seconds and try again.'
-            : status === 401 || status === 403
-              ? 'Help chatbot could not authenticate with NVIDIA. Check server credentials.'
-              : 'Help chatbot is temporarily unavailable. Try again in a moment, or open /help.',
+        ...unavailable,
+        error: unavailable.reply,
+        suggestions: helpFollowUps({ role, topic: 'troubleshooting' }),
       },
       { status: status >= 400 && status < 600 ? status : 502 },
     );

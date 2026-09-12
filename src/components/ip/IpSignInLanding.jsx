@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Lock } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import LoginCaptchaField from '@/components/auth/LoginCaptchaField';
@@ -91,7 +91,6 @@ function GoogleMark() {
 
 export default function IpSignInLanding() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -106,17 +105,32 @@ export default function IpSignInLanding() {
   const [otpCode, setOtpCode] = useState('');
   const [otpHint, setOtpHint] = useState('');
   const [startingGoogle, setStartingGoogle] = useState(false);
+  const [googleReady, setGoogleReady] = useState(true);
 
   useEffect(() => {
     fetch('/api/ip/bootstrap', { method: 'POST' }).catch(() => {});
   }, []);
 
   useEffect(() => {
-    const authError = searchParams.get('error');
-    if (authError && GOOGLE_AUTH_ERRORS[authError]) {
-      setError(GOOGLE_AUTH_ERRORS[authError]);
+    fetch('/api/auth/providers')
+      .then((r) => r.json())
+      .then((providers) => setGoogleReady(Boolean(providers?.google)))
+      .catch(() => setGoogleReady(false));
+  }, []);
+
+  // Read ?error= from the URL without useSearchParams — that API forces a client-only
+  // bailout (BAILOUT_TO_CLIENT_SIDE_RENDERING) so production SSR only shipped "Loading…"
+  // until JS hydrated. Google Auth must remain usable from the first HTML paint.
+  useEffect(() => {
+    try {
+      const authError = new URLSearchParams(window.location.search).get('error');
+      if (authError && GOOGLE_AUTH_ERRORS[authError]) {
+        setError(GOOGLE_AUTH_ERRORS[authError]);
+      }
+    } catch {
+      /* ignore */
     }
-  }, [searchParams]);
+  }, []);
 
   async function continueWithGoogle() {
     setError('');
@@ -356,15 +370,25 @@ export default function IpSignInLanding() {
                 </>
               ) : (
                 <>
-                  <button
-                    type="button"
-                    className="ip-gemini-google-btn"
-                    onClick={continueWithGoogle}
-                    disabled={loading || startingGoogle}
-                  >
-                    <GoogleMark />
-                    {startingGoogle ? 'Opening Google…' : 'Sign in with Google'}
-                  </button>
+                  {googleReady ? (
+                    <button
+                      type="button"
+                      className="ip-gemini-google-btn"
+                      onClick={continueWithGoogle}
+                      disabled={loading || startingGoogle}
+                    >
+                      <GoogleMark />
+                      {startingGoogle ? 'Opening Google…' : 'Sign in with Google'}
+                    </button>
+                  ) : (
+                    <Alert className="mb-3">
+                      <AlertTitle>Google sign-in unavailable</AlertTitle>
+                      <AlertDescription>
+                        Google Auth is not configured on this environment. Use email and password,
+                        or ask an admin to set GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET.
+                      </AlertDescription>
+                    </Alert>
+                  )}
 
                   <div className="ip-gemini-or" role="separator" aria-label="Or continue with email">
                     <span>Or with email</span>

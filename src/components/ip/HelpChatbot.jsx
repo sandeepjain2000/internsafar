@@ -3,21 +3,33 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { MessageCircle, X } from 'lucide-react';
-import {
-  helpFollowUpsForRole,
-  helpStartersForRole,
-  helpWelcomeForRole,
-} from '@/lib/ipHelpChatContext';
+import { MessageCircle, RotateCcw, ThumbsDown, ThumbsUp, X } from 'lucide-react';
+import { helpWelcomeForRole } from '@/lib/ipHelpChatContext';
+import { helpFollowUps, helpStarters } from '@/lib/ipHelpChat/suggestions';
 import './ip-help-chatbot.css';
+
+const NEGATIVE_REASONS = [
+  'Did not answer my question',
+  'Information seems incorrect',
+  'Need more detail',
+  'Other',
+];
+
+function newMsg(partial) {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    ...partial,
+  };
+}
 
 export default function HelpChatbot() {
   const { data: session, status } = useSession();
+  const pathname = usePathname() || '/';
   const role = status === 'authenticated' ? session?.user?.role : null;
-  const starters = useMemo(() => helpStartersForRole(role), [role]);
-  const followUpPool = useMemo(() => helpFollowUpsForRole(role), [role]);
   const welcome = useMemo(() => helpWelcomeForRole(role), [role]);
+  const starters = useMemo(() => helpStarters({ role, pathname }), [role, pathname]);
 
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -25,18 +37,21 @@ export default function HelpChatbot() {
   const [error, setError] = useState('');
   const [showStarters, setShowStarters] = useState(true);
   const [followUps, setFollowUps] = useState([]);
-  const [messages, setMessages] = useState([{ role: 'assistant', content: welcome }]);
+  const [messages, setMessages] = useState(() => [
+    newMsg({ role: 'assistant', content: welcome }),
+  ]);
+  const [feedbackFor, setFeedbackFor] = useState(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const welcomeRoleRef = useRef(role);
+  const inFlightRef = useRef(false);
 
-  // Refresh welcome + reset starters when auth role becomes known / changes
   useEffect(() => {
     if (welcomeRoleRef.current === role) return;
     welcomeRoleRef.current = role;
     setMessages((prev) => {
       if (prev.length === 1 && prev[0]?.role === 'assistant') {
-        return [{ role: 'assistant', content: welcome }];
+        return [newMsg({ role: 'assistant', content: welcome })];
       }
       return prev;
     });
@@ -48,16 +63,29 @@ export default function HelpChatbot() {
     if (!open) return;
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     inputRef.current?.focus();
-  }, [open, messages, busy, error]);
+  }, [open, messages, busy, error, followUps]);
+
+  function startNewConversation() {
+    setError('');
+    setBusy(false);
+    inFlightRef.current = false;
+    setShowStarters(true);
+    setFollowUps([]);
+    setFeedbackFor(null);
+    setInput('');
+    setMessages([newMsg({ role: 'assistant', content: welcome })]);
+  }
 
   async function ask(question) {
     const q = String(question || '').trim();
-    if (!q || busy) return;
+    if (!q || busy || inFlightRef.current) return;
+    inFlightRef.current = true;
     setError('');
     setShowStarters(false);
     setFollowUps([]);
+    setFeedbackFor(null);
     setBusy(true);
-    const nextMessages = [...messages, { role: 'user', content: q }];
+    const nextMessages = [...messages, newMsg({ role: 'user', content: q })];
     setMessages(nextMessages);
     setInput('');
     try {
@@ -66,24 +94,64 @@ export default function HelpChatbot() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: q,
-          history: nextMessages.slice(0, -1).map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
+          history: nextMessages
+            .slice(0, -1)
+            .filter((m) => m.role === 'user' || m.role === 'assistant')
+            .map((m) => ({ role: m.role, content: m.content })),
+          page: { pathname },
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Help request failed');
+      if (!res.ok && !data.answer && !data.reply) {
+        throw new Error(data.error || 'Help request failed');
+      }
+      const answer = String(data.answer || data.reply || data.error || '').trim() || 'No reply returned.';
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: String(data.reply || '').trim() || 'No reply returned.' },
+        newMsg({
+          role: 'assistant',
+          content: answer,
+          actions: Array.isArray(data.actions) ? data.actions : [],
+          relatedResources: Array.isArray(data.relatedResources) ? data.relatedResources : [],
+          eventId: data.eventId || null,
+          fallbackState: data.fallbackState || (res.ok ? 'answered' : 'service_unavailable'),
+          feedback: null,
+        }),
       ]);
-      setFollowUps(followUpPool.filter((c) => c.toLowerCase() !== q.toLowerCase()).slice(0, 3));
+      if (Array.isArray(data.suggestions) && data.suggestions.length) {
+        setFollowUps(data.suggestions.filter((c) => c.toLowerCase() !== q.toLowerCase()).slice(0, 3));
+      } else {
+        setFollowUps(
+          helpFollowUps({ role, topic: data.topic, pathname }).filter(
+            (c) => c.toLowerCase() !== q.toLowerCase(),
+          ),
+        );
+      }
+      if (!res.ok) setError(data.error || answer);
     } catch (err) {
       setError(err.message || 'Help chatbot unavailable');
-      setFollowUps([]);
+      setFollowUps(helpFollowUps({ role, topic: 'troubleshooting', pathname }));
     } finally {
       setBusy(false);
+      inFlightRef.current = false;
+    }
+  }
+
+  async function sendFeedback(msg, feedback, reason = null) {
+    if (!msg?.eventId || msg.feedback) return;
+    setMessages((prev) =>
+      prev.map((m) => (m.id === msg.id ? { ...m, feedback } : m)),
+    );
+    if (feedback === 'not_helpful') setFeedbackFor(msg.id);
+    else setFeedbackFor(null);
+    try {
+      await fetch('/api/ip/help-chat/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: msg.eventId, feedback, reason }),
+      });
+    } catch {
+      /* non-blocking */
     }
   }
 
@@ -128,23 +196,94 @@ export default function HelpChatbot() {
                 <div className="ip-helpbot__subtitle">Portal &amp; Account Assistance</div>
               </div>
             </div>
-            <button
-              type="button"
-              className="ip-helpbot__close"
-              aria-label="Close help chat"
-              onClick={closePanel}
-            >
-              <X className="ip-helpbot__close-icon" aria-hidden />
-            </button>
+            <div className="ip-helpbot__head-actions">
+              <button
+                type="button"
+                className="ip-helpbot__icon-btn"
+                aria-label="Start new conversation"
+                title="New conversation"
+                onClick={startNewConversation}
+              >
+                <RotateCcw className="ip-helpbot__close-icon" aria-hidden />
+              </button>
+              <button
+                type="button"
+                className="ip-helpbot__close"
+                aria-label="Close help chat"
+                onClick={closePanel}
+              >
+                <X className="ip-helpbot__close-icon" aria-hidden />
+              </button>
+            </div>
           </header>
 
           <div className="ip-helpbot__body" role="log" aria-live="polite">
-            {messages.map((m, i) => (
-              <div
-                key={`${m.role}-${i}`}
-                className={`ip-helpbot__msg ip-helpbot__msg--${m.role}`}
-              >
+            {messages.map((m) => (
+              <div key={m.id} className={`ip-helpbot__msg ip-helpbot__msg--${m.role}`}>
                 <div className="ip-helpbot__bubble">{m.content}</div>
+                {m.role === 'assistant' && Array.isArray(m.actions) && m.actions.length ? (
+                  <div className="ip-helpbot__actions">
+                    {m.actions.map((a) => (
+                      <Link key={a.id} href={a.href} className="ip-helpbot__action-link">
+                        {a.label}
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
+                {m.role === 'assistant' &&
+                Array.isArray(m.relatedResources) &&
+                m.relatedResources.length ? (
+                  <div className="ip-helpbot__resources">
+                    {m.relatedResources.map((r) => (
+                      <Link key={r.id} href={r.href} className="ip-helpbot__resource-link">
+                        {r.title}
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
+                {m.role === 'assistant' && m.eventId && m.content !== welcome ? (
+                  <div className="ip-helpbot__feedback">
+                    <span className="ip-helpbot__feedback-label">Was this helpful?</span>
+                    <button
+                      type="button"
+                      className="ip-helpbot__feedback-btn"
+                      aria-label="Helpful"
+                      disabled={Boolean(m.feedback)}
+                      onClick={() => void sendFeedback(m, 'helpful')}
+                    >
+                      <ThumbsUp size={14} aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      className="ip-helpbot__feedback-btn"
+                      aria-label="Not helpful"
+                      disabled={Boolean(m.feedback)}
+                      onClick={() => void sendFeedback(m, 'not_helpful')}
+                    >
+                      <ThumbsDown size={14} aria-hidden />
+                    </button>
+                    {m.feedback === 'helpful' ? (
+                      <span className="ip-helpbot__feedback-thanks">Thanks</span>
+                    ) : null}
+                  </div>
+                ) : null}
+                {feedbackFor === m.id && m.feedback === 'not_helpful' ? (
+                  <div className="ip-helpbot__reasons">
+                    {NEGATIVE_REASONS.map((reason) => (
+                      <button
+                        key={reason}
+                        type="button"
+                        className="ip-helpbot__reason-btn"
+                        onClick={() => {
+                          void sendFeedback(m, 'not_helpful', reason);
+                          setFeedbackFor(null);
+                        }}
+                      >
+                        {reason}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ))}
 

@@ -4,3 +4,8 @@ nvidia keys/
 .env
 .env.*
 !.env.example
+# Local Cursor AI context (not for deploy)
+.cursor/
+docs/ai-context/
+# Local prompt libraries (not for deploy)
+prompts/

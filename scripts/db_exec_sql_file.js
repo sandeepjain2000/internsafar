@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const { Client } = require('pg');
 const { assertDbMigrateAllowed } = require('./assert-db-migrate-allowed');
+const { assertMigrationSqlSafe } = require('./assert-migration-sql-safe');
 
 assertDbMigrateAllowed(process.argv);
 
@@ -73,6 +74,8 @@ async function main() {
   if (!sql.trim()) {
     throw new Error(`SQL file is empty: ${sqlPath}`);
   }
+  // Live-data gate: new migrations must not DELETE/DROP/TRUNCATE (legacy allowlisted).
+  assertMigrationSqlSafe(sqlPath, process.argv, { sql });
 
   const client = new Client(getDbConfig());
   const notices = [];

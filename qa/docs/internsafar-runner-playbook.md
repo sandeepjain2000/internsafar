@@ -45,16 +45,20 @@ From `internship-portal`:
 # Preferred (named InternSafar runner)
 npm run qa:e2e
 
-# Equivalent
-npm run test:e2e
-node qa/runners/run-internsafar.mjs
+# Latest-update regression pack (writes Pass/Fail into InternSafar-Test-Cases.xlsx)
+npm run qa:e2e:regression
 
-# Single file / headed
-node qa/runners/run-internsafar.mjs qa/tests/auth.spec.js
-node qa/runners/run-internsafar.mjs --headed
+# Combined InternSafar QA (legacy + TC-IS) → Excel with --apply
+npm run qa:checklist -- --apply
 ```
 
-The runner is a thin wrapper: it spawns `npx playwright test` with any extra args forwarded.
+Regenerate/patch case definitions (not results):
+
+```bash
+npm run qa:patch-latest-cases
+```
+
+The runner is a thin wrapper: it spawns `npx playwright test` with any extra args forwarded. `--suite=regression` injects the latest-update Playwright pack when no other spec paths are given.
 
 Config: `playwright.config.js` at the app root.
 
@@ -65,8 +69,15 @@ Config: `playwright.config.js` at the app root.
 | Spec | Focus |
 |---|---|
 | `qa/tests/auth.spec.js` | InternSafar authentication (home login, roles, sign-out) |
+| `qa/tests/google-auth.spec.js` | Real Google OAuth start + error UX |
+| `qa/tests/regression.spec.js` | Latest-update regression smoke (maps to IS-* checklist) |
 | `qa/tests/screens.spec.js` | Role screen smoke after login |
 | `qa/tests/mobile-candidate-internships.spec.js` | Candidate internships on mobile viewport |
+
+Manual checklist (boarders column layout):
+
+`test-cases/internsafar_latest_update_test_checklist.xlsx`  
+(regenerate: `npm run qa:checklist:latest`)
 
 Helpers:
 

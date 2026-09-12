@@ -163,11 +163,12 @@ function rateLimitBackoffMs(retryIndex, retryAfterMs) {
   return Math.min(30_000, Math.round(2000 * 2.5 ** retryIndex));
 }
 
-async function chatOnce({ apiKey, messages, maxTokens, temperature, logFn }) {
+async function chatOnce({ apiKey, messages, maxTokens, temperature, logFn, timeoutMs }) {
   await awaitRateSlot(logFn);
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const ms = Number(timeoutMs) > 0 ? Number(timeoutMs) : REQUEST_TIMEOUT_MS;
+  const timer = setTimeout(() => controller.abort(), ms);
   let res;
   try {
     res = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
@@ -229,22 +230,42 @@ export async function nvidiaChat(userPrompt, systemPrompt = null, options = {}) 
     logFn = null,
     maxKeyAttempts = 3,
     retriesPerKey = 2,
+    messages: messagesOption = null,
+    requestTimeoutMs = null,
   } = options;
 
   const pool = loadNvidiaCredentials();
   if (!pool.length) {
+    const { reportOpsFailureBackground } = await import('@/lib/ipOpsAlert');
+    reportOpsFailureBackground({
+      kind: 'NVIDIA_NO_CREDENTIALS',
+      message: 'No NVIDIA credentials configured (empty key pool).',
+      route: 'nvidiaLlm.nvidiaChat',
+      details: { env: Boolean(process.env.NVIDIA_API_KEY), vercel: Boolean(process.env.VERCEL) },
+    });
     throw new Error(
       'No NVIDIA credentials configured. Set NVIDIA_API_KEY (Vercel/env) or add nvidia_keys/key-*.json locally.',
     );
   }
 
-  const messages = [];
-  if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
-  messages.push({ role: 'user', content: String(userPrompt || '') });
+  let messages = Array.isArray(messagesOption) ? messagesOption.filter(Boolean) : null;
+  if (!messages || !messages.length) {
+    messages = [];
+    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+    messages.push({ role: 'user', content: String(userPrompt || '') });
+  }
+  // Hard bound: keep conversation payload reasonable
+  if (messages.length > 24) {
+    const system = messages.filter((m) => m.role === 'system');
+    const rest = messages.filter((m) => m.role !== 'system').slice(-20);
+    messages = [...system.slice(0, 2), ...rest];
+  }
 
   const start = rotationIndex % pool.length;
   let lastError = null;
   const maxAttempts = Math.min(pool.length, Number(maxKeyAttempts) || 3);
+  /** @type {number[]} */
+  const seenStatuses = [];
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const idx = (start + attempt) % pool.length;
@@ -260,12 +281,14 @@ export async function nvidiaChat(userPrompt, systemPrompt = null, options = {}) 
           maxTokens,
           temperature,
           logFn,
+          timeoutMs: requestTimeoutMs,
         });
         rotationIndex = (idx + 1) % pool.length;
         return { text, keyId };
       } catch (e) {
         lastError = e;
         const status = Number(e?.status || 0);
+        if (status) seenStatuses.push(status);
         const aborted = e?.name === 'AbortError';
         const is429 = status === 429;
         const retryable =
@@ -298,6 +321,12 @@ export async function nvidiaChat(userPrompt, systemPrompt = null, options = {}) 
     }
   }
 
+  const sawAuth = seenStatuses.some((s) => s === 401 || s === 403);
+  if (sawAuth) {
+    // Prove keys are auth-dead (not flaky 5xx): probe entire pool with tiny calls.
+    void confirmAndAlertNvidiaAuthDead(pool, logFn);
+  }
+
   const err = lastError || new Error('NVIDIA NIM request failed');
   if (err?.name === 'AbortError') {
     throw new Error('NVIDIA NIM request timed out');
@@ -310,6 +339,49 @@ export async function nvidiaChat(userPrompt, systemPrompt = null, options = {}) 
     throw rateErr;
   }
   throw err;
+}
+
+/**
+ * Only alerts when EVERY credential returns 401/403 (true key death).
+ * Skips if any key succeeds or fails with timeout/5xx (flaky / outage).
+ */
+async function confirmAndAlertNvidiaAuthDead(pool, logFn) {
+  try {
+    let authFails = 0;
+    let otherFails = 0;
+    let ok = 0;
+    for (const { apiKey, keyId } of pool) {
+      try {
+        if (typeof logFn === 'function') logFn(`NVIDIA auth-health probe ${keyId}`);
+        await chatOnce({
+          apiKey,
+          messages: [{ role: 'user', content: 'ok' }],
+          maxTokens: 1,
+          temperature: 0,
+          logFn,
+          timeoutMs: 8_000,
+        });
+        ok += 1;
+        break;
+      } catch (e) {
+        const status = Number(e?.status || 0);
+        if (status === 401 || status === 403) authFails += 1;
+        else otherFails += 1;
+      }
+    }
+    if (ok === 0 && otherFails === 0 && authFails === pool.length && pool.length > 0) {
+      const { reportOpsFailureBackground } = await import('@/lib/ipOpsAlert');
+      reportOpsFailureBackground({
+        kind: 'NVIDIA_KEYS_AUTH_DEAD',
+        message: `All ${pool.length} NVIDIA credentials returned 401/403 (expired, revoked, or invalid).`,
+        route: 'nvidiaLlm.authHealthProbe',
+        statusCode: 401,
+        details: { poolSize: pool.length, authFails, otherFails },
+      });
+    }
+  } catch (e) {
+    console.error('[nvidia auth probe]', e.message);
+  }
 }
 
 export function nvidiaCredentialStatus() {

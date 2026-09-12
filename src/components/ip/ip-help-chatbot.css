@@ -404,6 +404,130 @@
   text-decoration: underline;
 }
 
+.ip-helpbot__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.ip-helpbot__icon-btn {
+  appearance: none;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ip-helpbot__icon-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.ip-helpbot__actions,
+.ip-helpbot__resources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ip-helpbot__action-link,
+.ip-helpbot__resource-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ip-hb-primary);
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  padding: 4px 10px;
+  text-decoration: none;
+}
+
+.ip-helpbot__resource-link {
+  background: var(--ip-hb-bg-subtle);
+  border-color: var(--ip-hb-border);
+  color: var(--ip-hb-text-main);
+  font-weight: 500;
+}
+
+.ip-helpbot__action-link:hover,
+.ip-helpbot__resource-link:hover {
+  text-decoration: underline;
+}
+
+.ip-helpbot__feedback {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.ip-helpbot__feedback-label {
+  font-size: 11px;
+  color: var(--ip-hb-text-muted);
+}
+
+.ip-helpbot__feedback-btn {
+  appearance: none;
+  border: 1px solid var(--ip-hb-border);
+  background: #fff;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--ip-hb-text-muted);
+  padding: 0;
+}
+
+.ip-helpbot__feedback-btn:hover:not(:disabled) {
+  color: var(--ip-hb-primary);
+  border-color: #c7d2fe;
+}
+
+.ip-helpbot__feedback-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.ip-helpbot__feedback-thanks {
+  font-size: 11px;
+  color: #15803d;
+}
+
+.ip-helpbot__reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.ip-helpbot__reason-btn {
+  appearance: none;
+  border: 1px solid var(--ip-hb-border);
+  background: #fff;
+  border-radius: 999px;
+  font-size: 11px;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: var(--ip-hb-text-main);
+}
+
+.ip-helpbot__reason-btn:hover {
+  border-color: #c7d2fe;
+  color: var(--ip-hb-primary);
+}
+
 /* Mobile sheet — real breakpoint (not mock demo tabs) */
 @media (max-width: 480px) {
   .ip-helpbot[data-open='1'] {

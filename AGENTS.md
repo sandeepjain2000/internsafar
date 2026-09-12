@@ -68,10 +68,16 @@ They **cannot** be delete-and-insert or truncate-and-insert refresh/replace work
 Prefer additive schema (`IF NOT EXISTS` / `ADD COLUMN`) and in-place / idempotent data updates.
 `IP_ALLOW_DB_MIGRATE=1` allows the gated migrate flow — it is **not** permission to wipe live rows.
 
+**Destructive SQL gate (code):** `scripts/assert-migration-sql-safe.js` refuses new migration
+files that contain `DELETE FROM`, `DROP TABLE`, `DROP COLUMN`, `TRUNCATE`, etc.
+Wired into `db_exec_sql_file.js`. Scan all files: `npm run db:check-migration-safety`.
+A fixed legacy allowlist covers old files that already shipped; do not extend it casually.
+Emergency only: `IP_ALLOW_DESTRUCTIVE_SQL=1` / `--i-confirm-destructive-sql`.
+
 | Situation | Command | Notes |
 |-----------|---------|--------|
 | **Path B — app code update only** | **Do not run any DB migrate/seed** | Swap app + build + PM2 only. Do **not** set `IP_ALLOW_DB_MIGRATE`. |
-| **Existing / live RDS — schema change** | Only when explicitly requested; data-preserving SQL only | No `TRUNCATE`+`INSERT`, no delete-all+reinsert to refresh data. Inspect SQL before apply. |
+| **Existing / live RDS — schema change** | Only when explicitly requested; data-preserving SQL only | No `TRUNCATE`+`INSERT`, no delete-all+reinsert to refresh data. Inspect SQL before apply. New files blocked by destructive SQL gate. |
 | **Path C — fresh / empty AWS RDS** | `IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db` | **Empty RDS only.** Never use Path C to wipe a database that already has real users. |
 | SQL only when demo users **already exist** | `IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:sql-only` | Not automatically “safe for live prod” — review each file; no wipe patterns. |
 
@@ -80,10 +86,10 @@ Hard rules for agents:
 2. Fresh/empty RDS only → Path C command above (env prefix required). Do **not** Path C on live prod.
 3. Never design or run migrations that clear tables then reinsert as a “migration” strategy.
 4. Code gate: `scripts/assert-db-migrate-allowed.js` → `=== BLOCKED ===` + exit 1 if not allowed.
-5. Success requires `=== OK ===` banners and exit code **0**. `=== FAIL ===` / `=== BLOCKED ===` = stop.
-6. Partial scripts (`db:migrate:candidate-academics`, etc.) also go through `db_exec_sql_file.js` and need the same allow.
-7. Full write-up: handoff `PATH-B-NO-DB-MIGRATE.txt`.
-
+5. Destructive SQL gate: `scripts/assert-migration-sql-safe.js` → `=== BLOCKED: destructive migration SQL refused ===` for new wipe SQL.
+6. Success requires `=== OK ===` banners and exit code **0**. `=== FAIL ===` / `=== BLOCKED ===` = stop.
+7. Partial scripts (`db:migrate:candidate-academics`, etc.) also go through `db_exec_sql_file.js` and need the same allow.
+8. Full write-up: handoff `PATH-B-NO-DB-MIGRATE.txt`. Cursor rule: `.cursor/rules/db-migration-no-wipe.mdc`.
 <!-- END:aws-db-script-routing -->
 
 <!-- BEGIN:ui-quality-standard -->

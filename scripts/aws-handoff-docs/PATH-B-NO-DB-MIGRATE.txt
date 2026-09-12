@@ -40,6 +40,13 @@ They cannot be delete-and-insert or truncate-and-insert refresh/replace workflow
 Prefer additive schema changes and in-place / idempotent updates.
 IP_ALLOW_DB_MIGRATE=1 is permission to run the gated flow — not permission to wipe rows.
 
+Code also blocks destructive SQL in *new* migration files
+(scripts/assert-migration-sql-safe.js → wired into db_exec_sql_file.js):
+  DELETE FROM, DROP TABLE, DROP COLUMN, TRUNCATE, DROP DATABASE/SCHEMA.
+Legacy files that already shipped such SQL are allowlisted by basename only.
+Scan: npm run db:check-migration-safety
+Emergency override only: IP_ALLOW_DESTRUCTIVE_SQL=1 or --i-confirm-destructive-sql
+
 How it is stopped in code (current pack)
 ----------------------------------------
 File: scripts/assert-db-migrate-allowed.js
@@ -56,5 +63,10 @@ and exits 1. Casual `npm run deploy:fresh-aws-db` without the env is refused.
 
 Also fail-closed: SQL errors print === FAIL === and exit 1 (do not claim success).
 
+Destructive SQL (new files): assert-migration-sql-safe.js prints
+  === BLOCKED: destructive migration SQL refused ===
+before the SQL is sent to Postgres.
+
 Cursor rule: .cursor/rules/aws-path-b-no-db.mdc
+Cursor rule: .cursor/rules/db-migration-no-wipe.mdc
 AGENTS.md: AWS / RDS database scripts table
