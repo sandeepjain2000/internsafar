@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from collections import defaultdict
+from datetime import date
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -1113,7 +1114,7 @@ def main():
     wb = Workbook()
     idx = wb.active
     idx.title = "Index"
-    idx["A1"] = "InternSafar — Test Case Index"
+    idx["A1"] = f"InternSafar — Test Case Index ({date.today().isoformat()})"
     idx["A1"].font = INDEX_TITLE_FONT
     idx["A2"] = (
         "Product: InternSafar (workspace sibling internship-portal). "
@@ -1122,7 +1123,7 @@ def main():
         "Status is Not Run for every row. "
         "Reference B (~179 executable IDs in the xlsx, not 212) was a one-time content source and is not linked. "
         "Integrity cases (offer↔application, rating/endorsement engagement, dead notification targets, thread application_id) "
-        "were added 25 Aug 2026 for current InternSafar APIs. Every Status is Not Run."
+        f"were added 25 Aug 2026 for current InternSafar APIs. Generated {date.today().isoformat()}."
     )
     idx["A2"].alignment = Alignment(wrap_text=True)
     idx.merge_cells("A2:G2")

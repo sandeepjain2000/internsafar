@@ -52,7 +52,7 @@ normal product flows.
 
 | Script | What it does |
 |---|---|
-| `run-internsafar-qa.mjs` | **Current suite** — legacy checklist cases plus TC-IS workbook cases. Writes `test-cases/qa-results.json`; `--apply` updates `InternSafar-Test-Cases.xlsx`. |
+| `run-internsafar-qa.mjs` | **Current suite** — legacy checklist cases plus TC-IS workbook cases. Writes `test-cases/qa-results.json`; `--apply` updates `InternSafar-Test-Cases.xlsx` and a dated copy `InternSafar-Test-Cases-YYYY-MM-DD.xlsx` (Index stamped with that date). |
 | `run-ip-checklist-qa.mjs` | Thin alias → `run-internsafar-qa.mjs` (kept for old npm script names). |
 | `run-ip-workbench-qa.mjs` | Broader workbench matrix (A5 / P0 rules). |
 | `apply-qa-results.mjs` | Merges a results JSON into `qa-results.json` (maps old TC-IP ids via `legacyTcIdMap`) then applies to the workbook. |

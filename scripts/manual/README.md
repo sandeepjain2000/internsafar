@@ -12,4 +12,4 @@ These cases are **excluded** from overwriting Pass results in `apply-internsafar
 | TC-IS-03-015 | `run-tc-is-03-015-self-referral.mjs` | Own email + own referral code → 409 / no points |
 | TC-IS-03-022 + 03-023 | `run-tc-is-03-022-023-register-rejects.mjs` | Non-Gmail + personal-Gmail domain rejects (no OAuth) |
 
-Run with Vercel or local base URL. Use `--apply-excel` to write Pass into `InternSafar-Test-Cases.xlsx`.
+Run with Vercel or local base URL. Use `--apply-excel` to write Pass into `InternSafar-Test-Cases.xlsx` and a dated copy `InternSafar-Test-Cases-YYYY-MM-DD.xlsx` (Index title stamped with that date).

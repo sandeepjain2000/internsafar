@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Apply qa-results.json onto InternSafar-Test-Cases.xlsx (Legacy ID + ID unified)."""
+"""Apply qa-results.json onto InternSafar-Test-Cases.xlsx (Legacy ID + ID unified).
+
+Also stamps today's date on the Index sheet and writes a dated copy:
+  test-cases/InternSafar-Test-Cases-YYYY-MM-DD.xlsx
+while keeping the canonical InternSafar-Test-Cases.xlsx in sync.
+"""
 from __future__ import annotations
 
 import json
@@ -19,9 +24,13 @@ from lib.internsafar_xlsx_cols import (  # noqa: E402
     ID_ALIASES,
     LEGACY_ALIASES,
     STATUS_ALIASES,
+    dated_xlsx_path,
+    results_as_of_label,
+    stable_xlsx_path,
+    stamp_index_for_results,
 )
 
-XLSX = ROOT / "test-cases" / "InternSafar-Test-Cases.xlsx"
+XLSX = stable_xlsx_path(ROOT)
 RESULTS = ROOT / "test-cases" / "qa-results.json"
 SKIP = frozenset({"Index", "Coverage", "Coverage Matrix", "Notes", "How to use", "Meta"})
 # Manual Google / OTP results — do not overwrite with automated Blocked/Not Run.
@@ -91,6 +100,10 @@ def main():
     unified.update(extra)
     unified.update(payload.get("results") or {})
     executed = payload.get("executedAt") or datetime.now(timezone.utc).isoformat()
+    as_of = results_as_of_label()
+
+    if not XLSX.exists():
+        raise SystemExit(f"Missing workbook: {XLSX}")
 
     wb = load_workbook(XLSX)
     updated = 0
@@ -135,8 +148,13 @@ def main():
                 ws.cell(r, ec).value = executed
             updated += 1
 
-    leftover = sorted(k for k in legacy_cases if k not in seen_legacy)
+    stamp_index_for_results(wb, as_of=as_of, executed_iso=executed)
+
+    dated = dated_xlsx_path(ROOT, date_from_label(as_of))
     wb.save(XLSX)
+    wb.save(dated)
+
+    leftover = sorted(k for k in legacy_cases if k not in seen_legacy)
     print(
         json.dumps(
             {
@@ -144,11 +162,20 @@ def main():
                 "resultCases": len(unified),
                 "extraTcIds": len(extra),
                 "unmatchedLegacyIds": leftover,
+                "asOf": as_of,
+                "canonical": str(XLSX.relative_to(ROOT)).replace("\\", "/"),
+                "datedExport": str(dated.relative_to(ROOT)).replace("\\", "/"),
             }
         )
     )
     if leftover:
         print("Unmatched Legacy IDs (no row):", ", ".join(leftover[:40]))
+
+
+def date_from_label(label: str):
+    from datetime import date
+
+    return date.fromisoformat(label)
 
 
 if __name__ == "__main__":
