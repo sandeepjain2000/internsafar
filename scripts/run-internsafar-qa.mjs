@@ -22,10 +22,12 @@ import { writeFileSync, readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execFileSync } from 'child_process';
+import './lib/ensurePlaywrightBrowsers.mjs'; // pin PLAYWRIGHT_BROWSERS_PATH before playwright
 import { chromium } from 'playwright';
 import dotenv from 'dotenv';
 import pg from 'pg';
-import { QA_ACCOUNTS, apiLogin, apiRequest, cookieJar } from './lib/ipQaAuth.mjs';
+import { ensurePlaywrightBrowsersPath } from './lib/ensurePlaywrightBrowsers.mjs';
+import { QA_ACCOUNTS, apiLogin, apiRequest, cookieJar, fetchLoginCaptcha } from './lib/ipQaAuth.mjs';
 import {
   runFixtureCases,
   setTwoFactorFlag,
@@ -34,6 +36,8 @@ import {
 import { runAuth8Case } from './lib/ipQaAuth8.mjs';
 import { runRemainingSuite, runSingleTcIsCase } from './lib/ipQaRemainingSuite.mjs';
 import { createRequire as createRequireForDemoText } from 'module';
+
+ensurePlaywrightBrowsersPath();
 
 const demoText = createRequireForDemoText(import.meta.url)('./lib/ipDemoText.js');
 
@@ -213,10 +217,12 @@ async function runApiSuite() {
   }
 
   async function requestAndConfirmReset(email, newPassword) {
-    // Request reset link (writes token to ip_password_resets; captcha bypass must be enabled in CI).
+    // Request reset link (writes token to ip_password_resets). Use a real captcha —
+    // CAPTCHA_BYPASS_FOR_TESTING is false locally, so token/answer 'x'/'7' fails AUTH-9/11.
+    const cap = await fetchLoginCaptcha(BASE);
     await api('/api/ip/auth/password-reset/request', {
       method: 'POST',
-      body: { email, captchaToken: 'x', captchaAnswer: '7' },
+      body: { email, captchaToken: cap.captchaToken, captchaAnswer: cap.captchaAnswer },
     });
 
     const token = await getResetTokenForEmail(email);
@@ -237,14 +243,26 @@ async function runApiSuite() {
   const trimLogin = await apiLogin(BASE, QA_ACCOUNTS.candidate.email.toUpperCase(), PW);
   assess('AUTH-6', trimLogin.ok, 'uppercase email accepted');
 
+  const forgotCap = await fetchLoginCaptcha(BASE);
   const forgotOk = await api('/api/ip/auth/password-reset/request', {
-    method: 'POST', body: { email: QA_ACCOUNTS.candidate.email, captchaToken: 'x', captchaAnswer: '7' },
+    method: 'POST',
+    body: {
+      email: QA_ACCOUNTS.candidate.email,
+      captchaToken: forgotCap.captchaToken,
+      captchaAnswer: forgotCap.captchaAnswer,
+    },
   });
   assess('AUTH-9', forgotOk.status >= 200 && forgotOk.status < 300,
     { status: forgotOk.status, data: forgotOk.data });
 
+  const forgotBadCap = await fetchLoginCaptcha(BASE);
   const forgotBad = await api('/api/ip/auth/password-reset/request', {
-    method: 'POST', body: { email: 'not-an-email', captchaToken: 'x', captchaAnswer: '7' },
+    method: 'POST',
+    body: {
+      email: 'not-an-email',
+      captchaToken: forgotBadCap.captchaToken,
+      captchaAnswer: forgotBadCap.captchaAnswer,
+    },
   });
   assess('AUTH-10', forgotBad.status === 400 || forgotBad.status === 422,
     { status: forgotBad.status });
@@ -280,18 +298,8 @@ async function runApiSuite() {
     blocked('AUTH-11', `Reset token automation failed: ${e.message || e}`);
   }
 
-  // CAPTCHA bypass is on — negative captcha cannot be meaningfully tested
-  blocked('AUTH-4', 'CAPTCHA_BYPASS_FOR_TESTING=true — negative captcha path skipped');
-  const MANUAL_REGISTRATION =
-    'Manual only — registration/account creation excluded from automated QA suite';
-  blocked('REGX-3', MANUAL_REGISTRATION);
-  for (const id of [
-    'REG-C-2', 'REG-C-3', 'REG-C-5', 'REG-C-10',
-    'REG-E-2', 'REG-E-3', 'REG-E-5',
-  ]) {
-    blocked(id, MANUAL_REGISTRATION);
-  }
-  // REGX-1 (TC-IS-18-030): covered by latest-update suite TC-IS-02-024..026 — not blocked as "no Google on home"
+  // Captcha-negative + form registration validation: inline in ipQaFixtureCases
+  // (runCaptchaAndRegistrationGapCases). Do not pre-block those IDs here.
 
   // ── 2FA OTP cases (AUTH-12/13/14/19) ─────────────────────────────────────
   // OTP codes are emailed, so automation needs you to provide them from Zoho.
@@ -503,8 +511,10 @@ async function runApiSuite() {
   assess('AUTH-20', twoFaDisableOff.status === 400, { status: twoFaDisableOff.status, data: twoFaDisableOff.data });
 
   // Forgot-password with invalid format
+  const fmtCap = await fetchLoginCaptcha(BASE);
   const fmtBad = await api('/api/ip/auth/password-reset/request', {
-    method: 'POST', body: { email: '', captchaToken: 'x', captchaAnswer: '7' },
+    method: 'POST',
+    body: { email: '', captchaToken: fmtCap.captchaToken, captchaAnswer: fmtCap.captchaAnswer },
   });
   assess('AUTH-10', fmtBad.status === 400 || fmtBad.status === 422,
     { status: fmtBad.status });
@@ -879,14 +889,19 @@ async function runApiSuite() {
 // ── Browser suite ─────────────────────────────────────────────────────────────
 
 async function runBrowserSuite(logins) {
-  const browser = await chromium.launch({ headless: true, channel: 'chrome' });
+  // Prefer bundled Chromium — system `channel: 'chrome'` can hang headless on Windows agents.
+  const browser = await chromium
+    .launch({ headless: true })
+    .catch(() => chromium.launch({ headless: true, channel: 'chrome' }));
+  browser.on('disconnected', () => console.log('browser disconnected'));
+  console.log('browser launched');
 
   try {
     // --- Desktop context -------------------------------------------------------
     const ctx = await browser.newContext();
+    ctx.setDefaultTimeout(30_000);
     const page = await ctx.newPage();
-
-    // PUB-1: landing sign-in visible
+    console.log('browser: public pages…');
     await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
     assess('PUB-1', await visible(page, '#email, input[type="email"]'),
       'landing email input visible');
@@ -953,10 +968,13 @@ async function runBrowserSuite(logins) {
       !guestCandUrl.includes('/candidate') || !guestEmpUrl.includes('/employer'),
       { candidateUrl: guestCandUrl, employerUrl: guestEmpUrl });
 
-    // AUTH-15: SuperAdmin login page
+    // AUTH-15: SuperAdmin uses standard home login (legacy /superadmin/login redirects)
     await page.goto(`${BASE}/superadmin/login`, { waitUntil: 'domcontentloaded' });
+    await page.waitForURL((u) => !String(u).includes('/superadmin/login') || String(u).endsWith('/'), {
+      timeout: 15_000,
+    }).catch(() => {});
     assess('AUTH-15',
-      await visible(page, '#sa-email, #sa-password'),
+      await visible(page, '#email, #password'),
       { url: page.url() });
 
     // AUTH-21: forgot-password page
@@ -974,6 +992,7 @@ async function runBrowserSuite(logins) {
       { url: page.url() });
 
     // --- Authenticated context (candidate) ------------------------------------
+    console.log('browser: candidate session…');
     await ctx.clearCookies();
     await ctx.addCookies(logins.cand.cookies);
     await page.goto(`${BASE}/api/auth/session`, { waitUntil: 'domcontentloaded' });
@@ -1023,10 +1042,12 @@ async function runBrowserSuite(logins) {
       page.url().includes('/ideas') || page.url().includes('/'),
       { url: page.url() });
 
-    // PERM-9: SA login layout not in candidate shell
+    // PERM-9: legacy SA login URL redirects to home (no SA shell)
     await page.goto(`${BASE}/superadmin/login`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(500);
     const noSANav = !(await visible(page, '[data-testid="superadmin-nav"], .ip-superadmin-nav'));
-    assessUi('PERM-9', noSANav, { url: page.url() });
+    const onHomeLogin = await visible(page, '#email, #password');
+    assessUi('PERM-9', noSANav && onHomeLogin, { url: page.url() });
 
     // CAND-D-1: candidate dashboard
     await gotoApp(page, '/candidate');
@@ -1172,6 +1193,7 @@ async function runBrowserSuite(logins) {
       'Dashboard loaded; ledger verified via API');
 
     // --- Employer context -------------------------------------------------------
+    console.log('browser: employer session…');
     await ctx.clearCookies();
     await ctx.addCookies(logins.emp.cookies);
     await page.goto(`${BASE}/api/auth/session`, { waitUntil: 'domcontentloaded' });
@@ -1223,6 +1245,7 @@ async function runBrowserSuite(logins) {
     assessUi('EMP-N-1', await visible(page, 'main, h1'), { url: page.url() });
 
     // --- SuperAdmin context -------------------------------------------------------
+    console.log('browser: superadmin session…');
     await ctx.clearCookies();
     await ctx.addCookies(logins.sa.cookies);
     // Warm session so PortalShell does not race assessUi against /superadmin/login
@@ -1281,6 +1304,7 @@ async function runBrowserSuite(logins) {
     assessUi('SA-I-1', await visible(page, 'main, table, h1'), { url: page.url() });
 
     await ctx.close();
+    console.log('browser suite finished');
   } finally {
     await browser.close();
   }

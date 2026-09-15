@@ -239,7 +239,9 @@ export async function runTcIs06006({ BASE, assess, blocked, cand }) {
     blocked('TC-IS-06-006', 'No candidate session cookies for Playwright');
     return;
   }
-  const browser = await chromium.launch({ headless: true, channel: 'chrome' }).catch(() => chromium.launch({ headless: true }));
+  const browser = await chromium
+    .launch({ headless: true })
+    .catch(() => chromium.launch({ headless: true, channel: 'chrome' }));
   try {
     const ctx = await browser.newContext();
     if (cand.cookies?.length) await ctx.addCookies(cand.cookies);
@@ -573,7 +575,9 @@ export async function runTcIs12010({ BASE, assess, blocked, emp: empIn }) {
     return;
   }
 
-  const browser = await chromium.launch({ headless: true, channel: 'chrome' }).catch(() => chromium.launch({ headless: true }));
+  const browser = await chromium
+    .launch({ headless: true })
+    .catch(() => chromium.launch({ headless: true, channel: 'chrome' }));
   try {
     const ctx = await browser.newContext();
     if (emp.cookies?.length) await ctx.addCookies(emp.cookies);
@@ -632,7 +636,9 @@ export async function runTcIs12010({ BASE, assess, blocked, emp: empIn }) {
 }
 
 async function withBrowser(candCookies, empCookies, fn) {
-  const browser = await chromium.launch({ headless: true, channel: 'chrome' }).catch(() => chromium.launch({ headless: true }));
+  const browser = await chromium
+    .launch({ headless: true })
+    .catch(() => chromium.launch({ headless: true, channel: 'chrome' }));
   try {
     return await fn(browser, { candCookies, empCookies });
   } finally {

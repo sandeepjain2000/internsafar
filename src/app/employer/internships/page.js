@@ -15,12 +15,27 @@ import {
   Users,
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import {
+  IpDateRangeFilter,
+  IpMultiCheckFilter,
+  IpTableFiltersShell,
+} from '@/components/ip/IpTableFiltersShell';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import UrlClaimDialog from '@/components/ip/UrlClaimDialog';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import '@/components/ip/ip-employer-postings-gemini.css';
+import '@/components/ip/ip-table-filters.css';
 
 const PAGE_SIZE = 10;
+
+const EMPTY_COLS = {
+  titles: [],
+  stipends: [],
+  applicants: [],
+  statuses: [],
+  dateFrom: '',
+  dateTo: '',
+};
 
 function stipendLabel(i) {
   if (i.stipend_type === 'incentive') return 'Incentive-based';
@@ -40,6 +55,34 @@ function postedLabel(i) {
   } catch {
     return '—';
   }
+}
+
+function dayKey(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0, 10);
+}
+
+function inDateRange(value, from, to) {
+  const key = dayKey(value);
+  if (!key) return !(from || to);
+  if (from && key < from) return false;
+  if (to && key > to) return false;
+  return true;
+}
+
+function uniqSorted(values) {
+  return [...new Set(values.filter((v) => v != null && String(v).trim() !== ''))]
+    .map(String)
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function applicantsLabel(i) {
+  const hist = Number(i.applicant_count || 0);
+  const active = i.active_applicant_count;
+  if (active != null) return `${hist} historical · ${active} active`;
+  return `${hist} historical`;
 }
 
 function statusBadgeText(bucket) {
@@ -63,11 +106,24 @@ function statusBucket(status, lifecycleLabel) {
   return 'draft';
 }
 
+function countActiveCols(cols) {
+  let n = 0;
+  for (const [k, v] of Object.entries(cols || {})) {
+    const base = EMPTY_COLS[k];
+    if (Array.isArray(base)) {
+      if (Array.isArray(v) && v.length) n += 1;
+    } else if (v) n += 1;
+  }
+  return n;
+}
+
 export default function EmployerInternshipsPage() {
   const router = useRouter();
   const [items, setItems] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [cols, setCols] = useState(EMPTY_COLS);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [busyId, setBusyId] = useState('');
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
@@ -76,8 +132,8 @@ export default function EmployerInternshipsPage() {
   const [pendingPromotion, setPendingPromotion] = useState(null);
 
   const snapshot = useMemo(
-    () => ({ filters: { searchQuery, statusFilter }, sort: '' }),
-    [searchQuery, statusFilter],
+    () => ({ filters: { searchQuery, statusFilter, cols }, sort: '' }),
+    [searchQuery, statusFilter, cols],
   );
   const prefs = useListPrefsSync({
     tableKey: 'employer.internships',
@@ -86,6 +142,7 @@ export default function EmployerInternshipsPage() {
       const f = s.filters || {};
       if (f.searchQuery != null) setSearchQuery(f.searchQuery);
       if (f.statusFilter) setStatusFilter(f.statusFilter);
+      if (f.cols) setCols({ ...EMPTY_COLS, ...f.cols });
     },
   });
 
@@ -110,18 +167,36 @@ export default function EmployerInternshipsPage() {
         (statusFilter === 'paused' && bucket === 'paused') ||
         (statusFilter === 'draft' && bucket === 'draft') ||
         (statusFilter === 'closed' && bucket === 'closed');
-      return matchesSearch && matchesStatus;
+      if (!matchesSearch || !matchesStatus) return false;
+      if (cols.titles.length && !cols.titles.includes(String(i.title || ''))) return false;
+      if (cols.stipends.length && !cols.stipends.includes(stipendLabel(i))) return false;
+      if (cols.applicants.length && !cols.applicants.includes(applicantsLabel(i))) return false;
+      if (cols.statuses.length && !cols.statuses.includes(statusBadgeText(bucket))) return false;
+      if (!inDateRange(i.created_at || i.published_at, cols.dateFrom, cols.dateTo)) return false;
+      return true;
     });
-  }, [items, searchQuery, statusFilter]);
+  }, [items, searchQuery, statusFilter, cols]);
+
+  const optionLists = useMemo(() => {
+    return {
+      titles: uniqSorted(items.map((i) => i.title)),
+      stipends: uniqSorted(items.map(stipendLabel)),
+      applicants: uniqSorted(items.map(applicantsLabel)),
+      statuses: uniqSorted(
+        items.map((i) => statusBadgeText(statusBucket(i.status, i.lifecycle_label))),
+      ),
+    };
+  }, [items]);
 
   const { page, setPage, totalPages, total, pageItems, serialOffset } = useClientPagination(
     filtered,
     PAGE_SIZE
   );
+  const colsActive = countActiveCols(cols);
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, statusFilter, setPage]);
+  }, [searchQuery, statusFilter, cols, setPage]);
 
   const activeCount = items.filter((i) => statusBucket(i.status) === 'active').length;
   const totalApplicants = items.reduce((acc, i) => acc + Number(i.applicant_count || 0), 0);
@@ -364,6 +439,44 @@ export default function EmployerInternshipsPage() {
         </div>
         <div className="px-4 pb-3">
           <ListPresetsBar {...prefs} />
+          <IpTableFiltersShell
+            open={filtersOpen}
+            onToggle={() => setFiltersOpen((v) => !v)}
+            activeCount={colsActive}
+            onClear={() => setCols(EMPTY_COLS)}
+          >
+            <IpMultiCheckFilter
+              label="Title"
+              options={optionLists.titles}
+              values={cols.titles}
+              onChange={(titles) => setCols((c) => ({ ...c, titles }))}
+            />
+            <IpMultiCheckFilter
+              label="Stipend"
+              options={optionLists.stipends}
+              values={cols.stipends}
+              onChange={(stipends) => setCols((c) => ({ ...c, stipends }))}
+            />
+            <IpMultiCheckFilter
+              label="Applicants"
+              options={optionLists.applicants}
+              values={cols.applicants}
+              onChange={(applicants) => setCols((c) => ({ ...c, applicants }))}
+            />
+            <IpMultiCheckFilter
+              label="Status"
+              options={optionLists.statuses}
+              values={cols.statuses}
+              onChange={(statuses) => setCols((c) => ({ ...c, statuses }))}
+            />
+            <IpDateRangeFilter
+              label="Posted date"
+              from={cols.dateFrom}
+              to={cols.dateTo}
+              onFrom={(dateFrom) => setCols((c) => ({ ...c, dateFrom }))}
+              onTo={(dateTo) => setCols((c) => ({ ...c, dateTo }))}
+            />
+          </IpTableFiltersShell>
         </div>
 
         <div className="ip-epo-cards" aria-label="Postings cards">

@@ -9,8 +9,18 @@
 import { spawn } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  ensurePlaywrightBrowsersPath,
+  installPlaywrightBrowsersIfNeeded,
+} from '../../scripts/lib/ensurePlaywrightBrowsers.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const browsersPath = ensurePlaywrightBrowsersPath();
+try {
+  installPlaywrightBrowsersIfNeeded({ force: false });
+} catch (e) {
+  console.warn('[playwright] install check:', e.message || e);
+}
 
 const REGRESSION_SUITE = [
   'qa/tests/auth.spec.js',
@@ -32,6 +42,6 @@ const child = spawn('npx', ['playwright', 'test', ...args], {
   cwd: root,
   stdio: 'inherit',
   shell: process.platform === 'win32',
-  env: process.env,
+  env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: browsersPath },
 });
 child.on('exit', (code) => process.exit(code ?? 1));

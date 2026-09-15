@@ -23,12 +23,27 @@ import {
 } from 'lucide-react';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import {
+  IpDateRangeFilter,
+  IpMultiCheckFilter,
+  IpTableFiltersShell,
+} from '@/components/ip/IpTableFiltersShell';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { POINTS_PER_POST, REFERRAL_POINTS } from '@/lib/pointsEconomy';
 import '@/components/ip/ip-employer-referral-gemini.css';
+import '@/components/ip/ip-table-filters.css';
 
 const PAGE_SIZE = 10;
 const FILTERS = ['All', 'Verified', 'Pending'];
+
+const EMPTY_COLS = {
+  orgs: [],
+  domains: [],
+  statuses: [],
+  points: [],
+  dateFrom: '',
+  dateTo: '',
+};
 
 function orgLabel(r) {
   return r.referred_company || r.referred_name || 'Pending signup';
@@ -53,16 +68,62 @@ function isVerified(r) {
   return String(r.status || '').toLowerCase() === 'completed';
 }
 
+function dayKey(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0, 10);
+}
+
+function inDateRange(value, from, to) {
+  const key = dayKey(value);
+  if (!key) return !(from || to);
+  if (from && key < from) return false;
+  if (to && key > to) return false;
+  return true;
+}
+
+function uniqSorted(values) {
+  return [...new Set(values.filter((v) => v != null && String(v).trim() !== ''))]
+    .map(String)
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function pointsLabel(r) {
+  const verified = isVerified(r);
+  const pts = Number(r.points_awarded) || 0;
+  if (verified) return `+${pts || REFERRAL_POINTS} Pts`;
+  if (pts) return `+${pts} Pts (Pending)`;
+  return `+${REFERRAL_POINTS} Pts (Pending)`;
+}
+
+function statusLabel(r) {
+  return isVerified(r) ? 'Verified' : r.status || 'Pending';
+}
+
+function countActiveCols(cols) {
+  let n = 0;
+  for (const [k, v] of Object.entries(cols || {})) {
+    const base = EMPTY_COLS[k];
+    if (Array.isArray(base)) {
+      if (Array.isArray(v) && v.length) n += 1;
+    } else if (v) n += 1;
+  }
+  return n;
+}
+
 export default function EmployerReferralPage() {
   const [data, setData] = useState(null);
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState('');
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('All');
+  const [cols, setCols] = useState(EMPTY_COLS);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
 
-  const snapshot = useMemo(() => ({ filters: { q, filter }, sort: '' }), [q, filter]);
+  const snapshot = useMemo(() => ({ filters: { q, filter, cols }, sort: '' }), [q, filter, cols]);
   const prefs = useListPrefsSync({
     tableKey: 'employer.referral',
     snapshot,
@@ -70,6 +131,7 @@ export default function EmployerReferralPage() {
       const f = s.filters || {};
       if (f.q != null) setQ(f.q);
       if (f.filter) setFilter(f.filter);
+      if (f.cols) setCols({ ...EMPTY_COLS, ...f.cols });
     },
   });
 
@@ -98,17 +160,35 @@ export default function EmployerReferralPage() {
       const verified = isVerified(r);
       if (filter === 'Verified' && !verified) return false;
       if (filter === 'Pending' && verified) return false;
-      if (!needle) return true;
-      const hay = `${orgLabel(r)} ${domainLabel(r)} ${r.referred_email || ''} ${r.referred_name || ''}`.toLowerCase();
-      return hay.includes(needle);
+      if (needle) {
+        const hay = `${orgLabel(r)} ${domainLabel(r)} ${r.referred_email || ''} ${r.referred_name || ''}`.toLowerCase();
+        if (!hay.includes(needle)) return false;
+      }
+      if (cols.orgs.length && !cols.orgs.includes(orgLabel(r))) return false;
+      if (cols.domains.length && !cols.domains.includes(domainLabel(r))) return false;
+      if (cols.statuses.length && !cols.statuses.includes(statusLabel(r))) return false;
+      if (cols.points.length && !cols.points.includes(pointsLabel(r))) return false;
+      if (!inDateRange(r.created_at, cols.dateFrom, cols.dateTo)) return false;
+      return true;
     });
-  }, [referrals, q, filter]);
+  }, [referrals, q, filter, cols]);
+
+  const optionLists = useMemo(
+    () => ({
+      orgs: uniqSorted(referrals.map(orgLabel)),
+      domains: uniqSorted(referrals.map(domainLabel)),
+      statuses: uniqSorted(referrals.map(statusLabel)),
+      points: uniqSorted(referrals.map(pointsLabel)),
+    }),
+    [referrals],
+  );
 
   const { page, setPage, totalPages, total, pageItems } = useClientPagination(filtered, PAGE_SIZE);
+  const colsActive = countActiveCols(cols);
 
   useEffect(() => {
     setPage(1);
-  }, [q, filter, setPage]);
+  }, [q, filter, cols, setPage]);
 
   function showToast(msg) {
     setToast(msg);
@@ -369,6 +449,44 @@ export default function EmployerReferralPage() {
           <div className="mt-3">
             <ListPresetsBar {...prefs} />
           </div>
+          <IpTableFiltersShell
+            open={filtersOpen}
+            onToggle={() => setFiltersOpen((v) => !v)}
+            activeCount={colsActive}
+            onClear={() => setCols(EMPTY_COLS)}
+          >
+            <IpMultiCheckFilter
+              label="Organization Name"
+              options={optionLists.orgs}
+              values={cols.orgs}
+              onChange={(orgs) => setCols((c) => ({ ...c, orgs }))}
+            />
+            <IpMultiCheckFilter
+              label="Domain"
+              options={optionLists.domains}
+              values={cols.domains}
+              onChange={(domains) => setCols((c) => ({ ...c, domains }))}
+            />
+            <IpDateRangeFilter
+              label="Date Joined"
+              from={cols.dateFrom}
+              to={cols.dateTo}
+              onFrom={(dateFrom) => setCols((c) => ({ ...c, dateFrom }))}
+              onTo={(dateTo) => setCols((c) => ({ ...c, dateTo }))}
+            />
+            <IpMultiCheckFilter
+              label="Status"
+              options={optionLists.statuses}
+              values={cols.statuses}
+              onChange={(statuses) => setCols((c) => ({ ...c, statuses }))}
+            />
+            <IpMultiCheckFilter
+              label="Points Rewarded"
+              options={optionLists.points}
+              values={cols.points}
+              onChange={(points) => setCols((c) => ({ ...c, points }))}
+            />
+          </IpTableFiltersShell>
           </>
         ) : null}
 

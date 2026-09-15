@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-"""InternSafar test-case workbook — Reference A columns/styling, InternSafar content."""
+"""InternSafar test-case workbook — Boarders column names + InternSafar extras."""
 from __future__ import annotations
 
 import json
+import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -10,29 +11,13 @@ from openpyxl import Workbook
 from openpyxl.formatting.rule import CellIsRule
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.internsafar_xlsx_cols import COLS  # noqa: E402
+
 DUMP = ROOT / "scripts" / "_ref_b_dump.json"
 OUT = ROOT / "test-cases" / "InternSafar-Test-Cases.xlsx"
-
-COLS = [
-    "TC ID",
-    "Module",
-    "Feature",
-    "Title",
-    "Priority",
-    "Type",
-    "Role(s)",
-    "Preconditions",
-    "Test Steps",
-    "Expected Result",
-    "Test Data / Notes",
-    "Automation",
-    "Status",
-    "Actual Result",
-    "Executed At",
-    "Legacy ID",
-]
-
 HEADER_FILL = PatternFill("solid", fgColor="1F4E79")
 HEADER_FONT = Font(color="FFFFFF", bold=True, name="Calibri")
 INDEX_TITLE_FONT = Font(size=16, bold=True, color="1F4E79", name="Calibri")
@@ -991,37 +976,44 @@ def style_header(ws, row: int):
 
 
 def write_cases(ws, cases: list[dict], start_row: int):
+    status_col = COLS.index("Test Status") + 1
     for i, c in enumerate(cases):
         r = start_row + i
-        values = [
-            c["id"],
-            c["module"],
-            c["feature"],
-            c["title"],
-            c["priority"],
-            c["type"],
-            c["roles"],
-            c["pre"],
-            c["steps"],
-            c["expected"],
-            c["notes"],
-            c["automation"],
-            "Not Run",
-            "",
-            "",
-            c.get("legacy") or "",
-        ]
-        for col, val in enumerate(values, 1):
-            cell = ws.cell(row=r, column=col, value=val)
+        values = {
+            "ID": c["id"],
+            "Module / Section": c["module"],
+            "Type": c["type"],
+            "Issue Summary": c["title"],
+            "Description": c["steps"],
+            "Suggestion / Expected Behaviour": c["expected"],
+            "Reference": c.get("automation") or "",
+            "Doc Status": "Ready for QA",
+            "Severity / Priority": c["priority"],
+            "Test Status": "Not Run",
+            "Date Verified": "",
+            "Comments / Notes": c["notes"],
+            "Dev comment": "",
+            "Requirement": "",
+            "Phase": "",
+            "Estimate Hr": "",
+            "Role(s)": c["roles"],
+            "Preconditions": c["pre"],
+            "Actual Result": "",
+            "Automation": c["automation"],
+            "Feature": c["feature"],
+            "Legacy ID": c.get("legacy") or "",
+        }
+        for col, name in enumerate(COLS, 1):
+            cell = ws.cell(row=r, column=col, value=values.get(name, ""))
             cell.font = BODY_FONT
             cell.alignment = Alignment(wrap_text=True, vertical="top")
-            if col == 13:
+            if name == "Test Status":
                 cell.fill = NOTRUN_FILL
-    widths = [16, 28, 22, 52, 10, 12, 28, 36, 44, 44, 44, 22, 12, 22, 16, 14]
+    widths = [12, 28, 14, 42, 40, 40, 28, 14, 14, 12, 16, 28, 16, 20, 16, 10, 18, 28, 28, 22, 18, 14]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
     last = start_row + len(cases) - 1
-    letter = get_column_letter(13)
+    letter = get_column_letter(status_col)
     rng = f"{letter}{start_row}:{letter}{max(last, start_row + 200)}"
     ws.conditional_formatting.add(rng, CellIsRule(operator="equal", formula=['"Pass"'], fill=PASS_FILL, font=PASS_FONT))
     ws.conditional_formatting.add(rng, CellIsRule(operator="equal", formula=['"Fail"'], fill=FAIL_FILL, font=FAIL_FONT))
@@ -1125,8 +1117,9 @@ def main():
     idx["A1"].font = INDEX_TITLE_FONT
     idx["A2"] = (
         "Product: InternSafar (workspace sibling internship-portal). "
-        "Column schema matches Reference A (TC ID … Executed At) plus Legacy ID for eyeballing Reference B. "
-        "Reference A's test CONTENT was not copied. Status is Not Run for every row. "
+        "Column schema matches Boarders checklist names (ID … Estimate Hr) plus Role(s), "
+        "Preconditions, Actual Result, Automation, Feature, Legacy ID. "
+        "Status is Not Run for every row. "
         "Reference B (~179 executable IDs in the xlsx, not 212) was a one-time content source and is not linked. "
         "Integrity cases (offer↔application, rating/endorsement engagement, dead notification targets, thread application_id) "
         "were added 25 Aug 2026 for current InternSafar APIs. Every Status is Not Run."
@@ -1191,7 +1184,7 @@ def main():
     idx.cell(
         row=row,
         column=2,
-        value="Legacy ID is an annotation requested for mapping; it is not a Reference B schema leftover (Doc Status/Phase/Dev comment omitted).",
+        value="Legacy ID remains for QA apply mapping. Boarders Doc Status / Phase / Dev comment / Estimate Hr columns are included.",
     )
     idx.column_dimensions["A"].width = 14
     idx.column_dimensions["B"].width = 38

@@ -1,11 +1,15 @@
-# Manual-only QA cases
+# Manual / API one-shot QA cases
 
-These cases are **excluded** from `run-internsafar-qa.mjs` so a full automated run does not Block/Fail them when OTP or human steps are required.
+These cases are **excluded** from overwriting Pass results in `apply-internsafar-qa-xlsx.py`
+(`MANUAL_ONLY_TC_IDS`) and/or need a dedicated script (OTP / form-path API).
 
-| TC ID | Script | Doc |
+| TC ID | Script | Notes |
 |---|---|---|
-| TC-IS-06-007 | `run-tc-is-06-007-email-change.mjs` | `test-cases/manual/TC-IS-06-007-EMAIL-CHANGE.md` |
+| TC-IS-06-007 | `run-tc-is-06-007-email-change.mjs` | Zoho OTP — see `test-cases/manual/TC-IS-06-007-EMAIL-CHANGE.md` |
+| TC-IS-03-007 | `run-tc-is-03-007-form-referral.mjs` | Candidate form referral + SA approve/reject |
+| TC-IS-03-011 | `run-tc-is-03-011-employer-manual-request.mjs` | Employer Form manualRequest + SA list |
+| TC-IS-03-013 | `run-tc-is-03-013-duplicate-employer.mjs` | Domain path duplicate work email → 409 |
+| TC-IS-03-015 | `run-tc-is-03-015-self-referral.mjs` | Own email + own referral code → 409 / no points |
+| TC-IS-03-022 + 03-023 | `run-tc-is-03-022-023-register-rejects.mjs` | Non-Gmail + personal-Gmail domain rejects (no OAuth) |
 
-Registration / account-creation (sheet 03, legacy `REG-*`) stay **Manual** in Excel and are recorded as **Blocked** in the automated runner only — they are not executed here either.
-
-Run manual scripts with `npm run dev` up. Use `--apply-excel` to update `test-cases/InternSafar-Test-Cases.xlsx` without touching automated `qa-results.json`.
+Run with Vercel or local base URL. Use `--apply-excel` to write Pass into `InternSafar-Test-Cases.xlsx`.

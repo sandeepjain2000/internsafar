@@ -2,11 +2,13 @@
  * Latest-update InternSafar cases → byTcId for InternSafar-Test-Cases.xlsx apply.
  * Maps to TC-IS-02-024..026 and TC-IS-18-039..046 (see patch-internsafar-latest-cases.py).
  */
+import './ensurePlaywrightBrowsers.mjs'; // pin PLAYWRIGHT_BROWSERS_PATH before launch
+import { chromium } from 'playwright';
 import { spawnSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
 import { QA_ACCOUNTS, apiLogin, apiRequest } from './ipQaAuth.mjs';
+
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../..');
@@ -21,7 +23,7 @@ const ROOT = resolve(__dirname, '../..');
  * }} ctx
  */
 export async function runLatestUpdateTcIsCases(ctx) {
-  const { BASE, assess } = ctx;
+  const { BASE, assess, blocked = () => {} } = ctx;
 
   // TC-IS-18-040 help-chat config
   const helpGet = await apiRequest(BASE, '/api/ip/help-chat', { method: 'GET' });
@@ -102,6 +104,8 @@ export async function runLatestUpdateTcIsCases(ctx) {
   const cand = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, QA_ACCOUNTS.candidate.password);
   assess('TC-IS-02-026', cand.ok === true, { email: QA_ACCOUNTS.candidate.email, ok: cand.ok });
 
+  // TC-IS-02-027: manual Pass recorded in Excel — skipped here so apply does not re-Block.
+
   // Browser: Google OAuth start, linked error, help UI
   const browser = await chromium.launch({ headless: true });
   try {
@@ -114,32 +118,37 @@ export async function runLatestUpdateTcIsCases(ctx) {
       assess('TC-IS-02-024', false, 'Google button not visible (GOOGLE_* missing?)');
       assess('TC-IS-18-030', false, 'Google button not visible on home');
     } else {
-      await googleBtn.click();
-      await page.waitForURL(/accounts\.google\.com/i, { timeout: 45_000 });
-      const url = new URL(page.url());
-      const redirectUri = url.searchParams.get('redirect_uri') || '';
-      const originOk = (() => {
-        try {
-          return new URL(redirectUri).origin === new URL(BASE).origin;
-        } catch {
-          return false;
-        }
-      })();
-      assess(
-        'TC-IS-02-024',
-        Boolean(url.searchParams.get('client_id')) &&
+      try {
+        await googleBtn.click();
+        await page.waitForURL(/accounts\.google\.com/i, { timeout: 60_000 });
+        const url = new URL(page.url());
+        const redirectUri = url.searchParams.get('redirect_uri') || '';
+        const originOk = (() => {
+          try {
+            return new URL(redirectUri).origin === new URL(BASE).origin;
+          } catch {
+            return false;
+          }
+        })();
+        const googleStartOk =
+          Boolean(url.searchParams.get('client_id')) &&
           /\/api\/auth\/callback\/google$/.test(redirectUri) &&
-          originOk,
-        { client_id: Boolean(url.searchParams.get('client_id')), redirectUri },
-      );
-      assess(
-        'TC-IS-18-030',
-        Boolean(url.searchParams.get('client_id')) &&
-          /\/api\/auth\/callback\/google$/.test(redirectUri) &&
-          originOk &&
-          cand.ok,
-        { googleStart: true, credentialsOk: cand.ok },
-      );
+          originOk;
+        assess('TC-IS-02-024', googleStartOk, {
+          client_id: Boolean(url.searchParams.get('client_id')),
+          redirectUri,
+        });
+        assess('TC-IS-18-030', googleStartOk && cand.ok, {
+          googleStart: googleStartOk,
+          credentialsOk: cand.ok,
+        });
+      } catch (e) {
+        // Do not abort the rest of latest-update cases (help/ops) on Google timing flakes.
+        const msg = e?.message || String(e);
+        assess('TC-IS-02-024', false, { error: msg.slice(0, 240), url: page.url() });
+        assess('TC-IS-18-030', false, { error: msg.slice(0, 240), credentialsOk: cand.ok });
+        await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 60_000 }).catch(() => {});
+      }
     }
 
     await page.goto(`${BASE}/?error=GoogleAccountNotLinked`, {
@@ -152,6 +161,11 @@ export async function runLatestUpdateTcIsCases(ctx) {
       .isVisible({ timeout: 20_000 })
       .catch(() => false);
     assess('TC-IS-02-025', friendly, { url: page.url() });
+    // TC-IS-03-021: unlinked no-intent path surfaces GoogleAccountNotLinked (full live consent still manual)
+    assess('TC-IS-03-021', friendly, {
+      url: page.url(),
+      note: 'Automated friendly error UX; completing live Google consent with unlinked account remains manual.',
+    });
 
     await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
     const launcher = page.locator('.ip-helpbot__launcher');

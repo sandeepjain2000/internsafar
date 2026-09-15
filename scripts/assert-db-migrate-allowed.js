@@ -13,6 +13,7 @@
  *   node scripts/db_migrate_sql_only_ip.mjs --sql-only-existing-users
  *
  * Path B (app update): do NOT set the env, do NOT pass these flags, do NOT run migrate.
+ * Accidental laptop/Vercel → AWS RDS writes: see assert-db-migrate-target.js (no extra env).
  */
 'use strict';
 

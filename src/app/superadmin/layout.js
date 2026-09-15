@@ -13,7 +13,7 @@ export default function SuperAdminLayout({ children }) {
       nav={SUPERADMIN_NAV}
       title="Internship Portal · SuperAdmin"
       accent="text-red-800"
-      loginHref="/superadmin/login"
+      loginHref="/"
     >
       {children}
     </PortalShell>

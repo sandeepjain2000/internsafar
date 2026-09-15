@@ -63,5 +63,5 @@ export const ROLE_TITLE = {
 export const ROLE_LOGIN_HREF = {
   candidate: '/',
   employer: '/',
-  superadmin: '/superadmin/login',
+  superadmin: '/',
 };

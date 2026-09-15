@@ -28,6 +28,7 @@ Path B (app update, RDS unchanged):
 Path C (fresh/empty RDS) — only when intentional:
   IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db
   Genuinely empty/fresh RDS only. Never use Path C to wipe an existing live database.
+  Run this on the EC2 host (not from a laptop that happens to have RDS in .env).
 
 SQL only when demo users already exist:
   IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:sql-only
@@ -60,6 +61,10 @@ Called first by:
 Without IP_ALLOW_DB_MIGRATE=1 (or an explicit confirm flag), the process prints:
   === BLOCKED: database migrate/seed refused ===
 and exits 1. Casual `npm run deploy:fresh-aws-db` without the env is refused.
+
+Also: scripts/assert-db-migrate-target.js refuses AWS RDS when migrate is run on a
+laptop or on Vercel (accidental prod write). Path C on EC2 is still allowed —
+this is not a ban on AWS DB migrate.
 
 Also fail-closed: SQL errors print === FAIL === and exit 1 (do not claim success).
 

@@ -972,7 +972,7 @@
 }
 
 /* --- Advanced filters: one control per inbox column, saved with presets ---- */
-.ip-cand-msg--employer .ip-cm-adv {
+.ip-cand-msg .ip-cm-adv {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -980,8 +980,8 @@
   padding-top: 0.5rem;
 }
 
-.ip-cand-msg--employer .ip-cm-adv-toggle,
-.ip-cand-msg--employer .ip-cm-adv-clear {
+.ip-cand-msg .ip-cm-adv-toggle,
+.ip-cand-msg .ip-cm-adv-clear {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
@@ -997,34 +997,34 @@
   cursor: pointer;
 }
 
-.ip-cand-msg--employer .ip-cm-adv-toggle[aria-expanded='true'] {
+.ip-cand-msg .ip-cm-adv-toggle[aria-expanded='true'] {
   background: #eef2ff;
   border-color: #c7d2fe;
   color: #3730a3;
 }
 
 /* Dot marks filters still narrowing the list once the panel is collapsed. */
-.ip-cand-msg--employer .ip-cm-adv-dot {
+.ip-cand-msg .ip-cm-adv-dot {
   width: 0.4375rem;
   height: 0.4375rem;
   border-radius: 9999px;
   background: #4f46e5;
 }
 
-.ip-cand-msg--employer .ip-cm-adv-grid {
+.ip-cand-msg .ip-cm-adv-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
   padding-top: 0.5rem;
 }
 
-.ip-cand-msg--employer .ip-cm-adv-grid label {
+.ip-cand-msg .ip-cm-adv-grid label {
   display: grid;
   gap: 0.25rem;
   min-width: 0;
 }
 
-.ip-cand-msg--employer .ip-cm-adv-grid label span {
+.ip-cand-msg .ip-cm-adv-grid label span {
   font-size: 0.625rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -1032,8 +1032,8 @@
   color: #94a3b8;
 }
 
-.ip-cand-msg--employer .ip-cm-adv-grid input,
-.ip-cand-msg--employer .ip-cm-adv-grid select {
+.ip-cand-msg .ip-cm-adv-grid input,
+.ip-cand-msg .ip-cm-adv-grid select {
   appearance: none;
   width: 100%;
   min-width: 0;
@@ -1050,15 +1050,15 @@
   outline: none;
 }
 
-.ip-cand-msg--employer .ip-cm-adv-grid input:focus,
-.ip-cand-msg--employer .ip-cm-adv-grid select:focus {
+.ip-cand-msg .ip-cm-adv-grid input:focus,
+.ip-cand-msg .ip-cm-adv-grid select:focus {
   border-color: #6366f1;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
   background: #ffffff;
 }
 
 @media (max-width: 640px) {
-  .ip-cand-msg--employer .ip-cm-adv-grid {
+  .ip-cand-msg .ip-cm-adv-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -1406,17 +1406,17 @@
   }
 }
 
-/* Employer mobile: Filters control + keep advanced panel usable */
+/* Mobile: Filters control + keep advanced panel usable */
 @media (max-width: 767px) {
   .ip-cand-msg--employer .ip-cm-count {
     display: none;
   }
 
-  .ip-cand-msg--employer .ip-cm-adv {
+  .ip-cand-msg .ip-cm-adv {
     width: 100%;
   }
 
-  .ip-cand-msg--employer .ip-cm-adv-toggle {
+  .ip-cand-msg .ip-cm-adv-toggle {
     width: 100%;
     min-height: 2.75rem;
     justify-content: center;

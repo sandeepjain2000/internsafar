@@ -6,10 +6,16 @@ import { useRouter } from 'next/navigation';
 import { CalendarDays, ClipboardList, Hourglass, MessageSquare, Search, Target, XCircle } from 'lucide-react';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import {
+  IpDateRangeFilter,
+  IpMultiCheckFilter,
+  IpTableFiltersShell,
+} from '@/components/ip/IpTableFiltersShell';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import '@/components/ip/ip-applications-gemini.css';
+import '@/components/ip/ip-table-filters.css';
 
 const PAGE_SIZE = 10;
 
@@ -23,6 +29,17 @@ const TABS = [
   { id: 'withdrawn', label: 'Withdrawn' },
 ];
 
+const EMPTY_COLS = {
+  roles: [],
+  employers: [],
+  stipends: [],
+  locations: [],
+  statuses: [],
+  nextSteps: [],
+  dateFrom: '',
+  dateTo: '',
+};
+
 function stipendLabel(a) {
   if (a.stipend_inr) return `₹${Number(a.stipend_inr).toLocaleString('en-IN')}/mo`;
   return '—';
@@ -33,6 +50,42 @@ function appliedDate(value) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+}
+
+function locationLabel(a) {
+  return [a.work_mode, a.location].filter(Boolean).join(' • ') || '—';
+}
+
+function dayKey(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0, 10);
+}
+
+function inDateRange(value, from, to) {
+  const key = dayKey(value);
+  if (!key) return !(from || to);
+  if (from && key < from) return false;
+  if (to && key > to) return false;
+  return true;
+}
+
+function uniqSorted(values) {
+  return [...new Set(values.filter((v) => v != null && String(v).trim() !== ''))]
+    .map(String)
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function countActiveCols(cols) {
+  let n = 0;
+  for (const [k, v] of Object.entries(cols || {})) {
+    const base = EMPTY_COLS[k];
+    if (Array.isArray(base)) {
+      if (Array.isArray(v) && v.length) n += 1;
+    } else if (v) n += 1;
+  }
+  return n;
 }
 
 function statusClass(status) {
@@ -59,17 +112,16 @@ export default function MyApplicationsPage() {
   const [q, setQ] = useState('');
   const [sort, setSort] = useState('latest');
   const [tab, setTab] = useState('all');
-  const [interviewFilter, setInterviewFilter] = useState('');
-  const [offerFilter, setOfferFilter] = useState('');
-  const [commFilter, setCommFilter] = useState('');
+  const [cols, setCols] = useState(EMPTY_COLS);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [detail, setDetail] = useState(null);
   const [displayMode, setViewMode, { stored: viewMode }] = useViewMode('ip_apps_view', 'list');
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
 
   const snapshot = useMemo(
-    () => ({ filters: { q, tab, interviewFilter, offerFilter, commFilter }, sort }),
-    [q, tab, interviewFilter, offerFilter, commFilter, sort],
+    () => ({ filters: { q, tab, cols }, sort }),
+    [q, tab, cols, sort],
   );
   const prefs = useListPrefsSync({
     tableKey: 'candidate.applications',
@@ -78,9 +130,8 @@ export default function MyApplicationsPage() {
       const f = s.filters || {};
       if (f.q != null) setQ(f.q);
       if (f.tab) setTab(f.tab);
-      if (f.interviewFilter != null) setInterviewFilter(f.interviewFilter);
-      if (f.offerFilter != null) setOfferFilter(f.offerFilter);
-      if (f.commFilter != null) setCommFilter(f.commFilter);
+      if (f.cols) setCols({ ...EMPTY_COLS, ...f.cols });
+      // Legacy preset keys (never applied before) — ignore silently
       if (s.sort) setSort(s.sort);
     },
   });
@@ -104,20 +155,47 @@ export default function MyApplicationsPage() {
         return title.includes(needle) || company.includes(needle);
       });
     }
+    rows = rows.filter((a) => {
+      if (cols.roles.length && !cols.roles.includes(String(a.title || 'Internship'))) return false;
+      if (cols.employers.length && !cols.employers.includes(String(a.company_name || '—'))) return false;
+      if (cols.stipends.length && !cols.stipends.includes(stipendLabel(a))) return false;
+      if (cols.locations.length && !cols.locations.includes(locationLabel(a))) return false;
+      if (cols.statuses.length && !cols.statuses.includes(String(a.display_status || 'Applied'))) {
+        return false;
+      }
+      if (cols.nextSteps.length && !cols.nextSteps.includes(String(a.next_step || '—'))) return false;
+      if (!inDateRange(a.created_at, cols.dateFrom, cols.dateTo)) return false;
+      return true;
+    });
     rows.sort((a, b) => {
       if (sort === 'oldest') return new Date(a.created_at || 0) - new Date(b.created_at || 0);
-      if (sort === 'status') return String(a.display_status || a.status).localeCompare(String(b.display_status || b.status));
+      if (sort === 'status') {
+        return String(a.display_status || a.status).localeCompare(String(b.display_status || b.status));
+      }
       if (sort === 'match') return (b.match_score ?? -1) - (a.match_score ?? -1);
       return new Date(b.created_at || 0) - new Date(a.created_at || 0);
     });
     return rows;
-  }, [items, q, sort, tab]);
+  }, [items, q, sort, tab, cols]);
+
+  const optionLists = useMemo(
+    () => ({
+      roles: uniqSorted(items.map((a) => a.title || 'Internship')),
+      employers: uniqSorted(items.map((a) => a.company_name || '—')),
+      stipends: uniqSorted(items.map(stipendLabel)),
+      locations: uniqSorted(items.map(locationLabel)),
+      statuses: uniqSorted(items.map((a) => a.display_status || 'Applied')),
+      nextSteps: uniqSorted(items.map((a) => a.next_step || '—')),
+    }),
+    [items],
+  );
 
   const { page, setPage, totalPages, total, pageItems } = useClientPagination(filtered, PAGE_SIZE);
+  const colsActive = countActiveCols(cols);
 
   useEffect(() => {
     setPage(1);
-  }, [q, sort, tab, setPage]);
+  }, [q, sort, tab, cols, setPage]);
 
   async function load() {
     setLoading(true);
@@ -223,6 +301,56 @@ export default function MyApplicationsPage() {
           </label>
         </div>
         <ListPresetsBar {...prefs} />
+        <IpTableFiltersShell
+          open={filtersOpen}
+          onToggle={() => setFiltersOpen((v) => !v)}
+          activeCount={colsActive}
+          onClear={() => setCols(EMPTY_COLS)}
+        >
+          <IpMultiCheckFilter
+            label="Role"
+            options={optionLists.roles}
+            values={cols.roles}
+            onChange={(roles) => setCols((c) => ({ ...c, roles }))}
+          />
+          <IpMultiCheckFilter
+            label="Employer"
+            options={optionLists.employers}
+            values={cols.employers}
+            onChange={(employers) => setCols((c) => ({ ...c, employers }))}
+          />
+          <IpMultiCheckFilter
+            label="Stipend"
+            options={optionLists.stipends}
+            values={cols.stipends}
+            onChange={(stipends) => setCols((c) => ({ ...c, stipends }))}
+          />
+          <IpMultiCheckFilter
+            label="Location"
+            options={optionLists.locations}
+            values={cols.locations}
+            onChange={(locations) => setCols((c) => ({ ...c, locations }))}
+          />
+          <IpDateRangeFilter
+            label="Applied"
+            from={cols.dateFrom}
+            to={cols.dateTo}
+            onFrom={(dateFrom) => setCols((c) => ({ ...c, dateFrom }))}
+            onTo={(dateTo) => setCols((c) => ({ ...c, dateTo }))}
+          />
+          <IpMultiCheckFilter
+            label="Status"
+            options={optionLists.statuses}
+            values={cols.statuses}
+            onChange={(statuses) => setCols((c) => ({ ...c, statuses }))}
+          />
+          <IpMultiCheckFilter
+            label="Next"
+            options={optionLists.nextSteps}
+            values={cols.nextSteps}
+            onChange={(nextSteps) => setCols((c) => ({ ...c, nextSteps }))}
+          />
+        </IpTableFiltersShell>
         <div className="ip-ap-tabs">
           {TABS.map((t) => (
             <button
@@ -362,7 +490,15 @@ export default function MyApplicationsPage() {
                 : 'You have not submitted any applications yet.'}
             </p>
             {items.length ? (
-              <button type="button" className="ip-ap-btn ip-ap-btn--primary" onClick={() => { setTab('all'); setQ(''); }}>
+              <button
+                type="button"
+                className="ip-ap-btn ip-ap-btn--primary"
+                onClick={() => {
+                  setTab('all');
+                  setQ('');
+                  setCols(EMPTY_COLS);
+                }}
+              >
                 Clear Status Filters
               </button>
             ) : (

@@ -75,13 +75,11 @@ candidate logins (`lawsonlclintern+2/+3@gmail.com`) and a pending employer
 
 ### Where you sign in
 
-- `/` is the real sign-in page. `/login` is only a redirect to `/` preserving the query string.
-- `/superadmin/login` is a separate, red-themed page for the same credentials provider. After
-  sign-in it re-reads the session and refuses to forward anyone whose role is not
-  `superadmin` ("This account is not a SuperAdmin account.").
+- `/` is the real sign-in page for all roles (candidate, employer, SuperAdmin). `/login` is only a redirect to `/` preserving the query string.
+- `/superadmin/login` redirects to `/` (legacy URL kept so bookmarks do not 404).
 - `/app` is a dispatcher: signed in goes to the role home, otherwise to `/`.
 - Role homes: candidate `/candidate`, employer `/employer`, superadmin `/superadmin`.
-- Sign-out returns candidates and employers to `/`, superadmins to `/superadmin/login`.
+- Sign-out returns every role to `/`.
 
 ### Session mechanics
 
@@ -163,10 +161,12 @@ unlike the self-serve domain path which starts pending.
 
 ### 3.3 Google's role
 
-Google is **registration verification only**. The `signIn` callback mints a single-use
-verification token when a registration intent cookie is present; without one it logs a failed
-login event and redirects to `/?error=GoogleLoginDisabled`. The JWT callback additionally
-hard-fails any Google account, so Google can never produce a portal session.
+**Register:** with a registration intent cookie, the `signIn` callback mints a single-use
+verification token (`?gv=`) and does **not** open a portal session.
+
+**Home Sign in with Google (no intent):** if the Google account is linked in
+`ip_google_identities`, a portal session is created; otherwise redirect to
+`/?error=GoogleAccountNotLinked` (friendly copy on `/`). Password login remains independent.
 
 ### 3.4 Referral entry
 

@@ -40,7 +40,10 @@
         "qa:e2e": "node qa/runners/run-internsafar.mjs",
         "test:e2e": "node qa/runners/run-internsafar.mjs",
         "qa:e2e:regression": "node scripts/run-regression-and-apply-xlsx.mjs",
+        "playwright:install": "node scripts/lib/ensurePlaywrightBrowsers.mjs --install",
+        "postinstall": "node scripts/lib/ensurePlaywrightBrowsers.mjs --install",
         "qa:patch-latest-cases": "python scripts/patch-internsafar-latest-cases.py",
+        "qa:migrate-xlsx-cols": "python scripts/migrate-internsafar-xlsx-boarders-cols.py",
         "qa:manual:email-change": "node scripts/manual/run-tc-is-06-007-email-change.mjs",
         "qa:audit-xlsx": "python scripts/audit-internsafar-test-cases-xlsx.py"
     },
@@ -65,12 +68,12 @@
         "tw-animate-css": "^1.4.0"
     },
     "devDependencies": {
-        "@playwright/test": "^1.52.0",
+        "@playwright/test": "^1.62.1",
         "@tailwindcss/postcss": "^4.3.3",
         "@types/pg": "^8.20.4",
         "eslint": "^9",
         "eslint-config-next": "16.2.3",
-        "playwright": "^1.52.0",
+        "playwright": "^1.62.1",
         "tailwindcss": "^4.3.3"
     }
 }

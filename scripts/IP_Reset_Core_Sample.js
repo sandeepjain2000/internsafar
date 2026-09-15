@@ -20,7 +20,9 @@ const path = require('path');
 const readline = require('readline');
 const { createRequire } = require('module');
 const { assertDbMigrateAllowed } = require('./assert-db-migrate-allowed');
+const { assertDbMigrateTargetAllowed } = require('./assert-db-migrate-target');
 assertDbMigrateAllowed(process.argv);
+assertDbMigrateTargetAllowed(process.argv);
 
 const coreCfg = require('./lib/ipCoreSampleConfig.js');
 const { CORE_BASELINE_POSTINGS } = require('./lib/ipCoreBaselinePostings.js');

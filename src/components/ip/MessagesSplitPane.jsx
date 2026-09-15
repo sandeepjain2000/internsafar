@@ -71,17 +71,26 @@ function counterpartName(t, role) {
 }
 
 /**
- * Employer inbox column filters, keyed to the columns it actually shows:
- * Candidate · Internship · Preview · When · Status. The candidate inbox has different
- * columns (From · Internship · …), so it keeps the plain tab/search filters instead.
+ * Inbox column filters — same five slots for both roles, labels differ:
+ * Employer: Candidate · Internship · Preview · When · Status
+ * Candidate: From · Internship · Preview · When · Status
+ * `party` holds the counterpart name (From / Candidate).
  */
 const EMPTY_COLS = {
-  candidate: '',
+  party: '',
   internship: '',
   preview: '',
   when: 'any',
   status: '',
 };
+
+/** Map older employer presets that stored `candidate` instead of `party`. */
+function normalizeCols(raw) {
+  const next = { ...EMPTY_COLS, ...(raw || {}) };
+  if (!next.party && raw?.candidate) next.party = raw.candidate;
+  delete next.candidate;
+  return next;
+}
 
 const WHEN_WINDOWS = [
   ['any', 'Any time'],
@@ -334,14 +343,13 @@ export default function MessagesSplitPane({ role = 'employer' }) {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [inboxMeta, setInboxMeta] = useState({ unread: 0, action: 0 });
-  // Employer-only advanced filters, one per column of its inbox table
-  // (Candidate · Internship · Preview · When · Status). Saved views carry these too.
+  // Advanced filters — one per inbox table column. Saved views carry these for both roles.
   const [cols, setCols] = useState(EMPTY_COLS);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const snapshot = useMemo(
-    () => ({ filters: isEmployer ? { tab, search, cols } : { tab, search }, sort }),
-    [tab, search, sort, cols, isEmployer],
+    () => ({ filters: { tab, search, cols }, sort }),
+    [tab, search, sort, cols],
   );
   const prefs = useListPrefsSync({
     tableKey: isEmployer ? 'employer.messages' : 'candidate.messages',
@@ -351,12 +359,12 @@ export default function MessagesSplitPane({ role = 'employer' }) {
       if (f.tab) setTab(f.tab);
       if (f.search != null) setSearch(f.search);
       if (s.sort) setSort(s.sort);
-      // Older saved views predate column filters, so fall back to empty rather than undefined.
-      if (isEmployer) setCols({ ...EMPTY_COLS, ...(f.cols || {}) });
+      // Older saved views may omit cols or still use employer key `candidate`.
+      setCols(normalizeCols(f.cols));
     },
   });
 
-  const colsActive = isEmployer && Object.entries(cols).some(([k, v]) => v !== EMPTY_COLS[k]);
+  const colsActive = Object.entries(cols).some(([k, v]) => v !== EMPTY_COLS[k]);
 
   function showToast(msg) {
     setToast(msg);
@@ -404,14 +412,12 @@ export default function MessagesSplitPane({ role = 'employer' }) {
         const me = role === 'candidate' ? t.candidate_user_id : t.employer_user_id;
         if (!last || last !== me) return false;
       }
-      // Column filters are employer-only and AND together with the tab and search box.
-      if (isEmployer) {
-        if (!has(counterpartName(t, role), cols.candidate)) return false;
-        if (!has(roleLine(t), cols.internship)) return false;
-        if (!has(t.last_message || t.subject, cols.preview)) return false;
-        if (!has(t.application_status || (Number(t.message_count) ? 'Open' : 'New'), cols.status)) return false;
-        if (!withinWhen(t.last_message_at || t.updated_at, cols.when)) return false;
-      }
+      // Column filters AND with tab + search for both roles.
+      if (!has(counterpartName(t, role), cols.party)) return false;
+      if (!has(roleLine(t), cols.internship)) return false;
+      if (!has(t.last_message || t.subject, cols.preview)) return false;
+      if (!has(t.application_status || (Number(t.message_count) ? 'Open' : 'New'), cols.status)) return false;
+      if (!withinWhen(t.last_message_at || t.updated_at, cols.when)) return false;
       if (!q) return true;
       const hay = `${counterpartName(t, role)} ${t.internship_title || ''} ${t.subject || ''} ${t.last_message || ''} ${t.candidate_college || ''} ${t.employer_name || ''} ${t.company_name || ''}`.toLowerCase();
       return hay.includes(q);
@@ -420,7 +426,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
       return [...rows].reverse();
     }
     return rows;
-  }, [threads, search, tab, role, sort, isEmployer, cols]);
+  }, [threads, search, tab, role, sort, cols]);
 
   const loadThread = useCallback(
     async (id) => {
@@ -621,6 +627,62 @@ export default function MessagesSplitPane({ role = 'employer' }) {
               <div className="ip-cm-presets">
                 <ListPresetsBar {...prefs} />
               </div>
+              <div className="ip-cm-adv">
+                <button
+                  type="button"
+                  className="ip-cm-adv-toggle"
+                  aria-expanded={showAdvanced}
+                  onClick={() => setShowAdvanced((v) => !v)}
+                >
+                  <SlidersHorizontal className="size-3.5" aria-hidden />
+                  Advanced filters
+                  {colsActive ? <span className="ip-cm-adv-dot" aria-label="Filters active" /> : null}
+                </button>
+                {colsActive ? (
+                  <button type="button" className="ip-cm-adv-clear" onClick={() => setCols(EMPTY_COLS)}>
+                    Clear
+                  </button>
+                ) : null}
+              </div>
+              {showAdvanced ? (
+                <div className="ip-cm-adv-grid">
+                  {[
+                    ['party', 'From'],
+                    ['internship', 'Internship'],
+                    ['preview', 'Preview'],
+                  ].map(([key, label]) => (
+                    <label key={key}>
+                      <span>{label}</span>
+                      <input
+                        type="search"
+                        value={cols[key]}
+                        onChange={(e) => setCols((c) => ({ ...c, [key]: e.target.value }))}
+                        placeholder={`Filter by ${label.toLowerCase()}`}
+                      />
+                    </label>
+                  ))}
+                  <label>
+                    <span>When</span>
+                    <select
+                      value={cols.when}
+                      onChange={(e) => setCols((c) => ({ ...c, when: e.target.value }))}
+                    >
+                      {WHEN_WINDOWS.map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Status</span>
+                    <input
+                      type="search"
+                      value={cols.status}
+                      onChange={(e) => setCols((c) => ({ ...c, status: e.target.value }))}
+                      placeholder="Filter by status"
+                    />
+                  </label>
+                </div>
+              ) : null}
             </div>
             <div className="ip-cm-list-body">
               {loadingList ? (
@@ -1005,7 +1067,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
             {showAdvanced ? (
               <div className="ip-cm-adv-grid">
                 {[
-                  ['candidate', 'Candidate'],
+                  ['party', 'Candidate'],
                   ['internship', 'Internship'],
                   ['preview', 'Preview'],
                 ].map(([key, label]) => (

@@ -2,7 +2,7 @@
 /**
  * Fresh AWS RDS deploy: schema migrations → core demo seed → data migrations.
  *
- * Path C (fresh RDS) — must explicitly allow DB writes:
+ * Path C (fresh RDS) — must explicitly allow DB writes (run on EC2):
  *   IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db
  *   IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db -- --dry-run
  *
@@ -10,7 +10,7 @@
  *   IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:sql-only
  *
  * Path B (app update): do NOT set IP_ALLOW_DB_MIGRATE; do NOT run this script.
- * Gate: scripts/assert-db-migrate-allowed.js (also enforced by db_exec_sql_file.js).
+ * Gate: assert-db-migrate-allowed.js. Laptop/Vercel accident guard: assert-db-migrate-target.js.
  */
 import fs from 'fs';
 import path from 'path';
@@ -22,7 +22,9 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const { assertDbMigrateAllowed } = require('./assert-db-migrate-allowed.js');
+const { assertDbMigrateTargetAllowed } = require('./assert-db-migrate-target.js');
 assertDbMigrateAllowed(process.argv);
+assertDbMigrateTargetAllowed(process.argv);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');

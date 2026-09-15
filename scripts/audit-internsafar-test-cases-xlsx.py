@@ -16,8 +16,18 @@ from pathlib import Path
 import openpyxl
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.internsafar_xlsx_cols import ID_ALIASES, STATUS_ALIASES  # noqa: E402
+
 XLSX = ROOT / "test-cases" / "InternSafar-Test-Cases.xlsx"
-SKIP = frozenset({"Index", "Coverage", "Notes", "How to use"})
+SKIP = frozenset({"Index", "Coverage", "Coverage Matrix", "Notes", "How to use", "Meta"})
+
+
+def col_of(cols, aliases):
+    for a in aliases:
+        if a in cols:
+            return cols[a]
+    return None
 
 
 def audit(path: Path = XLSX) -> dict:
@@ -32,28 +42,31 @@ def audit(path: Path = XLSX) -> dict:
             continue
         hr = None
         cols: dict[str, int] = {}
-        for r in range(1, 10):
-            vals = [ws.cell(r, c).value for c in range(1, 20)]
-            if vals and "TC ID" in vals and "Status" in vals:
+        for r in range(1, 12):
+            vals = [ws.cell(r, c).value for c in range(1, 30)]
+            if vals and any(v in vals for v in ID_ALIASES) and any(v in vals for v in STATUS_ALIASES):
                 hr = r
                 cols = {str(v): i + 1 for i, v in enumerate(vals) if v}
                 break
         if not hr:
             continue
+        tc_col = col_of(cols, ID_ALIASES)
+        st_col = col_of(cols, STATUS_ALIASES)
+        auto_col = cols.get("Automation")
+        leg_col = cols.get("Legacy ID")
         for r in range(hr + 1, ws.max_row + 1):
-            tc = ws.cell(r, cols["TC ID"]).value
+            tc = ws.cell(r, tc_col).value if tc_col else None
             if not tc or not str(tc).startswith("TC-IS-"):
                 continue
-            status = (ws.cell(r, cols["Status"]).value or "Not Run").strip()
-            auto_col = cols.get("Automation")
+            status = (ws.cell(r, st_col).value or "Not Run")
+            status = str(status).strip()
             automation = (
                 (ws.cell(r, auto_col).value or "Unknown").strip() if auto_col else "Unknown"
             )
             overall[status] += 1
-            by_auto[automation][status] += 1
+            by_auto[str(automation)][status] += 1
             by_sheet[ws.title][status] += 1
             if status != "Pass":
-                leg_col = cols.get("Legacy ID")
                 legacy = ws.cell(r, leg_col).value if leg_col else ""
                 non_pass.append(
                     {
@@ -78,17 +91,14 @@ def audit(path: Path = XLSX) -> dict:
     }
 
 
-def main() -> None:
+def main():
     report = audit()
     print(json.dumps(report, indent=2))
     s = report["byStatus"]
-    total = report["totalTcIs"]
-    passed = s.get("Pass", 0)
     print(
-        f"\nSummary: {total} TC-IS rows | Pass {passed} | "
-        f"Fail {s.get('Fail', 0)} | Blocked {s.get('Blocked', 0)} | "
-        f"Not Run {s.get('Not Run', 0)} | other {total - passed - s.get('Fail', 0) - s.get('Blocked', 0) - s.get('Not Run', 0)}",
-        file=sys.stderr,
+        f"\nTOTAL {report['totalTcIs']}  Pass={s.get('Pass', 0)}  "
+        f"Fail={s.get('Fail', 0)}  Blocked={s.get('Blocked', 0)}  "
+        f"Not Run={s.get('Not Run', 0)}"
     )
 
 

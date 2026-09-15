@@ -18,8 +18,9 @@ const VERIFICATION_TTL_MS = 10 * 60 * 1000;
 
 /**
  * Registration intents that may consume a verification token.
- * Google is verification-only in this portal: every Google sign-in must carry one of
- * these intents, and none of them create a session.
+ * With an intent cookie: Google is verification-only (returns ?gv=, no portal session).
+ * Without an intent: home Sign in with Google may open a portal session only if
+ * ip_google_identities is linked (see auth.js); otherwise GoogleAccountNotLinked.
  */
 export const GOOGLE_INTENTS = {
   employerRegister: { cookieValue: 'employer-register', returnTo: '/register/employer' },
@@ -27,6 +28,28 @@ export const GOOGLE_INTENTS = {
 };
 
 export const GOOGLE_INTENT_COOKIE = 'ip_google_intent';
+/** Short-lived referral code carried across the Google OAuth round trip (httpOnly). */
+export const GOOGLE_REF_COOKIE = 'ip_google_ref';
+
+/** Build /path?gv=…&ref=… without breaking an existing query string. */
+export function googleVerificationReturnUrl(returnTo, { gv, ref } = {}) {
+  const base = String(returnTo || '/').trim() || '/';
+  const u = new URL(base, 'http://local.invalid');
+  if (gv) u.searchParams.set('gv', String(gv));
+  if (ref) u.searchParams.set('ref', String(ref).trim());
+  return `${u.pathname}${u.search}`;
+}
+
+export function googleRefFromCookieHeader(cookieHeader) {
+  const raw = String(cookieHeader || '');
+  const match = raw.match(new RegExp(`(?:^|;\\s*)${GOOGLE_REF_COOKIE}=([^;]+)`));
+  if (!match) return '';
+  try {
+    return decodeURIComponent(match[1]).trim();
+  } catch {
+    return String(match[1] || '').trim();
+  }
+}
 
 /**
  * Whether a registration may proceed without a real Google verification token.

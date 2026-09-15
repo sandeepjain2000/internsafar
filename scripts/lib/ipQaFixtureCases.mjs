@@ -2,8 +2,9 @@
  * Seed + API coverage for checklist cases that previously stayed Blocked
  * for lack of fixtures. Password for all QA/cast accounts: Admin@123 (DEMO_PASSWORD).
  *
- * Captcha-negative cases stay blocked (AUTH-4, REGX-3, REG-C-11).
- * Registration/account-creation cases are manual-only (excluded from automated QA).
+ * Captcha-negative + form-path registration validation live in this file
+ * (runCaptchaAndRegistrationGapCases). Live Google OAuth / referral-credit browser
+ * flows stay Blocked with an accurate reason.
  * AUTH-8 runs separately via ipQaAuth8.mjs (simulated DB failure, not real outage).
  */
 import path from 'path';
@@ -13,13 +14,14 @@ import crypto from 'crypto';
 import pg from 'pg';
 import dotenv from 'dotenv';
 import { createRequire } from 'module';
-import { QA_ACCOUNTS } from './ipQaAuth.mjs';
+import { QA_ACCOUNTS, apiLogin as sharedApiLogin, apiRequest, fetchLoginCaptcha } from './ipQaAuth.mjs';
 import { qaRunLabel, qaDbId, qaReferralCode } from './ipQaNaming.mjs';
 
 const require = createRequire(import.meta.url);
 const { CAST_CANDIDATES } = require('./ipCoreSampleConfig.js');
 const { companyNameForLabel } = require('./ipCompanyCatalog.js');
 const demoText = require('./ipDemoText.js');
+const { CAPTCHA_BYPASS_FOR_TESTING } = require('../../src/lib/captchaBypass.js');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..', '..');
@@ -27,8 +29,6 @@ dotenv.config({ path: path.join(root, '.env.local') });
 dotenv.config({ path: path.join(root, '.env') });
 
 const PW = QA_ACCOUNTS.candidate.password;
-const MANUAL_REGISTRATION =
-  'Manual only — registration/account creation excluded from automated QA suite';
 
 function nid(prefix) {
   return qaDbId(prefix);
@@ -233,6 +233,355 @@ export async function ensureCoreQaAccountsReady() {
   });
 }
 
+async function runCaptchaAndRegistrationGapCases(ctx) {
+  const { BASE, assess, blocked } = ctx;
+  const apiLogin = ctx.apiLogin || sharedApiLogin;
+  const run = (qaRunLabel().replace(/[^a-zA-Z0-9]/g, '').slice(-10) || String(Date.now()).slice(-8));
+
+  // ── AUTH-4 / TC-IS-02-022: wrong captcha must block login (bypass is false) ──
+  if (CAPTCHA_BYPASS_FOR_TESTING) {
+    blocked(
+      'AUTH-4',
+      'CAPTCHA_BYPASS_FOR_TESTING=true — negative captcha path skipped',
+    );
+    blocked('TC-IS-02-022', 'CAPTCHA_BYPASS_FOR_TESTING=true — negative captcha path skipped');
+  } else {
+    const cap = await fetchLoginCaptcha(BASE);
+    const jar = cap.jar;
+    const csrfRes = await fetch(`${BASE}/api/auth/csrf`, { headers: { Cookie: jar.header() } });
+    jar.store(csrfRes);
+    const csrf = await csrfRes.json();
+    const body = new URLSearchParams({
+      csrfToken: csrf.csrfToken,
+      email: QA_ACCOUNTS.candidate.email,
+      password: PW,
+      captchaToken: cap.captchaToken,
+      captchaAnswer: '999999',
+      callbackUrl: `${BASE}/`,
+      json: 'true',
+    });
+    const cb = await fetch(`${BASE}/api/auth/callback/credentials`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: jar.header() },
+      body,
+      redirect: 'manual',
+    });
+    jar.store(cb);
+    const sessionRes = await fetch(`${BASE}/api/auth/session`, { headers: { Cookie: jar.header() } });
+    const session = await sessionRes.json().catch(() => null);
+    const noSession = !session?.user?.email;
+    const text = await cb.text().catch(() => '');
+    const ok = noSession && cb.status !== 200;
+    assess('AUTH-4', ok || noSession, {
+      status: cb.status,
+      noSession,
+      snippet: String(text).slice(0, 120),
+    });
+    assess('TC-IS-02-022', ok || noSession, {
+      status: cb.status,
+      noSession,
+    });
+  }
+
+  // ── REGX-3 / TC-IS-18-032: captcha on forgot-password + form register ──
+  {
+    const badCap = await fetchLoginCaptcha(BASE);
+    const forgotBad = await apiRequest(BASE, '/api/ip/auth/password-reset/request', {
+      method: 'POST',
+      body: {
+        email: QA_ACCOUNTS.candidate.email,
+        captchaToken: badCap.captchaToken,
+        captchaAnswer: '999999',
+      },
+    });
+    const formCap = await fetchLoginCaptcha(BASE);
+    const regBadCap = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
+      method: 'POST',
+      body: {
+        path: 'form',
+        email: `qa.fix.captcha.${run}@gmail.com`,
+        name: 'QA Gap Captcha',
+        password: 'Admin@1234',
+        university: 'QA University',
+        graduationYear: 2027,
+        captchaToken: formCap.captchaToken,
+        captchaAnswer: '999999',
+      },
+    });
+    const captchaOk =
+      (forgotBad.status === 400 || forgotBad.status === 422) &&
+      (regBadCap.status === 400 || regBadCap.status === 422);
+    assess('REGX-3', captchaOk, {
+      forgot: forgotBad.status,
+      registerForm: regBadCap.status,
+      forgotErr: forgotBad.data?.error,
+      regErr: regBadCap.data?.error,
+    });
+    assess('TC-IS-18-032', captchaOk, {
+      forgot: forgotBad.status,
+      registerForm: regBadCap.status,
+    });
+  }
+
+  // ── Candidate form-path validation (no Google) ──
+  {
+    const cap = await fetchLoginCaptcha(BASE);
+    const nonGmail = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
+      method: 'POST',
+      body: {
+        path: 'form',
+        email: `qa.fix.${run}@yahoo.com`,
+        name: 'QA NonGmail',
+        password: 'Admin@1234',
+        university: 'QA University',
+        graduationYear: 2027,
+        captchaToken: cap.captchaToken,
+        captchaAnswer: cap.captchaAnswer,
+      },
+    });
+    assess('REG-C-2', nonGmail.status === 400, {
+      status: nonGmail.status,
+      error: nonGmail.data?.error,
+    });
+    assess('TC-IS-03-002', nonGmail.status === 400, {
+      status: nonGmail.status,
+      error: nonGmail.data?.error,
+    });
+  }
+
+  {
+    const cap = await fetchLoginCaptcha(BASE);
+    const dup = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
+      method: 'POST',
+      body: {
+        path: 'form',
+        email: QA_ACCOUNTS.candidate.email,
+        name: 'QA Dup',
+        password: 'Admin@1234',
+        university: 'QA University',
+        graduationYear: 2027,
+        captchaToken: cap.captchaToken,
+        captchaAnswer: cap.captchaAnswer,
+      },
+    });
+    assess('REG-C-3', dup.status === 409, { status: dup.status, error: dup.data?.error });
+    assess('TC-IS-03-003', dup.status === 409, { status: dup.status, error: dup.data?.error });
+  }
+
+  {
+    const cap = await fetchLoginCaptcha(BASE);
+    const badEmail = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
+      method: 'POST',
+      body: {
+        path: 'form',
+        email: 'not-an-email',
+        name: 'QA',
+        password: 'Admin@1234',
+        university: 'QA University',
+        graduationYear: 2027,
+        captchaToken: cap.captchaToken,
+        captchaAnswer: cap.captchaAnswer,
+      },
+    });
+    assess('REG-C-10', badEmail.status === 400, { status: badEmail.status });
+    assess('TC-IS-03-016', badEmail.status === 400, { status: badEmail.status });
+  }
+
+  {
+    // googlemail.com accepted as Gmail (validation only — stop before create if needed)
+    const cap = await fetchLoginCaptcha(BASE);
+    const gm = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
+      method: 'POST',
+      body: {
+        path: 'form',
+        email: `qa.fix.gm.${run}@googlemail.com`,
+        name: 'QA Googlemail',
+        password: 'Admin@1234',
+        university: 'QA University',
+        graduationYear: 2027,
+        captchaToken: cap.captchaToken,
+        captchaAnswer: cap.captchaAnswer,
+      },
+    });
+    // Accept 200 (created pending) or 409 (already exists from prior run) — not 400 gmail reject
+    const ok = gm.status === 200 || gm.status === 201 || gm.status === 409;
+    const notGmailReject = !/only gmail/i.test(String(gm.data?.error || ''));
+    assess('REG-C-8', ok && notGmailReject, { status: gm.status, error: gm.data?.error });
+    assess('TC-IS-03-014', ok && notGmailReject, { status: gm.status, error: gm.data?.error });
+  }
+
+  {
+    const cap = await fetchLoginCaptcha(BASE);
+    const shortPw = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
+      method: 'POST',
+      body: {
+        path: 'form',
+        email: `qa.fix.pw7.${run}@gmail.com`,
+        name: 'QA ShortPw',
+        password: 'Admin@1',
+        university: 'QA University',
+        graduationYear: 2027,
+        captchaToken: cap.captchaToken,
+        captchaAnswer: cap.captchaAnswer,
+      },
+    });
+    assess('TC-IS-03-018', shortPw.status === 400, {
+      status: shortPw.status,
+      error: shortPw.data?.error,
+    });
+  }
+
+  {
+    // REG-C-11 / TC-IS-03-017: bad captcha on form path — no pending user
+    const cap = await fetchLoginCaptcha(BASE);
+    const email = `qa.fix.regcap.${run}@gmail.com`;
+    const r = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
+      method: 'POST',
+      body: {
+        path: 'form',
+        email,
+        name: 'QA CapFail',
+        password: 'Admin@1234',
+        university: 'QA University',
+        graduationYear: 2027,
+        captchaToken: cap.captchaToken,
+        captchaAnswer: '999999',
+      },
+    });
+    assess('REG-C-11', r.status === 400, { status: r.status, error: r.data?.error });
+    assess('TC-IS-03-017', r.status === 400, { status: r.status, error: r.data?.error });
+  }
+
+  {
+    // REG-C-4 / TC-IS-03-004: form path creates pending (inactive until SA)
+    const cap = await fetchLoginCaptcha(BASE);
+    const email = `qa.fix.pending.${run}@gmail.com`;
+    const r = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
+      method: 'POST',
+      body: {
+        path: 'form',
+        email,
+        name: 'QA Pending',
+        password: 'Admin@1234',
+        university: 'QA University',
+        graduationYear: 2027,
+        captchaToken: cap.captchaToken,
+        captchaAnswer: cap.captchaAnswer,
+      },
+    });
+    const login = await apiLogin(BASE, email, 'Admin@1234');
+    const ok = r.status === 200 && !login.ok;
+    assess('REG-C-4', ok, {
+      status: r.status,
+      loginOk: login.ok,
+      data: r.data,
+    });
+    assess('TC-IS-03-004', ok, { status: r.status, loginOk: login.ok });
+  }
+
+  // ── Employer domain validation (API) ──
+  {
+    const mismatch = await apiRequest(BASE, '/api/ip/auth/register-employer', {
+      method: 'POST',
+      body: {
+        email: `hr.${run}@acme-example.com`,
+        website: 'https://other-example.com',
+        companyName: 'QA Mismatch Co',
+        contactName: 'QA HR',
+        businessEntityType: 'Private Limited',
+      },
+    });
+    assess('REG-E-2', mismatch.status === 400, {
+      status: mismatch.status,
+      error: mismatch.data?.error,
+    });
+    assess('TC-IS-03-009', mismatch.status === 400, {
+      status: mismatch.status,
+      error: mismatch.data?.error,
+    });
+  }
+
+  {
+    const noWeb = await apiRequest(BASE, '/api/ip/auth/register-employer', {
+      method: 'POST',
+      body: {
+        email: `hr.${run}@acme-example.com`,
+        website: '',
+        companyName: 'QA NoWeb',
+        contactName: 'QA HR',
+        businessEntityType: 'Private Limited',
+      },
+    });
+    assess('REG-E-3', noWeb.status === 400, { status: noWeb.status, error: noWeb.data?.error });
+    assess('TC-IS-03-010', noWeb.status === 400, { status: noWeb.status, error: noWeb.data?.error });
+  }
+
+  {
+    const missing = await apiRequest(BASE, '/api/ip/auth/register-employer', {
+      method: 'POST',
+      body: {
+        manualRequest: true,
+        email: '',
+        companyName: '',
+        contactName: '',
+        businessEntityType: '',
+      },
+    });
+    assess('REG-E-5', missing.status === 400 || missing.status === 422, {
+      status: missing.status,
+      error: missing.data?.error,
+    });
+    assess('TC-IS-03-012', missing.status === 400 || missing.status === 422, {
+      status: missing.status,
+    });
+  }
+
+  // ── Not Run fixes ──
+  {
+    const cand = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, PW);
+    assess('TC-IS-02-026', cand.ok === true, {
+      email: QA_ACCOUNTS.candidate.email,
+      ok: cand.ok,
+      note: 'Credentials login independent of Google provider',
+    });
+  }
+
+  {
+    // Unlinked error UX (full live Google consent half still needs human)
+    const pageCheck = await apiRequest(BASE, '/?error=GoogleAccountNotLinked', { method: 'GET' });
+    // HTML page — status 200 is enough for route; friendly copy covered in regression/02-025
+    assess(
+      'TC-IS-03-021',
+      pageCheck.status === 200,
+      {
+        status: pageCheck.status,
+        note:
+          'Automated: unlinked error route reachable. Completing live Google consent with an unlinked account remains manual.',
+      },
+    );
+  }
+
+  // TC-IS-02-027: manual Pass (linked home Sign in) — do not auto-Block; apply script skips it.
+
+  // True Google-browser / inbox cases — keep Blocked with accurate reason.
+  // Do NOT include EMP-R-1 / TC-IS-18-019 (employer refer hub — API+UI in run-internsafar-qa.mjs).
+  const LIVE_GOOGLE =
+    'Requires live Google OAuth consent / inbox — not an automation gap in API coverage';
+  for (const id of [
+    // REG-C-7 / TC-IS-03-007 — form referral API (not Google): run-tc-is-03-007-…
+    // REG-C-9 / TC-IS-03-015 — self-referral form API: run-tc-is-03-015-…
+    'REG-E-1', // TC-IS-03-008 — live company Google domain register
+    // REG-E-4 / TC-IS-03-011 — employer Form manualRequest: run-tc-is-03-011-…
+    // REG-E-6 / TC-IS-03-013 — duplicate domain email 409: run-tc-is-03-013-…
+    'TC-IS-03-008',
+    'TC-IS-03-019',
+    'TC-IS-03-020',
+    // TC-IS-03-022 / 03-023 — API rejects without OAuth: run-tc-is-03-022-023-…
+  ]) {
+    blocked(id, LIVE_GOOGLE);
+  }
+}
+
 export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, cand, emp, sa }) {
   // Readable uniqueness only (e.g. 20260827-1504) — never random base36 in emails/titles.
   const run = qaRunLabel();
@@ -240,15 +589,8 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
 
   await ensureCoreQaAccountsReady().catch(() => {});
 
-  blocked('AUTH-4', 'CAPTCHA_BYPASS_FOR_TESTING=true — negative captcha path skipped');
-  blocked('REGX-3', MANUAL_REGISTRATION);
-  blocked('REG-C-11', MANUAL_REGISTRATION);
-  for (const id of [
-    'REG-C-1', 'REG-C-4', 'REG-C-6', 'REG-C-7', 'REG-C-8', 'REG-C-9',
-    'REG-E-1', 'REG-E-4', 'REG-E-6', 'EMP-R-1',
-  ]) {
-    blocked(id, MANUAL_REGISTRATION);
-  }
+  // Formerly blanket-Blocked registration/captcha gaps — exercised inline below.
+  await runCaptchaAndRegistrationGapCases({ BASE, assess, blocked, apiLogin });
 
   async function tryCase(id, fn) {
     try {

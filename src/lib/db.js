@@ -3,15 +3,39 @@ import { getPgSslOption } from '@/lib/pgSsl';
 
 /**
  * Internship Portal DB pool — application code must ONLY query ip_* tables.
- * URL-decode password; pool max 1 on Vercel.
+ * URL-decode password; keep pool tiny on Vercel and on Neon session poolers
+ * (EMAXCONNSESSION / pool_size ~15) so local QA + Next do not exhaust clients.
  */
+function resolvePoolMax(rawUrl) {
+  const envMax = Number(process.env.PG_POOL_MAX || process.env.DATABASE_POOL_MAX || '');
+  if (Number.isFinite(envMax) && envMax > 0) return Math.floor(envMax);
+
+  const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+  if (isServerless) return 1;
+
+  // Neon / pooler session mode rejects above pool_size (often 15). Local Next can
+  // otherwise open max:20 and starve QA / hot-reload workers with EMAXCONNSESSION.
+  const host = (() => {
+    try {
+      return new URL(rawUrl).hostname || '';
+    } catch {
+      const m = String(rawUrl).match(/@([^/?:]+)/);
+      return m ? m[1] : '';
+    }
+  })();
+  if (/neon\.tech|pooler\.|supabase\.co/i.test(host) || /-pooler\./i.test(host)) {
+    return 3;
+  }
+  return 10;
+}
+
 function buildPoolConfig() {
   const rawUrl = process.env.DATABASE_URL;
   if (!rawUrl) throw new Error('DATABASE_URL environment variable is not set.');
 
   const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
-  const poolMax = isServerless ? 1 : 20;
-  const idleTimeoutMillis = isServerless ? 5000 : 30000;
+  const poolMax = resolvePoolMax(rawUrl);
+  const idleTimeoutMillis = isServerless || poolMax <= 5 ? 5000 : 30000;
 
   try {
     const url = new URL(rawUrl);
@@ -23,8 +47,8 @@ function buildPoolConfig() {
       database: url.pathname.replace(/^\//, ''),
       max: poolMax,
       idleTimeoutMillis,
-      connectionTimeoutMillis: 10000,
-      allowExitOnIdle: isServerless,
+      connectionTimeoutMillis: 15000,
+      allowExitOnIdle: isServerless || poolMax <= 5,
       ssl: getPgSslOption(url.hostname),
     };
   } catch {
@@ -34,8 +58,8 @@ function buildPoolConfig() {
       connectionString: rawUrl,
       max: poolMax,
       idleTimeoutMillis,
-      connectionTimeoutMillis: 10000,
-      allowExitOnIdle: isServerless,
+      connectionTimeoutMillis: 15000,
+      allowExitOnIdle: isServerless || poolMax <= 5,
       ssl: getPgSslOption(hostHint),
     };
   }

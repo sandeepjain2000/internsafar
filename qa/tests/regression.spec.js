@@ -5,8 +5,8 @@ const { candidate, employer, superadmin } = require('../helpers/accounts');
 const { openWithSession, signOut, apiLogin } = require('../helpers/login');
 
 /**
- * InternSafar regression mapped to
- * test-cases/internsafar_latest_update_test_checklist.xlsx (IS-*).
+ * InternSafar regression smoke (IS-* ids) applied into
+ * test-cases/InternSafar-Test-Cases.xlsx via qa:e2e:regression.
  * Google OAuth depth: qa/tests/google-auth.spec.js
  * Role screen breadth: qa/tests/screens.spec.js
  */

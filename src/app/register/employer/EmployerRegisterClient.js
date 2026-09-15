@@ -150,7 +150,10 @@ export default function EmployerRegisterPage() {
       const res = await fetch('/api/ip/auth/google-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ purpose: 'employer-register' }),
+        body: JSON.stringify({
+          purpose: 'employer-register',
+          referralCode: referralCode || undefined,
+        }),
       });
       if (!res.ok) throw new Error('Could not start Google verification');
       const back = referralCode

@@ -1,14 +1,21 @@
 #!/usr/bin/env node
 /**
  * Run InternSafar regression Playwright pack, write JSON report, apply to
- * InternSafar-Test-Cases.xlsx (Status / Actual Result / Executed At).
+ * InternSafar-Test-Cases.xlsx (Test Status / Actual Result / Date Verified).
  */
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ensurePlaywrightBrowsersPath, installPlaywrightBrowsersIfNeeded } from './lib/ensurePlaywrightBrowsers.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const browsersPath = ensurePlaywrightBrowsersPath();
+try {
+  installPlaywrightBrowsersIfNeeded({ force: false });
+} catch (e) {
+  console.warn('[playwright] install check:', e.message || e);
+}
 const report = resolve(root, 'test-results/regression-results.json');
 mkdirSync(dirname(report), { recursive: true });
 
@@ -25,7 +32,7 @@ const pw = spawnSync(
     cwd: root,
     encoding: 'utf8',
     shell: process.platform === 'win32',
-    env: process.env,
+    env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: browsersPath },
     maxBuffer: 20 * 1024 * 1024,
   },
 );

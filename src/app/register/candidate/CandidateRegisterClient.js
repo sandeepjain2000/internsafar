@@ -53,9 +53,10 @@ export default function CandidateRegisterPage() {
   const urlRef = sp.get('ref') || '';
   // Google hands the verification token back on the return URL as ?gv=…
   const gv = sp.get('gv') || '';
-  // No field for this on the page: a code only arrives via a referral link (?ref=…),
-  // which is preserved across the Google round trip on the return URL.
+  // Prefer live URL ?ref= (survives Google return after cookie restore); fall back to
+  // the value present when this page first mounted.
   const [referralCode] = useState(urlRef);
+  const activeReferralCode = (sp.get('ref') || referralCode || '').trim();
   const [step, setStep] = useState('form');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -91,7 +92,7 @@ export default function CandidateRegisterPage() {
             name: account.name || account.email.split('@')[0],
             email: account.email,
             googleVerificationToken: gv,
-            referralCode: referralCode.trim() || undefined,
+            referralCode: activeReferralCode || undefined,
           }),
         });
         const data = await res.json();
@@ -122,7 +123,7 @@ export default function CandidateRegisterPage() {
         setLoading(false);
       }
     },
-    [gv, referralCode],
+    [gv, activeReferralCode],
   );
 
   useEffect(() => {
@@ -154,7 +155,7 @@ export default function CandidateRegisterPage() {
     return () => {
       alive = false;
     };
-  }, [gv]);
+  }, [gv, createAccount]);
 
   const continueWithGoogle = useCallback(async () => {
     setError('');
@@ -164,18 +165,21 @@ export default function CandidateRegisterPage() {
       const res = await fetch('/api/ip/auth/google-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ purpose: 'candidate-register' }),
+        body: JSON.stringify({
+          purpose: 'candidate-register',
+          referralCode: activeReferralCode || undefined,
+        }),
       });
       if (!res.ok) throw new Error('Could not start Google verification');
-      const back = referralCode.trim()
-        ? `/register/candidate?ref=${encodeURIComponent(referralCode.trim())}`
+      const back = activeReferralCode
+        ? `/register/candidate?ref=${encodeURIComponent(activeReferralCode)}`
         : '/register/candidate';
       await signIn('google', { callbackUrl: back });
     } catch (err) {
       setError(err.message);
       setStartingGoogle(false);
     }
-  }, [referralCode]);
+  }, [activeReferralCode]);
 
   return (
     <div className="ip-cand-reg">
@@ -207,6 +211,14 @@ export default function CandidateRegisterPage() {
 
           {step === 'form' ? (
             <div className="ip-crg-body">
+              {activeReferralCode ? (
+                <Alert>
+                  <AlertTitle>Referral</AlertTitle>
+                  <AlertDescription>
+                    Registering with code <code>{activeReferralCode}</code>
+                  </AlertDescription>
+                </Alert>
+              ) : null}
               <div className="ip-crg-notice">
                 <h3>
                   <Sparkles aria-hidden />

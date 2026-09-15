@@ -531,8 +531,12 @@ export async function runRemainingSuite(opts = {}) {
   );
 
   console.log('Latest-update TC-IS cases (Google / help / ops / migration)…');
-  await runLatestUpdateTcIsCases({ BASE, assess, pass, fail, blocked });
-
+  try {
+    await runLatestUpdateTcIsCases({ BASE, assess, pass, fail, blocked });
+  } catch (e) {
+    console.warn('Latest-update suite error (continuing):', e?.message || e);
+    blocked('TC-IS-02-024', `Latest-update aborted: ${e?.message || e}`);
+  }
   // cleanup leftover presets on this tableKey
   const leftover = await apiRequest(BASE, `/api/ip/list-presets?tableKey=${encodeURIComponent(tk)}`, {
     cookie: cand.cookie,

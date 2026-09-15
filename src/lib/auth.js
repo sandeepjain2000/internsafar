@@ -22,7 +22,10 @@ import {
   ensureIpGoogleAuthSchema,
   findLinkedUserForGoogleLogin,
   GOOGLE_INTENT_COOKIE,
+  GOOGLE_REF_COOKIE,
   googleIntentFromCookieHeader,
+  googleRefFromCookieHeader,
+  googleVerificationReturnUrl,
   recordGoogleIdentity,
 } from '@/lib/ipGoogleAuth';
 
@@ -304,7 +307,22 @@ export const authOptions = {
         } catch {
           /* non-fatal */
         }
-        return `${intent.returnTo}?gv=${encodeURIComponent(token)}`;
+        // Preserve referral code across OAuth (intent.returnTo is path-only; ?ref lived
+        // in a short-lived cookie set by /api/ip/auth/google-intent).
+        let refCode = '';
+        try {
+          const h = await headers();
+          refCode = googleRefFromCookieHeader(h.get('cookie'));
+        } catch {
+          refCode = '';
+        }
+        try {
+          const cookieStore = await cookies();
+          cookieStore.delete(GOOGLE_REF_COOKIE);
+        } catch {
+          /* non-fatal */
+        }
+        return googleVerificationReturnUrl(intent.returnTo, { gv: token, ref: refCode });
       }
 
       // No intent: allow login only for accounts already linked via Google registration.

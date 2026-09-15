@@ -37,18 +37,19 @@ test.describe('InternSafar authentication', () => {
     await expect(page.locator('#email')).toBeVisible({ timeout: 15_000 });
   });
 
-  test('superadmin login form is on /superadmin/login', async ({ page }) => {
+  test('superadmin login uses standard home form', async ({ page }) => {
     await page.goto('/superadmin/login');
-    await expect(page.locator('#sa-email')).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator('#sa-password')).toBeVisible();
-    await expect(page.getByRole('button', { name: /^login$/i })).toBeVisible();
+    await expect(page).toHaveURL(/\/(\?|$)/, { timeout: 15_000 });
+    await expect(page.locator('#email')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('#password')).toBeVisible();
   });
 
   test('superadmin signs in and lands on /superadmin', async ({ page }) => {
     await signInSuperAdmin(page, superadmin.email);
     await expect(page).toHaveURL(superadmin.home, { timeout: 25_000 });
     await signOut(page);
-    await expect(page).toHaveURL(/\/superadmin\/login/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/(\?|$)/, { timeout: 15_000 });
+    await expect(page.locator('#email')).toBeVisible({ timeout: 15_000 });
   });
 
   test('wrong password stays signed out', async ({ page }) => {

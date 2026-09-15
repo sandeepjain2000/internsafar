@@ -155,14 +155,14 @@ async function signInSuperAdmin(page, email, pwd = password) {
     return;
   }
 
-  // Fallback: UI form (slower / flakier under load)
-  await page.goto('/superadmin/login', { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('#sa-email')).toBeVisible({ timeout: 20_000 });
+  // Fallback: UI form on standard home login
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#email')).toBeVisible({ timeout: 20_000 });
   await page.locator('#login-captcha').waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
-  await page.locator('#sa-email').fill(email);
-  await page.locator('#sa-password').fill(pwd);
+  await page.locator('#email').fill(email);
+  await page.locator('#password').fill(pwd);
   await fillCaptchaIfPresent(page);
-  await page.getByRole('button', { name: /^login$/i }).click();
+  await page.getByRole('button', { name: /sign in/i }).click();
   await page.waitForFunction(
     () => {
       const p = location.pathname;
@@ -179,7 +179,7 @@ async function signOut(page) {
   const btn = page.getByRole('button', { name: /sign out/i });
   await expect(btn).toBeVisible({ timeout: 20_000 });
   await btn.click();
-  await page.waitForURL(/\/(\?|$)|\/superadmin\/login/, { timeout: 20_000 }).catch(() => {});
+  await page.waitForURL(/\/(\?|$)/, { timeout: 20_000 }).catch(() => {});
 }
 
 function assertNoCrash(bodyText) {

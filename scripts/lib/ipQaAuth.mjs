@@ -44,7 +44,8 @@ export function cookieJar() {
   };
 }
 
-export async function apiLogin(base, email, password) {
+/** Fetch a real captcha challenge (required when CAPTCHA_BYPASS_FOR_TESTING is false). */
+export async function fetchLoginCaptcha(base) {
   const jar = cookieJar();
   const capRes = await fetch(`${base}/api/auth/captcha`);
   jar.store(capRes);
@@ -55,6 +56,16 @@ export async function apiLogin(base, email, password) {
       const m = String(cap.question || '').match(/(\d+)\s*\+\s*(\d+)/);
       return m ? Number(m[1]) + Number(m[2]) : 7;
     })();
+  return {
+    captchaToken: cap.token,
+    captchaAnswer: String(answer),
+    cookie: jar.header(),
+    jar,
+  };
+}
+
+export async function apiLogin(base, email, password) {
+  const { captchaToken, captchaAnswer, jar } = await fetchLoginCaptcha(base);
 
   const csrfRes = await fetch(`${base}/api/auth/csrf`, { headers: { Cookie: jar.header() } });
   jar.store(csrfRes);
@@ -64,8 +75,8 @@ export async function apiLogin(base, email, password) {
     csrfToken: csrf.csrfToken,
     email,
     password,
-    captchaToken: cap.token,
-    captchaAnswer: String(answer),
+    captchaToken,
+    captchaAnswer: String(captchaAnswer),
     callbackUrl: `${base}/`,
     json: 'true',
   });

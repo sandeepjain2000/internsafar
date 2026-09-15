@@ -31,6 +31,7 @@ to the database. Deep detail on generating and deleting test data lives in
 | `fill-ip-posting-requirements.mjs` | data | Backfills `eligibility.requirements_text` and `ideal_profile_text` on published internships missing them. Data only. |
 | `sanitize-ip-demo-labels.mjs` | data | Renames visible "seed/seeded" labels so demo rows read like normal data. |
 | `assert-db-migrate-allowed.js` | no | **Hard gate.** Refuses migrate/seed unless `IP_ALLOW_DB_MIGRATE=1` (or confirm flag). Path B must never set this. Allow ≠ wipe permission. |
+| `assert-db-migrate-target.js` | no | **Accident gate.** If migrate runs on a laptop or Vercel and `DATABASE_URL` is AWS RDS, refuse. Path C on EC2 still allowed (no extra env). |
 | `assert-migration-sql-safe.js` | no | **Live-data gate.** Blocks new migration SQL with `DELETE`/`DROP TABLE`/`DROP COLUMN`/`TRUNCATE`. Legacy allowlist only for old files. `npm run db:check-migration-safety`. |
 | `deploy-fresh-aws-db.mjs` | data + schema | **AWS Path C — empty RDS only.** Requires allow. Never use to wipe an existing live database. |
 | `db_migrate_sql_only_ip.mjs` | schema | SQL 001–039 when demo users exist. Review files first; live data must stay intact (no truncate/delete-and-insert refresh). |

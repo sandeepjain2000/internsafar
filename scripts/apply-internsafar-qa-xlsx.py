@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Apply qa-results.json onto InternSafar-Test-Cases.xlsx (Legacy ID + TC ID unified)."""
+"""Apply qa-results.json onto InternSafar-Test-Cases.xlsx (Legacy ID + ID unified)."""
 from __future__ import annotations
 
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -10,11 +11,34 @@ from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from lib.internsafar_xlsx_cols import (  # noqa: E402
+    ACTUAL_ALIASES,
+    DATE_ALIASES,
+    ID_ALIASES,
+    LEGACY_ALIASES,
+    STATUS_ALIASES,
+)
+
 XLSX = ROOT / "test-cases" / "InternSafar-Test-Cases.xlsx"
 RESULTS = ROOT / "test-cases" / "qa-results.json"
-SKIP = frozenset({"Index", "Coverage", "Notes", "How to use"})
-# Updated only via scripts/manual/* — never from run-internsafar-qa.mjs --apply
-MANUAL_ONLY_TC_IDS = frozenset({"TC-IS-06-007"})
+SKIP = frozenset({"Index", "Coverage", "Coverage Matrix", "Notes", "How to use", "Meta"})
+# Manual Google / OTP results — do not overwrite with automated Blocked/Not Run.
+MANUAL_ONLY_TC_IDS = frozenset(
+    {
+        "TC-IS-06-007",
+        "TC-IS-02-027",
+        "TC-IS-03-001",
+        "TC-IS-03-006",
+        "TC-IS-03-007",
+        "TC-IS-03-011",
+        "TC-IS-03-013",
+        "TC-IS-03-015",
+        "TC-IS-03-022",
+        "TC-IS-03-023",
+    }
+)
 
 PASS_FILL = PatternFill("solid", fgColor="C6EFCE")
 PASS_FONT = Font(bold=True, color="006100", name="Calibri")
@@ -32,12 +56,23 @@ STYLE = {
 
 
 def find_header(ws):
-    for r in range(1, 10):
-        vals = [ws.cell(r, c).value for c in range(1, min(ws.max_column, 20) + 1)]
-        if "TC ID" in vals and "Status" in vals:
+    for r in range(1, 12):
+        vals = [ws.cell(r, c).value for c in range(1, min(ws.max_column, 30) + 1)]
+        if not vals:
+            continue
+        has_id = any(v in vals for v in ID_ALIASES)
+        has_status = any(v in vals for v in STATUS_ALIASES)
+        if has_id and has_status:
             cols = {str(v): i + 1 for i, v in enumerate(vals) if v}
             return r, cols
     return None, {}
+
+
+def col_of(cols, aliases):
+    for a in aliases:
+        if a in cols:
+            return cols[a]
+    return None
 
 
 def style_status(cell, status: str):
@@ -59,7 +94,6 @@ def main():
 
     wb = load_workbook(XLSX)
     updated = 0
-    unmatched = []
     seen_legacy = set()
 
     for ws in wb.worksheets:
@@ -68,11 +102,11 @@ def main():
         hr, cols = find_header(ws)
         if not hr:
             continue
-        sc = cols.get("Status")
-        ac = cols.get("Actual Result")
-        ec = cols.get("Executed At")
-        lc = cols.get("Legacy ID")
-        tc = cols.get("TC ID")
+        sc = col_of(cols, STATUS_ALIASES)
+        ac = col_of(cols, ACTUAL_ALIASES)
+        ec = col_of(cols, DATE_ALIASES)
+        lc = col_of(cols, LEGACY_ALIASES)
+        tc = col_of(cols, ID_ALIASES)
         if not sc:
             continue
         for r in range(hr + 1, ws.max_row + 1):
@@ -114,7 +148,6 @@ def main():
         )
     )
     if leftover:
-        unmatched.extend(leftover)
         print("Unmatched Legacy IDs (no row):", ", ".join(leftover[:40]))
 
 

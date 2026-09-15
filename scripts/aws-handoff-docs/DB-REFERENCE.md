@@ -4,6 +4,7 @@
 
 - **Engine:** `scripts/db_exec_sql_file.js` (fail-closed: `=== OK ===` / `=== FAIL ===` / `=== BLOCKED ===`)
 - **Allow gate:** `scripts/assert-db-migrate-allowed.js` — refuses unless `IP_ALLOW_DB_MIGRATE=1` (or confirm CLI flag)
+- **Accident gate:** `scripts/assert-db-migrate-target.js` — blocks AWS RDS when migrate runs on a laptop or Vercel (Path C on EC2 is fine)
 - **Manifest:** 40 SQL files (001–039)
 - **Why Path B must not migrate:** `PATH-B-NO-DB-MIGRATE.txt`
 
@@ -21,8 +22,8 @@ Path C is for a **genuinely fresh/empty** RDS only — never to wipe production.
 |-----------|---------|
 | Path B — app update only | **No DB migrate.** Do not set `IP_ALLOW_DB_MIGRATE`. |
 | Existing / live RDS — schema change | Only when explicitly requested; **data-preserving** SQL only (inspect files first). |
-| Path C — fresh / empty RDS | `IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db` (**empty RDS only**) |
-| Demo users already exist; SQL only | `IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:sql-only` (not auto-safe for live prod) |
+| Path C — fresh / empty RDS | `IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db` (**empty RDS only**; run on EC2) |
+| Demo users already exist; SQL only | `IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:sql-only` (not auto-safe for live prod; on EC2 if target is RDS) |
 
 Casual `npm run deploy:fresh-aws-db` **without** the env prefix exits 1 with `=== BLOCKED ===`.
 

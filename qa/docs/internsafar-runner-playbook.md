@@ -70,14 +70,15 @@ Config: `playwright.config.js` at the app root.
 |---|---|
 | `qa/tests/auth.spec.js` | InternSafar authentication (home login, roles, sign-out) |
 | `qa/tests/google-auth.spec.js` | Real Google OAuth start + error UX |
-| `qa/tests/regression.spec.js` | Latest-update regression smoke (maps to IS-* checklist) |
+| `qa/tests/regression.spec.js` | Latest-update regression smoke (IS-* → InternSafar-Test-Cases.xlsx) |
 | `qa/tests/screens.spec.js` | Role screen smoke after login |
 | `qa/tests/mobile-candidate-internships.spec.js` | Candidate internships on mobile viewport |
 
-Manual checklist (boarders column layout):
+Manual / results workbook (Boarders column names + InternSafar extras):
 
-`test-cases/internsafar_latest_update_test_checklist.xlsx`  
-(regenerate: `npm run qa:checklist:latest`)
+`test-cases/InternSafar-Test-Cases.xlsx`  
+Format reference only: `prompts/Testing/boarders_latest_update_test_checklist.xlsx`  
+Apply: `npm run qa:checklist -- --apply` or `npm run qa:e2e:regression`
 
 Helpers:
 

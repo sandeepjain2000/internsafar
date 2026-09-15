@@ -132,6 +132,13 @@ export async function POST(request) {
       });
     }
 
+    // Duplicate email is decided before Google — clearer UX and allows API QA of 409
+    // without a live OAuth round-trip when the address is already registered.
+    const existing = await query(`SELECT id FROM ip_users WHERE lower(email) = $1`, [email]);
+    if (existing.rows[0]) {
+      return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409 });
+    }
+
     // Domain path requires a real Google verification token issued by the NextAuth
     // signIn callback, so the verified address comes from Google, not this request body.
     let googleIdentity = null;
@@ -158,11 +165,6 @@ export async function POST(request) {
         );
       }
       googleIdentity = verified;
-    }
-
-    const existing = await query(`SELECT id FROM ip_users WHERE lower(email) = $1`, [email]);
-    if (existing.rows[0]) {
-      return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409 });
     }
 
     const password = randomPassword(12);

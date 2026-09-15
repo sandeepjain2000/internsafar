@@ -33,8 +33,15 @@ import {
   REFERRAL_POINTS,
 } from '@/lib/pointsEconomy';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import {
+  IpDateRangeFilter,
+  IpMultiCheckFilter,
+  IpTableFiltersShell,
+} from '@/components/ip/IpTableFiltersShell';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
+import { useClientPagination } from '@/hooks/useClientPagination';
 import '@/components/ip/ip-candidate-referral-gemini.css';
+import '@/components/ip/ip-table-filters.css';
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -43,6 +50,25 @@ const FILTERS = [
   { id: 'invalid', label: 'Invalid' },
 ];
 
+const EMPTY_REF_COLS = {
+  candidates: [],
+  statusLabels: [],
+  details: [],
+  points: [],
+  dateFrom: '',
+  dateTo: '',
+};
+
+const EMPTY_LEDGER_COLS = {
+  reasons: [],
+  categories: [],
+  impacts: [],
+  balances: [],
+  dateFrom: '',
+  dateTo: '',
+};
+
+const PAGE_SIZE = 10;
 function inviteBody(link) {
   return `Hi! I'm using PlacementHub Internship Portal to apply for internships.
 
@@ -70,6 +96,27 @@ function fmtDate(value) {
   });
 }
 
+function dayKey(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0, 10);
+}
+
+function inDateRange(value, from, to) {
+  const key = dayKey(value);
+  if (!key) return !(from || to);
+  if (from && key < from) return false;
+  if (to && key > to) return false;
+  return true;
+}
+
+function uniqSorted(values) {
+  return [...new Set(values.filter((v) => v != null && String(v).trim() !== ''))]
+    .map(String)
+    .sort((a, b) => a.localeCompare(b));
+}
+
 function badgeFor(filterKey) {
   if (filterKey === 'credited') return { cls: 'ip-cr-badge--ok', Icon: CheckCircle2 };
   if (filterKey === 'awaiting') return { cls: 'ip-cr-badge--wait', Icon: Clock };
@@ -86,6 +133,17 @@ function pointsCell(row) {
   return { cls: 'ip-cr-pts-cell--muted', text: '0 pts' };
 }
 
+function countActiveCols(cols, empty) {
+  let n = 0;
+  for (const [k, v] of Object.entries(cols || {})) {
+    const base = empty[k];
+    if (Array.isArray(base)) {
+      if (Array.isArray(v) && v.length) n += 1;
+    } else if (v) n += 1;
+  }
+  return n;
+}
+
 export default function CandidateReferralPage() {
   const [data, setData] = useState(null);
   const [ledger, setLedger] = useState([]);
@@ -93,15 +151,24 @@ export default function CandidateReferralPage() {
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState('');
   const [filter, setFilter] = useState('all');
+  const [refCols, setRefCols] = useState(EMPTY_REF_COLS);
+  const [ledgerCols, setLedgerCols] = useState(EMPTY_LEDGER_COLS);
+  const [refFiltersOpen, setRefFiltersOpen] = useState(false);
+  const [ledgerFiltersOpen, setLedgerFiltersOpen] = useState(false);
   const [modal, setModal] = useState(null);
 
-  const snapshot = useMemo(() => ({ filters: { filter }, sort: '' }), [filter]);
+  const snapshot = useMemo(
+    () => ({ filters: { filter, refCols, ledgerCols }, sort: '' }),
+    [filter, refCols, ledgerCols],
+  );
   const prefs = useListPrefsSync({
     tableKey: 'candidate.referral',
     snapshot,
     applySnapshot: (s) => {
       const f = s.filters || {};
       if (f.filter) setFilter(f.filter);
+      if (f.refCols) setRefCols({ ...EMPTY_REF_COLS, ...f.refCols });
+      if (f.ledgerCols) setLedgerCols({ ...EMPTY_LEDGER_COLS, ...f.ledgerCols });
     },
   });
 
@@ -151,9 +218,85 @@ export default function CandidateReferralPage() {
   );
 
   const filtered = useMemo(() => {
-    if (filter === 'all') return referrals;
-    return referrals.filter((r) => r.filter_key === filter);
-  }, [referrals, filter]);
+    return referrals.filter((r) => {
+      if (filter !== 'all' && r.filter_key !== filter) return false;
+      if (refCols.candidates.length && !refCols.candidates.includes(String(r.display_label || ''))) {
+        return false;
+      }
+      if (refCols.statusLabels.length && !refCols.statusLabels.includes(String(r.status_label || ''))) {
+        return false;
+      }
+      if (refCols.details.length && !refCols.details.includes(String(r.status_detail || ''))) {
+        return false;
+      }
+      if (refCols.points.length && !refCols.points.includes(pointsCell(r).text)) return false;
+      if (!inDateRange(r.created_at, refCols.dateFrom, refCols.dateTo)) return false;
+      return true;
+    });
+  }, [referrals, filter, refCols]);
+
+  const refOptionLists = useMemo(() => {
+    const candidates = uniqSorted(referrals.map((r) => r.display_label));
+    const statusLabels = uniqSorted(referrals.map((r) => r.status_label));
+    const details = uniqSorted(referrals.map((r) => r.status_detail));
+    const pointsOpts = uniqSorted(referrals.map((r) => pointsCell(r).text));
+    return { candidates, statusLabels, details, pointsOpts };
+  }, [referrals]);
+
+  const {
+    page: refPage,
+    setPage: setRefPage,
+    totalPages: refTotalPages,
+    total: refTotal,
+    pageItems: refPageItems,
+  } = useClientPagination(filtered, PAGE_SIZE);
+
+  useEffect(() => {
+    setRefPage(1);
+  }, [filter, refCols, setRefPage]);
+
+  const ledgerOptionLists = useMemo(() => {
+    const reasons = uniqSorted(ledger.map((r) => r.title));
+    const categories = uniqSorted(ledger.map((r) => r.category));
+    const impacts = uniqSorted(ledger.map((r) => `${r.delta >= 0 ? '+' : ''}${r.delta} pts`));
+    const balances = uniqSorted(ledger.map((r) => `${r.balance_after} pts`));
+    return { reasons, categories, impacts, balances };
+  }, [ledger]);
+
+  const filteredLedger = useMemo(() => {
+    return ledger.filter((row) => {
+      if (ledgerCols.reasons.length && !ledgerCols.reasons.includes(String(row.title || ''))) {
+        return false;
+      }
+      if (
+        ledgerCols.categories.length &&
+        !ledgerCols.categories.includes(String(row.category || ''))
+      ) {
+        return false;
+      }
+      const impact = `${row.delta >= 0 ? '+' : ''}${row.delta} pts`;
+      if (ledgerCols.impacts.length && !ledgerCols.impacts.includes(impact)) return false;
+      const bal = `${row.balance_after} pts`;
+      if (ledgerCols.balances.length && !ledgerCols.balances.includes(bal)) return false;
+      if (!inDateRange(row.created_at, ledgerCols.dateFrom, ledgerCols.dateTo)) return false;
+      return true;
+    });
+  }, [ledger, ledgerCols]);
+
+  const {
+    page: ledPage,
+    setPage: setLedPage,
+    totalPages: ledTotalPages,
+    total: ledTotal,
+    pageItems: ledPageItems,
+  } = useClientPagination(filteredLedger, PAGE_SIZE);
+
+  useEffect(() => {
+    setLedPage(1);
+  }, [ledgerCols, setLedPage]);
+
+  const refActive = countActiveCols(refCols, EMPTY_REF_COLS);
+  const ledgerActive = countActiveCols(ledgerCols, EMPTY_LEDGER_COLS);
 
   function copyLink() {
     if (!link) return;
@@ -447,6 +590,45 @@ export default function CandidateReferralPage() {
         </div>
         <ListPresetsBar {...prefs} />
 
+        <IpTableFiltersShell
+          open={refFiltersOpen}
+          onToggle={() => setRefFiltersOpen((v) => !v)}
+          activeCount={refActive}
+          onClear={() => setRefCols(EMPTY_REF_COLS)}
+        >
+          <IpMultiCheckFilter
+            label="Referred Candidate"
+            options={refOptionLists.candidates}
+            values={refCols.candidates}
+            onChange={(candidates) => setRefCols((c) => ({ ...c, candidates }))}
+          />
+          <IpDateRangeFilter
+            label="Invite Date"
+            from={refCols.dateFrom}
+            to={refCols.dateTo}
+            onFrom={(dateFrom) => setRefCols((c) => ({ ...c, dateFrom }))}
+            onTo={(dateTo) => setRefCols((c) => ({ ...c, dateTo }))}
+          />
+          <IpMultiCheckFilter
+            label="Referral Status"
+            options={refOptionLists.statusLabels}
+            values={refCols.statusLabels}
+            onChange={(statusLabels) => setRefCols((c) => ({ ...c, statusLabels }))}
+          />
+          <IpMultiCheckFilter
+            label="Status Details / Reason"
+            options={refOptionLists.details}
+            values={refCols.details}
+            onChange={(details) => setRefCols((c) => ({ ...c, details }))}
+          />
+          <IpMultiCheckFilter
+            label="Points Reward"
+            options={refOptionLists.pointsOpts}
+            values={refCols.points}
+            onChange={(points) => setRefCols((c) => ({ ...c, points }))}
+          />
+        </IpTableFiltersShell>
+
         {!referrals.length ? (
           <div className="ip-cr-empty">
             <div className="ip-cr-empty__icon">
@@ -470,40 +652,65 @@ export default function CandidateReferralPage() {
             <span>There are no referrals matching this status filter.</span>
           </div>
         ) : (
-          <div className="ip-cr-table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Referred Candidate</th>
-                  <th>Invite Date</th>
-                  <th>Referral Status</th>
-                  <th>Status Details / Reason</th>
-                  <th style={{ textAlign: 'right' }}>Points Reward</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((r) => {
-                  const badge = badgeFor(r.filter_key);
-                  const pts = pointsCell(r);
-                  const Icon = badge.Icon;
-                  return (
-                    <tr key={r.id}>
-                      <td className="ip-cr-name">{r.display_label}</td>
-                      <td className="ip-cr-mono">{fmtDate(r.created_at)}</td>
-                      <td>
-                        <span className={`ip-cr-badge ${badge.cls}`}>
-                          <Icon aria-hidden />
-                          {r.status_label}
-                        </span>
-                      </td>
-                      <td>{r.status_detail}</td>
-                      <td className={`ip-cr-right ${pts.cls}`}>{pts.text}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className="ip-cr-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Referred Candidate</th>
+                    <th>Invite Date</th>
+                    <th>Referral Status</th>
+                    <th>Status Details / Reason</th>
+                    <th style={{ textAlign: 'right' }}>Points Reward</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {refPageItems.map((r) => {
+                    const badge = badgeFor(r.filter_key);
+                    const pts = pointsCell(r);
+                    const Icon = badge.Icon;
+                    return (
+                      <tr key={r.id}>
+                        <td className="ip-cr-name">{r.display_label}</td>
+                        <td className="ip-cr-mono">{fmtDate(r.created_at)}</td>
+                        <td>
+                          <span className={`ip-cr-badge ${badge.cls}`}>
+                            <Icon aria-hidden />
+                            {r.status_label}
+                          </span>
+                        </td>
+                        <td>{r.status_detail}</td>
+                        <td className={`ip-cr-right ${pts.cls}`}>{pts.text}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {refTotalPages > 1 ? (
+              <div className="ip-cr-pager">
+                <button
+                  type="button"
+                  className="ip-cr-btn"
+                  disabled={refPage <= 1}
+                  onClick={() => setRefPage(refPage - 1)}
+                >
+                  Prev
+                </button>
+                <span>
+                  {refPage} / {refTotalPages} · {refTotal} shown
+                </span>
+                <button
+                  type="button"
+                  className="ip-cr-btn"
+                  disabled={refPage >= refTotalPages}
+                  onClick={() => setRefPage(refPage + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            ) : null}
+          </>
         )}
 
         <div className="ip-cr-foot">
@@ -533,6 +740,47 @@ export default function CandidateReferralPage() {
           </div>
         </div>
 
+        <ListPresetsBar {...prefs} />
+
+        <IpTableFiltersShell
+          open={ledgerFiltersOpen}
+          onToggle={() => setLedgerFiltersOpen((v) => !v)}
+          activeCount={ledgerActive}
+          onClear={() => setLedgerCols(EMPTY_LEDGER_COLS)}
+        >
+          <IpDateRangeFilter
+            label="Date"
+            from={ledgerCols.dateFrom}
+            to={ledgerCols.dateTo}
+            onFrom={(dateFrom) => setLedgerCols((c) => ({ ...c, dateFrom }))}
+            onTo={(dateTo) => setLedgerCols((c) => ({ ...c, dateTo }))}
+          />
+          <IpMultiCheckFilter
+            label="Transaction Details / Reason"
+            options={ledgerOptionLists.reasons}
+            values={ledgerCols.reasons}
+            onChange={(reasons) => setLedgerCols((c) => ({ ...c, reasons }))}
+          />
+          <IpMultiCheckFilter
+            label="Category"
+            options={ledgerOptionLists.categories}
+            values={ledgerCols.categories}
+            onChange={(categories) => setLedgerCols((c) => ({ ...c, categories }))}
+          />
+          <IpMultiCheckFilter
+            label="Points Impact"
+            options={ledgerOptionLists.impacts}
+            values={ledgerCols.impacts}
+            onChange={(impacts) => setLedgerCols((c) => ({ ...c, impacts }))}
+          />
+          <IpMultiCheckFilter
+            label="Balance After"
+            options={ledgerOptionLists.balances}
+            values={ledgerCols.balances}
+            onChange={(balances) => setLedgerCols((c) => ({ ...c, balances }))}
+          />
+        </IpTableFiltersShell>
+
         {!ledger.length ? (
           <div className="ip-cr-empty">
             <div className="ip-cr-empty__icon">
@@ -541,44 +789,77 @@ export default function CandidateReferralPage() {
             <p>No ledger rows yet</p>
             <span>Signup, referrals, profile completion, and applications appear here.</span>
           </div>
-        ) : (
-          <div className="ip-cr-table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Transaction Details / Reason</th>
-                  <th>Category</th>
-                  <th style={{ textAlign: 'center' }}>Points Impact</th>
-                  <th style={{ textAlign: 'right' }}>Balance After</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ledger.map((row) => {
-                  const pos = row.delta >= 0;
-                  return (
-                    <tr key={row.id}>
-                      <td className="ip-cr-mono">{fmtDate(row.created_at)}</td>
-                      <td>
-                        <div className="ip-cr-name">{row.title}</div>
-                        {row.subtitle ? <div className="ip-cr-muted">{row.subtitle}</div> : null}
-                      </td>
-                      <td>
-                        <span className={`ip-cr-cat ip-cr-cat--${row.categoryKey || 'other'}`}>
-                          {row.category}
-                        </span>
-                      </td>
-                      <td className={`ip-cr-impact ${pos ? 'ip-cr-impact--pos' : 'ip-cr-impact--neg'}`}>
-                        {pos ? '+' : ''}
-                        {row.delta} pts
-                      </td>
-                      <td className="ip-cr-right">{row.balance_after} pts</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        ) : !filteredLedger.length ? (
+          <div className="ip-cr-empty">
+            <div className="ip-cr-empty__icon">
+              <Coins size={22} aria-hidden />
+            </div>
+            <p>No ledger rows match</p>
+            <span>Try clearing column filters.</span>
           </div>
+        ) : (
+          <>
+            <div className="ip-cr-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Transaction Details / Reason</th>
+                    <th>Category</th>
+                    <th style={{ textAlign: 'center' }}>Points Impact</th>
+                    <th style={{ textAlign: 'right' }}>Balance After</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ledPageItems.map((row) => {
+                    const pos = row.delta >= 0;
+                    return (
+                      <tr key={row.id}>
+                        <td className="ip-cr-mono">{fmtDate(row.created_at)}</td>
+                        <td>
+                          <div className="ip-cr-name">{row.title}</div>
+                          {row.subtitle ? <div className="ip-cr-muted">{row.subtitle}</div> : null}
+                        </td>
+                        <td>
+                          <span className={`ip-cr-cat ip-cr-cat--${row.categoryKey || 'other'}`}>
+                            {row.category}
+                          </span>
+                        </td>
+                        <td className={`ip-cr-impact ${pos ? 'ip-cr-impact--pos' : 'ip-cr-impact--neg'}`}>
+                          {pos ? '+' : ''}
+                          {row.delta} pts
+                        </td>
+                        <td className="ip-cr-right">{row.balance_after} pts</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {ledTotalPages > 1 ? (
+              <div className="ip-cr-pager">
+                <button
+                  type="button"
+                  className="ip-cr-btn"
+                  disabled={ledPage <= 1}
+                  onClick={() => setLedPage(ledPage - 1)}
+                >
+                  Prev
+                </button>
+                <span>
+                  {ledPage} / {ledTotalPages} · {ledTotal} shown
+                </span>
+                <button
+                  type="button"
+                  className="ip-cr-btn"
+                  disabled={ledPage >= ledTotalPages}
+                  onClick={() => setLedPage(ledPage + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            ) : null}
+          </>
         )}
       </div>
 

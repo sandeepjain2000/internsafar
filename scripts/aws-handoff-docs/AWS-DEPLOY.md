@@ -30,6 +30,7 @@ Going forward, migrations must keep existing data intact.
 They cannot be delete-and-insert or truncate-and-insert refresh/replace workflows.
 Prefer additive schema and in-place / idempotent updates.
 Do not treat Path C or “sql-only” as permission to wipe an existing production database.
+Laptop/Vercel migrate refuses AWS RDS hostnames (accident guard); Path C on EC2 is unchanged.
 
 ### Which DB script?
 
@@ -37,7 +38,7 @@ Do not treat Path C or “sql-only” as permission to wipe an existing producti
 |-----------|---------|
 | Path B — app code update | **Do not run DB migrate/seed.** Do not set `IP_ALLOW_DB_MIGRATE`. |
 | Existing / live RDS — schema change | Only when explicitly requested; **data-preserving** SQL only (inspect first). |
-| Path C — fresh / empty RDS | **`IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db`** (**empty RDS only**) |
+| Path C — fresh / empty RDS | **`IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db`** (**empty RDS only**; run on EC2) |
 | SQL only; demo users already exist | **`IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:sql-only`** (review SQL; not auto-safe for live prod) |
 
 **Why / how stopped in code:** see `PATH-B-NO-DB-MIGRATE.txt` (gate: `scripts/assert-db-migrate-allowed.js`). Without the allow env/flag, migrate prints `=== BLOCKED ===` and exits 1.

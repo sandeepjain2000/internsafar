@@ -10,9 +10,11 @@ const fs = require('fs');
 const path = require('path');
 const { Client } = require('pg');
 const { assertDbMigrateAllowed } = require('./assert-db-migrate-allowed');
+const { assertDbMigrateTargetAllowed } = require('./assert-db-migrate-target');
 const { assertMigrationSqlSafe } = require('./assert-migration-sql-safe');
 
 assertDbMigrateAllowed(process.argv);
+assertDbMigrateTargetAllowed(process.argv);
 
 function readEnvFile(filename) {
   const envPath = path.join(process.cwd(), filename);

@@ -27,7 +27,9 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const { assertDbMigrateAllowed } = require('./assert-db-migrate-allowed.js');
+const { assertDbMigrateTargetAllowed } = require('./assert-db-migrate-target.js');
 assertDbMigrateAllowed(process.argv);
+assertDbMigrateTargetAllowed(process.argv);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const handoffRoot = path.join(__dirname, '..');

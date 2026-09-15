@@ -78,7 +78,7 @@ InternSafar — DB scripts in the project tar (npm run from ~/internship-portal 
 =====================================================================================
 
 Migrations (require explicit allow — Path B must NOT set this):
-  IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db     Fresh / empty RDS ONLY
+  IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db     Fresh / empty RDS ONLY (run on EC2)
   IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:sql-only     SQL 001–039 when demo users exist
   IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:ip           001 base schema only (specialist)
   IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:workbench    016–027 (specialist)
@@ -86,6 +86,7 @@ Migrations (require explicit allow — Path B must NOT set this):
 
 Without IP_ALLOW_DB_MIGRATE=1, migrate prints === BLOCKED === and exits 1.
 Why / how: PATH-B-NO-DB-MIGRATE.txt  |  Gate: scripts/assert-db-migrate-allowed.js
+Laptop/Vercel accident guard (RDS hostname): scripts/assert-db-migrate-target.js — does not change Path C on EC2.
 
 Path B (app code update): do NOT run any DB migrate/seed. Do NOT set IP_ALLOW_DB_MIGRATE.
 
@@ -116,6 +117,8 @@ Write-Host "Copied $($manifestFiles.Count) migration SQL files"
 Copy-Item -LiteralPath $ManifestSrc -Destination (Join-Path $HandoffRoot 'runner\MIGRATION_MANIFEST.txt') -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'db_exec_sql_file.js') -Destination (Join-Path $HandoffRoot 'runner\db_exec_sql_file.js') -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'assert-db-migrate-allowed.js') -Destination (Join-Path $HandoffRoot 'runner\assert-db-migrate-allowed.js') -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'assert-db-migrate-target.js') -Destination (Join-Path $HandoffRoot 'runner\assert-db-migrate-target.js') -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'assert-migration-sql-safe.js') -Destination (Join-Path $HandoffRoot 'runner\assert-migration-sql-safe.js') -Force
 Copy-Item -LiteralPath (Join-Path $DocsSrc 'db_migrate_sql_only_ip.mjs') -Destination (Join-Path $HandoffRoot 'runner\db_migrate_sql_only_ip.mjs') -Force
 
 # README.txt is generated after the app tar exists (complete folder tree) — see end of script
