@@ -23,7 +23,7 @@ npm run dev
 
 Open http://localhost:3000
 
-Demo SuperAdmin (ensured via `/api/ip/bootstrap`): `support@placementhub.online` / `Admin@123`
+Demo SuperAdmin (ensured via `/api/ip/bootstrap`): `support@placementhub.online` — password from local `coreaccountspass.json` (never committed; bootstrap does not reset existing passwords).
 
 Local `@internship.local` demo candidate/employer seeds are **not** recreated by bootstrap.
 

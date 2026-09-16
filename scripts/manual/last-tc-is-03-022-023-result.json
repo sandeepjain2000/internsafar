@@ -1,0 +1,14 @@
+{
+  "results": {
+    "TC-IS-03-022": {
+      "status": "Pass",
+      "actual": "API Pass 2026-09-15 (Vercel): register-candidate qa.nongmail.mu2ndhe6@yahoo.com → 400 (Only Gmail addresses (@gmail.com) are allowed for candidate registration. Yahoo and other providers are not accepted.). No Google OAuth required."
+    },
+    "TC-IS-03-023": {
+      "status": "Pass",
+      "actual": "API Pass 2026-09-15 (Vercel): domain register-employer qa.personal.mu2ndhe6@gmail.com + https://gmail.com → 400 (gmail.com is a personal mailbox provider, not a company domain. Use your company domain, or the Form path if you do not have one.). No Google OAuth required."
+    }
+  },
+  "executed": "2026-09-15T12:27:54.901Z",
+  "base": "https://internship-portal-sigma-mauve.vercel.app"
+}

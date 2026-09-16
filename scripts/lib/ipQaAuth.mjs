@@ -1,24 +1,53 @@
 /**
  * Shared NextAuth credentials login for IP QA scripts (API cookie jar).
+ * Core passwords come from local coreaccountspass.json (gitignored).
  */
 import { createRequire } from 'module';
-import { resolve, dirname } from 'path';
+import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const {
   SUPERADMIN_EMAIL,
-  DEMO_PASSWORD,
   CAST_CANDIDATES,
   CAST_EMPLOYERS,
+  getCorePasswordForEmailOrRole,
 } = require('./ipCoreSampleConfig.js');
 
+function pw(email, role) {
+  return getCorePasswordForEmailOrRole(email, role);
+}
+
 export const QA_ACCOUNTS = {
-  superadmin: { email: SUPERADMIN_EMAIL, password: DEMO_PASSWORD, role: 'superadmin' },
-  candidate: { email: CAST_CANDIDATES[0].email, password: DEMO_PASSWORD, role: 'candidate' },
-  employer: { email: CAST_EMPLOYERS[0].email, password: DEMO_PASSWORD, role: 'employer' },
-  employerPending: { email: CAST_EMPLOYERS[1].email, password: DEMO_PASSWORD, role: 'employer' },
+  superadmin: {
+    email: SUPERADMIN_EMAIL,
+    get password() {
+      return pw(SUPERADMIN_EMAIL, 'superadmin');
+    },
+    role: 'superadmin',
+  },
+  candidate: {
+    email: CAST_CANDIDATES[0].email,
+    get password() {
+      return pw(CAST_CANDIDATES[0].email, 'candidate');
+    },
+    role: 'candidate',
+  },
+  employer: {
+    email: CAST_EMPLOYERS[0].email,
+    get password() {
+      return pw(CAST_EMPLOYERS[0].email, 'employer');
+    },
+    role: 'employer',
+  },
+  employerPending: {
+    email: CAST_EMPLOYERS[1].email,
+    get password() {
+      return pw(CAST_EMPLOYERS[1].email, 'employer');
+    },
+    role: 'employer',
+  },
 };
 
 export function cookieJar() {

@@ -137,7 +137,7 @@ function runCoreSeed() {
 async function printVerification() {
   const cfg = require('./lib/ipCoreSampleConfig.js');
   console.log('\n=== Verification ===');
-  console.log('Demo accounts (password Admin@123):');
+  console.log('Demo accounts (passwords from coreaccountspass.json):');
   console.log(`  Candidate:   ${cfg.CAND_BASE}`);
   console.log(`  Employer:    ${cfg.EMP_BASE}`);
   console.log(`  SuperAdmin:  ${cfg.SUPERADMIN_EMAIL}`);

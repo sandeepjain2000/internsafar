@@ -235,6 +235,59 @@
   color: #64748b;
 }
 
+.ip-emp-profile .ip-ep-phone {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #fff;
+  overflow: hidden;
+}
+
+.ip-emp-profile .ip-ep-phone:focus-within {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.ip-emp-profile .ip-ep-phone__dial {
+  flex: 0 0 auto;
+  max-width: 11rem;
+  border: 0;
+  border-right: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.875rem;
+  color: #0f172a;
+}
+
+.ip-emp-profile .ip-ep-phone__dial:focus {
+  outline: none;
+}
+
+.ip-emp-profile .ip-ep-phone__num {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.875rem;
+  background: transparent;
+}
+
+.ip-emp-profile .ip-ep-phone__num:focus {
+  outline: none;
+}
+
+.ip-emp-profile .ip-ep-phone__num.is-invalid {
+  background: #fef2f2;
+}
+
+.ip-emp-profile .ip-ep-error {
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  color: #b91c1c;
+}
+
 .ip-emp-profile .ip-ep-logo-row {
   display: flex;
   align-items: flex-start;

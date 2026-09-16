@@ -2,7 +2,7 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { CheckCircle2, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
-import { verifyCaptchaAnswer } from '@/lib/captchaClient';
+import { peekCaptchaOperands, verifyCaptchaAnswer } from '@/lib/captchaClient';
 import {
   CAPTCHA_BYPASS_FOR_TESTING,
   STATIC_CAPTCHA_QUESTION,
@@ -47,6 +47,8 @@ const LoginCaptchaField = forwardRef(function LoginCaptchaField(
     /** When true, verifies with the server on blur / Enter (registration). */
     verifyEarly = false,
     onVerifiedChange,
+    /** Notify parent while /api/auth/captcha is in flight (disable Sign In). */
+    onLoadingChange,
     /** `default` | `securityCard` (HTML redesign Security Verification card) */
     variant = 'default',
   },
@@ -66,6 +68,7 @@ const LoginCaptchaField = forwardRef(function LoginCaptchaField(
   const onTokenChangeRef = useRef(onTokenChange);
   const onAnswerChangeRef = useRef(onAnswerChange);
   const onVerifiedChangeRef = useRef(onVerifiedChange);
+  const onLoadingChangeRef = useRef(onLoadingChange);
 
   useEffect(() => {
     onTokenChangeRef.current = onTokenChange;
@@ -76,6 +79,12 @@ const LoginCaptchaField = forwardRef(function LoginCaptchaField(
   useEffect(() => {
     onVerifiedChangeRef.current = onVerifiedChange;
   }, [onVerifiedChange]);
+  useEffect(() => {
+    onLoadingChangeRef.current = onLoadingChange;
+  }, [onLoadingChange]);
+  useEffect(() => {
+    onLoadingChangeRef.current?.(loading);
+  }, [loading]);
 
   const unlockAnswer = () => setAnswerLocked(false);
 
@@ -122,9 +131,14 @@ const LoginCaptchaField = forwardRef(function LoginCaptchaField(
   }, [verifyEarly, token, answer, resetVerification, setVerified]);
 
   const applyChallenge = useCallback((nextQuestion, nextToken) => {
-    setQuestion(nextQuestion || 'Answer the question below');
-    setDummyHint('');
     tokenRef.current = nextToken || '';
+    // Lock visible equation to the token body so UI cannot lag behind tokenRef.
+    const ops = peekCaptchaOperands(tokenRef.current);
+    const syncedQuestion = ops
+      ? `What is ${ops.a} + ${ops.b}?`
+      : nextQuestion || 'Answer the question below';
+    setQuestion(syncedQuestion);
+    setDummyHint('');
     onTokenChangeRef.current(tokenRef.current);
     onAnswerChangeRef.current('');
     if (inputRef.current) inputRef.current.value = '';
@@ -197,8 +211,14 @@ const LoginCaptchaField = forwardRef(function LoginCaptchaField(
     if (verifyEarly) resetVerification();
   };
 
-  /** Turn "What is 3 + 4?" into "3 + 4 = ?" for Security Card badge. */
+  /**
+   * Prefer operands decoded from the live token so the badge always matches
+   * what submit will verify (avoids question-state lagging behind tokenRef).
+   */
   const equationBadge = (() => {
+    const liveToken = tokenRef.current || token;
+    const ops = peekCaptchaOperands(liveToken);
+    if (ops) return `${ops.a} + ${ops.b} = ?`;
     const m = String(question || '').match(/(\d+)\s*\+\s*(\d+)/);
     if (m) return `${m[1]} + ${m[2]} = ?`;
     return loading ? '…' : question || '?';

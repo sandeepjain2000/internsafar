@@ -9,6 +9,7 @@ export async function ensureIpEmployerApprovalSchema() {
   await query(`ALTER TABLE ip_employers ADD COLUMN IF NOT EXISTS approval_reviewed_at TIMESTAMPTZ`);
   await query(`ALTER TABLE ip_employers ADD COLUMN IF NOT EXISTS rejection_reason TEXT`);
   await query(`ALTER TABLE ip_employers ADD COLUMN IF NOT EXISTS business_entity_type TEXT`);
+  await query(`ALTER TABLE ip_employers ADD COLUMN IF NOT EXISTS contact_phone_country_code TEXT`);
   await query(`ALTER TABLE ip_employer_requests ADD COLUMN IF NOT EXISTS rejection_reason TEXT`);
   await query(`ALTER TABLE ip_employer_requests ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ`);
   await query(`ALTER TABLE ip_employer_requests ADD COLUMN IF NOT EXISTS contact_designation TEXT`);

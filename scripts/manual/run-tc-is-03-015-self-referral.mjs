@@ -13,7 +13,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execFileSync } from 'child_process';
 import dotenv from 'dotenv';
-import { apiLogin, apiRequest, fetchLoginCaptcha } from '../lib/ipQaAuth.mjs';
+import { apiLogin, apiRequest, fetchLoginCaptcha, QA_ACCOUNTS } from '../lib/ipQaAuth.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(__dirname, '..', '..');
@@ -28,7 +28,7 @@ const BASE =
   'https://internship-portal-sigma-mauve.vercel.app';
 
 const TC_ID = 'TC-IS-03-015';
-const CAND = { email: 'lawsonlclintern+1@gmail.com', password: 'Admin@123' };
+const CAND = { email: QA_ACCOUNTS.candidate.email, password: QA_ACCOUNTS.candidate.password };
 const REG_PW = 'Admin@1234';
 
 function sleep(ms) {

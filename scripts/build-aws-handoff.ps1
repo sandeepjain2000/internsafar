@@ -12,13 +12,14 @@ $MigrationsSrc = Join-Path $ProjectRoot 'db\migrations'
 
 $ExcludeDirNames = @(
     'node_modules', '.next', '.vercel', '.git', 'test-results', 'tmp-screenshots',
-    '.local-qa-2fa-bypass-backup', '.cursor', 'ai-context', 'prompts', 'coverage', 'playwright-report',
+    '.local-qa-2fa-bypass-backup', '.local', '.cursor', 'ai-context', 'prompts', 'coverage', 'playwright-report',
     '.turbo', 'out', 'build', '.netlify', '.cache', 'aws-migration',
     'nvidia_keys', 'nvidia keys', '_local-backups-internship-portal'
 )
 
 $ExcludeFilePatterns = @(
     '.env', '.env.local', '.env.*.local', '.env.development.local', '.env.production.local',
+    'coreaccountspass.json',
     'client_secret*.json', '*.pem', '*.key', '*.p12', '*.pfx', '*.crt', '*.cer',
     'migrate-and-seed.mjs',
     '001_ism_schema.sql', '002_ism_portal_features.sql', '003_notifications_mailbox.sql',
@@ -139,8 +140,10 @@ $ArchiveBase = Join-Path $HandoffRoot ("internship-portal-aws-deploy-$Timestamp"
 $TarPath = "$ArchiveBase.tar.gz"
 $ArchiveScript = Join-Path $PSScriptRoot 'linux-safe-archive.py'
 if (Test-Path $TarPath) { Remove-Item -LiteralPath $TarPath -Force }
-Write-Host "Creating Linux-safe tar.gz for app..."
-python $ArchiveScript $StagingApp --tar $TarPath
+# Archive StagingRoot (not StagingApp) so paths are internship-portal/... —
+# Path B expects: tar -C ~/internship-portal-new then mv .../internship-portal ~/internship-portal
+Write-Host "Creating Linux-safe tar.gz for app (nested internship-portal/ prefix)..."
+python $ArchiveScript $StagingRoot --tar $TarPath
 if ($LASTEXITCODE -ne 0) { throw "linux-safe-archive.py failed with exit $LASTEXITCODE" }
 Remove-Item -LiteralPath $StagingRoot -Recurse -Force
 

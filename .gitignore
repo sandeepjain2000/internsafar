@@ -82,6 +82,9 @@ tmp-screenshots/
 _tmp_*
 .mail-override-test-*
 .local-qa-2fa-bypass-backup/
+.local/
+coreaccountspass.json
+**/coreaccountspass.json
 *.bak
 *.bak-*
 # Cursor / local AI context (do not push to GitHub, Vercel, or AWS packs)

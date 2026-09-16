@@ -32,13 +32,14 @@ BLOCK_FILL = PatternFill("solid", fgColor="D9D9D9")
 BLOCK_FONT = Font(bold=True, color="595959", name="Calibri")
 NOTRUN_FILL = PatternFill("solid", fgColor="FFF2CC")
 
+# Passwords for core accounts: local gitignored coreaccountspass.json (never in workbook).
 DEMO = {
-    "candidate": "lawsonlclintern+1@gmail.com / Admin@123",
-    "candidate2": "lawsonlclintern+2@gmail.com / Admin@123",
-    "candidate_hidden": "lawsonlclintern+3@gmail.com / Admin@123",
-    "employer": "placementhubsupport@gmail.com / Admin@123",
+    "candidate": "lawsonlclintern+1@gmail.com (password: coreaccountspass.json)",
+    "candidate2": "lawsonlclintern+2@gmail.com (password: coreaccountspass.json)",
+    "candidate_hidden": "lawsonlclintern+3@gmail.com (password: coreaccountspass.json)",
+    "employer": "placementhubsupport@gmail.com (password: coreaccountspass.json)",
     "employer_pending": "support+3@placementhub.online (pending)",
-    "superadmin": "support@placementhub.online / Admin@123",
+    "superadmin": "support@placementhub.online (password: coreaccountspass.json)",
 }
 
 # Prefix → InternSafar module (current product, not Reference A 25-module list)
@@ -141,8 +142,8 @@ LIVE = {
         "title": "Valid email + password + captcha lands on that role’s home",
         "steps": (
             "1. Open `/`.\n"
-            "2. Candidate: lawsonlclintern+1@gmail.com / Admin@123 + captcha → submit.\n"
-            "3. Sign out. Repeat as employer placementhubsupport@gmail.com / Admin@123.\n"
+            "2. Candidate: lawsonlclintern+1@gmail.com + password from coreaccountspass.json + captcha → submit.\n"
+            "3. Sign out. Repeat as employer placementhubsupport@gmail.com (same JSON file).\n"
             "4. SuperAdmin uses /superadmin/login with #sa-email / #sa-password, not the home form."
         ),
         "expected": "Candidate → /candidate. Employer → /employer. SuperAdmin from /superadmin/login → /superadmin. Home form is for candidate/employer.",
@@ -161,7 +162,7 @@ LIVE = {
         "title": "SuperAdmin signs in only on /superadmin/login",
         "steps": (
             "1. Open /superadmin/login.\n"
-            "2. Sign in with support@placementhub.online / Admin@123 + captcha (#sa-email, #sa-password).\n"
+            "2. Sign in with support@placementhub.online + password from coreaccountspass.json + captcha (#sa-email, #sa-password).\n"
             "3. On `/` try the same SuperAdmin email in #email/#password.\n"
             "4. On /superadmin/login try lawsonlclintern+1@gmail.com."
         ),
@@ -172,8 +173,8 @@ LIVE = {
         "steps": (
             "1. Sign in as candidate on `/` (#email/#password).\n"
             "2. Open /account.\n"
-            "3. Current password Admin@123. New password must be ≥8 and include uppercase, a digit, and a special character (e.g. Admin@124).\n"
-            "4. Sign in again with the new password, then restore Admin@123 if this is a shared core account."
+            "3. Current password from coreaccountspass.json. New password must be ≥8 and include uppercase, a digit, and a special character (e.g. a unique test password).\n"
+            "4. Sign in again with the new password; restore the core password via set-core-passwords-from-json if this is a shared core account."
         ),
         "expected": "Change succeeds only when the new password meets Account rules. Register-form rule (length only) does not apply here.",
     },
@@ -190,7 +191,7 @@ LIVE = {
         "title": "App bootstrap keeps SuperAdmin seed",
         "steps": (
             "1. POST /api/ip/bootstrap (happens on SA login page load too).\n"
-            "2. Sign in support@placementhub.online / Admin@123 on /superadmin/login.\n"
+            "2. Sign in support@placementhub.online (coreaccountspass.json) on /superadmin/login.\n"
             "3. Confirm core candidate/employer are the Gmail+ accounts, not deleted by bootstrap."
         ),
         "expected": "SuperAdmin can sign in. Showcase accounts stay lawsonlclintern+1@gmail.com and placementhubsupport@gmail.com.",

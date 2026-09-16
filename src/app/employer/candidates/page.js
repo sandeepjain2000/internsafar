@@ -9,6 +9,7 @@ import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
+import useIpCityCatalog from '@/hooks/useIpCityCatalog';
 import { experienceSummaryLabel } from '@/lib/ipCandidateExperience';
 import '@/components/ip/ip-employer-candidates-gemini.css';
 
@@ -70,11 +71,11 @@ function relLine(c) {
 }
 
 export default function CandidateSearchPage() {
+  const { placeCityOptions, loading: citiesLoading } = useIpCityCatalog();
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState({ found: 0, roleMatches: 0, shortlisted: 0, invitesPending: 0 });
   const [q, setQ] = useState('');
   const [cities, setCities] = useState([]);
-  const [cityOptions, setCityOptions] = useState([]);
   const [degree, setDegree] = useState('');
   const [degreeOptions, setDegreeOptions] = useState([]);
   const [workMode, setWorkMode] = useState('');
@@ -159,7 +160,6 @@ export default function CandidateSearchPage() {
   }
 
   useEffect(() => {
-    fetch('/api/ip/ref/cities').then((r) => r.json()).then((d) => setCityOptions(d.items || [])).catch(() => {});
     fetch('/api/ip/ref/degrees').then((r) => r.json()).then((d) => setDegreeOptions(d.items || [])).catch(() => {});
     fetch('/api/ip/employer/internships')
       .then((r) => r.json())
@@ -415,9 +415,10 @@ export default function CandidateSearchPage() {
               <div className="ip-ec-fsec">
                 <span>Location</span>
                 <SearchableMultiSelect
-                  options={cityOptions}
+                  options={placeCityOptions}
                   value={cities}
                   onChange={setCities}
+                  loading={citiesLoading && !(placeCityOptions || []).length}
                   placeholder="Search cities…"
                   ariaLabel="Cities"
                 />
@@ -623,9 +624,10 @@ export default function CandidateSearchPage() {
             <div className="ip-ec-fsec">
               <span>Location</span>
               <SearchableMultiSelect
-                options={cityOptions}
+                options={placeCityOptions}
                 value={cities}
                 onChange={setCities}
+                loading={citiesLoading && !(placeCityOptions || []).length}
                 placeholder="Search cities…"
                 ariaLabel="Cities"
               />

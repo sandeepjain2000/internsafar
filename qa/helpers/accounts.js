@@ -1,10 +1,21 @@
-/** InternSafar core demo accounts (scripts/lib/ipCoreSampleConfig.js). */
+/** InternSafar core demo accounts (scripts/lib/ipCoreSampleConfig.js).
+ * Passwords: local coreaccountspass.json via loadCoreAccountPasswords (gitignored).
+ */
+const {
+  getCorePasswordForRole,
+  CAND_BASE,
+  EMP_BASE,
+  SUPERADMIN_EMAIL,
+} = require('../../scripts/lib/ipCoreSampleConfig.js');
+
 module.exports = {
-  password: 'Admin@123',
-  candidate: { email: 'lawsonlclintern+1@gmail.com', home: /\/candidate(\/|$|\?)/ },
-  employer: { email: 'placementhubsupport@gmail.com', home: /\/employer(\/|$|\?)/ },
+  get password() {
+    return getCorePasswordForRole('candidate');
+  },
+  candidate: { email: CAND_BASE || 'lawsonlclintern+1@gmail.com', home: /\/candidate(\/|$|\?)/ },
+  employer: { email: EMP_BASE || 'placementhubsupport@gmail.com', home: /\/employer(\/|$|\?)/ },
   // Filler employer awaiting SuperAdmin approval — a +alias of the core employer.
   employerPending: { email: 'placementhubsupport+3@gmail.com', home: /\/employer(\/|$|\?)/ },
   // Exclude /superadmin/login — that path is the gate, not the dashboard.
-  superadmin: { email: 'support@placementhub.online', home: /\/superadmin(?!\/login)(\/|$|\?)/ },
+  superadmin: { email: SUPERADMIN_EMAIL || 'support@placementhub.online', home: /\/superadmin(?!\/login)(\/|$|\?)/ },
 };

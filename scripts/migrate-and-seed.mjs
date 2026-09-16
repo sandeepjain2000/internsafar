@@ -70,7 +70,10 @@ async function main() {
       console.log(`Migration ${mig} applied (IF NOT EXISTS).`);
     }
 
-    const hash = await bcrypt.hash('Admin@123', 10);
+    const legacySeedPassword =
+      process.env.ISM_LEGACY_SEED_PASSWORD ||
+      'Legacy-Ism-Demo-Seed-Set-ISM_LEGACY_SEED_PASSWORD';
+    const hash = await bcrypt.hash(legacySeedPassword, 10);
 
     const demos = [
       {
@@ -448,7 +451,7 @@ async function main() {
     );
 
     console.log(
-      'Seed demos OK: ism.student1@ / ism.student2@ / ism.employer@ / ism.employer.pending@ / ism.admin@ yopmail.com (Admin@123)',
+      'Seed demos OK: ism.student1@ / ism.student2@ / ism.employer@ / ism.employer.pending@ / ism.admin@ yopmail.com (password: ISM_LEGACY_SEED_PASSWORD env or script default)',
     );
     console.log(
       'Also seeded: pending Pulse verification, Open grievance, verified docs, apps (Aisha + Rohan on Frontend Intern), messages (Aisha only — Rohan has no thread yet), mailbox notifications',

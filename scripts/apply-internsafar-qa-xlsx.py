@@ -41,9 +41,12 @@ MANUAL_ONLY_TC_IDS = frozenset(
         "TC-IS-03-001",
         "TC-IS-03-006",
         "TC-IS-03-007",
+        "TC-IS-03-008",
         "TC-IS-03-011",
         "TC-IS-03-013",
         "TC-IS-03-015",
+        "TC-IS-03-019",
+        "TC-IS-03-020",
         "TC-IS-03-022",
         "TC-IS-03-023",
     }

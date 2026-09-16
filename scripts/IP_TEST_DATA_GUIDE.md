@@ -7,9 +7,9 @@ Config source of truth: `scripts/lib/ipCoreSampleConfig.js`
 
 | Role | Username | Password |
 |---|---|---|
-| Candidate | `lawsonlclintern+1@gmail.com` | `Admin@123` |
-| Employer | `placementhubsupport@gmail.com` | `Admin@123` |
-| SuperAdmin | `support@placementhub.online` | `Admin@123` |
+| Candidate | `lawsonlclintern+1@gmail.com` | from local `coreaccountspass.json` |
+| Employer | `placementhubsupport@gmail.com` | from local `coreaccountspass.json` |
+| SuperAdmin | `support@placementhub.online` | from local `coreaccountspass.json` |
 
 Two gates guard seeded data. Run both after any reset, seed, rename, or QA run:
 

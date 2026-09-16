@@ -130,7 +130,7 @@ Without `IP_ALLOW_DB_MIGRATE=1` the command is **blocked in code** (`=== BLOCKED
 
 This runs: migrations 001–034 → core demo seed → migrations 035–039.
 
-Demo accounts (password `Admin@123`):
+Demo accounts (passwords from local `coreaccountspass.json`, gitignored):
 
 - Candidate: `lawsonlclintern+1@gmail.com`
 - Employer: `placementhubsupport@gmail.com`
@@ -148,9 +148,11 @@ mkdir -p ~/internship-portal-new
 tar -xzf internship-portal-aws-deploy-*.tar.gz -C ~/internship-portal-new
 chmod -R u+rwX ~/internship-portal-new
 chown -R ubuntu:ubuntu ~/internship-portal-new
-tar -tzf internship-portal-aws-deploy-*.tar.gz | head
+tar -tzf internship-portal-aws-deploy-*.tar.gz | head   # must show internship-portal/...
 ls ~/internship-portal-new/internship-portal/package.json
 ```
+
+The app tar is **nested** (`internship-portal/...` paths). If `package.json` sits directly under `~/internship-portal-new/`, the archive is an old flat tar — rebuild with `scripts/build-aws-handoff.ps1` (archives staging root, not the inner app folder).
 
 ### Block 2 — app-swap (preserve .env)
 

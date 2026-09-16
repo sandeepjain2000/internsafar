@@ -140,7 +140,7 @@ async function main() {
   const [employer] = await rows(`SELECT id FROM ip_employers WHERE user_id = $1`, [emp.id]);
   if (!employer) throw new Error('No ip_employers row for the core employer.');
 
-  const passwordHash = await bcrypt.hash(cfg.DEMO_PASSWORD, 10);
+  const passwordHash = await bcrypt.hash(cfg.getCorePasswordForRole('employer'), 10);
 
   await write(
     `INSERT INTO ip_generated_runs (run_id, meta) VALUES ($1, $2::jsonb)

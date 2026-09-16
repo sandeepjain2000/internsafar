@@ -8,6 +8,7 @@ import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useViewMode } from '@/hooks/useViewMode';
+import useIpCityCatalog from '@/hooks/useIpCityCatalog';
 import { POINTS_PER_APPLICATION } from '@/lib/pointsEconomy';
 import ValidationScoreButton from '@/components/ip/ValidationScoreButton';
 import '@/components/ip/ip-browse-internships-gemini.css';
@@ -38,16 +39,6 @@ const MATCH_OPTIONS = [
   { value: '0', label: 'All Match Scores' },
   { value: '85', label: '85%+ Match Score' },
   { value: '90', label: '90%+ Match Score' },
-];
-
-const CITY_PRESETS = [
-  'Bengaluru',
-  'Mumbai',
-  'Pune',
-  'Hyderabad',
-  'Chennai',
-  'Delhi',
-  'Remote',
 ];
 
 const SORT_OPTIONS = [
@@ -84,14 +75,13 @@ function companyInitials(name) {
 
 export default function BrowseInternshipsPage() {
   const router = useRouter();
+  const { placeCityOptions, cityOptions: catalogCities, loading: citiesLoading } = useIpCityCatalog();
   const [items, setItems] = useState([]);
   const [counts, setCounts] = useState({ all: 0, saved: 0, recommended: 0 });
   const [q, setQ] = useState('');
   const [minStipend, setMinStipend] = useState('0');
   const [workMode, setWorkMode] = useState('all');
   const [selectedCities, setSelectedCities] = useState([]);
-  const [cityQuery, setCityQuery] = useState('');
-  const [availableCities, setAvailableCities] = useState(CITY_PRESETS);
   const [minMatch, setMinMatch] = useState('0');
   const [minValidation, setMinValidation] = useState('');
   const [sort, setSort] = useState('best-match');
@@ -100,7 +90,6 @@ export default function BrowseInternshipsPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [points, setPoints] = useState(null);
-  const [cityOptions, setCityOptions] = useState([]);
   const [viewMode, setViewMode] = useViewMode('ip_browse_view', 'cards');
   const reqRef = useRef(0);
 
@@ -134,10 +123,6 @@ export default function BrowseInternshipsPage() {
     } catch {
       /* ignore */
     }
-    fetch('/api/ip/ref/cities')
-      .then((r) => r.json())
-      .then((d) => setCityOptions(d.items || []))
-      .catch(() => {});
     fetch('/api/ip/candidate/profile')
       .then((r) => r.json())
       .then((d) => setPoints(d.profile?.points ?? null))
@@ -173,14 +158,6 @@ export default function BrowseInternshipsPage() {
     if (id !== reqRef.current) return;
     setItems(data.items || []);
     if (data.counts) setCounts(data.counts);
-    if (Array.isArray(data.availableCities) && data.availableCities.length) {
-      const merged = new Map();
-      for (const c of [...CITY_PRESETS, ...data.availableCities]) {
-        const key = String(c).toLowerCase();
-        if (!merged.has(key)) merged.set(key, c);
-      }
-      setAvailableCities([...merged.values()].sort((a, b) => a.localeCompare(b)));
-    }
     setLoading(false);
   }
 
@@ -202,20 +179,11 @@ export default function BrowseInternshipsPage() {
     await load();
   }
 
-  function toggleCity(city) {
-    setSelectedCities((prev) => {
-      const has = prev.some((c) => c.toLowerCase() === city.toLowerCase());
-      if (has) return prev.filter((c) => c.toLowerCase() !== city.toLowerCase());
-      return [...prev, city];
-    });
-  }
-
   function resetFilters() {
     setQ('');
     setMinStipend('0');
     setWorkMode('all');
     setSelectedCities([]);
-    setCityQuery('');
     setMinMatch('0');
     setMinValidation('');
     setSort('best-match');
@@ -234,12 +202,13 @@ export default function BrowseInternshipsPage() {
     return n;
   }, [minStipend, workMode, selectedCities, minMatch, minValidation]);
 
-  const cityChoices = useMemo(() => {
-    const needle = cityQuery.trim().toLowerCase();
-    const list = availableCities.length ? availableCities : CITY_PRESETS;
-    if (!needle) return list;
-    return list.filter((c) => c.toLowerCase().includes(needle));
-  }, [availableCities, cityQuery]);
+  const browseCityOptions = useMemo(() => {
+    const remote = (catalogCities || []).filter((o) => /^remote$/i.test(String(o.value || o.city || '')));
+    const places = placeCityOptions || [];
+    const seen = new Set(places.map((o) => String(o.value).toLowerCase()));
+    const extra = remote.filter((o) => !seen.has(String(o.value).toLowerCase()));
+    return [...places, ...extra];
+  }, [placeCityOptions, catalogCities]);
 
   const pointsLabel = points == null ? '—' : `${points} Pts Available`;
 
@@ -340,9 +309,10 @@ export default function BrowseInternshipsPage() {
               Work location (city)
               <span className="ip-br-city-hint">Searchable multi-select of work cities (separate from screening questions).</span>
               <SearchableMultiSelect
-                options={cityOptions.length ? cityOptions : CITY_PRESETS.map((c) => ({ value: c, label: c }))}
+                options={browseCityOptions}
                 value={selectedCities}
                 onChange={setSelectedCities}
+                loading={citiesLoading && !(browseCityOptions || []).length}
                 placeholder="Type to search cities…"
                 ariaLabel="Work location cities"
               />

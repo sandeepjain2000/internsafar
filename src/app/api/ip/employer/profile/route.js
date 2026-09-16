@@ -3,12 +3,13 @@ import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { EMPLOYER_ETHICS_ITEMS, EMPLOYER_ETHICS_VERSION, allEthicsChecked } from '@/lib/employerEthics';
 import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
 import { isValidBusinessEntityType } from '@/lib/employerBusinessEntity';
+import { validateRequiredPhone } from '@/lib/ipPhoneValidation';
 
 const EDITABLE_FIELDS = [
   'company_name', 'legal_name', 'brand_name', 'website', 'work_email', 'industry', 'company_size',
   'hq_city', 'hq_state', 'hq_country', 'about', 'logo_url', 'linkedin_url', 'contact_name',
-  'contact_designation', 'contact_phone', 'show_identity_on_posting', 'show_hiring_numbers',
-  'whatsapp_opt_in', 'telegram_opt_in', 'business_entity_type',
+  'contact_designation', 'contact_phone', 'contact_phone_country_code', 'show_identity_on_posting',
+  'show_hiring_numbers', 'whatsapp_opt_in', 'telegram_opt_in', 'business_entity_type',
 ];
 
 const REQUIRED_FOR_COMPLETE = [
@@ -30,6 +31,7 @@ export async function GET() {
   );
   if (!result.rows[0]) return jsonError('Profile not found', 404);
   result.rows[0].hq_country ||= 'India';
+  result.rows[0].contact_phone_country_code ||= '+91';
   const docs = await query(`SELECT * FROM ip_employer_documents WHERE employer_id = $1 ORDER BY created_at DESC`, [result.rows[0].id]);
   return jsonOk({
     profile: result.rows[0],
@@ -56,6 +58,13 @@ export async function PUT(request) {
       return jsonError('Invalid business entity type');
     }
     body.business_entity_type = v || null;
+  }
+
+  if (body.contact_phone !== undefined || body.contact_phone_country_code !== undefined) {
+    const dial = String(body.contact_phone_country_code || '+91').trim() || '+91';
+    const phoneCheck = validateRequiredPhone(body.contact_phone, dial);
+    if (!phoneCheck.ok) return jsonError(phoneCheck.error);
+    body.contact_phone_country_code = dial;
   }
 
   const sets = [];

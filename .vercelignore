@@ -4,6 +4,10 @@ nvidia keys/
 .env
 .env.*
 !.env.example
+# Core account passwords (local only)
+coreaccountspass.json
+**/coreaccountspass.json
+.local/
 # Local Cursor AI context (not for deploy)
 .cursor/
 docs/ai-context/

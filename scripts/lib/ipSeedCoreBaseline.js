@@ -264,7 +264,6 @@ function eligibilityFor(posting, ti) {
  */
 async function seedCoreBaseline(client, bcrypt) {
   const nid = nidFactory();
-  const password = cfg.DEMO_PASSWORD;
   const blueprint = loadBlueprint();
 
   // --- SuperAdmin already ensured by caller; ensure cores + cast ---
@@ -307,7 +306,7 @@ async function seedCoreBaseline(client, bcrypt) {
       role: 'candidate',
       name: c.name,
       points: c.email === cfg.CAND_BASE ? 80 : 60,
-      password,
+      password: cfg.getCorePasswordForEmailOrRole(c.email, 'candidate'),
     });
     candidateUserIds[c.email] = userId;
     const ex = await client.query(`SELECT id FROM ip_candidates WHERE user_id=$1`, [userId]);
@@ -356,7 +355,7 @@ async function seedCoreBaseline(client, bcrypt) {
       role: 'employer',
       name: e.company,
       points: 200,
-      password,
+      password: cfg.getCorePasswordForEmailOrRole(e.email, 'employer'),
     });
     employerUserIds[e.email] = userId;
     const ex = await client.query(`SELECT id FROM ip_employers WHERE user_id=$1`, [userId]);

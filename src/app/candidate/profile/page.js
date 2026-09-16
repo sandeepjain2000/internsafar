@@ -15,7 +15,7 @@ import {
   User,
 } from 'lucide-react';
 import { imageAcceptAttr, resumeAcceptAttr } from '@/lib/ipFileUpload';
-import { validateOptionalPhone } from '@/lib/ipPhoneValidation';
+import { validateOptionalPhone, PHONE_DIAL_OPTIONS } from '@/lib/ipPhoneValidation';
 import IpUploadButton from '@/components/ip/IpUploadButton';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import SearchableSelect from '@/components/ip/SearchableSelect';
@@ -75,15 +75,6 @@ function resumeDisplayName(url, fallbackName = '') {
     return 'Uploaded resume';
   }
 }
-
-const PHONE_DIAL_OPTIONS = [
-  { value: '+91', label: 'India (+91)' },
-  { value: '+1', label: 'United States (+1)' },
-  { value: '+44', label: 'United Kingdom (+44)' },
-  { value: '+65', label: 'Singapore (+65)' },
-  { value: '+971', label: 'UAE (+971)' },
-  { value: '+61', label: 'Australia (+61)' },
-];
 
 function emptyAcademicRow() {
   return { row_label: '', college: '', degree: '', specialization: '', study_status: '', graduation_year: '', cgpa: '' };
@@ -163,7 +154,7 @@ export default function CandidateProfilePage() {
   const [saveError, setSaveError] = useState('');
   /** Turns on red highlighting for blank required fields once the user has tried to save. */
   const [showMissing, setShowMissing] = useState(false);
-  const { cityOptions, placeCityOptions, stateOptions, findCity } = useIpCityCatalog();
+  const { cityOptions, placeCityOptions, stateOptions, findCity, loading: citiesLoading } = useIpCityCatalog();
   const cityChoices = useMemo(() => {
     const needle = String(form?.state || '').trim().toLowerCase();
     if (!needle) return placeCityOptions;
@@ -713,6 +704,7 @@ export default function CandidateProfilePage() {
                   <SearchableSelect
                     options={cityChoices}
                     value={form.city || ''}
+                    loading={citiesLoading && !(cityChoices || []).length}
                     onChange={(city) => {
                       const hit = findCity(city);
                       setForm((f) => ({
@@ -729,6 +721,7 @@ export default function CandidateProfilePage() {
                   <SearchableSelect
                     options={stateOptions}
                     value={form.state || ''}
+                    loading={citiesLoading && !(stateOptions || []).length}
                     onChange={(state) => {
                       setForm((f) => {
                         const hit = findCity(f.city);
@@ -776,6 +769,7 @@ export default function CandidateProfilePage() {
                           .filter(Boolean)
                     }
                     onChange={(next) => set('preferred_locations', next)}
+                    loading={citiesLoading && !(cityOptions || []).length}
                     placeholder="Search cities…"
                     ariaLabel="Preferred locations"
                   />

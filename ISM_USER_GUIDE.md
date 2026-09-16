@@ -64,9 +64,9 @@ ensures plus guarantees the SuperAdmin account exists.
 
 | Role | Email | Password |
 |---|---|---|
-| Candidate | `lawsonlclintern+1@gmail.com` | `Admin@123` |
-| Employer (Nova Labs) | `placementhubsupport@gmail.com` | `Admin@123` |
-| SuperAdmin | `support@placementhub.online` | `Admin@123` |
+| Candidate | `lawsonlclintern+1@gmail.com` | local `coreaccountspass.json` (gitignored) |
+| Employer (Nova Labs) | `placementhubsupport@gmail.com` | local `coreaccountspass.json` (gitignored) |
+| SuperAdmin | `support@placementhub.online` | local `coreaccountspass.json` (gitignored) |
 
 These three are the protected core accounts (`scripts/lib/ipCoreSampleConfig.js`). Every
 seeding, reset, deletion and QA script refuses to delete or rename them. Two extra

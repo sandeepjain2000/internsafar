@@ -347,5 +347,5 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- Seed SuperAdmin if missing (password set by app bootstrap: Admin@123)
+-- Seed SuperAdmin if missing (password_hash set by app/ops — not hardcoded in repo)
 -- Actual hash inserted by seed script / first bootstrap.

@@ -118,43 +118,49 @@ export function verifyLoginCaptcha(token, answer) {
 }
 
 /**
- * Distinguishes empty / missing challenge from wrong answer.
- * @returns {null | 'missing_token' | 'missing_answer' | 'invalid'}
+ * Distinguishes empty / missing / expired / bad signature / wrong math.
+ * @returns {null | 'missing_token' | 'missing_answer' | 'bad_token' | 'expired' | 'wrong_answer'}
  */
 export function explainCaptchaFailure(token, answer) {
   if (CAPTCHA_BYPASS_FOR_TESTING) return null;
   // NextAuth/qs may nest dotted tokens into objects — treat as invalid (client should use ~ format).
-  if (token != null && typeof token === 'object') return 'invalid';
+  if (token != null && typeof token === 'object') return 'bad_token';
   if (!token) return 'missing_token';
   if (answer === undefined || answer === null || String(answer).trim() === '') {
     return 'missing_answer';
   }
   const parts = splitToken(token);
-  if (!parts) return 'invalid';
+  if (!parts) return 'bad_token';
   const expectedSig = signBody(parts.body);
   const sigBuf = Buffer.from(parts.sig);
   const expectedBuf = Buffer.from(expectedSig);
-  if (sigBuf.length !== expectedBuf.length) return 'invalid';
-  if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return 'invalid';
+  if (sigBuf.length !== expectedBuf.length) return 'bad_token';
+  if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return 'bad_token';
 
   let payload;
   try {
     payload = JSON.parse(Buffer.from(parts.body, 'base64url').toString('utf8'));
   } catch {
-    return 'invalid';
+    return 'bad_token';
   }
-  if (!payload || typeof payload.a !== 'number' || typeof payload.b !== 'number') return 'invalid';
-  if (typeof payload.exp !== 'number' || Date.now() > payload.exp) return 'invalid';
+  if (!payload || typeof payload.a !== 'number' || typeof payload.b !== 'number') return 'bad_token';
+  if (typeof payload.exp !== 'number' || Date.now() > payload.exp) return 'expired';
 
   const n = Number(String(answer).trim());
-  if (!Number.isFinite(n)) return 'invalid';
-  if (n !== payload.a + payload.b) return 'invalid';
+  if (!Number.isFinite(n)) return 'wrong_answer';
+  if (n !== payload.a + payload.b) return 'wrong_answer';
   return null;
 }
 
 export function captchaFailureMessage(code) {
   if (code === 'missing_answer') return 'Verification answer is required';
   if (code === 'missing_token') return 'Verification question is required — wait for it to load or refresh';
-  if (code === 'invalid') return 'Incorrect answer. Try again or refresh the question.';
+  if (code === 'expired') return 'Verification expired. Click New Code and try again.';
+  if (code === 'bad_token') {
+    return 'Verification out of date. Click New Code, then enter the new answer.';
+  }
+  if (code === 'wrong_answer' || code === 'invalid') {
+    return 'Incorrect answer. Try again or refresh the question.';
+  }
   return 'Verification failed. Check your answer and try again.';
 }

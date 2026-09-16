@@ -75,10 +75,20 @@ export async function reportOpsFailure(payload) {
 
     const ref = newId('ip_ops');
     const host = hostLabel();
-    const subject = `[InternSafar][FAILURE][${kind}] ${truncate(message, 80)}`;
+    // QA suites intentionally POST synthetic probes — label clearly so Gmail is not
+    // mistaken for a real user/site FAILURE (same inbox as ops alerts).
+    const isQaProbe =
+      kind === 'QA_PROBE' ||
+      /^QA\b/i.test(message) ||
+      String(route || '').startsWith('/qa/');
+    const subject = isQaProbe
+      ? `[InternSafar][QA-PROBE][${kind}] ${truncate(message, 80)}`
+      : `[InternSafar][FAILURE][${kind}] ${truncate(message, 80)}`;
     const details = redactDetails(payload.details);
     const text = [
-      `InternSafar ops alert`,
+      isQaProbe
+        ? 'InternSafar QA probe — intentional test of ops mail (not a real user failure)'
+        : 'InternSafar ops alert',
       `Reference: ${ref}`,
       `Host: ${host}`,
       `Kind: ${kind}`,

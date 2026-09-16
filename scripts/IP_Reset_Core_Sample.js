@@ -8,7 +8,7 @@
  * finally runs scripts/fill-core-coverage.mjs for the employer + SuperAdmin
  * tabs, queues, and workbench tables the baseline does not reach.
  *
- * Cores (password Admin@123):
+ * Cores (passwords from local coreaccountspass.json — gitignored):
  *   Candidate   lawsonlclintern+1@gmail.com
  *   Employer    placementhubsupport@gmail.com
  *   SuperAdmin  support@placementhub.online
@@ -31,13 +31,15 @@ const { seedCoreBaseline } = require('./lib/ipSeedCoreBaseline.js');
 const CONFIG = {
   superadminEmail: coreCfg.SUPERADMIN_EMAIL,
   legacySuperadminEmail: coreCfg.LEGACY_SUPERADMIN_EMAIL,
-  demoPassword: coreCfg.DEMO_PASSWORD,
   candidateBase: { email: coreCfg.CAND_BASE, name: coreCfg.CAND_BASE_NAME },
   employerBase: { email: coreCfg.EMP_BASE, company: coreCfg.EMP_BASE_NAME, status: 'approved' },
   castCandidates: coreCfg.CAST_CANDIDATES,
   castEmployers: coreCfg.CAST_EMPLOYERS,
   /** Emails whose ip_users rows are never deleted */
   preserveEmails: coreCfg.PRESERVE_USER_EMAILS,
+  passwordFor(email, role) {
+    return coreCfg.getCorePasswordForEmailOrRole(email, role);
+  },
 };
 
 function parseArgs(argv) {
@@ -211,7 +213,8 @@ async function demoteStraySuperadmins(client) {
 }
 
 async function ensureSuperadmin(client, bcrypt) {
-  const hash = await bcrypt.hash(CONFIG.demoPassword, 10);
+  const saPw = CONFIG.passwordFor(CONFIG.superadminEmail, 'superadmin');
+  const hash = await bcrypt.hash(saPw, 10);
   const target = await client.query(`SELECT id FROM ip_users WHERE lower(email)=lower($1)`, [CONFIG.superadminEmail]);
   const legacy = await client.query(`SELECT id FROM ip_users WHERE lower(email)=lower($1)`, [CONFIG.legacySuperadminEmail]);
   if (target.rows[0]) {
@@ -223,7 +226,7 @@ async function ensureSuperadmin(client, bcrypt) {
     await client.query(`UPDATE ip_users SET email=$2,role='superadmin',password_hash=$3,name='Portal SuperAdmin',active=true,updated_at=now() WHERE id=$1`, [legacy.rows[0].id, CONFIG.superadminEmail, hash]);
     return legacy.rows[0].id;
   }
-  return ensureUser(client, bcrypt, { email: CONFIG.superadminEmail, role: 'superadmin', name: 'Portal SuperAdmin', points: 0, password: CONFIG.demoPassword });
+  return ensureUser(client, bcrypt, { email: CONFIG.superadminEmail, role: 'superadmin', name: 'Portal SuperAdmin', points: 0, password: saPw });
 }
 
 // NOTE: a ~380-line `seedCoreData` used to sit here. It was dead code (never called) and a
@@ -348,28 +351,30 @@ async function main() {
     for (const u of toDelete) await deleteUserCascade(client, u.id, u.email);
 
     const superadminId = await ensureSuperadmin(client, bcrypt);
+    const candPw = CONFIG.passwordFor(CONFIG.candidateBase.email, 'candidate');
+    const empPw = CONFIG.passwordFor(CONFIG.employerBase.email, 'employer');
     // Ensure core login rows exist / password restored (do not delete them)
     const candUserId = await ensureUser(client, bcrypt, {
       email: CONFIG.candidateBase.email,
       role: 'candidate',
       name: CONFIG.candidateBase.name,
       points: 80,
-      password: CONFIG.demoPassword,
+      password: candPw,
     });
     await client.query(
       `UPDATE ip_users SET password_hash=$2, name=$3, active=true, role='candidate', updated_at=now() WHERE id=$1`,
-      [candUserId, await bcrypt.hash(CONFIG.demoPassword, 10), CONFIG.candidateBase.name],
+      [candUserId, await bcrypt.hash(candPw, 10), CONFIG.candidateBase.name],
     );
     const empUserId = await ensureUser(client, bcrypt, {
       email: CONFIG.employerBase.email,
       role: 'employer',
       name: CONFIG.employerBase.company,
       points: 200,
-      password: CONFIG.demoPassword,
+      password: empPw,
     });
     await client.query(
       `UPDATE ip_users SET password_hash=$2, name=$3, active=true, role='employer', updated_at=now() WHERE id=$1`,
-      [empUserId, await bcrypt.hash(CONFIG.demoPassword, 10), CONFIG.employerBase.company],
+      [empUserId, await bcrypt.hash(empPw, 10), CONFIG.employerBase.company],
     );
 
     const candRow = await client.query(`SELECT id FROM ip_candidates WHERE user_id=$1`, [candUserId]);
@@ -393,9 +398,9 @@ async function main() {
     await demoteStraySuperadmins(client);
     await runCoverageFill(ipRoot);
     console.log('Reset complete. Three cores preserved; baseline catalog + cast/support transactions restored.');
-    console.log(`  Candidate  ${CONFIG.candidateBase.email} / ${CONFIG.demoPassword}`);
-    console.log(`  Employer   ${CONFIG.employerBase.email} / ${CONFIG.demoPassword}`);
-    console.log(`  SuperAdmin ${CONFIG.superadminEmail} / ${CONFIG.demoPassword}`);
+    console.log(`  Candidate  ${CONFIG.candidateBase.email}  (password from coreaccountspass.json)`);
+    console.log(`  Employer   ${CONFIG.employerBase.email}  (password from coreaccountspass.json)`);
+    console.log(`  SuperAdmin ${CONFIG.superadminEmail}  (password from coreaccountspass.json)`);
   } finally {
     await client.end();
   }

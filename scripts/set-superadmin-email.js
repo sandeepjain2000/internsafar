@@ -1,16 +1,17 @@
 /* eslint-disable no-console */
 /**
- * One-shot: set SuperAdmin to support@placementhub.online / Admin@123
+ * One-shot: set SuperAdmin to support@placementhub.online using password from
+ * coreaccountspass.json (gitignored).
  * Usage (from internship-portal): node scripts/set-superadmin-email.js
  */
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const { Client } = require('pg');
 const fs = require('fs');
+const { SUPERADMIN_EMAIL, getCorePasswordForEmail } = require('./lib/ipCoreSampleConfig.js');
 
-const NEW_EMAIL = 'support@placementhub.online';
+const NEW_EMAIL = SUPERADMIN_EMAIL;
 const LEGACY = 'superadmin@internship.local';
-const PASSWORD = 'Admin@123';
 
 function readEnvFile(filename) {
   const envPath = path.join(process.cwd(), filename);
@@ -26,6 +27,7 @@ function readEnvFile(filename) {
 }
 
 async function main() {
+  const PASSWORD = getCorePasswordForEmail(NEW_EMAIL);
   const env = { ...readEnvFile('.env'), ...readEnvFile('.env.local') };
   const connectionString =
     process.env.DATABASE_URL || process.env.SUPABASE_DATABASE_URL || env.DATABASE_URL || env.SUPABASE_DATABASE_URL;
@@ -40,48 +42,28 @@ async function main() {
 
   if (target.rows[0]) {
     await client.query(
-      `UPDATE ip_users
-       SET role = 'superadmin', password_hash = $2, name = 'Portal SuperAdmin', active = true, updated_at = now()
-       WHERE id = $1`,
+      `UPDATE ip_users SET role='superadmin', password_hash=$2, name=COALESCE(NULLIF(name,''),'Portal SuperAdmin'), active=true, updated_at=now() WHERE id=$1`,
       [target.rows[0].id, hash],
     );
-    console.log('Updated existing user to superadmin:', NEW_EMAIL);
-    if (legacy.rows[0] && legacy.rows[0].id !== target.rows[0].id) {
-      await client.query(`UPDATE ip_users SET active = false, updated_at = now() WHERE id = $1`, [legacy.rows[0].id]);
-      console.log('Deactivated legacy:', LEGACY);
-    }
+    console.log('Updated existing SuperAdmin password_hash from coreaccountspass.json (value not printed)');
   } else if (legacy.rows[0]) {
     await client.query(
-      `UPDATE ip_users
-       SET email = $2, role = 'superadmin', password_hash = $3, name = 'Portal SuperAdmin', active = true, updated_at = now()
-       WHERE id = $1`,
+      `UPDATE ip_users SET email=$2, role='superadmin', password_hash=$3, name='Portal SuperAdmin', active=true, updated_at=now() WHERE id=$1`,
       [legacy.rows[0].id, NEW_EMAIL, hash],
     );
-    console.log('Migrated', LEGACY, '→', NEW_EMAIL);
+    console.log('Migrated legacy SuperAdmin email + password from JSON');
   } else {
-    const p = (n) => String(n).padStart(2, '0');
-    const d = new Date();
-    const run = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
-    const id = `ip_user_${run}-001`;
-    const code = `REF-SA-${run}`;
-    await client.query(
-      `INSERT INTO ip_users (id, email, password_hash, role, name, points, free_post_credits,
-        application_allowance, referral_code, profile_complete, active)
-       VALUES ($1,$2,$3,'superadmin','Portal SuperAdmin',0,0,0,$4,true,true)`,
-      [id, NEW_EMAIL, hash, code],
-    );
-    console.log('Created superadmin:', NEW_EMAIL, id);
+    console.log('No SuperAdmin row found — create via seed/reset instead');
   }
 
-  const check = await client.query(
-    `SELECT id, email, role, active FROM ip_users WHERE lower(email) = lower($1)`,
-    [NEW_EMAIL],
-  );
-  console.log('Result:', check.rows[0]);
+  if (legacy.rows[0] && target.rows[0] && legacy.rows[0].id !== target.rows[0].id) {
+    await client.query(`UPDATE ip_users SET active=false, updated_at=now() WHERE id=$1`, [legacy.rows[0].id]);
+  }
+
   await client.end();
 }
 
 main().catch((e) => {
-  console.error(e);
+  console.error(e.message || e);
   process.exit(1);
 });

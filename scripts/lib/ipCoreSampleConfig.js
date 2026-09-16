@@ -11,11 +11,21 @@
  * SuperAdmin — kept during reset (not deleted). Single account, so it takes the
  * Zoho support address: Zoho does not support plus-addressing, and SuperAdmin
  * never needs +aliases. Keep this in step with src/lib/ensureIpBootstrap.js,
- * which recreates this account on boot.
+ * which ensures this account on boot (without resetting its password).
  */
 const SUPERADMIN_EMAIL = 'support@placementhub.online';
 const LEGACY_SUPERADMIN_EMAIL = 'superadmin@internship.local';
-const DEMO_PASSWORD = 'Admin@123';
+/**
+ * Core passwords are NOT stored in this file anymore.
+ * Local-only JSON (gitignored): coreaccountspass.json — see loadCoreAccountPasswords.js
+ */
+const {
+  getCorePasswordForEmail,
+  getCorePasswordForRole,
+  getCorePasswordForEmailOrRole,
+  loadCoreAccountPasswords,
+  corePasswordsFilePath,
+} = require('./loadCoreAccountPasswords');
 
 /** Primary showcase candidate — removed on reset, then re-created. */
 const CAND_BASE = 'lawsonlclintern+1@gmail.com';
@@ -149,7 +159,6 @@ function pendingCastEmployer() {
 module.exports = {
   SUPERADMIN_EMAIL,
   LEGACY_SUPERADMIN_EMAIL,
-  DEMO_PASSWORD,
   CAND_BASE,
   CAND_BASE_NAME,
   EMP_BASE,
@@ -165,4 +174,9 @@ module.exports = {
   isProtectedEmail,
   allCoreSampleEmails,
   pendingCastEmployer,
+  getCorePasswordForEmail,
+  getCorePasswordForRole,
+  getCorePasswordForEmailOrRole,
+  loadCoreAccountPasswords,
+  corePasswordsFilePath,
 };

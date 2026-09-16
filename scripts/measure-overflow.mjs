@@ -2,6 +2,10 @@ import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const { CAND_BASE, getCorePasswordForEmail } = require('./lib/ipCoreSampleConfig.js');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(__dirname, '..', 'tmp-screenshots');
@@ -13,8 +17,8 @@ await page.goto('https://internship-portal-sigma-mauve.vercel.app/', { waitUntil
 await page.waitForTimeout(1500);
 const body = await page.locator('body').innerText();
 const m = body.match(/(\d+)\s*\+\s*(\d+)/);
-await page.fill('#email', 'candidate@internship.local');
-await page.fill('#password', 'Admin@123');
+await page.fill('#email', CAND_BASE);
+await page.fill('#password', getCorePasswordForEmail(CAND_BASE));
 await page.fill('#login-captcha', String(Number(m[1]) + Number(m[2])));
 await page.getByRole('button', { name: /^login$/i }).click();
 await page.waitForURL(/\/candidate/);

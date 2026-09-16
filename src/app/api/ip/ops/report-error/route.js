@@ -10,6 +10,8 @@ const IGNORE = [
   /Loading CSS chunk/i,
   /Loading chunk [\d]+ failed/i,
   /hydrat/i,
+  // CefSharp / Outlook Safe Links / embedded Chromium crawlers — not our app.
+  /^Object Not Found Matching Id:\d+, MethodName:update, ParamCount:\d+$/i,
 ];
 
 /**

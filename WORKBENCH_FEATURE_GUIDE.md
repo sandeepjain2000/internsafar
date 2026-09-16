@@ -8,9 +8,9 @@
 
 | Role | Email | Password |
 |---|---|---|
-| Candidate | `lawsonlclintern+1@gmail.com` | `Admin@123` |
-| Employer | `placementhubsupport@gmail.com` | `Admin@123` |
-| SuperAdmin | `support@placementhub.online` | `Admin@123` |
+| Candidate | `lawsonlclintern+1@gmail.com` | local `coreaccountspass.json` |
+| Employer | `placementhubsupport@gmail.com` | local `coreaccountspass.json` |
+| SuperAdmin | `support@placementhub.online` | local `coreaccountspass.json` |
 
 Paths below are browser URLs after login. Replace `{id}` with a real posting or application id.
 

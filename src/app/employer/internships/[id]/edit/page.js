@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -12,6 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PageHeader from '@/components/ip/PageHeader';
 import ScreeningQuestionsEditor from '@/components/ip/ScreeningQuestionsEditor';
 import InternshipCandidatePreview from '@/components/ip/InternshipCandidatePreview';
+import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
+import useIpCityCatalog from '@/hooks/useIpCityCatalog';
+import { internshipDurationMonths } from '@/lib/internshipDurationMonths';
 import { normalizeScreeningQuestions } from '@/lib/ipScreeningQuestions';
 
 function toLocalInput(iso) {
@@ -22,9 +25,18 @@ function toLocalInput(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function locationCitiesFromForm(internship) {
+  if (Array.isArray(internship?.locations) && internship.locations.length) {
+    return internship.locations.map(String);
+  }
+  if (internship?.location) return [String(internship.location)];
+  return [];
+}
+
 export default function EditInternshipPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { placeCityOptions, loading: citiesLoading } = useIpCityCatalog();
   const [form, setForm] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [error, setError] = useState('');
@@ -35,7 +47,11 @@ export default function EditInternshipPage() {
     fetch(`/api/ip/employer/internships/${id}`)
       .then((r) => r.json())
       .then((d) => {
-        setForm(d.internship);
+        const internship = d.internship;
+        setForm({
+          ...internship,
+          locationCities: locationCitiesFromForm(internship),
+        });
         const qs = Array.isArray(d.internship?.questions) ? d.internship.questions : [];
         const normalized = normalizeScreeningQuestions(qs);
         // Keep legacy text questions readable in editor as MCQ-converted or text
@@ -55,21 +71,71 @@ export default function EditInternshipPage() {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
+  function setStartDate(value) {
+    setForm((f) => {
+      const next = { ...f, start_date: value };
+      const months = internshipDurationMonths(value, f.end_date ? String(f.end_date).slice(0, 10) : '');
+      if (months != null) next.duration_months = String(months);
+      return next;
+    });
+  }
+
+  function setEndDate(value) {
+    setForm((f) => {
+      const next = { ...f, end_date: value };
+      const months = internshipDurationMonths(f.start_date ? String(f.start_date).slice(0, 10) : '', value);
+      if (months != null) next.duration_months = String(months);
+      return next;
+    });
+  }
+
+  const startISO = form?.start_date ? String(form.start_date).slice(0, 10) : '';
+  const endISO = form?.end_date ? String(form.end_date).slice(0, 10) : '';
+  const calculatedDuration = useMemo(
+    () => internshipDurationMonths(startISO, endISO),
+    [startISO, endISO],
+  );
+  const durationMismatch =
+    calculatedDuration != null
+    && form?.duration_months !== ''
+    && form?.duration_months != null
+    && Number(form.duration_months) !== calculatedDuration;
+
   async function save(e) {
     e.preventDefault();
     setSaving(true);
     setError('');
     try {
+      if (startISO && endISO) {
+        const expected = internshipDurationMonths(startISO, endISO);
+        if (expected == null) {
+          throw new Error('Internship end date must be on or after the start date.');
+        }
+        if (form.duration_months === '' || form.duration_months == null) {
+          setForm((f) => ({ ...f, duration_months: String(expected) }));
+        } else if (Number(form.duration_months) !== expected) {
+          throw new Error(
+            `Duration (${form.duration_months} months) does not match start/end dates (${expected} months). Adjust duration or the dates.`,
+          );
+        }
+      }
+      const cities = (form.locationCities || []).length
+        ? form.locationCities
+        : (form.location ? [form.location] : []);
+      const durationMonths =
+        form.duration_months !== '' && form.duration_months != null
+          ? Number(form.duration_months)
+          : calculatedDuration;
       const res = await fetch(`/api/ip/employer/internships/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: form.title,
           description: form.description,
-          location: form.location,
+          location: cities[0] || form.location || '',
           work_mode: form.work_mode,
           stipend_inr: form.stipend_inr ? Number(form.stipend_inr) : null,
-          duration_months: form.duration_months ? Number(form.duration_months) : null,
+          duration_months: durationMonths != null && !Number.isNaN(durationMonths) ? durationMonths : null,
           start_date: form.start_date,
           end_date: form.end_date,
           starts_at: form.starts_at || null,
@@ -79,7 +145,7 @@ export default function EditInternshipPage() {
           remind_before_end: Boolean(form.remind_before_end),
           remind_start_hours: form.remind_start_hours ? Number(form.remind_start_hours) : 24,
           remind_end_hours: form.remind_end_hours ? Number(form.remind_end_hours) : 24,
-          locations: form.location ? [form.location] : form.locations || [],
+          locations: cities,
           work_hours_start: form.work_hours_start || null,
           work_hours_end: form.work_hours_end || null,
           engagement_type: form.engagement_type || null,
@@ -113,16 +179,25 @@ export default function EditInternshipPage() {
   return (
     <div className="space-y-4">
       <PageHeader title="Edit posting" description={form.lifecycle_label ? `Lifecycle: ${form.lifecycle_label}` : undefined} />
-      <Card>
+      <Card className="overflow-visible">
         <CardHeader>
           <CardTitle className="text-base">Details</CardTitle>
           <CardDescription>
             Capacity: {form.active_applicant_count ?? '—'}/{form.application_cap ?? 100} active · Historical: {form.applicant_count ?? '—'}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-visible">
           <form onSubmit={save}>
             {error ? <Alert variant="destructive" className="mb-4"><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
+            {durationMismatch ? (
+              <Alert variant="destructive" className="mb-4">
+                <AlertTitle>Duration does not match dates</AlertTitle>
+                <AlertDescription>
+                  Duration is {form.duration_months} months but start/end dates span {calculatedDuration} months.
+                  Change the duration or the internship dates so they match.
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <Tabs defaultValue="details">
               <TabsList className="mb-4 flex flex-wrap h-auto gap-1">
                 <TabsTrigger value="details">Details</TabsTrigger>
@@ -132,14 +207,40 @@ export default function EditInternshipPage() {
                 <TabsTrigger value="screening">Screening</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="details" className="grid gap-4 sm:grid-cols-2">
+              <TabsContent value="details" className="grid gap-4 overflow-visible sm:grid-cols-2">
                 <Field className="sm:col-span-2"><FieldLabel>Title</FieldLabel><Input value={form.title || ''} onChange={(e) => set('title', e.target.value)} required /></Field>
                 <Field className="sm:col-span-2"><FieldLabel>Description</FieldLabel><Textarea rows={4} value={form.description || ''} onChange={(e) => set('description', e.target.value)} /></Field>
-                <Field><FieldLabel>Location</FieldLabel><Input value={form.location || ''} onChange={(e) => set('location', e.target.value)} /></Field>
+                <Field className="sm:col-span-2 overflow-visible">
+                  <FieldLabel>Locations (work city)</FieldLabel>
+                  <SearchableMultiSelect
+                    options={placeCityOptions}
+                    value={form.locationCities || []}
+                    loading={citiesLoading && !(placeCityOptions || []).length}
+                    onChange={(next) => {
+                      setForm((f) => ({
+                        ...f,
+                        locationCities: next,
+                        location: next[0] || '',
+                      }));
+                    }}
+                    placeholder="Search cities…"
+                    ariaLabel="Work cities"
+                  />
+                </Field>
                 <Field><FieldLabel>Work mode</FieldLabel><Input value={form.work_mode || ''} onChange={(e) => set('work_mode', e.target.value)} /></Field>
-                <Field><FieldLabel>Duration (months)</FieldLabel><Input type="number" value={form.duration_months || ''} onChange={(e) => set('duration_months', e.target.value)} /></Field>
-                <Field><FieldLabel>Internship start</FieldLabel><Input type="date" value={form.start_date ? String(form.start_date).slice(0, 10) : ''} onChange={(e) => set('start_date', e.target.value)} /></Field>
-                <Field><FieldLabel>Internship end</FieldLabel><Input type="date" value={form.end_date ? String(form.end_date).slice(0, 10) : ''} onChange={(e) => set('end_date', e.target.value)} /></Field>
+                <Field>
+                  <FieldLabel>Duration (months)</FieldLabel>
+                  <Input type="number" min={0} value={form.duration_months || ''} onChange={(e) => set('duration_months', e.target.value)} />
+                  {durationMismatch ? (
+                    <FieldDescription className="text-destructive">
+                      Duration does not match start/end dates ({calculatedDuration} months from dates).
+                    </FieldDescription>
+                  ) : calculatedDuration != null ? (
+                    <FieldDescription>Auto-filled from start/end dates when you change them.</FieldDescription>
+                  ) : null}
+                </Field>
+                <Field><FieldLabel>Internship start</FieldLabel><Input type="date" value={startISO} onChange={(e) => setStartDate(e.target.value)} /></Field>
+                <Field><FieldLabel>Internship end</FieldLabel><Input type="date" value={endISO} onChange={(e) => setEndDate(e.target.value)} /></Field>
               </TabsContent>
 
               <TabsContent value="schedule" className="grid gap-4 sm:grid-cols-2">

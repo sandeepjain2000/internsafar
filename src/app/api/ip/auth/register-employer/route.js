@@ -43,12 +43,32 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Work email is required' }, { status: 400 });
     }
 
-    if (!isValidBusinessEntityType(businessEntityType)) {
+    // Domain Google path: entity type is optional at register — employer sets it on
+    // /employer/profile before profile_complete (and before live publish). Form/manual
+    // requests still require it so SA sees a classified request.
+    if (forceManual) {
+      if (!isValidBusinessEntityType(businessEntityType)) {
+        return NextResponse.json(
+          {
+            error:
+              'Business entity type is required (Professional, Partnership Firm, LLP, Private Limited, or Public Firm)',
+          },
+          { status: 400 },
+        );
+      }
+    } else if (businessEntityType && !isValidBusinessEntityType(businessEntityType)) {
       return NextResponse.json(
-        { error: 'Business entity type is required (Professional, Partnership Firm, LLP, Private Limited, or Public Firm)' },
+        {
+          error:
+            'Business entity type must be Professional, Partnership Firm, LLP, Private Limited, or Public Firm',
+        },
         { status: 400 },
       );
     }
+
+    const entityTypeForDb = isValidBusinessEntityType(businessEntityType)
+      ? businessEntityType
+      : null;
 
     const webDomain = domainFromWebsite(website);
     const emailDomain = domainFromEmail(email);
@@ -112,7 +132,7 @@ export async function POST(request) {
           reason,
           contactDesignation,
           passwordHash,
-          businessEntityType,
+          entityTypeForDb,
         ],
       );
       await notifyRole({
@@ -207,7 +227,7 @@ export async function POST(request) {
           email,
           contactName || name,
           contactDesignation || null,
-          businessEntityType,
+          entityTypeForDb,
         ],
       );
       await query(

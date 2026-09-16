@@ -1,6 +1,7 @@
 /**
  * Seed + API coverage for checklist cases that previously stayed Blocked
- * for lack of fixtures. Password for all QA/cast accounts: Admin@123 (DEMO_PASSWORD).
+ * for lack of fixtures. Core login passwords: local coreaccountspass.json (gitignored).
+ * New register fixtures may still use a disposable password like Admin@1234.
  *
  * Captcha-negative + form-path registration validation live in this file
  * (runCaptchaAndRegistrationGapCases). Live Google OAuth / referral-credit browser
@@ -574,8 +575,8 @@ async function runCaptchaAndRegistrationGapCases(ctx) {
     // REG-E-4 / TC-IS-03-011 — employer Form manualRequest: run-tc-is-03-011-…
     // REG-E-6 / TC-IS-03-013 — duplicate domain email 409: run-tc-is-03-013-…
     'TC-IS-03-008',
-    'TC-IS-03-019',
     'TC-IS-03-020',
+    // TC-IS-03-019 — Manual Pass (Google candidate register); do not auto-Block
     // TC-IS-03-022 / 03-023 — API rejects without OAuth: run-tc-is-03-022-023-…
   ]) {
     blocked(id, LIVE_GOOGLE);

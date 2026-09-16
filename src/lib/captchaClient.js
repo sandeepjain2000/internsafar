@@ -13,6 +13,32 @@ export function readCaptchaField(fieldRef, fallbackToken = '', fallbackAnswer = 
 }
 
 /**
+ * Decode a/b from the signed captcha token body (display only — no sig check).
+ * Keeps the on-screen equation locked to the token that will be submitted.
+ */
+export function peekCaptchaOperands(token) {
+  const raw = String(token || '');
+  if (!raw || raw === STATIC_CAPTCHA_TOKEN) return null;
+  let body = '';
+  if (raw.includes('~')) {
+    body = raw.slice(0, raw.lastIndexOf('~'));
+  } else {
+    const parts = raw.split('.');
+    if (parts.length !== 2) return null;
+    body = parts[0];
+  }
+  try {
+    const pad = body + '='.repeat((4 - (body.length % 4)) % 4);
+    const json = atob(pad.replace(/-/g, '+').replace(/_/g, '/'));
+    const payload = JSON.parse(json);
+    if (typeof payload?.a !== 'number' || typeof payload?.b !== 'number') return null;
+    return { a: payload.a, b: payload.b };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Client-side helper to verify captcha before login/register continues.
  * @returns {Promise<{ ok: boolean, error?: string, code?: string, gate?: string }>}
  */

@@ -23,6 +23,7 @@
         "test:mail-override": "node scripts/test-ip-mail-override.mjs",
         "cron:schedule-reminders": "node scripts/process-ip-schedule-reminders.mjs",
         "cron:export-jobs": "node scripts/process-ip-export-jobs.mjs",
+        "cron:daily-progress-report": "node scripts/process-ip-daily-progress-report.mjs",
         "generate:ip-test-data": "node scripts/generate-ip-test-data.mjs",
         "fill:core-coverage": "node scripts/fill-core-coverage.mjs",
         "audit:core-coverage": "node scripts/audit-core-list-counts.mjs",

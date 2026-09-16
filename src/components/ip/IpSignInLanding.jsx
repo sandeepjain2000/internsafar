@@ -97,6 +97,7 @@ export default function IpSignInLanding() {
   const [rememberMe, setRememberMe] = useState(false);
   const [captchaToken, setCaptchaToken] = useState('');
   const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [captchaLoading, setCaptchaLoading] = useState(true);
   const captchaFieldRef = useRef(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -444,6 +445,7 @@ export default function IpSignInLanding() {
                     answer={captchaAnswer}
                     onTokenChange={setCaptchaToken}
                     onAnswerChange={setCaptchaAnswer}
+                    onLoadingChange={setCaptchaLoading}
                     disabled={loading}
                   />
 
@@ -457,7 +459,11 @@ export default function IpSignInLanding() {
                     <label htmlFor="remember">Remember this device for 30 days</label>
                   </div>
 
-                  <button type="submit" disabled={loading} className="ip-gemini-submit">
+                  <button
+                    type="submit"
+                    disabled={loading || captchaLoading || (!CAPTCHA_BYPASS_FOR_TESTING && !captchaToken)}
+                    className="ip-gemini-submit"
+                  >
                     {loading ? (
                       <span className="flex items-center gap-2">
                         <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" fill="none" aria-hidden>

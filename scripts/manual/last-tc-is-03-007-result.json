@@ -1,0 +1,19 @@
+{
+  "sheet": "03 Candidate Registration",
+  "tc_id": "TC-IS-03-007",
+  "automation": "API",
+  "status": "Pass",
+  "actual": "API Pass 2026-09-15 (Vercel): form register lawsonlclintern+form03007a-mu2mjdr1@gmail.com with +1 code → Awaiting/no +25 → SA approve → +25 Reward Credited; form register lawsonlclintern+form03007b-mu2mjdr1@gmail.com → SA reject → points unchanged (no credit).",
+  "executed": "2026-09-15T12:05:05.389Z",
+  "log": [
+    "Base https://internship-portal-sigma-mauve.vercel.app",
+    "Referrer baseline {\"code\":\"RLAWSONLC6770\",\"points\":625,\"refs\":103}",
+    "Registered approve-path candidate {\"email\":\"lawsonlclintern+form03007a-mu2mjdr1@gmail.com\",\"status\":200}",
+    "After register (before SA) {\"found\":true,\"id\":\"ip_ref_mu2mjjsy_bkf5vv46\",\"status\":\"pending\",\"status_label\":\"Awaiting Verification\",\"points\":625,\"pendingOk\":true,\"noCreditYet\":true}",
+    "SuperAdmin approved {\"id\":\"ip_user_mu2mjj7u_dc0gf2gp\"}",
+    "After approve {\"points\":650,\"expect\":650,\"status\":\"completed\",\"status_label\":\"Reward Credited\",\"credited\":true}",
+    "Registered reject-path candidate {\"email\":\"lawsonlclintern+form03007b-mu2mjdr1@gmail.com\"}",
+    "SuperAdmin rejected {\"id\":\"ip_user_mu2mjw2n_xytouzek\"}",
+    "After reject {\"points\":650,\"expectSame\":650,\"status\":\"invalid\",\"status_label\":\"Invalid / Duplicate\",\"noExtra\":true,\"invalid\":true}"
+  ]
+}

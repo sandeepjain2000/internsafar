@@ -64,7 +64,7 @@ def main():
 
     add_para(doc, "After 001–034 on a fresh RDS, ip_users may show only SuperAdmin — this is expected until core seed runs.")
 
-    add_para(doc, "Demo account verification (password Admin@123 for all):")
+    add_para(doc, "Demo account verification (passwords from local coreaccountspass.json — not in handoff zip):")
     for cred in [
         "Candidate: lawsonlclintern+1@gmail.com",
         "Employer: placementhubsupport@gmail.com",

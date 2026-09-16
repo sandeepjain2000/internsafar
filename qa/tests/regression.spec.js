@@ -106,7 +106,7 @@ test.describe('InternSafar regression', () => {
     const ok = await request.post('/api/ip/ops/report-error', {
       data: {
         message: 'QA synthetic unexpected error (Playwright regression)',
-        kind: 'UNEXPECTED_CLIENT',
+        kind: 'QA_PROBE',
         route: '/qa/regression',
       },
     });
@@ -127,7 +127,7 @@ test.describe('InternSafar regression', () => {
   test('IS-040 ops report-error cooldown on duplicate', async ({ request }) => {
     const payload = {
       message: 'QA cooldown synthetic unexpected error',
-      kind: 'UNEXPECTED_CLIENT',
+      kind: 'QA_PROBE',
       route: '/qa/regression-cooldown',
     };
     const first = await request.post('/api/ip/ops/report-error', { data: payload });

@@ -1,10 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import '@/components/ip/ip-searchable-multi.css';
 
 /**
  * Searchable single-select / typeahead. `value` is one option.value string (or '').
+ *
+ * Clear affordances:
+ * - Inner blue × (`.ip-ss-clear`) — our control, painted inside the field.
+ * - Outer grey × — browser `::-ms-clear` / search-cancel; kept hidden via CSS + type="text".
+ * Menu is portaled so Card overflow-hidden does not clip it.
  */
 export default function SearchableSelect({
   options = [],
@@ -12,13 +18,17 @@ export default function SearchableSelect({
   onChange,
   placeholder = 'Search…',
   ariaLabel = 'Select',
-  allowClear = true,
+  loading = false,
+  emptyHint = 'No options loaded yet.',
 }) {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
+  const [menuBox, setMenuBox] = useState(null);
   const rootRef = useRef(null);
+  const inputRef = useRef(null);
 
   const selected = value == null ? '' : String(value);
+  const showInnerClear = Boolean(selected) && !open;
 
   const optionsWithValue = useMemo(() => {
     const list = options || [];
@@ -34,14 +44,36 @@ export default function SearchableSelect({
 
   useEffect(() => {
     function onDoc(e) {
-      if (!rootRef.current?.contains(e.target)) {
-        setOpen(false);
-        setQ(selected);
-      }
+      if (rootRef.current?.contains(e.target)) return;
+      if (e.target?.closest?.('[data-ip-sms-menu]')) return;
+      setOpen(false);
+      setQ(selected);
     }
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, [selected]);
+
+  useLayoutEffect(() => {
+    if (!open || !inputRef.current) {
+      setMenuBox(null);
+      return undefined;
+    }
+    function place() {
+      const r = inputRef.current.getBoundingClientRect();
+      setMenuBox({
+        top: r.bottom + 4,
+        left: r.left,
+        width: Math.max(r.width, 160),
+      });
+    }
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [open, q, options]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -57,17 +89,65 @@ export default function SearchableSelect({
     setQ(v || '');
   }
 
-  function clear() {
+  function clearSelection(e) {
+    e.preventDefault();
+    e.stopPropagation();
     onChange?.('');
     setQ('');
     setOpen(false);
   }
 
+  const menu =
+    open && menuBox && typeof document !== 'undefined'
+      ? createPortal(
+          <ul
+            className="ip-sms-menu ip-sms-menu--portal"
+            data-ip-sms-menu
+            role="listbox"
+            style={{
+              position: 'fixed',
+              top: menuBox.top,
+              left: menuBox.left,
+              width: menuBox.width,
+              zIndex: 80,
+            }}
+          >
+            {loading ? (
+              <li className="ip-sms-none">Loading…</li>
+            ) : !(options || []).length ? (
+              <li className="ip-sms-none">{emptyHint}</li>
+            ) : filtered.length ? (
+              filtered.map((o) => {
+                const on = String(o.value).toLowerCase() === selected.toLowerCase();
+                return (
+                  <li key={o.value}>
+                    <button
+                      type="button"
+                      className={on ? 'is-on' : undefined}
+                      role="option"
+                      aria-selected={on}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pick(o.value)}
+                    >
+                      {o.label || o.value}
+                    </button>
+                  </li>
+                );
+              })
+            ) : (
+              <li className="ip-sms-none">No matches</li>
+            )}
+          </ul>,
+          document.body,
+        )
+      : null;
+
   return (
     <div className="ip-sms ip-ss" ref={rootRef}>
-      <div className="ip-ss-row">
+      <div className={`ip-ss-field${showInnerClear ? ' has-clear' : ''}`}>
         <input
-          type="search"
+          ref={inputRef}
+          type="text"
           className="ip-sms-input"
           value={open ? q : selected}
           aria-label={ariaLabel}
@@ -80,34 +160,23 @@ export default function SearchableSelect({
           onChange={(e) => {
             setQ(e.target.value);
             setOpen(true);
+            if (!e.target.value) onChange?.('');
           }}
         />
-        {allowClear && selected ? (
-          <button type="button" className="ip-ss-clear" aria-label="Clear selection" onClick={clear}>
-            ×
+        {showInnerClear ? (
+          <button
+            type="button"
+            className="ip-ss-clear"
+            aria-label={`Clear ${ariaLabel}`}
+            title="Clear"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={clearSelection}
+          >
+            <span aria-hidden>×</span>
           </button>
         ) : null}
       </div>
-      {open ? (
-        <ul className="ip-sms-menu" role="listbox">
-          {filtered.length ? filtered.map((o) => {
-            const on = String(o.value).toLowerCase() === selected.toLowerCase();
-            return (
-              <li key={o.value}>
-                <button
-                  type="button"
-                  className={on ? 'is-on' : undefined}
-                  role="option"
-                  aria-selected={on}
-                  onClick={() => pick(o.value)}
-                >
-                  {o.label || o.value}
-                </button>
-              </li>
-            );
-          }) : <li className="ip-sms-none">No matches</li>}
-        </ul>
-      ) : null}
+      {menu}
     </div>
   );
 }

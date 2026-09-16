@@ -17,7 +17,8 @@ const {
   PROTECTED_ACCOUNT_EMAILS,
   assertProtectedConfigValid,
   isProtectedEmail,
-  DEMO_PASSWORD,
+  getCorePasswordForRole,
+  loadCoreAccountPasswords,
 } = require('./lib/ipCoreSampleConfig.js');
 
 assertProtectedConfigValid();
@@ -26,7 +27,11 @@ assert.ok(PROTECTED_ACCOUNT_EMAILS.includes('lawsonlclintern+1@gmail.com'));
 assert.ok(PROTECTED_ACCOUNT_EMAILS.includes('placementhubsupport@gmail.com'));
 assert.ok(isProtectedEmail('support@placementhub.online'));
 assert.ok(!isProtectedEmail('random@example.com'));
-assert.equal(DEMO_PASSWORD, 'Admin@123');
+const loaded = loadCoreAccountPasswords();
+assert.ok(loaded.filePath, 'coreaccountspass.json must resolve');
+assert.ok(getCorePasswordForRole('candidate').length >= 8);
+assert.ok(getCorePasswordForRole('employer').length >= 8);
+assert.ok(getCorePasswordForRole('superadmin').length >= 8);
 
 // Visibility
 const now = new Date('2026-06-01T12:00:00Z');

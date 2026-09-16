@@ -10,6 +10,15 @@ export const PHONE_DIAL_TO_COUNTRY = {
   '+61': 'AU',
 };
 
+export const PHONE_DIAL_OPTIONS = [
+  { value: '+91', label: 'India (+91)' },
+  { value: '+1', label: 'United States (+1)' },
+  { value: '+44', label: 'United Kingdom (+44)' },
+  { value: '+65', label: 'Singapore (+65)' },
+  { value: '+971', label: 'UAE (+971)' },
+  { value: '+61', label: 'Australia (+61)' },
+];
+
 /**
  * Optional phone: blank is OK. Non-blank must be valid for the dial-code country.
  * @param {string|null|undefined} phone
@@ -35,4 +44,19 @@ export function validateOptionalPhone(phone, phoneCountryCode) {
     };
   }
   return { ok: true, e164: parsed.format('E.164') };
+}
+
+/** Required phone (employer contact). */
+export function validateRequiredPhone(phone, phoneCountryCode) {
+  if (!String(phone || '').trim()) {
+    return { ok: false, error: 'Contact phone is required' };
+  }
+  const check = validateOptionalPhone(phone, phoneCountryCode);
+  if (!check.ok) {
+    return {
+      ok: false,
+      error: 'Please enter a correct phone number for the selected country code.',
+    };
+  }
+  return check;
 }

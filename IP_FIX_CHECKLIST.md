@@ -34,4 +34,4 @@ Work tree: `internship-portal` only.
 
 ## Data (this pass)
 
-Core candidate `lawsonlclintern+1@gmail.com` is left as-is (password `Admin@123`). After reseed, applications are created on live postings **before** any offer.
+Core candidate `lawsonlclintern+1@gmail.com` is left as-is (password from local `coreaccountspass.json`). After reseed, applications are created on live postings **before** any offer.

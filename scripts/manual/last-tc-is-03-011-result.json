@@ -1,0 +1,14 @@
+{
+  "sheet": "03 Registration",
+  "tc_id": "TC-IS-03-011",
+  "automation": "API",
+  "status": "Pass",
+  "actual": "API Pass 2026-09-15 (Vercel): POST register-employer manualRequest → mode=manual_request (ip_ereq_mu2mxkjd_aln44h7j); login lawsonlclintern+emp03011-mu2mxgbj@gmail.com blocked; SA /superadmin/requests lists pending row.",
+  "executed": "2026-09-15T12:15:36.261Z",
+  "log": [
+    "Base https://internship-portal-sigma-mauve.vercel.app",
+    "Manual request submitted {\"email\":\"lawsonlclintern+emp03011-mu2mxgbj@gmail.com\",\"requestId\":\"ip_ereq_mu2mxkjd_aln44h7j\",\"mode\":\"manual_request\"}",
+    "Login blocked before SA create {\"ok\":false}",
+    "SuperAdmin sees pending request {\"id\":\"ip_ereq_mu2mxkjd_aln44h7j\",\"status\":\"pending\",\"company\":\"QA Manual Co mu2mxgbj\"}"
+  ]
+}

@@ -14,7 +14,6 @@ import { ensureIpOfferOnboardingSchema } from '@/lib/ensureIpOfferOnboardingSche
 import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
 import { ensureIpIntegrityConstraints } from '@/lib/ensureIpIntegrityConstraints';
 
-const DEMO_PASSWORD = 'Admin@123';
 /**
  * Showcase / ops SuperAdmin login. Single account, so it holds the Zoho support
  * address directly — Zoho has no plus-addressing, and only the employer side
@@ -24,8 +23,11 @@ export const SUPERADMIN_EMAIL = 'support@placementhub.online';
 const LEGACY_SUPERADMIN_EMAIL = 'superadmin@internship.local';
 
 /**
- * Ensure SuperAdmin support@placementhub.online / Admin@123 exists.
- * Does not recreate @internship.local demo candidate/employer accounts.
+ * Ensure SuperAdmin support@placementhub.online exists and is the sole superadmin.
+ *
+ * IMPORTANT: never resets password_hash for an existing account (passwords live in
+ * local coreaccountspass.json / ops process — not hardcoded here).
+ * Fresh INSERT only uses IP_SUPERADMIN_BOOTSTRAP_PASSWORD when provided.
  */
 export async function ensureIpBootstrap() {
   await ensureIpFormRegistrationSchema();
@@ -41,49 +43,72 @@ export async function ensureIpBootstrap() {
   await ensureIpEmployerApprovalSchema();
   await ensureIpIntegrityConstraints();
   let initialized = false;
-  const hash = await bcrypt.hash(DEMO_PASSWORD, 10);
 
   const target = await query(`SELECT id, role FROM ip_users WHERE lower(email) = lower($1)`, [SUPERADMIN_EMAIL]);
   const legacy = await query(`SELECT id FROM ip_users WHERE lower(email) = lower($1)`, [LEGACY_SUPERADMIN_EMAIL]);
 
   if (target.rows[0]) {
+    // Do not touch password_hash — ops/QA set passwords separately.
     await query(
       `UPDATE ip_users
        SET role = 'superadmin',
-           password_hash = $2,
            name = COALESCE(NULLIF(name, ''), 'Portal SuperAdmin'),
            active = true,
            updated_at = now()
        WHERE id = $1`,
-      [target.rows[0].id, hash],
+      [target.rows[0].id],
     );
     if (legacy.rows[0] && legacy.rows[0].id !== target.rows[0].id) {
       await query(`UPDATE ip_users SET active = false, updated_at = now() WHERE id = $1`, [legacy.rows[0].id]);
     }
   } else if (legacy.rows[0]) {
-    await query(
-      `UPDATE ip_users
-       SET email = $2,
-           role = 'superadmin',
-           password_hash = $3,
-           name = 'Portal SuperAdmin',
-           active = true,
-           updated_at = now()
-       WHERE id = $1`,
-      [legacy.rows[0].id, SUPERADMIN_EMAIL, hash],
-    );
+    const bootstrapPw = String(process.env.IP_SUPERADMIN_BOOTSTRAP_PASSWORD || '').trim();
+    if (!bootstrapPw) {
+      // Rename legacy email/role without inventing a committed demo password.
+      await query(
+        `UPDATE ip_users
+         SET email = $2,
+             role = 'superadmin',
+             name = 'Portal SuperAdmin',
+             active = true,
+             updated_at = now()
+         WHERE id = $1`,
+        [legacy.rows[0].id, SUPERADMIN_EMAIL],
+      );
+    } else {
+      const hash = await bcrypt.hash(bootstrapPw, 10);
+      await query(
+        `UPDATE ip_users
+         SET email = $2,
+             role = 'superadmin',
+             password_hash = $3,
+             name = 'Portal SuperAdmin',
+             active = true,
+             updated_at = now()
+         WHERE id = $1`,
+        [legacy.rows[0].id, SUPERADMIN_EMAIL, hash],
+      );
+    }
     initialized = true;
   } else {
     const existingNone = await query(`SELECT id FROM ip_users WHERE lower(email) = lower($1)`, [SUPERADMIN_EMAIL]);
     if (!existingNone.rows[0]) {
-      const id = newId('ip_user');
-      await query(
-        `INSERT INTO ip_users (id, email, password_hash, role, name, points, free_post_credits,
-          application_allowance, referral_code, profile_complete, active)
-         VALUES ($1,$2,$3,'superadmin','Portal SuperAdmin',0,0,0,$4,true,true)`,
-        [id, SUPERADMIN_EMAIL, hash, referralCodeFrom(SUPERADMIN_EMAIL)],
-      );
-      initialized = true;
+      const bootstrapPw = String(process.env.IP_SUPERADMIN_BOOTSTRAP_PASSWORD || '').trim();
+      if (!bootstrapPw) {
+        console.warn(
+          '[ensureIpBootstrap] SuperAdmin missing and IP_SUPERADMIN_BOOTSTRAP_PASSWORD unset — skip create',
+        );
+      } else {
+        const hash = await bcrypt.hash(bootstrapPw, 10);
+        const id = newId('ip_user');
+        await query(
+          `INSERT INTO ip_users (id, email, password_hash, role, name, points, free_post_credits,
+            application_allowance, referral_code, profile_complete, active)
+           VALUES ($1,$2,$3,'superadmin','Portal SuperAdmin',0,0,0,$4,true,true)`,
+          [id, SUPERADMIN_EMAIL, hash, referralCodeFrom(SUPERADMIN_EMAIL)],
+        );
+        initialized = true;
+      }
     }
   }
 

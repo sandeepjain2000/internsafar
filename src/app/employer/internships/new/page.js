@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,6 +13,8 @@ import PageHeader from '@/components/ip/PageHeader';
 import ScreeningQuestionsEditor from '@/components/ip/ScreeningQuestionsEditor';
 import InternshipCandidatePreview from '@/components/ip/InternshipCandidatePreview';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
+import useIpCityCatalog from '@/hooks/useIpCityCatalog';
+import { internshipDurationMonths } from '@/lib/internshipDurationMonths';
 
 const QUALITY_CHECKS = [
   { key: 'title', label: 'Clear title' },
@@ -23,6 +25,7 @@ const QUALITY_CHECKS = [
 
 export default function NewInternshipPage() {
   const router = useRouter();
+  const { placeCityOptions, loading: citiesLoading, loadError: citiesLoadError } = useIpCityCatalog();
   const [form, setForm] = useState({
     title: '', description: '', location: '', locationCities: [], workMode: 'Remote', stipendInr: '', durationMonths: '',
     startDate: '', endDate: '', skills: '', degree: '', degrees: [], minCgpa: '',
@@ -40,17 +43,49 @@ export default function NewInternshipPage() {
   const [warning, setWarning] = useState('');
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [cityOptions, setCityOptions] = useState([]);
   const [degreeOptions, setDegreeOptions] = useState([]);
 
   useEffect(() => {
-    fetch('/api/ip/ref/cities').then((r) => r.json()).then((d) => setCityOptions(d.items || [])).catch(() => {});
-    fetch('/api/ip/ref/degrees').then((r) => r.json()).then((d) => setDegreeOptions(d.items || [])).catch(() => {});
+    fetch('/api/ip/ref/degrees')
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'Degrees failed to load');
+        setDegreeOptions(d.items || []);
+      })
+      .catch(() => setDegreeOptions([]));
   }, []);
 
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
   }
+
+  function setStartDate(value) {
+    setForm((f) => {
+      const next = { ...f, startDate: value };
+      const months = internshipDurationMonths(value, f.endDate);
+      if (months != null) next.durationMonths = String(months);
+      return next;
+    });
+  }
+
+  function setEndDate(value) {
+    setForm((f) => {
+      const next = { ...f, endDate: value };
+      const months = internshipDurationMonths(f.startDate, value);
+      if (months != null) next.durationMonths = String(months);
+      return next;
+    });
+  }
+
+  const calculatedDuration = useMemo(
+    () => internshipDurationMonths(form.startDate, form.endDate),
+    [form.startDate, form.endDate],
+  );
+
+  const durationMismatch =
+    calculatedDuration != null
+    && form.durationMonths !== ''
+    && Number(form.durationMonths) !== calculatedDuration;
 
   const checklist = {
     title: Boolean(form.title.trim()),
@@ -65,13 +100,30 @@ export default function NewInternshipPage() {
     setError('');
     setWarning('');
     try {
+      if (form.startDate && form.endDate) {
+        const expected = internshipDurationMonths(form.startDate, form.endDate);
+        if (expected == null) {
+          throw new Error('Internship end date must be on or after the start date.');
+        }
+        if (form.durationMonths === '' || form.durationMonths == null) {
+          setForm((f) => ({ ...f, durationMonths: String(expected) }));
+        } else if (Number(form.durationMonths) !== expected) {
+          throw new Error(
+            `Duration (${form.durationMonths} months) does not match start/end dates (${expected} months). Adjust duration or the dates.`,
+          );
+        }
+      }
+      const durationMonths =
+        form.durationMonths !== '' && form.durationMonths != null
+          ? Number(form.durationMonths)
+          : calculatedDuration;
       const res = await fetch('/api/ip/employer/internships', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
           stipendInr: form.stipendInr ? Number(form.stipendInr) : null,
-          durationMonths: form.durationMonths ? Number(form.durationMonths) : null,
+          durationMonths: durationMonths != null && !Number.isNaN(durationMonths) ? durationMonths : null,
           weeklyHours: form.weeklyHours ? Number(form.weeklyHours) : null,
           startsAt: form.startsAt || null,
           applyEndsAt: form.applyEndsAt || null,
@@ -144,15 +196,24 @@ export default function NewInternshipPage() {
           ))}
         </CardContent>
       </Card>
-      <Card>
+      <Card className="overflow-visible">
         <CardHeader>
           <CardTitle className="text-base">Posting details</CardTitle>
           <CardDescription>Tabbed form to keep the page compact</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-visible">
           <form onSubmit={(e) => submit(e, 'published')}>
             {error ? <Alert variant="destructive" className="mb-4"><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
             {warning ? <Alert className="mb-4"><AlertTitle>Duplicate warning</AlertTitle><AlertDescription>{warning}</AlertDescription></Alert> : null}
+            {durationMismatch ? (
+              <Alert variant="destructive" className="mb-4">
+                <AlertTitle>Duration does not match dates</AlertTitle>
+                <AlertDescription>
+                  Duration is {form.durationMonths} months but start/end dates span {calculatedDuration} months.
+                  Change the duration or the internship dates so they match.
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <Tabs defaultValue="details">
               <TabsList className="mb-4 flex flex-wrap h-auto gap-1">
                 <TabsTrigger value="details">Details</TabsTrigger>
@@ -163,14 +224,16 @@ export default function NewInternshipPage() {
                 <TabsTrigger value="screening">Screening</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="details" className="grid gap-4 sm:grid-cols-2">
+              <TabsContent value="details" className="grid gap-4 overflow-visible sm:grid-cols-2">
                 <Field className="sm:col-span-2"><FieldLabel>Title</FieldLabel><Input required value={form.title} onChange={(e) => set('title', e.target.value)} /></Field>
                 <Field className="sm:col-span-2"><FieldLabel>Description</FieldLabel><Textarea rows={4} value={form.description} onChange={(e) => set('description', e.target.value)} /></Field>
-                <Field className="sm:col-span-2">
+                <Field className="sm:col-span-2 overflow-visible">
                   <FieldLabel>Locations (work city)</FieldLabel>
                   <SearchableMultiSelect
-                    options={cityOptions}
+                    options={placeCityOptions}
                     value={form.locationCities || []}
+                    loading={citiesLoading && !(placeCityOptions || []).length}
+                    emptyHint={citiesLoadError || 'No cities available'}
                     onChange={(next) => {
                       set('locationCities', next);
                       set('location', next[0] || '');
@@ -180,9 +243,24 @@ export default function NewInternshipPage() {
                   />
                 </Field>
                 <Field><FieldLabel>Work mode</FieldLabel><Input value={form.workMode} onChange={(e) => set('workMode', e.target.value)} placeholder="Remote / Hybrid / On-site" /></Field>
-                <Field><FieldLabel>Duration (months)</FieldLabel><Input type="number" value={form.durationMonths} onChange={(e) => set('durationMonths', e.target.value)} /></Field>
-                <Field><FieldLabel>Internship start date</FieldLabel><Input type="date" value={form.startDate} onChange={(e) => set('startDate', e.target.value)} /></Field>
-                <Field><FieldLabel>Internship end date</FieldLabel><Input type="date" value={form.endDate} onChange={(e) => set('endDate', e.target.value)} /></Field>
+                <Field>
+                  <FieldLabel>Duration (months)</FieldLabel>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={form.durationMonths}
+                    onChange={(e) => set('durationMonths', e.target.value)}
+                  />
+                  {durationMismatch ? (
+                    <FieldDescription className="text-destructive">
+                      Duration does not match start/end dates ({calculatedDuration} months from dates).
+                    </FieldDescription>
+                  ) : calculatedDuration != null ? (
+                    <FieldDescription>Auto-filled from start/end dates when you change them.</FieldDescription>
+                  ) : null}
+                </Field>
+                <Field><FieldLabel>Internship start date</FieldLabel><Input type="date" value={form.startDate} onChange={(e) => setStartDate(e.target.value)} /></Field>
+                <Field><FieldLabel>Internship end date</FieldLabel><Input type="date" value={form.endDate} onChange={(e) => setEndDate(e.target.value)} /></Field>
                 <Field className="sm:col-span-2">
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={form.showEmployerIdentity} onChange={(e) => set('showEmployerIdentity', e.target.checked)} />

@@ -1,19 +1,99 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { IP_REF_CITIES } from '@/lib/ipRefCitiesDegrees';
+
+/** Instant client options so dropdowns never look empty while the API warms. */
+function mapCityRows(rows) {
+  return (rows || []).map((row) => {
+    if (Array.isArray(row)) {
+      const [city, state] = row;
+      return {
+        value: city,
+        label: state && state !== 'Work mode' ? `${city} (${state})` : city,
+        city,
+        state,
+      };
+    }
+    return row;
+  });
+}
+
+const STATIC_CITY_OPTIONS = mapCityRows(IP_REF_CITIES);
+
+let cachedCityItems = null;
+let inflightCities = null;
+
+async function loadCitiesOnce() {
+  if (cachedCityItems?.length) return cachedCityItems;
+  if (inflightCities) return inflightCities;
+  inflightCities = fetch('/api/ip/ref/cities')
+    .then(async (r) => {
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || `Cities HTTP ${r.status}`);
+      const items = Array.isArray(d.items) ? d.items : [];
+      // Never cache an empty success — cold/seed races used to stick the UI on “not loaded”.
+      if (items.length) cachedCityItems = items;
+      return items.length ? items : STATIC_CITY_OPTIONS;
+    })
+    .finally(() => {
+      inflightCities = null;
+    });
+  return inflightCities;
+}
 
 /**
- * Loads /api/ip/ref/cities and derives unique state_ut options.
+ * Loads /api/ip/ref/cities (shared in-tab cache) and derives unique state_ut options.
+ * Bootstraps from the in-code city list so the first open is instant.
  */
 export default function useIpCityCatalog() {
-  const [cityOptions, setCityOptions] = useState([]);
+  const [cityOptions, setCityOptions] = useState(
+    () => (cachedCityItems?.length ? cachedCityItems : STATIC_CITY_OPTIONS),
+  );
+  const [loading, setLoading] = useState(() => !cachedCityItems?.length);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    fetch('/api/ip/ref/cities')
-      .then((r) => r.json())
-      .then((d) => setCityOptions(d.items || []))
-      .catch(() => {});
+    let alive = true;
+    if (cachedCityItems?.length) {
+      setCityOptions(cachedCityItems);
+      setLoading(false);
+      return undefined;
+    }
+    setLoading(true);
+    setLoadError('');
+    loadCitiesOnce()
+      .then((items) => {
+        if (!alive) return;
+        setCityOptions(items?.length ? items : STATIC_CITY_OPTIONS);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (!alive) return;
+        // Keep static catalog usable; only surface error if we somehow have nothing.
+        setCityOptions(STATIC_CITY_OPTIONS);
+        setLoading(false);
+        setLoadError(err?.message || 'Could not refresh cities from server');
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
+
+  async function reload() {
+    cachedCityItems = null;
+    setLoading(true);
+    setLoadError('');
+    try {
+      const items = await loadCitiesOnce();
+      setCityOptions(items?.length ? items : STATIC_CITY_OPTIONS);
+    } catch (err) {
+      setCityOptions(STATIC_CITY_OPTIONS);
+      setLoadError(err?.message || 'Could not refresh cities from server');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const stateOptions = useMemo(() => {
     const map = new Map();
@@ -46,5 +126,14 @@ export default function useIpCityCatalog() {
     return cityOptions.find((o) => String(o.city || o.value).toLowerCase() === needle) || null;
   }
 
-  return { cityOptions, placeCityOptions, stateOptions, citiesForState, findCity };
+  return {
+    cityOptions,
+    placeCityOptions,
+    stateOptions,
+    citiesForState,
+    findCity,
+    loading,
+    loadError,
+    reload,
+  };
 }

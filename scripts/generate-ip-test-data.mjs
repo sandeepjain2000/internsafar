@@ -24,7 +24,7 @@ dotenv.config({ path: path.join(appRoot, '.env') });
 
 const require = createRequire(import.meta.url);
 const {
-  DEMO_PASSWORD,
+  getCorePasswordForRole,
   PROTECTED_ACCOUNT_EMAILS,
   CAND_BASE,
   EMP_BASE,
@@ -718,7 +718,7 @@ async function main() {
   assertProtectedConfigValid();
   const mode = arg('mode', 'gen-accounts');
   const runId = arg('run-id', `${mode === 'core-fill' ? 'corefill' : 'gen'}_${Date.now()}_${randomBytes(3).toString('hex')}`);
-  const password = arg('password', DEMO_PASSWORD);
+  const password = arg('password', getCorePasswordForRole('candidate'));
   const dbUrl = loadDbUrl();
   if (!dbUrl) throw new Error('DATABASE_URL (or SUPABASE_DATABASE_URL) required in env');
 

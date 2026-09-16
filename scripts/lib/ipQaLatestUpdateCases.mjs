@@ -50,7 +50,7 @@ export async function runLatestUpdateTcIsCases(ctx) {
     method: 'POST',
     body: {
       message: 'QA synthetic unexpected error (run-internsafar-qa)',
-      kind: 'UNEXPECTED_CLIENT',
+      kind: 'QA_PROBE',
       route: '/qa/latest-update',
     },
   });
@@ -72,7 +72,7 @@ export async function runLatestUpdateTcIsCases(ctx) {
 
   const opsDupPayload = {
     message: 'QA cooldown synthetic unexpected error',
-    kind: 'UNEXPECTED_CLIENT',
+    kind: 'QA_PROBE',
     route: '/qa/latest-update-cooldown',
   };
   const ops1 = await apiRequest(BASE, '/api/ip/ops/report-error', {

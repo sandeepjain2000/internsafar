@@ -7,6 +7,8 @@ const IGNORE = [
   /^Script error\.?$/i,
   /Loading CSS chunk/i,
   /Loading chunk [\d]+ failed/i,
+  // CefSharp / Outlook Safe Links / embedded Chromium crawlers — not our app.
+  /^Object Not Found Matching Id:\d+, MethodName:update, ParamCount:\d+$/i,
 ];
 
 function report(message, meta = {}) {

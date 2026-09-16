@@ -6,6 +6,7 @@ import SearchableSelect from '@/components/ip/SearchableSelect';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
 import { documentAcceptAttr, imageAcceptAttr } from '@/lib/ipFileUpload';
 import { BUSINESS_ENTITY_TYPES } from '@/lib/employerBusinessEntity';
+import { PHONE_DIAL_OPTIONS, validateRequiredPhone } from '@/lib/ipPhoneValidation';
 import '@/components/ip/ip-employer-profile-gemini.css';
 
 const DOC_TYPES = ['Shop Act', 'LLP registration', 'Business PAN', 'Other'];
@@ -110,6 +111,7 @@ export default function EmployerProfilePage() {
   const [ethicsItems, setEthicsItems] = useState([]);
   const [ethicsVersion, setEthicsVersion] = useState('');
   const [message, setMessage] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [savingCompany, setSavingCompany] = useState(false);
   const [savingEthics, setSavingEthics] = useState(false);
   const [docType, setDocType] = useState(DOC_TYPES[0]);
@@ -117,7 +119,7 @@ export default function EmployerProfilePage() {
   const [docFileName, setDocFileName] = useState('');
   const [logoBusy, setLogoBusy] = useState(false);
   const logoInputRef = useRef(null);
-  const { placeCityOptions, stateOptions, findCity } = useIpCityCatalog();
+  const { placeCityOptions, stateOptions, findCity, loading: citiesLoading } = useIpCityCatalog();
   const hqCityChoices = useMemo(() => {
     const needle = String(form?.hq_state || '').trim().toLowerCase();
     if (!needle) return placeCityOptions;
@@ -130,6 +132,7 @@ export default function EmployerProfilePage() {
     setForm({
       ...data.profile,
       ethics_acks: data.profile?.ethics_acks || {},
+      contact_phone_country_code: data.profile?.contact_phone_country_code || '+91',
     });
     setDocs(data.documents || []);
     setEthicsItems(data.ethicsItems || []);
@@ -155,11 +158,23 @@ export default function EmployerProfilePage() {
     if (ethicsOnly) setSavingEthics(true);
     else setSavingCompany(true);
     setMessage('');
+    setPhoneError('');
     try {
+      if (!ethicsOnly) {
+        const dial = form.contact_phone_country_code || '+91';
+        const phoneCheck = validateRequiredPhone(form.contact_phone, dial);
+        if (!phoneCheck.ok) {
+          setPhoneError(phoneCheck.error);
+          throw new Error(phoneCheck.error);
+        }
+      }
       const res = await fetch('/api/ip/employer/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          contact_phone_country_code: form.contact_phone_country_code || '+91',
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -371,6 +386,8 @@ export default function EmployerProfilePage() {
             <SearchableSelect
               options={hqCityChoices}
               value={form.hq_city || ''}
+              loading={citiesLoading && !(hqCityChoices || []).length}
+              emptyHint="No cities available"
               onChange={(city) => {
                 const hit = findCity(city);
                 setForm((f) => ({
@@ -396,6 +413,8 @@ export default function EmployerProfilePage() {
             <SearchableSelect
               options={stateOptions}
               value={form.hq_state || ''}
+              loading={citiesLoading && !(stateOptions || []).length}
+              emptyHint="No states available"
               onChange={(state) => {
                 setForm((f) => {
                   const hit = findCity(f.hq_city);
@@ -427,14 +446,38 @@ export default function EmployerProfilePage() {
             />
           </Field>
           <Field label="Contact Phone">
-            <input
-              className="ip-ep-input"
-              type="tel"
-              value={form.contact_phone || ''}
-              onChange={(e) => set('contact_phone', e.target.value)}
-              placeholder="+91 98765 43210"
-              required
-            />
+            <div className="ip-ep-phone" role="group" aria-label="Contact phone with country code">
+              <select
+                className="ip-ep-phone__dial"
+                value={form.contact_phone_country_code || '+91'}
+                onChange={(e) => {
+                  set('contact_phone_country_code', e.target.value);
+                  setPhoneError('');
+                }}
+                aria-label="Country calling code"
+              >
+                {PHONE_DIAL_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                className={`ip-ep-phone__num${phoneError ? ' is-invalid' : ''}`}
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel-national"
+                value={form.contact_phone || ''}
+                onChange={(e) => {
+                  set('contact_phone', e.target.value);
+                  setPhoneError('');
+                }}
+                placeholder="98765 43210"
+                required
+                aria-invalid={phoneError ? 'true' : 'false'}
+              />
+            </div>
+            {phoneError ? <p className="ip-ep-error" role="alert">{phoneError}</p> : null}
           </Field>
           <Field label="Work Email">
             <input
