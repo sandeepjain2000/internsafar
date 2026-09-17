@@ -1,15 +1,10 @@
 #!/usr/bin/env node
 /**
- * Send InternSafar daily progress report (Zepto → placementhubsupport@gmail.com).
+ * Send InternSafar daily progress report (Zepto).
+ * Hits POST /api/ip/cron/daily-progress-report on localhost (AWS) or IP_BASE.
+ * Subject time = real IST wall-clock at send.
  *
- * Usage:
- *   node scripts/process-ip-daily-progress-report.mjs
- *   IP_BASE=https://… IP_CRON_SECRET=… node scripts/process-ip-daily-progress-report.mjs
- *   … --force          # bypass IP_DAILY_PROGRESS_REPORT_ENABLED=false
- *   … --dry-run        # metrics only, no mail
- *
- * Hits POST /api/ip/cron/daily-progress-report
- * Standing schedule: AWS crontab + Vercel Cron, both 21:00 IST.
+ * Flags: --force --dry-run
  */
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';

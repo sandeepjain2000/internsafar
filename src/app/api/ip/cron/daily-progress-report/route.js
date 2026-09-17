@@ -1,26 +1,56 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { runDailyProgressReport } from '@/lib/ipDailyProgressReport';
 
 /**
  * Compact daily progress report → Zepto → placementhubsupport@gmail.com
- * Candidates + employers (primary), postings + applications (secondary).
  *
  * Auth (any one):
- *   - x-ip-cron-secret === IP_CRON_SECRET
- *   - Authorization: Bearer <IP_CRON_SECRET|CRON_SECRET>  (Vercel Cron)
+ *   - x-ip-cron-secret === IP_CRON_SECRET (process env OR .env on disk for AWS)
+ *   - Authorization: Bearer <IP_CRON_SECRET|CRON_SECRET>
  *   - else superadmin session (when no secrets configured)
  *
- * Vercel Cron uses GET at 15:30 UTC (= 21:00 IST). AWS crontab uses POST via npm CLI.
- * Query: force=1, dryRun=1
+ * Query/body: force=1, dryRun=1
+ * Subject/body time = real IST wall-clock at send (not a fake scheduled stamp).
  */
+function secretsFromEnvFile() {
+  if (process.env.VERCEL) return { ip: '', cron: '' };
+  try {
+    const raw = readFileSync(join(process.cwd(), '.env'), 'utf8');
+    const out = { ip: '', cron: '' };
+    for (const line of raw.split(/\r?\n/)) {
+      const s = line.trim();
+      if (!s || s.startsWith('#') || !s.includes('=')) continue;
+      const i = s.indexOf('=');
+      const k = s.slice(0, i).trim();
+      const v = s.slice(i + 1).trim().replace(/^["']|["']$/g, '');
+      if (k === 'IP_CRON_SECRET') out.ip = v;
+      if (k === 'CRON_SECRET') out.cron = v;
+    }
+    return out;
+  } catch {
+    return { ip: '', cron: '' };
+  }
+}
+
 function authorizeCron(request) {
-  const ipSecret = String(process.env.IP_CRON_SECRET || '').trim();
-  const vercelSecret = String(process.env.CRON_SECRET || '').trim();
+  const file = secretsFromEnvFile();
+  const ipSecret = String(process.env.IP_CRON_SECRET || file.ip || '').trim();
+  const vercelSecret = String(process.env.CRON_SECRET || file.cron || '').trim();
+  const ipAlts = new Set(
+    [process.env.IP_CRON_SECRET, file.ip].map((s) => String(s || '').trim()).filter(Boolean),
+  );
+  const cronAlts = new Set(
+    [process.env.CRON_SECRET, file.cron].map((s) => String(s || '').trim()).filter(Boolean),
+  );
   const headerSecret = request.headers.get('x-ip-cron-secret') || '';
   const auth = request.headers.get('authorization') || '';
   const bearer = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
 
-  if (ipSecret || vercelSecret) {
+  if (ipAlts.size || cronAlts.size || ipSecret || vercelSecret) {
+    if (headerSecret && ipAlts.has(headerSecret)) return { ok: true };
+    if (bearer && (ipAlts.has(bearer) || cronAlts.has(bearer))) return { ok: true };
     if (ipSecret && headerSecret === ipSecret) return { ok: true };
     if (ipSecret && bearer === ipSecret) return { ok: true };
     if (vercelSecret && bearer === vercelSecret) return { ok: true };

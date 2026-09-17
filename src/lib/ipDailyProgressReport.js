@@ -7,10 +7,12 @@
  *   Primary: candidates, employers
  *   Secondary: postings, applications
  *   Each for Today (IST) + Cumulative
+ *   Pending review: employers registered but not yet approved (approval_status=pending)
  *
- * Standing schedule (both 9:00 pm IST):
- *   AWS EC2 crontab  — PRODUCTION (prod RDS)
- *   Vercel Cron      — TESTING (Neon) — schedule UTC 15:30 = IST 21:00
+ * Standing schedule (UTC on EC2 — do NOT rely on CRON_TZ):
+ *   TEST: 12:50 IST = 07:20 UTC → "20 7 * * *"
+ *   Prod target 21:00 IST = 15:30 UTC → "30 15 * * *"
+ *   Vercel TESTING: EC2 curls the Vercel URL (Hobby vercel.json cron disabled for this job).
  *
  * Subject: [InternSafar][AWS|Vercel|Local][DAILY][PRODUCTION|TESTING|LOCAL] YYYY-MM-DD HH:MM (IST)
  */
@@ -89,8 +91,8 @@ function platformTag(host) {
 }
 
 /**
- * Compact metrics only: candidates, employers, postings, applications.
- * @returns {Promise<{ dayLabel: string, timeLabel: string, host: string, today: object, cumulative: object }>}
+ * Compact metrics: Today + Cumulative + Pending review (employers awaiting approval).
+ * timeLabel is real IST wall-clock at send (do not fake/schedule-stamp).
  */
 export async function collectDailyProgressMetrics(now = new Date()) {
   await ensureGeneratedRunColumn();
@@ -148,17 +150,33 @@ export async function collectDailyProgressMetrics(now = new Date()) {
     ),
   };
 
-  return { dayLabel, timeLabel, host, dayStart, dayEnd, today, cumulative };
+  // Snapshot backlog: registered employers not yet SuperAdmin-approved
+  const pendingReview = {
+    employers: await countInt(
+      `SELECT count(*)::int AS n FROM ip_employers e
+       JOIN ip_users u ON u.id = e.user_id
+       WHERE e.approval_status = 'pending' AND ${notGen}`,
+    ),
+  };
+
+  return { dayLabel, timeLabel, host, dayStart, dayEnd, today, cumulative, pendingReview };
 }
 
 export function formatDailyProgressEmail(metrics) {
-  const { dayLabel, timeLabel, host, today, cumulative } = metrics;
+  const { dayLabel, timeLabel, host, today, cumulative, pendingReview } = metrics;
   const envKind = environmentKind(host);
   const envTag =
     envKind === 'PRODUCTION' ? 'PRODUCTION' : envKind === 'TESTING' ? 'TESTING' : 'LOCAL';
   const plat = platformTag(host);
 
-  const subject = `[InternSafar][${plat}][DAILY][${envTag}] ${dayLabel} ${timeLabel} (IST)`;
+  // Distinct subjects so Gmail does not conversation-thread AWS + Vercel into one row.
+  // Still two separate Zepto sends (EC2 local job + EC2 curl → Vercel).
+  const subject =
+    plat === 'AWS'
+      ? `InternSafar AWS PRODUCTION daily — ${dayLabel} ${timeLabel} IST`
+      : plat === 'Vercel'
+        ? `InternSafar Vercel TESTING daily — ${dayLabel} ${timeLabel} IST`
+        : `InternSafar Local ${envTag} daily — ${dayLabel} ${timeLabel} IST`;
 
   const text = [
     `InternSafar daily — ${plat} | ${envTag} | ${dayLabel} ${timeLabel} IST | ${host}`,
@@ -175,6 +193,9 @@ export function formatDailyProgressEmail(metrics) {
     `  Number of employers:     ${cumulative.employers}`,
     `  Number of postings:      ${cumulative.postings}`,
     `  Number of applications:  ${cumulative.applications}`,
+    '',
+    'Pending review',
+    `  Number of employers:     ${pendingReview?.employers ?? 0}`,
   ].join('\n');
 
   const html = `<pre style="font-family:ui-monospace,Consolas,monospace;font-size:13px;line-height:1.4;white-space:pre-wrap">${text

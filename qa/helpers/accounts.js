@@ -1,5 +1,6 @@
 /** InternSafar core demo accounts (scripts/lib/ipCoreSampleConfig.js).
- * Passwords: local coreaccountspass.json via loadCoreAccountPasswords (gitignored).
+ * Sibling/Vercel QA: hardcoded Admin@123 via ipCoreSampleConfig (Neon).
+ * AWS/production packs use coreaccountspass.json in the handoff extract.
  */
 const {
   getCorePasswordForRole,

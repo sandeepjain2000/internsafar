@@ -15,14 +15,28 @@
  */
 const SUPERADMIN_EMAIL = 'support@placementhub.online';
 const LEGACY_SUPERADMIN_EMAIL = 'superadmin@internship.local';
+
 /**
- * Core passwords are NOT stored in this file anymore.
- * Local-only JSON (gitignored): coreaccountspass.json — see loadCoreAccountPasswords.js
+ * Sibling / Vercel / local Neon QA: hardcoded core password (Admin@123).
+ * AWS / production packs keep coreaccountspass.json via loadCoreAccountPasswords
+ * in the handoff extract — do not bake this hardcode into production tars.
  */
+const CORE_QA_PASSWORD = 'Admin@123';
+
+function getCorePasswordForEmail(_email) {
+  return CORE_QA_PASSWORD;
+}
+
+function getCorePasswordForRole(_role) {
+  return CORE_QA_PASSWORD;
+}
+
+function getCorePasswordForEmailOrRole(_email, _role) {
+  return CORE_QA_PASSWORD;
+}
+
+/** Optional: still available for ops scripts that need the JSON file (AWS tooling). */
 const {
-  getCorePasswordForEmail,
-  getCorePasswordForRole,
-  getCorePasswordForEmailOrRole,
   loadCoreAccountPasswords,
   corePasswordsFilePath,
 } = require('./loadCoreAccountPasswords');

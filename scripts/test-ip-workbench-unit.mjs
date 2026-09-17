@@ -27,11 +27,17 @@ assert.ok(PROTECTED_ACCOUNT_EMAILS.includes('lawsonlclintern+1@gmail.com'));
 assert.ok(PROTECTED_ACCOUNT_EMAILS.includes('placementhubsupport@gmail.com'));
 assert.ok(isProtectedEmail('support@placementhub.online'));
 assert.ok(!isProtectedEmail('random@example.com'));
-const loaded = loadCoreAccountPasswords();
-assert.ok(loaded.filePath, 'coreaccountspass.json must resolve');
-assert.ok(getCorePasswordForRole('candidate').length >= 8);
-assert.ok(getCorePasswordForRole('employer').length >= 8);
-assert.ok(getCorePasswordForRole('superadmin').length >= 8);
+// Sibling/Vercel QA uses hardcoded Admin@123 (no JSON required for getters).
+assert.equal(getCorePasswordForRole('candidate'), 'Admin@123');
+assert.equal(getCorePasswordForRole('employer'), 'Admin@123');
+assert.equal(getCorePasswordForRole('superadmin'), 'Admin@123');
+// JSON loader remains available for AWS/ops tooling when the file exists.
+try {
+  const loaded = loadCoreAccountPasswords();
+  assert.ok(loaded.filePath, 'coreaccountspass.json must resolve when present');
+} catch (e) {
+  if (e?.code !== 'CORE_PASSWORDS_MISSING') throw e;
+}
 
 // Visibility
 const now = new Date('2026-06-01T12:00:00Z');

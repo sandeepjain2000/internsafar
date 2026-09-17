@@ -1,6 +1,6 @@
 /**
  * Shared NextAuth credentials login for IP QA scripts (API cookie jar).
- * Core passwords come from local coreaccountspass.json (gitignored).
+ * Sibling/Vercel: core passwords are hardcoded Admin@123 (ipCoreSampleConfig).
  */
 import { createRequire } from 'module';
 import { dirname } from 'path';
