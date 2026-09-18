@@ -75,6 +75,7 @@ export async function createTwoFactorChallenge(userId, purpose) {
 <p style="font-size:24px;font-weight:700;letter-spacing:4px">${code}</p>
 <p>This code expires in 10 minutes. If you did not request it, you can ignore this email.</p>`,
     text: `Your PlacementHub code to ${purposeLabel} is ${code}. Expires in 10 minutes.`,
+    skipUnsubscribe: true,
   });
 
   return { challengeId: id, email: row.email };

@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { ensureIpCandidateProfileSchema } from '@/lib/ensureIpCandidateProfileSchema';
 import { ensureIpAccountSettingsSchema } from '@/lib/ensureIpAccountSettingsSchema';
+import { ensureIpStudentDiscoveryFeatures } from '@/lib/ensureIpStudentDiscoveryFeatures';
 import { maybeAwardProfileCompleteBonus } from '@/lib/ipReferralCredit';
 import { PROFILE_COMPLETE_POINTS } from '@/lib/pointsEconomy';
 import { validateOptionalPhone } from '@/lib/ipPhoneValidation';
@@ -37,6 +38,7 @@ const FIELD_LABELS = {
   personal_website: 'Personal website',
   preferred_work_mode: 'Preferred Work Mode',
   preferred_locations: 'Preferred Locations',
+  preferred_roles: 'Preferred Roles / Interests',
   availability_date: 'Earliest Availability / Start Date',
   preferred_hours_start: 'Preferred hours (from)',
   preferred_hours_end: 'Preferred hours (to)',
@@ -76,6 +78,7 @@ export async function GET() {
   const { session, error } = await requireSession(['candidate']);
   if (error) return error;
   await ensureIpCandidateProfileSchema();
+  await ensureIpStudentDiscoveryFeatures();
   const result = await query(
     `SELECT c.*, u.email as account_email, u.points, u.application_allowance, u.referral_code, u.profile_complete
      FROM ip_candidates c JOIN ip_users u ON u.id = c.user_id
@@ -121,6 +124,7 @@ async function putProfile(request) {
   if (error) return error;
   await ensureIpCandidateProfileSchema();
   await ensureIpAccountSettingsSchema();
+  await ensureIpStudentDiscoveryFeatures();
   let body;
   try {
     body = await request.json();

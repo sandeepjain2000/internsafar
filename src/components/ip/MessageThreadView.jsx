@@ -14,7 +14,7 @@ import { plainTextFromMessageHtml, sanitizeMessageHtml } from '@/lib/ipRichText'
 import { cn } from '@/lib/utils';
 
 /**
- * Full-page conversation (sub-screen). Email-style thread, not Internshala bubbles.
+ * Full-page conversation (sub-screen). Email-style thread, not chat bubbles.
  */
 export default function MessageThreadView({ role }) {
   const { id } = useParams();

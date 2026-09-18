@@ -20,9 +20,14 @@ import {
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
+import { useClientPagination } from '@/hooks/useClientPagination';
+import IpListPager from '@/components/ip/IpListPager';
 import '@/components/ip/ip-candidate-notifications-gemini.css';
+import '@/components/ip/ip-list-pager.css';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
+
+const PAGE_SIZE = 10;
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -161,6 +166,11 @@ export default function CandidateNotificationsPage() {
     });
   }, [items, filter, search]);
 
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(filtered, PAGE_SIZE);
+  useEffect(() => {
+    setPage(1);
+  }, [filter, search, setPage]);
+
   function resetFilters() {
     setFilter('all');
     setSearch('');
@@ -226,7 +236,10 @@ export default function CandidateNotificationsPage() {
           <div className="ip-cn-showing">
             Showing:{' '}
             <strong style={{ color: '#0f172a' }}>
-              {filtered.length} of {items.length} notifications
+              {total
+                ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${items.length}`
+                : `0 of ${items.length}`}{' '}
+              notifications
             </strong>
           </div>
         </div>
@@ -325,7 +338,7 @@ export default function CandidateNotificationsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((n) => (
+                {pageItems.map((n) => (
                   <tr key={n.id} className="border-b">
                     <td className="p-3">{n.title}</td>
                     <td className="p-3">{relativeTime(n.created_at)}</td>
@@ -337,7 +350,7 @@ export default function CandidateNotificationsPage() {
           </div>
         ) : (
         <ul className="ip-cn-list">
-          {filtered.map((n) => {
+          {pageItems.map((n) => {
             const unread = n.isUnread || !n.read_at;
             const Icon = iconFor(n.bucket);
             return (
@@ -423,6 +436,16 @@ export default function CandidateNotificationsPage() {
           ) : null}
         </div>
       )}
+
+      {!loading && total > 0 ? (
+        <IpListPager
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
+      ) : null}
     </div>
   );
 }

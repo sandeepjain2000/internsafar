@@ -22,10 +22,14 @@ import {
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
+import { useClientPagination } from '@/hooks/useClientPagination';
+import IpListPager from '@/components/ip/IpListPager';
 import '@/components/ip/ip-employer-notifications-gemini.css';
+import '@/components/ip/ip-list-pager.css';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 
+const PAGE_SIZE = 10;
 const TABS = ['All', 'Unread', 'Applications', 'Offers', 'Rewards', 'Time-limited', 'Last 24h', 'Last 7 days'];
 
 function formatWhen(value) {
@@ -198,6 +202,11 @@ export default function EmployerNotificationsPage() {
       return `${n.title || ''} ${n.body || ''}`.toLowerCase().includes(q);
     });
   }, [items, tab, search]);
+
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(filtered, PAGE_SIZE);
+  useEffect(() => {
+    setPage(1);
+  }, [tab, search, setPage]);
 
   function resetFilters() {
     setTab('All');
@@ -388,7 +397,7 @@ export default function EmployerNotificationsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((n) => (
+                {pageItems.map((n) => (
                   <tr key={n.id} className="border-b">
                     <td className="p-3">{n.title}</td>
                     <td className="p-3">{formatWhen(n.created_at)}</td>
@@ -401,7 +410,7 @@ export default function EmployerNotificationsPage() {
         ) : (
         <>
           <ul className="ip-en-list">
-            {filtered.map((n) => {
+            {pageItems.map((n) => {
               const unread = !n.read_at;
               const bucket = resolveBucket(n);
               const { Icon, tone } = iconFor(bucket);
@@ -461,10 +470,19 @@ export default function EmployerNotificationsPage() {
           </ul>
           <div className="ip-en-footer">
             <span>
-              Showing {filtered.length} of {items.length} notifications
+              Showing {total ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)}` : 0} of {items.length} notifications
             </span>
             <span>Updated when you open this page</span>
           </div>
+          {total > 0 ? (
+            <IpListPager
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              pageSize={pageSize}
+              onPageChange={setPage}
+            />
+          ) : null}
         </>
         )
       ) : (

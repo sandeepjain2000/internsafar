@@ -21,6 +21,8 @@
         "test:migration-sql-safe": "node scripts/test-migration-sql-safe.mjs",
         "test:workbench": "node scripts/test-ip-workbench-unit.mjs",
         "test:mail-override": "node scripts/test-ip-mail-override.mjs",
+        "test:email-unsubscribe": "node scripts/test-ip-email-unsubscribe.mjs",
+        "test:email-unsubscribe:live": "node scripts/smoke-ip-email-unsubscribe-live.mjs",
         "cron:schedule-reminders": "node scripts/process-ip-schedule-reminders.mjs",
         "cron:export-jobs": "node scripts/process-ip-export-jobs.mjs",
         "cron:daily-progress-report": "node scripts/process-ip-daily-progress-report.mjs",

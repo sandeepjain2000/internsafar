@@ -17,9 +17,14 @@ import {
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
+import { useClientPagination } from '@/hooks/useClientPagination';
+import IpListPager from '@/components/ip/IpListPager';
 import '@/components/ip/ip-offers-gemini.css';
+import '@/components/ip/ip-list-pager.css';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
+
+const PAGE_SIZE = 10;
 
 function initials(name) {
   const parts = String(name || '')
@@ -140,6 +145,11 @@ export default function CandidateOffersPage() {
       return hay.includes(needle);
     });
   }, [items, q, tab]);
+
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(filtered, PAGE_SIZE);
+  useEffect(() => {
+    setPage(1);
+  }, [q, tab, setPage]);
 
   async function respond(id, status) {
     setBusyId(id);
@@ -370,7 +380,7 @@ export default function CandidateOffersPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((o) => (
+              {pageItems.map((o) => (
                 <tr key={o.id} className="border-b">
                   <td className="p-3">{o.role_title || o.title}</td>
                   <td className="p-3">{o.company_name}</td>
@@ -379,7 +389,9 @@ export default function CandidateOffersPage() {
               ))}
             </tbody>
           </table>
-        ) : filtered.map((o) => {          const pending = o.display_status === 'action_required';
+        ) : (
+          pageItems.map((o) => {
+          const pending = o.display_status === 'action_required';
           const accepted = o.display_status === 'accepted';
           const role = o.role_title || o.title || 'Internship offer';
           return (
@@ -604,8 +616,19 @@ export default function CandidateOffersPage() {
               ) : null}
             </article>
           );
-        })}
+        })
+        )}
       </div>
+
+      {!loading && total > 0 ? (
+        <IpListPager
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
+      ) : null}
 
       {confirm ? (
         <div className="ip-of-overlay" role="dialog" aria-modal="true">

@@ -20,6 +20,7 @@ export default function SearchableMultiSelect({
   ariaLabel = 'Select',
   loading = false,
   emptyHint = 'Loading cities…',
+  allowCustom = false,
 }) {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
@@ -78,10 +79,17 @@ export default function SearchableMultiSelect({
     onChange?.(next);
   }
 
+  function addCustom() {
+    const raw = q.trim();
+    if (!raw || !allowCustom) return;
+    toggle(raw);
+    setQ('');
+  }
+
   let menuBody;
-  if (loading && !optionCount) {
+  if (loading && !optionCount && !allowCustom) {
     menuBody = <li className="ip-sms-none">Loading cities…</li>;
-  } else if (!optionCount) {
+  } else if (!optionCount && !allowCustom) {
     menuBody = <li className="ip-sms-none">{emptyHint}</li>;
   } else if (filtered.length) {
     menuBody = filtered.map((o) => {
@@ -99,6 +107,14 @@ export default function SearchableMultiSelect({
         </li>
       );
     });
+  } else if (allowCustom && q.trim()) {
+    menuBody = (
+      <li>
+        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={addCustom}>
+          Add “{q.trim()}”
+        </button>
+      </li>
+    );
   } else {
     menuBody = <li className="ip-sms-none">No matches</li>;
   }
@@ -149,6 +165,12 @@ export default function SearchableMultiSelect({
         onChange={(e) => {
           setQ(e.target.value);
           setOpen(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && allowCustom && q.trim()) {
+            e.preventDefault();
+            addCustom();
+          }
         }}
       />
       {menu}

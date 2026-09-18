@@ -16,6 +16,13 @@
  *   though OUTBOUND_EMAIL_OVERRIDE still holds the support address.
  */
 import nodemailer from 'nodemailer';
+import { resolveAppOrigin } from '@/lib/ipAppOrigin';
+import {
+  applyUnsubscribeFooter,
+  buildUnsubscribeUrl,
+  createUnsubscribeToken,
+  isValidUnsubscribeToken,
+} from '@/lib/ipEmailUnsubscribeFormat';
 import { getZeptoFrom, isZeptoConfigured, sendViaZeptoMail } from '@/lib/zeptomail';
 
 export { isZeptoConfigured };
@@ -103,6 +110,34 @@ function normalizeRecipients(to) {
   return out;
 }
 
+async function persistUnsubscribeToken(email, preferredToken) {
+  try {
+    const { getOrCreateUnsubscribeToken } = await import('@/lib/ipEmailUnsubscribe');
+    return await getOrCreateUnsubscribeToken(email, preferredToken);
+  } catch (err) {
+    console.warn('[mail] unsubscribe token persist skipped:', err.message);
+    return preferredToken;
+  }
+}
+
+/**
+ * Shared system/promotional footer: every outbound mail gets a clickable
+ * "unsubscribe" link bound to a recipient token (email is not in the URL).
+ */
+async function withUnsubscribeFooter(opts, intendedList) {
+  if (opts?.skipUnsubscribe) {
+    const { skipUnsubscribe: _skip, ...rest } = opts;
+    return rest;
+  }
+  const email = intendedList[0];
+  if (!email) return opts;
+  const generated = createUnsubscribeToken();
+  const token = await persistUnsubscribeToken(email, generated);
+  const url = buildUnsubscribeUrl(resolveAppOrigin(), isValidUnsubscribeToken(token) ? token : generated);
+  const { skipUnsubscribe: _skip2, ...rest } = opts;
+  return applyUnsubscribeFooter(rest, url);
+}
+
 async function sendMailOnce(opts) {
   const to = Array.isArray(opts.to) ? opts.to.join(', ') : opts.to;
   if (!to) throw new Error('sendMail: to is required');
@@ -179,18 +214,20 @@ function withRedirectNote(opts, intended, deliveredTo, reason) {
  * recipient is never dropped.
  * If delivery fails, optionally retry IP_MAIL_TEST_FALLBACK.
  *
- * @param {{ to: string|string[], subject: string, html?: string, text?: string }} opts
+ * @param {{ to: string|string[], subject: string, html?: string, text?: string, skipUnsubscribe?: boolean }} opts
  */
 export async function sendMail(opts) {
   const intendedList = normalizeRecipients(opts.to);
   const intended = intendedList.join(', ');
   if (!intended) throw new Error('sendMail: to is required');
 
+  const mailOpts = await withUnsubscribeFooter(opts, intendedList);
+
   const override = getOutboundEmailOverride();
   if (override && !intendedList.includes(override)) {
     const recipients = [...intendedList, override];
     const result = await sendMailOnce({
-      ...withSupportCopyNote(opts, intended, override, 'OUTBOUND_EMAIL_OVERRIDE'),
+      ...withSupportCopyNote(mailOpts, intended, override, 'OUTBOUND_EMAIL_OVERRIDE'),
       to: recipients,
     });
     return {
@@ -205,7 +242,7 @@ export async function sendMail(opts) {
   }
 
   try {
-    return await sendMailOnce({ ...opts, to: intendedList });
+    return await sendMailOnce({ ...mailOpts, to: intendedList });
   } catch (primaryErr) {
     const fallback = getMailTestFallback();
     if (!fallback || intendedList.includes(fallback)) {
@@ -217,7 +254,7 @@ export async function sendMail(opts) {
     );
 
     const result = await sendMailOnce(
-      withRedirectNote(opts, intended, fallback, `primary failed: ${String(primaryErr.message || '').slice(0, 120)}`),
+      withRedirectNote(mailOpts, intended, fallback, `primary failed: ${String(primaryErr.message || '').slice(0, 120)}`),
     );
 
     return {

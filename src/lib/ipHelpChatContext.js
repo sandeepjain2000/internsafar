@@ -26,7 +26,7 @@ Product facts you may use:
 - Candidates: Gmail-oriented signup; Google registration can open an authenticated session
 - Employers: work email / domain or form path; may need SuperAdmin approval and ethics/docs before live posts
 - CAPTCHA: Security Verification on login; “New Code” regenerates the arithmetic challenge
-- Messaging is email-style (subject = last message), not Internshala-style chat bubbles
+- Messaging is email-style (subject = last message), not chat-bubble threads
 - Fairness guidelines apply to internship posts; employers also accept ethics on profile
 
 Rules:

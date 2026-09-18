@@ -47,6 +47,7 @@ export async function POST(request) {
 <p>Use this code to confirm your new mobile number <strong>${combined}</strong>:</p>
 <p style="font-size:24px;font-weight:700;letter-spacing:4px">${code}</p>
 <p>This code expires in 10 minutes. We email this code because SMS delivery is not configured.</p>`,
+      skipUnsubscribe: true,
     });
   } catch (mailErr) {
     console.error('[phone-change request] mail failed', mailErr.message);

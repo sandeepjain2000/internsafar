@@ -13,8 +13,12 @@ import {
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useIsMobile } from '@/hooks/useViewMode';
+import { useClientPagination } from '@/hooks/useClientPagination';
+import IpListPager from '@/components/ip/IpListPager';
 import '@/components/ip/ip-employer-offers-gemini.css';
+import '@/components/ip/ip-list-pager.css';
 
+const PAGE_SIZE = 10;
 const TABS = ['All', 'Pending', 'Accepted', 'Declined'];
 const REMIND_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
@@ -204,6 +208,11 @@ export default function EmployerOffersPage() {
       return hay.includes(needle);
     });
   }, [items, tab, q]);
+
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(filtered, PAGE_SIZE);
+  useEffect(() => {
+    setPage(1);
+  }, [tab, q, setPage]);
 
   async function remind(o) {
     const blocked = remindBlockedReason(o);
@@ -493,7 +502,7 @@ export default function EmployerOffersPage() {
                 : 'No offers yet — send one from a posting’s applicant list or Search Candidates.'}
             </p>
           ) : (
-            filtered.map((o) => {
+            pageItems.map((o) => {
               const st = displayStatus(o);
               return (
                 <article key={o.id} className="ip-eo-mcard">
@@ -549,7 +558,7 @@ export default function EmployerOffersPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((o) => (
+                pageItems.map((o) => (
                   <tr key={o.id}>
                     <td>
                       <div className="ip-eo-cand">
@@ -582,6 +591,16 @@ export default function EmployerOffersPage() {
             </tbody>
           </table>
         </div>
+
+        {total > 0 ? (
+          <IpListPager
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            pageSize={pageSize}
+            onPageChange={setPage}
+          />
+        ) : null}
       </div>
 
       {filtersOpen ? (

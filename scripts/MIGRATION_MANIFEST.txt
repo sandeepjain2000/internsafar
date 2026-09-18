@@ -43,3 +43,4 @@
 038_ip_retire_vishwakarma_vnit_college_names.sql
 039_ip_feature_idea_detail_columns.sql
 040_ip_help_chat_analytics.sql
+041_ip_email_unsubscribe_requests.sql

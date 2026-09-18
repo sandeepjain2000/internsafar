@@ -4,8 +4,38 @@ const { password } = require('./accounts');
 async function fillCaptchaIfPresent(page, inputId = 'login-captcha') {
   const box = page.locator(`#${inputId}`);
   if ((await box.count()) === 0) return;
-  const val = await box.inputValue().catch(() => '');
-  if (!String(val).trim()) await box.fill('7');
+
+  await box.waitFor({ state: 'visible', timeout: 20_000 }).catch(() => {});
+
+  // Field starts readOnly until focus (anti-autofill). Unlock before typing.
+  await box.click({ timeout: 10_000 }).catch(() => {});
+  await page
+    .waitForFunction(
+      (id) => {
+        const el = document.getElementById(id);
+        return Boolean(el && !el.readOnly && !el.disabled);
+      },
+      inputId,
+      { timeout: 15_000 },
+    )
+    .catch(() => {});
+
+  const existing = await box.inputValue().catch(() => '');
+  if (String(existing).trim()) return;
+
+  const sum = await page.evaluate(() => {
+    const badge = document.querySelector('.ip-gemini-security__badge');
+    const hay = `${badge?.textContent || ''} ${document.body?.innerText || ''}`;
+    const m = hay.match(/(\d+)\s*\+\s*(\d+)/);
+    if (m) return String(Number(m[1]) + Number(m[2]));
+    return '';
+  });
+  const answer = sum || '7';
+
+  // Controlled React input: focus + type (fill often fails while briefly readOnly).
+  await box.focus().catch(() => {});
+  await box.press('Control+A').catch(() => {});
+  await box.pressSequentially(answer, { delay: 20 });
 }
 
 async function apiLoginOnce(base, email, pwd = password) {

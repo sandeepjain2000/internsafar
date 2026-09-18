@@ -222,4 +222,21 @@ test.describe('InternSafar regression', () => {
     const body = await res.json().catch(() => ({}));
     expect(String(body.error || body.message || '')).toMatch(/internshipId/i);
   });
+
+  test('IS-055 unsubscribe page handles missing token', async ({ page }) => {
+    await page.goto('/unsubscribe');
+    await expect(page.getByText('Link not valid').first()).toBeVisible({ timeout: 20_000 });
+  });
+
+  test('IS-056 applications list shows pagination chrome when needed', async ({ page }) => {
+    await openWithSession(page, candidate.email, '/candidate/applications');
+    await expect(page).toHaveURL(/\/candidate\/applications/, { timeout: 25_000 });
+    await expect(page.locator('main, [role="main"], .ip-ap, .ip-of-list').first()).toBeVisible({
+      timeout: 20_000,
+    });
+    const pager = page.getByText(/Showing .+ of|Page \d+ \/|Previous/i).first();
+    if (await pager.count()) {
+      await expect(pager).toBeVisible();
+    }
+  });
 });

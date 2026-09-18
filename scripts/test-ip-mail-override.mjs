@@ -128,6 +128,13 @@ try {
     'banner must not claim the real recipient was replaced',
   );
   assert.equal(captured.at(-1).subject, 'Hi', 'subject stays clean for the real recipient');
+  const unsubMatch = captured.at(-1).htmlbody.match(/<a href="([^"]+)"[^>]*>unsubscribe<\/a>/);
+  assert.ok(unsubMatch, 'system mail html must include a clickable unsubscribe link');
+  assert.ok(/\/unsubscribe\?token=/.test(unsubMatch[1]), 'unsubscribe href must use a token URL');
+  assert.ok(
+    !unsubMatch[1].toLowerCase().includes(REAL_USER),
+    'unsubscribe URL must not expose the recipient email',
+  );
 
   // Multi-recipient callers (e.g. offers notify candidate + employer) keep everyone.
   setEnv({ flag: 'true', overrideAddress: SUPPORT });

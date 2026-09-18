@@ -9,7 +9,8 @@ export const EDITABLE_FIELDS = [
   'name', 'first_name', 'middle_name', 'last_name', 'phone', 'phone_country_code',
   'whatsapp_number', 'telegram_handle', 'profile_picture_url', 'show_profile_picture', 'college', 'degree', 'specialization',
   'study_status', 'graduation_year', 'cgpa', 'country', 'city', 'state', 'skills', 'resume_url', 'resume_links', 'linkedin_url',
-  'github_url', 'portfolio_url', 'personal_website', 'preferred_work_mode', 'preferred_locations', 'availability_date',
+  'github_url', 'portfolio_url', 'personal_website', 'preferred_work_mode', 'preferred_locations', 'preferred_roles',
+  'availability_date',
   'searchable', 'show_completed_internships', 'whatsapp_opt_in', 'telegram_opt_in',
   'has_wired_broadband', 'has_dedicated_laptop', 'preferred_hours_start', 'preferred_hours_end',
   'ongoing_commitment', 'ongoing_commitment_note', 'ongoing_commitment_choice',
@@ -31,7 +32,7 @@ const REQUIRED_BOOLS = new Set([
 const NULL_WHEN_BLANK = new Set(['availability_date', 'graduation_year', 'cgpa']);
 
 /** Stored as TEXT[]; node-postgres maps a JS array straight onto that. */
-const TEXT_ARRAYS = new Set(['skills', 'preferred_locations']);
+const TEXT_ARRAYS = new Set(['skills', 'preferred_locations', 'preferred_roles']);
 
 const COUNTRY_OPTIONS = new Set(['India', 'Bangladesh', 'Sri Lanka', 'Indonesia']);
 

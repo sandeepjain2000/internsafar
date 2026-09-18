@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
+import { useClientPagination } from '@/hooks/useClientPagination';
+import IpListPager from '@/components/ip/IpListPager';
 import { isStoredMeetUrl, meetJoinLabel } from '@/lib/ipInterviewMeetUrl';
 import {
   formatBytes,
@@ -26,6 +28,9 @@ import {
 // actions but uses this stylesheet, scoped by .ip-cand-msg--employer for its extras.
 // ip-employer-messages-gemini.css is intentionally no longer imported.
 import '@/components/ip/ip-candidate-messages-gemini.css';
+import '@/components/ip/ip-list-pager.css';
+
+const PAGE_SIZE = 10;
 
 function initials(name) {
   const parts = String(name || '')
@@ -428,6 +433,14 @@ export default function MessagesSplitPane({ role = 'employer' }) {
     return rows;
   }, [threads, search, tab, role, sort, cols]);
 
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(
+    filtered,
+    PAGE_SIZE,
+  );
+  useEffect(() => {
+    setPage(1);
+  }, [tab, search, sort, cols, setPage]);
+
   const loadThread = useCallback(
     async (id) => {
       if (!id) {
@@ -690,7 +703,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
               ) : filtered.length ? (
                 <>
                   <div className="ip-cm-cards" role="list">
-                    {filtered.map((t) => {
+                    {pageItems.map((t) => {
                       const unread = Number(t.unread_count) > 0;
                       const on = t.id === selectedId;
                       const name = counterpartName(t, role);
@@ -726,7 +739,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                       </tr>
                     </thead>
                     <tbody>
-                      {filtered.map((t) => {
+                      {pageItems.map((t) => {
                         const unread = Number(t.unread_count) > 0;
                         const on = t.id === selectedId;
                         const name = counterpartName(t, role);
@@ -749,6 +762,14 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                       })}
                     </tbody>
                   </table>
+                  <IpListPager
+                    className="ip-list-pager--inbox"
+                    page={page}
+                    totalPages={totalPages}
+                    total={total}
+                    pageSize={pageSize}
+                    onPageChange={setPage}
+                  />
                 </>
               ) : (
                 <div className="ip-cm-empty-list">
@@ -1115,7 +1136,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
             ) : filtered.length ? (
               <>
                 <div className="ip-cm-cards" role="list">
-                  {filtered.map((t) => {
+                  {pageItems.map((t) => {
                     const unread = Number(t.unread_count) > 0;
                     const on = t.id === selectedId;
                     const name = counterpartName(t, role);
@@ -1151,7 +1172,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((t) => {
+                    {pageItems.map((t) => {
                       const unread = Number(t.unread_count) > 0;
                       const on = t.id === selectedId;
                       const name = counterpartName(t, role);
@@ -1174,6 +1195,14 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                     })}
                   </tbody>
                 </table>
+                <IpListPager
+                  className="ip-list-pager--inbox"
+                  page={page}
+                  totalPages={totalPages}
+                  total={total}
+                  pageSize={pageSize}
+                  onPageChange={setPage}
+                />
               </>
             ) : (
               <div className="ip-cm-empty-list">

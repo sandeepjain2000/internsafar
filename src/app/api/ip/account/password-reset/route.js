@@ -31,6 +31,7 @@ export async function POST(request) {
       subject: 'Reset your Internship Portal password',
       html: `<p>Hi ${user.name || ''},</p><p>Click to reset your password (valid 1 hour):</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
       text: `Reset your password: ${resetUrl}`,
+      skipUnsubscribe: true,
     });
   } catch (mailErr) {
     console.error('[account password-reset] mail failed', mailErr.message);

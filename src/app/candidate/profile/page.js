@@ -154,6 +154,8 @@ export default function CandidateProfilePage() {
   const [saveError, setSaveError] = useState('');
   /** Turns on red highlighting for blank required fields once the user has tried to save. */
   const [showMissing, setShowMissing] = useState(false);
+  /** Scroll target after quality-score action switches tab (section id). */
+  const [pendingScrollId, setPendingScrollId] = useState('');
   const { cityOptions, placeCityOptions, stateOptions, findCity, loading: citiesLoading } = useIpCityCatalog();
   const cityChoices = useMemo(() => {
     const needle = String(form?.state || '').trim().toLowerCase();
@@ -168,6 +170,10 @@ export default function CandidateProfilePage() {
         setForm(d.profile);
         setResumeFileName(resumeDisplayName(d.profile?.resume_url));
         setExperiences(parseExperienceEntries(d.profile?.prior_experience));
+        // First-time wizard lock only — once apply-unlock is earned, all tabs stay open across refresh.
+        if (d.profile?.profile_complete) {
+          setWizardUnlockedThru(WIZARD_ORDER.length - 1);
+        }
       });
     fetch('/api/ip/candidate/academics')
       .then((r) => r.json())
@@ -283,6 +289,9 @@ export default function CandidateProfilePage() {
       preferred_locations: typeof form.preferred_locations === 'string'
         ? form.preferred_locations.split(',').map((s) => s.trim()).filter(Boolean)
         : form.preferred_locations,
+      preferred_roles: typeof form.preferred_roles === 'string'
+        ? form.preferred_roles.split(',').map((s) => s.trim()).filter(Boolean)
+        : form.preferred_roles,
       prior_experience: serializeExperienceEntries(experiences),
       // Empty date inputs must be null — "" breaks Postgres DATE columns and blocks Save & Next
       availability_date: String(form.availability_date || '').trim() || null,
@@ -345,9 +354,12 @@ export default function CandidateProfilePage() {
         data = await saveProfileBody();
       }
       setForm((current) => (current ? { ...current, profile_complete: data.profileComplete } : current));
+      if (data.profileComplete) {
+        setWizardUnlockedThru(WIZARD_ORDER.length - 1);
+      }
       setMessage(
         data.profileComplete
-          ? 'Profile saved — applications unlocked.'
+          ? 'Profile saved — applications unlocked. All profile tabs stay open.'
           : `${PROFILE_TABS.find((tab) => tab.id === profileTab)?.label || 'Profile'} saved.`
       );
       return true;
@@ -442,9 +454,40 @@ export default function CandidateProfilePage() {
       Boolean(form.profile_picture_url),
       Boolean(serializeExperienceEntries(experiences)),
       Boolean(form.phone),
+      Array.isArray(form.preferred_roles) ? form.preferred_roles.length > 0 : Boolean(form.preferred_roles),
     ];
     return Math.round((checks.filter(Boolean).length / checks.length) * 100);
   }, [form, collegeDone, skills.length, experiences]);
+
+  const qualityNextActions = useMemo(() => {
+    if (!form) return [];
+    const actions = [];
+    if (!(form.first_name && form.last_name)) {
+      actions.push({ label: 'Add your full name', tab: 'basics', scrollId: 'ip-cp-basics-contact' });
+    }
+    if (!form.resume_url) {
+      actions.push({ label: 'Upload or link a resume', tab: 'basics', scrollId: 'ip-cp-resume' });
+    }
+    if (!skills.length) {
+      actions.push({ label: 'Add key skills', tab: 'academic', scrollId: 'ip-cp-skills' });
+    }
+    if (!form.preferred_work_mode) {
+      actions.push({ label: 'Set preferred work mode', tab: 'basics', scrollId: 'ip-cp-preferences' });
+    }
+    if (!(Array.isArray(form.preferred_roles) && form.preferred_roles.length)) {
+      actions.push({ label: 'Add preferred roles / interests', tab: 'basics', scrollId: 'ip-cp-preferences' });
+    }
+    if (!form.availability_date) {
+      actions.push({ label: 'Set earliest availability', tab: 'basics', scrollId: 'ip-cp-preferences' });
+    }
+    if (!(form.linkedin_url || form.github_url || form.personal_website)) {
+      actions.push({ label: 'Add LinkedIn or portfolio link', tab: 'basics', scrollId: 'ip-cp-social-links' });
+    }
+    if (!form.profile_picture_url) {
+      actions.push({ label: 'Add a profile photo', tab: 'privacy', scrollId: 'ip-cp-photo' });
+    }
+    return actions.slice(0, 4);
+  }, [form, skills.length]);
 
   function setExperienceField(idx, field, value) {
     setExperiences((rows) => rows.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
@@ -462,6 +505,8 @@ export default function CandidateProfilePage() {
   const isWizardTab = wizardIndex >= 0;
 
   function tabIsLocked(tabId) {
+    // After minimum profile is complete (apply unlocked), keep all tabs open — including on refresh.
+    if (form?.profile_complete) return false;
     const wi = WIZARD_ORDER.indexOf(tabId);
     if (wi < 0) return false; // privacy / history always available
     return wi > wizardUnlockedThru;
@@ -475,10 +520,35 @@ export default function CandidateProfilePage() {
     setProfileTab(tabId);
   }
 
+  function goQualityAction(action) {
+    if (tabIsLocked(action.tab)) {
+      setMessage('Use Save & Next to continue through the profile steps in order.');
+      return;
+    }
+    setProfileTab(action.tab);
+    if (action.scrollId) setPendingScrollId(action.scrollId);
+  }
+
   function goWizard(delta) {
     const next = WIZARD_ORDER[wizardIndex + delta];
     if (next) setProfileTab(next);
   }
+
+  useEffect(() => {
+    if (!pendingScrollId || !form) return undefined;
+    const t = setTimeout(() => {
+      const el = document.getElementById(pendingScrollId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const focusable = el.querySelector('input, select, textarea, button.ip-sms-input, .ip-sms-input');
+        if (focusable && typeof focusable.focus === 'function') {
+          try { focusable.focus({ preventScroll: true }); } catch { /* ignore */ }
+        }
+      }
+      setPendingScrollId('');
+    }, 120);
+    return () => clearTimeout(t);
+  }, [pendingScrollId, profileTab, form]);
   if (!form) {
     return (
       <div className="ip-cand-profile">
@@ -511,10 +581,23 @@ export default function CandidateProfilePage() {
           </div>
           <div>
             <div className="ip-cp-complete__row">
-              <span>Profile Completion</span>
+              <span>Profile Quality Score</span>
               <strong>{completion}%</strong>
             </div>
-            <p>Measures overall profile detail • <em>Distinct from role match %</em></p>
+            <p>Detail completeness • <em>Distinct from role match % · does not change apply unlock rules</em></p>
+            {qualityNextActions.length ? (
+              <ul className="ip-cp-quality-next">
+                {qualityNextActions.map((a) => (
+                  <li key={a.label}>
+                    <button type="button" className="ip-cp-quality-next__btn" onClick={() => goQualityAction(a)}>
+                      {a.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="ip-cp-quality-done">Looking strong — keep skills and preferences updated.</p>
+            )}
           </div>
         </div>
       </div>
@@ -583,15 +666,16 @@ export default function CandidateProfilePage() {
               <div style={{ width: `${((wizardIndex + 1) / WIZARD_ORDER.length) * 100}%` }} />
             </div>
             <p className="ip-cp-wizard__hint">
-              Use Save &amp; Next to move through these three steps. Later steps stay locked until you advance.
-              Privacy and endorsements stay available in the tabs above.
+              {unlocked
+                ? 'Your profile meets the minimum for applying — all sections stay open. Use the tabs freely.'
+                : 'First-time setup: use Save & Next through these three steps. Later steps stay locked until you advance. After you unlock applying, all tabs stay open on refresh. Privacy and endorsements stay available above.'}
             </p>
           </div>
         ) : null}
 
         {profileTab === 'basics' ? (
           <div className="ip-cp-stack" role="tabpanel">
-            <section>
+            <section id="ip-cp-basics-contact">
               <div className="ip-cp-sec-head">
                 <h3>Personal Details</h3>
               </div>
@@ -739,7 +823,7 @@ export default function CandidateProfilePage() {
               </div>
             </section>
 
-            <section>
+            <section id="ip-cp-preferences">
               <div className="ip-cp-sec-head"><h3>Preferences &amp; Availability</h3></div>
               <div className="ip-cp-grid">
                 <Field label="Preferred Work Mode" required invalid={isMissing('preferred_work_mode')}>
@@ -774,10 +858,33 @@ export default function CandidateProfilePage() {
                     ariaLabel="Preferred locations"
                   />
                 </Field>
+                <Field label="Preferred Roles / Interests" optional hint="e.g. Marketing, Backend, UI/UX — used for Recommended" span={2}>
+                  <SearchableMultiSelect
+                    options={(Array.isArray(form.preferred_roles) ? form.preferred_roles : [])
+                      .map((r) => ({ value: r, label: r }))
+                      .concat([
+                        'Marketing', 'Sales', 'Backend', 'Frontend', 'Full Stack', 'UI/UX',
+                        'Data Science', 'Content Writing', 'HR', 'Finance', 'Product', 'Mobile',
+                      ].map((r) => ({ value: r, label: r })))
+                      .filter((o, idx, arr) => arr.findIndex((x) => x.value === o.value) === idx)}
+                    value={
+                      Array.isArray(form.preferred_roles)
+                        ? form.preferred_roles
+                        : String(form.preferred_roles || '')
+                          .split(',')
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                    }
+                    onChange={(next) => set('preferred_roles', next)}
+                    placeholder="Add roles or interests…"
+                    ariaLabel="Preferred roles"
+                    allowCustom
+                  />
+                </Field>
               </div>
             </section>
 
-            <section>
+            <section id="ip-cp-resume">
               <div className="ip-cp-sec-head"><h3>Resume &amp; Portfolio Links</h3></div>
               <div className="ip-cp-stack-sm">
                 <Field label="Resume / CV" required hint="Upload a PDF/DOC/DOCX or paste a hosted URL" invalid={isMissing('resume_url')}>
@@ -875,7 +982,7 @@ export default function CandidateProfilePage() {
                   {linkDraftError ? <p className="ip-cp-error">{linkDraftError}</p> : null}
                 </div>
 
-                <div className="ip-cp-grid">
+                <div id="ip-cp-social-links" className="ip-cp-grid">
                   <Field label="LinkedIn Profile URL" optional>
                     <input className="ip-cp-input" type="url" value={form.linkedin_url || ''} onChange={(e) => set('linkedin_url', e.target.value)} placeholder="https://linkedin.com/in/..." />
                   </Field>
@@ -945,7 +1052,7 @@ export default function CandidateProfilePage() {
               </div>
             </section>
 
-            <section>
+            <section id="ip-cp-skills">
               <div className="ip-cp-sec-head">
                 <div>
                   <h3>Technical &amp; Domain Skills <span className="ip-cp-req">*</span> <span className="ip-cp-opt">(Tag-based)</span></h3>
@@ -1108,7 +1215,7 @@ export default function CandidateProfilePage() {
 
         {profileTab === 'privacy' ? (
           <div className="ip-cp-stack" role="tabpanel">
-            <section>
+            <section id="ip-cp-photo">
               <div className="ip-cp-sec-head"><h3>Profile Photo</h3></div>
               <div className="ip-cp-photo">
                 <div className="ip-cp-photo__preview">

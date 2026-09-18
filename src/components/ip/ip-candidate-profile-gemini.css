@@ -156,6 +156,34 @@
   color: #334155;
 }
 
+.ip-cand-profile .ip-cp-quality-next {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ip-cand-profile .ip-cp-quality-next__btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  font-size: 0.75rem;
+  color: #4f46e5;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ip-cand-profile .ip-cp-quality-done {
+  margin: 0.35rem 0 0 !important;
+  font-size: 0.75rem !important;
+  color: #16a34a !important;
+}
+
 .ip-cand-profile .ip-cp-unlock {
   padding: 1.25rem;
   display: flex;

@@ -31,6 +31,7 @@ export async function POST(request) {
     subject: 'Verify your new PlacementHub email',
     text: `Your verification code is ${code}. It expires in 10 minutes.`,
     html: `<p>Your verification code is <strong>${code}</strong>.</p><p>It expires in 10 minutes.</p>`,
+    skipUnsubscribe: true,
   });
   return jsonOk({ ok: true, message: 'Verification code sent to the new email.' });
 }

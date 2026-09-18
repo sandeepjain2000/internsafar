@@ -8,10 +8,15 @@ import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useViewMode } from '@/hooks/useViewMode';
+import { useClientPagination } from '@/hooks/useClientPagination';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
 import { POINTS_PER_APPLICATION } from '@/lib/pointsEconomy';
 import ValidationScoreButton from '@/components/ip/ValidationScoreButton';
+import IpListPager from '@/components/ip/IpListPager';
 import '@/components/ip/ip-browse-internships-gemini.css';
+import '@/components/ip/ip-list-pager.css';
+
+const PAGE_SIZE = 10;
 
 const QUICK_CHIPS = [
   { id: '', label: 'All listings' },
@@ -92,6 +97,7 @@ export default function BrowseInternshipsPage() {
   const [points, setPoints] = useState(null);
   const [viewMode, setViewMode] = useViewMode('ip_browse_view', 'cards');
   const reqRef = useRef(0);
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(items, PAGE_SIZE);
 
   const snapshot = useMemo(() => ({
     filters: {
@@ -169,6 +175,10 @@ export default function BrowseInternshipsPage() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefs.ready, q, minStipend, workMode, selectedCities, minMatch, minValidation, sort, tab, chip]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [q, minStipend, workMode, selectedCities, minMatch, minValidation, sort, tab, chip, setPage]);
 
   async function toggleSave(internshipId, saved) {
     await fetch('/api/ip/candidate/saved', {
@@ -374,7 +384,7 @@ export default function BrowseInternshipsPage() {
       </div>
 
       <div className="ip-br-mcount">
-        <span><b>{loading ? '…' : items.length}</b> roles matching</span>
+        <span><b>{loading ? '…' : total}</b> roles matching{total > PAGE_SIZE ? ` · page ${page}` : ''}</span>
         <label className="ip-br-sort">
           <span>Sort by:</span>
           <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort internships">
@@ -401,7 +411,7 @@ export default function BrowseInternshipsPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((i) => (
+                {pageItems.map((i) => (
                   <tr key={i.id}>
                     <td>
                       <button type="button" className="ip-ph-role" onClick={() => router.push(`/candidate/internships/${i.id}`)}>
@@ -421,7 +431,7 @@ export default function BrowseInternshipsPage() {
           </div>
         ) : (
         <div className="ip-br-grid">
-          {items.map((i) => (
+          {pageItems.map((i) => (
             <article key={i.id} className="ip-br-card">
               <div className="ip-br-card__top">
                 <div className="ip-br-card__who">
@@ -544,6 +554,16 @@ export default function BrowseInternshipsPage() {
       ) : (
         <p className="ip-br-loading">Loading internships…</p>
       )}
+
+      {!loading && total > 0 ? (
+        <IpListPager
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
+      ) : null}
     </div>
   );
 }

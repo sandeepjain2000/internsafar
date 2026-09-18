@@ -6,7 +6,7 @@ export const MESSAGING_KNOWLEDGE = [
     roles: ['candidate', 'employer'],
     keywords: ['message', 'messages', 'inbox', 'chat', 'reply'],
     facts: [
-      'Messaging uses an email-style inbox (subject = last message), not Internshala-style chat bubbles.',
+      'Messaging uses an email-style inbox (subject = last message), not chat-bubble threads.',
       'Candidates: /candidate/messages. Employers: /employer/messages.',
     ],
   },

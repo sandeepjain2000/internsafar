@@ -14,7 +14,7 @@ const TOPICS = [
   },
   {
     t: 'Messaging',
-    b: 'Messages use an email-style inbox (subject = last message), not Internshala chat bubbles.',
+    b: 'Messages use an email-style inbox (subject = last message), not chat-bubble threads.',
   },
   {
     t: 'Guidelines & ethics',

@@ -1,0 +1,95 @@
+/* Shared pager — same visual language as applications / employer posting footers */
+.ip-list-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #fff;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: #64748b;
+}
+
+.ip-list-pager__meta {
+  font-weight: 500;
+}
+
+.ip-list-pager__btns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ip-list-pager__page {
+  min-width: 5.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: #475569;
+}
+
+.ip-list-pager__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ip-list-pager__btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.ip-list-pager__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .ip-list-pager {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .ip-list-pager__btns {
+    justify-content: center;
+  }
+
+  .ip-list-pager__btn {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+/* Compact footer inside messages inbox column — matches list chrome, no float */
+.ip-list-pager--inbox {
+  margin: 0.65rem 0.75rem 0.85rem;
+  padding: 0.55rem 0.7rem;
+  gap: 0.5rem;
+  border-radius: 0.65rem;
+  box-shadow: none;
+}
+
+.ip-list-pager--inbox .ip-list-pager__btn {
+  min-height: 1.85rem;
+  padding: 0.3rem 0.65rem;
+}
+
+.ip-cand-msg .ip-cm-list-body .ip-list-pager--inbox {
+  background: #f8fafc;
+}

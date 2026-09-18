@@ -51,6 +51,7 @@ export async function POST(request) {
       subject: 'Your PlacementHub login email changed',
       text: `Your login email was changed to ${changed.new_email}. Your old email can no longer be used to sign in.`,
       html: `<p>Your PlacementHub login email was changed to <strong>${changed.new_email}</strong>.</p><p>Your old email can no longer be used to sign in.</p>`,
+      skipUnsubscribe: true,
     });
   } catch (mailError) {
     console.warn('[email change courtesy mail]', mailError.message);
