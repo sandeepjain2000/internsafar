@@ -172,6 +172,21 @@ test.describe('InternSafar regression', () => {
     expect(res.status()).toBe(403);
   });
 
+  test('IS-057 candidate cannot fetch another user object via files API', async ({ request }) => {
+    const foreignKey = encodeURIComponent(
+      'internship-portal/candidates/ip_user_not_this_candidate/resume/secret.pdf',
+    );
+    const res = await apiWithSession(
+      request,
+      candidate.email,
+      'GET',
+      `/api/ip/files?key=${foreignKey}`,
+    );
+    expect(res.status()).toBe(403);
+    const body = await res.json().catch(() => ({}));
+    expect(String(body.error || '')).toMatch(/forbidden/i);
+  });
+
   test('IS-030 public how-it-works / guidelines / help load', async ({ page }) => {
     for (const href of ['/how-it-works', '/guidelines', '/help']) {
       const res = await page.goto(href, { waitUntil: 'domcontentloaded' });

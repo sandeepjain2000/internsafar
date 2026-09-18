@@ -13,6 +13,54 @@ function safeName(name) {
     .slice(0, 80);
 }
 
+/** Block SSRF targets: localhost, private/link-local/metadata IPs, non-http(s). */
+function isSafePublicHttpUrl(urlString) {
+  let u;
+  try {
+    u = new URL(urlString);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (
+    host === 'localhost'
+    || host === 'metadata.google.internal'
+    || host.endsWith('.localhost')
+    || host.endsWith('.local')
+    || host.endsWith('.internal')
+  ) {
+    return false;
+  }
+  // IPv4 literals
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+    const parts = host.split('.').map(Number);
+    if (parts.some((n) => n > 255)) return false;
+    const [a, b] = parts;
+    if (a === 10) return false;
+    if (a === 127) return false;
+    if (a === 0) return false;
+    if (a === 169 && b === 254) return false;
+    if (a === 172 && b >= 16 && b <= 31) return false;
+    if (a === 192 && b === 168) return false;
+    if (a === 100 && b >= 64 && b <= 127) return false; // CGNAT
+    if (a >= 224) return false; // multicast / reserved
+  }
+  // IPv6 literals (block loopback / link-local / ULA)
+  if (host.includes(':')) {
+    if (
+      host === '::1'
+      || host.startsWith('fc')
+      || host.startsWith('fd')
+      || host.startsWith('fe80')
+      || host === '::'
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 async function fetchResumeBuffer(resumeUrl) {
   if (!resumeUrl) return null;
   const url = String(resumeUrl);
@@ -27,10 +75,14 @@ async function fetchResumeBuffer(resumeUrl) {
       return { buffer: Buffer.from(bytes), ext };
     }
     if (/^https?:\/\//i.test(url)) {
+      if (!isSafePublicHttpUrl(url)) return null;
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 12000);
       try {
-        const res = await fetch(url, { signal: ctrl.signal });
+        const res = await fetch(url, {
+          signal: ctrl.signal,
+          redirect: 'error',
+        });
         if (!res.ok) return null;
         const buf = Buffer.from(await res.arrayBuffer());
         const ct = res.headers.get('content-type') || '';

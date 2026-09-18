@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { query } from '@/lib/db';
+import { transaction } from '@/lib/transaction';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId, randomPassword, referralCodeFrom } from '@/lib/ids';
 import { sendMail, tempPasswordEmailHtml } from '@/lib/mail';
@@ -73,16 +74,15 @@ export async function POST(request) {
   const employerId = newId('ip_emp');
   const name = row.contact_name || row.company_name;
 
-  await query('BEGIN');
-  try {
-    await query(
+  await transaction(async (client) => {
+    await client.query(
       `INSERT INTO ip_users (
          id, email, password_hash, role, name, points, free_post_credits, referral_code,
          registration_source, form_approval_status, active
        ) VALUES ($1,$2,$3,'employer',$4,50,1,$5,'form','approved',true)`,
       [userId, row.contact_email, hash, name, referralCodeFrom(name)],
     );
-    await query(
+    await client.query(
       `INSERT INTO ip_employers (
          id, user_id, company_name, website, work_email, contact_name, contact_designation,
          business_entity_type, approval_status,
@@ -99,18 +99,14 @@ export async function POST(request) {
         row.business_entity_type || null,
       ],
     );
-    await query(
+    await client.query(
       `UPDATE ip_employer_requests
        SET status = 'approved', created_user_id = $2, reviewed_at = now(), reviewer_id = $3,
            rejection_reason = NULL
        WHERE id = $1`,
       [requestId, userId, session.user.id],
     );
-    await query('COMMIT');
-  } catch (e) {
-    await query('ROLLBACK');
-    throw e;
-  }
+  });
 
   try {
     if (usedChosenPassword) {

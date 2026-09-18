@@ -1,4 +1,5 @@
 import { query } from '@/lib/db';
+import { transaction } from '@/lib/transaction';
 import { newId } from '@/lib/ids';
 import { awardPoints, notifyUser } from '@/lib/ipNotify';
 import {
@@ -210,61 +211,87 @@ export async function insertPendingReferral({ referrerUserId, referredUserId, re
 export async function creditReferralForReferredUser(referredUserId) {
   if (!referredUserId) return { credited: false };
   await ensureIpReferralExtraSchema();
-  const u = await query(`SELECT id, name, referred_by FROM ip_users WHERE id = $1`, [referredUserId]);
-  const user = u.rows[0];
-  if (!user?.referred_by || user.referred_by === user.id) return { credited: false };
 
-  const existing = await query(
-    `SELECT * FROM ip_referrals WHERE referred_user_id = $1 ORDER BY created_at DESC LIMIT 1`,
-    [referredUserId],
-  );
-  const row = existing.rows[0];
-  if (row?.status === 'completed' || row?.status === 'invalid') return { credited: false };
+  const result = await transaction(async (client) => {
+    const u = await client.query(
+      `SELECT id, name, referred_by FROM ip_users WHERE id = $1 FOR UPDATE`,
+      [referredUserId],
+    );
+    const user = u.rows[0];
+    if (!user?.referred_by || user.referred_by === user.id) return { credited: false };
 
-  const referrer = await query(
-    `SELECT id, role, referral_code, name FROM ip_users WHERE id = $1`,
-    [user.referred_by],
-  );
-  const ref = referrer.rows[0];
-  if (!ref) return { credited: false };
+    const existing = await client.query(
+      `SELECT * FROM ip_referrals
+       WHERE referred_user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 1
+       FOR UPDATE`,
+      [referredUserId],
+    );
+    const row = existing.rows[0];
+    if (row?.status === 'completed' || row?.status === 'invalid') return { credited: false };
 
-  const rewards = referrerRewardsForRole(ref.role);
-  await query(
-    `UPDATE ip_users
-     SET points = points + $2,
-         free_post_credits = free_post_credits + $3,
-         application_allowance = application_allowance + $4,
-         updated_at = now()
-     WHERE id = $1`,
-    [ref.id, rewards.points, rewards.freePostCredits, rewards.applicationAllowance],
-  );
-  await query(
-    `INSERT INTO ip_points_ledger (id, user_id, delta, reason, meta)
-     VALUES ($1,$2,$3,'referral_bonus',$4::jsonb)`,
-    [newId('ip_pts'), ref.id, rewards.points, JSON.stringify({ referredUserId })],
-  );
-  if (row) {
-    await query(
-      `UPDATE ip_referrals
-       SET status = 'completed', points_awarded = $2, status_reason = NULL
+    const referrer = await client.query(
+      `SELECT id, role, referral_code, name FROM ip_users WHERE id = $1 FOR UPDATE`,
+      [user.referred_by],
+    );
+    const ref = referrer.rows[0];
+    if (!ref) return { credited: false };
+
+    const rewards = referrerRewardsForRole(ref.role);
+
+    if (row) {
+      const claimed = await client.query(
+        `UPDATE ip_referrals
+         SET status = 'completed', points_awarded = $2, status_reason = NULL
+         WHERE id = $1 AND status = 'pending'
+         RETURNING id`,
+        [row.id, rewards.points],
+      );
+      if (!claimed.rows[0]) return { credited: false };
+    } else {
+      const already = await client.query(
+        `SELECT 1 FROM ip_referrals
+         WHERE referred_user_id = $1 AND status = 'completed'
+         LIMIT 1`,
+        [referredUserId],
+      );
+      if (already.rows[0]) return { credited: false };
+      await client.query(
+        `INSERT INTO ip_referrals (id, referrer_user_id, referred_user_id, referral_code, status, points_awarded)
+         VALUES ($1,$2,$3,$4,'completed',$5)`,
+        [newId('ip_ref'), ref.id, referredUserId, ref.referral_code, rewards.points],
+      );
+    }
+
+    await client.query(
+      `UPDATE ip_users
+       SET points = points + $2,
+           free_post_credits = free_post_credits + $3,
+           application_allowance = application_allowance + $4,
+           updated_at = now()
        WHERE id = $1`,
-      [row.id, rewards.points],
+      [ref.id, rewards.points, rewards.freePostCredits, rewards.applicationAllowance],
     );
-  } else {
-    await query(
-      `INSERT INTO ip_referrals (id, referrer_user_id, referred_user_id, referral_code, status, points_awarded)
-       VALUES ($1,$2,$3,$4,'completed',$5)`,
-      [newId('ip_ref'), ref.id, referredUserId, ref.referral_code, rewards.points],
+    await client.query(
+      `INSERT INTO ip_points_ledger (id, user_id, delta, reason, meta)
+       VALUES ($1,$2,$3,'referral_bonus',$4::jsonb)`,
+      [newId('ip_pts'), ref.id, rewards.points, JSON.stringify({ referredUserId })],
     );
+    return { credited: true, ref, rewards };
+  });
+
+  if (result?.credited && result.ref) {
+    await notifyUser({
+      userId: result.ref.id,
+      title: 'Referral bonus earned',
+      body: `A referred candidate was approved. You earned +${result.rewards.points} points.`,
+      link: result.ref.role === 'employer' ? '/employer/referral' : '/candidate/referral',
+      category: 'referral',
+    }).catch(() => {});
+    return { credited: true };
   }
-  await notifyUser({
-    userId: ref.id,
-    title: 'Referral bonus earned',
-    body: `A referred candidate was approved. You earned +${rewards.points} points.`,
-    link: ref.role === 'employer' ? '/employer/referral' : '/candidate/referral',
-    category: 'referral',
-  }).catch(() => {});
-  return { credited: true };
+  return { credited: false };
 }
 
 export async function invalidateReferralForReferredUser(

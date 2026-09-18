@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { transaction } from '@/lib/transaction';
 
 export async function POST(request) {
   let body;
@@ -17,18 +17,35 @@ export async function POST(request) {
     return NextResponse.json({ error: 'New password must be at least 8 characters' }, { status: 400 });
   }
 
-  const result = await query(
-    `SELECT id, user_id, expires_at, used_at FROM ip_password_resets WHERE token = $1 LIMIT 1`,
-    [token],
-  );
-  const row = result.rows[0];
-  if (!row || row.used_at || new Date(row.expires_at) < new Date()) {
-    return NextResponse.json({ error: 'This reset link is invalid or has expired.' }, { status: 400 });
-  }
-
   const hash = await bcrypt.hash(newPassword, 10);
-  await query(`UPDATE ip_users SET password_hash = $2, updated_at = now() WHERE id = $1`, [row.user_id, hash]);
-  await query(`UPDATE ip_password_resets SET used_at = now() WHERE id = $1`, [row.id]);
+  try {
+    await transaction(async (client) => {
+      const claim = await client.query(
+        `UPDATE ip_password_resets
+         SET used_at = now()
+         WHERE token = $1
+           AND used_at IS NULL
+           AND expires_at > now()
+         RETURNING id, user_id`,
+        [token],
+      );
+      const row = claim.rows[0];
+      if (!row) {
+        const err = new Error('invalid_reset');
+        err.code = 'INVALID_RESET';
+        throw err;
+      }
+      await client.query(
+        `UPDATE ip_users SET password_hash = $2, updated_at = now() WHERE id = $1`,
+        [row.user_id, hash],
+      );
+    });
+  } catch (e) {
+    if (e?.code === 'INVALID_RESET') {
+      return NextResponse.json({ error: 'This reset link is invalid or has expired.' }, { status: 400 });
+    }
+    throw e;
+  }
 
   return NextResponse.json({ ok: true, message: 'Password updated. You can sign in now.' });
 }

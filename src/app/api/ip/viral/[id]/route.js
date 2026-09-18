@@ -1,4 +1,5 @@
 import { query } from '@/lib/db';
+import { transaction } from '@/lib/transaction';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { LINKEDIN_PROMO_POINTS } from '@/lib/pointsEconomy';
@@ -12,22 +13,40 @@ async function loadShare(id) {
   return result.rows[0] || null;
 }
 
+/** Atomically claim + credit once; no-op if already rewarded. */
 async function reward(share) {
-  await query(
-    `UPDATE ip_users SET points = points + $2, updated_at = now() WHERE id = $1`,
-    [share.user_id, LINKEDIN_PROMO_POINTS],
-  );
-  await query(
-    `INSERT INTO ip_points_ledger (id, user_id, delta, reason, meta)
-     VALUES ($1,$2,$3,'viral_share_verified',$4::jsonb)`,
-    [newId('ip_pts'), share.user_id, LINKEDIN_PROMO_POINTS, JSON.stringify({ shareId: share.id, channel: share.channel })],
-  );
-  await query(
-    `UPDATE ip_viral_shares
-     SET status = 'rewarded', points_awarded = $2, credits_awarded = 0, search_hit = true, updated_at = now()
-     WHERE id = $1`,
-    [share.id, LINKEDIN_PROMO_POINTS],
-  );
+  const awarded = await transaction(async (client) => {
+    const claim = await client.query(
+      `UPDATE ip_viral_shares
+       SET status = 'rewarded',
+           points_awarded = $2,
+           credits_awarded = 0,
+           search_hit = true,
+           updated_at = now()
+       WHERE id = $1
+         AND status IS DISTINCT FROM 'rewarded'
+         AND coalesce(points_awarded, 0) = 0
+       RETURNING id`,
+      [share.id, LINKEDIN_PROMO_POINTS],
+    );
+    if (!claim.rows[0]) return false;
+    await client.query(
+      `UPDATE ip_users SET points = points + $2, updated_at = now() WHERE id = $1`,
+      [share.user_id, LINKEDIN_PROMO_POINTS],
+    );
+    await client.query(
+      `INSERT INTO ip_points_ledger (id, user_id, delta, reason, meta)
+       VALUES ($1,$2,$3,'viral_share_verified',$4::jsonb)`,
+      [
+        newId('ip_pts'),
+        share.user_id,
+        LINKEDIN_PROMO_POINTS,
+        JSON.stringify({ shareId: share.id, channel: share.channel }),
+      ],
+    );
+    return true;
+  });
+  if (!awarded) return false;
   await notifyUser({
     userId: share.user_id,
     title: 'Viral share verified',
@@ -35,6 +54,7 @@ async function reward(share) {
     link: '/employer/viral',
     category: 'system',
   });
+  return true;
 }
 
 /**
@@ -103,7 +123,7 @@ export async function PATCH(request, { params }) {
       `UPDATE ip_viral_shares
        SET last_checked_at = now(), search_hit = $2, search_notes = $3,
            status = CASE WHEN $2 THEN 'verified' ELSE status END, updated_at = now()
-       WHERE id = $1`,
+       WHERE id = $1 AND status IS DISTINCT FROM 'rewarded'`,
       [id, result.hit, result.notes],
     );
     if (result.hit) {
@@ -115,7 +135,8 @@ export async function PATCH(request, { params }) {
 
   if (action === 'verify') {
     await query(
-      `UPDATE ip_viral_shares SET status = 'verified', reviewed_by = $2, reviewed_at = now(), search_notes = $3, updated_at = now() WHERE id = $1`,
+      `UPDATE ip_viral_shares SET status = 'verified', reviewed_by = $2, reviewed_at = now(), search_notes = $3, updated_at = now()
+       WHERE id = $1 AND status IS DISTINCT FROM 'rewarded'`,
       [id, session.user.id, body.notes || 'SuperAdmin verified'],
     );
     await reward(await loadShare(id));
@@ -124,7 +145,8 @@ export async function PATCH(request, { params }) {
 
   if (action === 'fail') {
     await query(
-      `UPDATE ip_viral_shares SET status = 'failed', reviewed_by = $2, reviewed_at = now(), search_notes = $3, updated_at = now() WHERE id = $1`,
+      `UPDATE ip_viral_shares SET status = 'failed', reviewed_by = $2, reviewed_at = now(), search_notes = $3, updated_at = now()
+       WHERE id = $1 AND status IS DISTINCT FROM 'rewarded'`,
       [id, session.user.id, body.notes || 'Not found / rejected'],
     );
     return jsonOk({ ok: true, status: 'failed' });

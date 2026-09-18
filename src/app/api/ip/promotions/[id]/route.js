@@ -1,4 +1,5 @@
 import { query } from '@/lib/db';
+import { transaction } from '@/lib/transaction';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { LINKEDIN_PROMO_POINTS } from '@/lib/pointsEconomy';
@@ -16,23 +17,40 @@ async function loadPromo(id) {
   return result.rows[0] || null;
 }
 
+/** Atomically claim + credit once; no-op if already rewarded. */
 async function rewardPromo(promo) {
-  await query(
-    `UPDATE ip_users SET points = points + $2, updated_at = now()
-     WHERE id = $1`,
-    [promo.employer_user_id, LINKEDIN_PROMO_POINTS],
-  );
-  await query(
-    `INSERT INTO ip_points_ledger (id, user_id, delta, reason, meta)
-     VALUES ($1,$2,$3,'linkedin_promotion_verified',$4::jsonb)`,
-    [newId('ip_pts'), promo.employer_user_id, LINKEDIN_PROMO_POINTS, JSON.stringify({ promoId: promo.id })],
-  );
-  await query(
-    `UPDATE ip_linkedin_promotions
-     SET status = 'rewarded', points_awarded = $2, credits_awarded = 0, updated_at = now()
-     WHERE id = $1`,
-    [promo.id, LINKEDIN_PROMO_POINTS],
-  );
+  const awarded = await transaction(async (client) => {
+    const claim = await client.query(
+      `UPDATE ip_linkedin_promotions
+       SET status = 'rewarded',
+           points_awarded = $2,
+           credits_awarded = 0,
+           updated_at = now()
+       WHERE id = $1
+         AND status IS DISTINCT FROM 'rewarded'
+         AND coalesce(points_awarded, 0) = 0
+       RETURNING id`,
+      [promo.id, LINKEDIN_PROMO_POINTS],
+    );
+    if (!claim.rows[0]) return false;
+    await client.query(
+      `UPDATE ip_users SET points = points + $2, updated_at = now()
+       WHERE id = $1`,
+      [promo.employer_user_id, LINKEDIN_PROMO_POINTS],
+    );
+    await client.query(
+      `INSERT INTO ip_points_ledger (id, user_id, delta, reason, meta)
+       VALUES ($1,$2,$3,'linkedin_promotion_verified',$4::jsonb)`,
+      [
+        newId('ip_pts'),
+        promo.employer_user_id,
+        LINKEDIN_PROMO_POINTS,
+        JSON.stringify({ promoId: promo.id }),
+      ],
+    );
+    return true;
+  });
+  if (!awarded) return false;
   await notifyUser({
     userId: promo.employer_user_id,
     title: 'LinkedIn promotion verified',
@@ -40,6 +58,7 @@ async function rewardPromo(promo) {
     link: '/employer/referral',
     category: 'referral',
   });
+  return true;
 }
 
 /** Employer: submit post URL for fast-track. SuperAdmin: verify/fail. */
@@ -83,7 +102,7 @@ export async function PATCH(request, { params }) {
       await query(
         `UPDATE ip_linkedin_promotions
          SET status = 'failed', review_notes = $2, reviewed_by = $3, reviewed_at = now(), updated_at = now()
-         WHERE id = $1`,
+         WHERE id = $1 AND status IS DISTINCT FROM 'rewarded'`,
         [promoId, notes, session.user.id],
       );
       await notifyUser({
@@ -97,7 +116,7 @@ export async function PATCH(request, { params }) {
       await query(
         `UPDATE ip_linkedin_promotions
          SET status = 'verified', review_notes = $2, reviewed_by = $3, reviewed_at = now(), updated_at = now()
-         WHERE id = $1`,
+         WHERE id = $1 AND status IS DISTINCT FROM 'rewarded'`,
         [promoId, notes, session.user.id],
       );
       await rewardPromo(await loadPromo(promoId));

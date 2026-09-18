@@ -9,10 +9,43 @@ import { formatStatus } from '@/lib/utils';
 
 export default function EmployerAnalyticsPage() {
   const [data, setData] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch('/api/ip/employer/analytics').then((r) => r.json()).then(setData);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/ip/employer/analytics');
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(json.error || 'Failed to load analytics');
+        }
+        if (!cancelled) {
+          setError('');
+          setData(json);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setData(null);
+          setError(e?.message || 'Failed to load analytics');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  if (error) {
+    return (
+      <div className="p-8 space-y-3">
+        <p className="text-destructive text-sm">{error}</p>
+        <Button type="button" variant="outline" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   if (!data) return <div className="p-8 text-muted-foreground">Loading…</div>;
 
