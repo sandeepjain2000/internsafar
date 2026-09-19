@@ -10,7 +10,7 @@ import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
-import { IP_REGION_SELECT_OPTIONS } from '@/lib/ipRegions';
+import useIpCountryCatalog from '@/hooks/useIpCountryCatalog';
 import { POINTS_PER_APPLICATION } from '@/lib/pointsEconomy';
 import ValidationScoreButton from '@/components/ip/ValidationScoreButton';
 import IpListPager from '@/components/ip/IpListPager';
@@ -97,6 +97,7 @@ function companyInitials(name) {
 export default function BrowseInternshipsPage() {
   const router = useRouter();
   const { placeCityOptions, cityOptions: catalogCities, loading: citiesLoading } = useIpCityCatalog();
+  const { countryOptions, loading: countriesLoading } = useIpCountryCatalog();
   const [items, setItems] = useState([]);
   const [counts, setCounts] = useState({ all: 0, saved: 0, recommended: 0 });
   const [q, setQ] = useState('');
@@ -366,12 +367,13 @@ export default function BrowseInternshipsPage() {
               Region
               <span className="ip-br-city-hint">Filter internships by employer region.</span>
               <SearchableMultiSelect
-                options={IP_REGION_SELECT_OPTIONS}
+                options={countryOptions}
                 value={selectedRegions}
                 onChange={setSelectedRegions}
                 placeholder="Select regions…"
                 ariaLabel="Region"
                 emptyHint="No regions"
+                loading={countriesLoading && !(countryOptions || []).length}
               />
             </label>
             <label className="ip-br-city-filter">

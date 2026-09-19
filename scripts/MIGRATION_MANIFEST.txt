@@ -45,3 +45,4 @@
 040_ip_help_chat_analytics.sql
 041_ip_email_unsubscribe_requests.sql
 042_ip_country_region_fields.sql
+043_ip_ref_countries.sql

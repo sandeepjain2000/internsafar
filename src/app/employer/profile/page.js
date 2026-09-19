@@ -5,10 +5,10 @@ import IpUploadButton from '@/components/ip/IpUploadButton';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import SearchableSelect from '@/components/ip/SearchableSelect';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
+import useIpCountryCatalog from '@/hooks/useIpCountryCatalog';
 import { documentAcceptAttr, imageAcceptAttr } from '@/lib/ipFileUpload';
 import { BUSINESS_ENTITY_TYPES } from '@/lib/employerBusinessEntity';
 import { PHONE_DIAL_OPTIONS, validateRequiredPhone } from '@/lib/ipPhoneValidation';
-import { IP_COUNTRY_SELECT_OPTIONS } from '@/lib/ipRegions';
 import '@/components/ip/ip-employer-profile-gemini.css';
 
 const DOC_TYPES = ['Shop Act', 'LLP registration', 'Business PAN', 'Other'];
@@ -120,6 +120,7 @@ export default function EmployerProfilePage() {
   const [logoBusy, setLogoBusy] = useState(false);
   const logoInputRef = useRef(null);
   const { placeCityOptions, stateOptions, findCity, loading: citiesLoading } = useIpCityCatalog();
+  const { countryOptions, loading: countriesLoading } = useIpCountryCatalog();
   const hqCityChoices = useMemo(() => {
     const needle = String(form?.hq_state || '').trim().toLowerCase();
     if (!needle) return placeCityOptions;
@@ -402,7 +403,7 @@ export default function EmployerProfilePage() {
           </Field>
           <Field label="HQ Country">
             <SearchableMultiSelect
-              options={IP_COUNTRY_SELECT_OPTIONS}
+              options={countryOptions}
               value={form.hq_country ? [form.hq_country] : ['India']}
               onChange={(next) => {
                 const pick = next.length ? next[next.length - 1] : 'India';
@@ -411,6 +412,7 @@ export default function EmployerProfilePage() {
               placeholder="Search countries…"
               ariaLabel="HQ country"
               emptyHint="No countries"
+              loading={countriesLoading && !(countryOptions || []).length}
             />
           </Field>
           <Field label="HQ State / Province">

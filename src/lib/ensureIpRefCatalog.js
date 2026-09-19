@@ -1,5 +1,6 @@
 import { query } from '@/lib/db';
 import { IP_REF_CITIES, IP_REF_DEGREES } from '@/lib/ipRefCitiesDegrees';
+import { IP_COUNTRY_OPTIONS } from '@/lib/ipRegions';
 
 let ready = false;
 let readyPromise = null;
@@ -27,14 +28,21 @@ export async function ensureIpRefCatalog() {
         full_name TEXT NOT NULL
       )
     `);
+    await query(`
+      CREATE TABLE IF NOT EXISTS ip_ref_countries (
+        country TEXT PRIMARY KEY,
+        sort_order INT NOT NULL DEFAULT 0
+      )
+    `);
 
     const cityCount = await query(`SELECT count(*)::int AS n FROM ip_ref_cities`);
     const degreeCount = await query(`SELECT count(*)::int AS n FROM ip_ref_degrees`);
+    const countryCount = await query(`SELECT count(*)::int AS n FROM ip_ref_countries`);
     const citiesOk = Number(cityCount.rows[0]?.n || 0) >= IP_REF_CITIES.length;
     const degreesOk = Number(degreeCount.rows[0]?.n || 0) >= IP_REF_DEGREES.length;
+    const countriesOk = Number(countryCount.rows[0]?.n || 0) >= IP_COUNTRY_OPTIONS.length;
 
     if (!citiesOk) {
-      // Bulk upsert in chunks (far fewer round-trips than one INSERT per city).
       const chunkSize = 40;
       for (let i = 0; i < IP_REF_CITIES.length; i += chunkSize) {
         const chunk = IP_REF_CITIES.slice(i, i + chunkSize);
@@ -70,6 +78,23 @@ export async function ensureIpRefCatalog() {
          ON CONFLICT (id) DO UPDATE SET
            short_form = EXCLUDED.short_form,
            full_name = EXCLUDED.full_name`,
+        params,
+      );
+    }
+
+    if (!countriesOk) {
+      const values = [];
+      const params = [];
+      IP_COUNTRY_OPTIONS.forEach((country, idx) => {
+        const base = idx * 2;
+        values.push(`($${base + 1},$${base + 2})`);
+        params.push(country, idx + 1);
+      });
+      await query(
+        `INSERT INTO ip_ref_countries (country, sort_order)
+         VALUES ${values.join(',')}
+         ON CONFLICT (country) DO UPDATE SET
+           sort_order = EXCLUDED.sort_order`,
         params,
       );
     }

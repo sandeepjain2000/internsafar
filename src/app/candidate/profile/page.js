@@ -21,12 +21,12 @@ import IpUploadButton from '@/components/ip/IpUploadButton';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import SearchableSelect from '@/components/ip/SearchableSelect';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
+import useIpCountryCatalog from '@/hooks/useIpCountryCatalog';
 import {
   emptyExperience,
   parseExperienceEntries,
   serializeExperienceEntries,
 } from '@/lib/ipPostingBody';
-import { IP_COUNTRY_SELECT_OPTIONS } from '@/lib/ipRegions';
 import '@/components/ip/ip-candidate-profile-gemini.css';
 
 const PROFILE_DRAFT_KEY = 'ip_candidate_profile_draft_v1';
@@ -161,6 +161,7 @@ export default function CandidateProfilePage() {
   const [pendingScrollId, setPendingScrollId] = useState('');
   const [draftReady, setDraftReady] = useState(false);
   const { cityOptions, placeCityOptions, stateOptions, findCity, loading: citiesLoading } = useIpCityCatalog();
+  const { countryOptions, loading: countriesLoading } = useIpCountryCatalog();
   const cityChoices = useMemo(() => {
     const needle = String(form?.state || '').trim().toLowerCase();
     if (!needle) return placeCityOptions;
@@ -816,7 +817,7 @@ export default function CandidateProfilePage() {
                 </Field>
                 <Field label="Country" required invalid={isMissing('country')}>
                   <SearchableMultiSelect
-                    options={IP_COUNTRY_SELECT_OPTIONS}
+                    options={countryOptions}
                     value={form.country ? [form.country] : ['India']}
                     onChange={(next) => {
                       const pick = next.length ? next[next.length - 1] : 'India';
@@ -825,6 +826,7 @@ export default function CandidateProfilePage() {
                     placeholder="Search countries…"
                     ariaLabel="Country"
                     emptyHint="No countries"
+                    loading={countriesLoading && !(countryOptions || []).length}
                   />
                 </Field>
                 <Field label="Current City" required invalid={isMissing('city')}>

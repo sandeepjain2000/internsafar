@@ -10,7 +10,7 @@ import { useViewMode } from '@/hooks/useViewMode';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
-import { IP_REGION_SELECT_OPTIONS } from '@/lib/ipRegions';
+import useIpCountryCatalog from '@/hooks/useIpCountryCatalog';
 import { experienceSummaryLabel } from '@/lib/ipCandidateExperience';
 import '@/components/ip/ip-employer-candidates-gemini.css';
 
@@ -73,6 +73,7 @@ function relLine(c) {
 
 export default function CandidateSearchPage() {
   const { placeCityOptions, loading: citiesLoading } = useIpCityCatalog();
+  const { countryOptions, loading: countriesLoading } = useIpCountryCatalog();
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState({ found: 0, roleMatches: 0, shortlisted: 0, invitesPending: 0 });
   const [q, setQ] = useState('');
@@ -421,12 +422,13 @@ export default function CandidateSearchPage() {
               <div className="ip-ec-fsec">
                 <span>Region</span>
                 <SearchableMultiSelect
-                  options={IP_REGION_SELECT_OPTIONS}
+                  options={countryOptions}
                   value={regions}
                   onChange={setRegions}
                   placeholder="Select regions…"
                   ariaLabel="Region"
                   emptyHint="No regions"
+                  loading={countriesLoading && !(countryOptions || []).length}
                 />
               </div>
               <div className="ip-ec-fsec">
@@ -641,12 +643,13 @@ export default function CandidateSearchPage() {
             <div className="ip-ec-fsec">
               <span>Region</span>
               <SearchableMultiSelect
-                options={IP_REGION_SELECT_OPTIONS}
+                options={countryOptions}
                 value={regions}
                 onChange={setRegions}
                 placeholder="Select regions…"
                 ariaLabel="Region"
                 emptyHint="No regions"
+                loading={countriesLoading && !(countryOptions || []).length}
               />
             </div>
             <div className="ip-ec-fsec">
