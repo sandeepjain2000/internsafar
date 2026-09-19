@@ -80,12 +80,37 @@ export function applicationNextStepFilterMatch(row, filterValue) {
   return s === want;
 }
 
+export function applicationClosedAt(row) {
+  const s = applicationStatusKey(row?.status);
+  if (!['rejected', 'withdrawn', 'declined_offer', 'completed', 'hired'].includes(s)) {
+    return null;
+  }
+  const raw = row?.updated_at || row?.closed_at || null;
+  if (!raw) return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+export function applicationClosedLabel(row) {
+  const s = applicationStatusKey(row?.status);
+  if (s === 'rejected') return 'Rejected on';
+  if (s === 'withdrawn') return 'Withdrawn on';
+  if (s === 'declined_offer') return 'Offer declined on';
+  if (s === 'completed') return 'Completed on';
+  if (s === 'hired') return 'Hired on';
+  return 'Closed on';
+}
+
 export function decorateCandidateApplication(row) {
+  const closedAt = applicationClosedAt(row);
   return {
     ...row,
     employer_verified: String(row.approval_status || '').toLowerCase() === 'approved',
     display_status: applicationDisplayStatus(row.status),
     status_tab: applicationStatusTab(row.status),
     next_step: applicationNextStep(row),
+    closed_at: closedAt,
+    closed_label: closedAt ? applicationClosedLabel(row) : null,
   };
 }

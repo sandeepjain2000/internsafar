@@ -13,6 +13,17 @@ import { Textarea } from '@/components/ui/textarea';
 import ValidationScoreButton from '@/components/ip/ValidationScoreButton';
 import { POINTS_PER_APPLICATION } from '@/lib/pointsEconomy';
 
+const REPORT_REASONS = [
+  { value: 'spam', label: 'Spam' },
+  { value: 'misleading', label: 'Misleading details' },
+  { value: 'scam', label: 'Suspected scam' },
+  { value: 'offensive', label: 'Offensive content' },
+  { value: 'duplicate', label: 'Duplicate listing' },
+  { value: 'other', label: 'Other' },
+];
+
+const APPLY_DRAFT_PREFIX = 'ip_apply_draft_';
+
 export default function InternshipDetailPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -25,6 +36,12 @@ export default function InternshipDetailPage() {
   const [saved, setSaved] = useState(false);
   const [wallet, setWallet] = useState({ points: null });
   const [profileComplete, setProfileComplete] = useState(true);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('misleading');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reportMsg, setReportMsg] = useState('');
+  const [reporting, setReporting] = useState(false);
+  const [draftHint, setDraftHint] = useState('');
 
   useEffect(() => {
     fetch(`/api/ip/candidate/internships/${id}`).then((r) => r.json()).then((d) => {
@@ -36,6 +53,18 @@ export default function InternshipDetailPage() {
       const qs = Array.isArray(d.internship?.questions) ? d.internship.questions : [];
       const init = {};
       qs.forEach((q, idx) => { init[q.id || `q${idx}`] = ''; });
+      try {
+        const raw = localStorage.getItem(`${APPLY_DRAFT_PREFIX}${id}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            Object.assign(init, parsed);
+            setDraftHint('Restored your saved screening answers from this device.');
+          }
+        }
+      } catch {
+        /* ignore */
+      }
       setAnswers(init);
     }).catch(() => {});
     fetch('/api/ip/candidate/saved').then((r) => r.json()).then((d) => {
@@ -49,6 +78,18 @@ export default function InternshipDetailPage() {
     }).catch(() => {});
   }, [id]);
 
+  useEffect(() => {
+    if (!id || !Object.keys(answers).length) return undefined;
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(`${APPLY_DRAFT_PREFIX}${id}`, JSON.stringify(answers));
+      } catch {
+        /* ignore */
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [id, answers]);
+
   async function toggleSave() {
     await fetch('/api/ip/candidate/saved', {
       method: 'POST',
@@ -56,6 +97,31 @@ export default function InternshipDetailPage() {
       body: JSON.stringify({ internshipId: id, saved: !saved }),
     });
     setSaved(!saved);
+  }
+
+  async function submitReport() {
+    setReporting(true);
+    setReportMsg('');
+    try {
+      const res = await fetch('/api/ip/candidate/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          internshipId: id,
+          reason: reportReason,
+          details: reportDetails,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Report failed');
+      setReportMsg('Thanks — your report was submitted for review.');
+      setReportOpen(false);
+      setReportDetails('');
+    } catch (err) {
+      setReportMsg(err.message);
+    } finally {
+      setReporting(false);
+    }
   }
 
   const questions = Array.isArray(internship?.questions) ? internship.questions : [];
@@ -84,6 +150,12 @@ export default function InternshipDetailPage() {
       if (typeof data.pointsRemaining === 'number') {
         setWallet({ points: data.pointsRemaining });
       }
+      try {
+        localStorage.removeItem(`${APPLY_DRAFT_PREFIX}${id}`);
+      } catch {
+        /* ignore */
+      }
+      setDraftHint('');
       setMessage(`Applied successfully! Spent ${data.payment?.cost ?? POINTS_PER_APPLICATION} points.`);
       setTimeout(() => router.push('/candidate/applications'), 1000);
     } catch (err) {
@@ -125,14 +197,21 @@ export default function InternshipDetailPage() {
                 />
               </div>
             </div>
-            <Button size="sm" variant="outline" className="ip-id-save shrink-0" onClick={toggleSave}>
-              {saved ? 'Saved' : 'Save'}
-            </Button>
+            <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+              <Button size="sm" variant="outline" className="ip-id-save" onClick={toggleSave}>
+                {saved ? 'Saved' : 'Save'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setReportOpen((v) => !v)}>
+                Report
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {error ? <Alert variant="destructive"><AlertTitle>Could not apply</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
           {message ? <Alert><AlertDescription>{message}</AlertDescription></Alert> : null}
+          {reportMsg ? <Alert><AlertDescription>{reportMsg}</AlertDescription></Alert> : null}
+          {draftHint ? <Alert><AlertDescription>{draftHint}</AlertDescription></Alert> : null}
           {!profileComplete ? (
             <Alert>
               <AlertTitle>Fill your profile</AlertTitle>
@@ -145,6 +224,35 @@ export default function InternshipDetailPage() {
               </AlertDescription>
             </Alert>
           ) : null}
+
+          {reportOpen ? (
+            <div className="space-y-2 rounded-md border p-3">
+              <h3 className="font-medium text-sm">Report this listing</h3>
+              <Field>
+                <FieldLabel>Reason</FieldLabel>
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                >
+                  {REPORT_REASONS.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field>
+                <FieldLabel>Details (optional)</FieldLabel>
+                <Textarea rows={3} value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} />
+              </Field>
+              <div className="flex gap-2">
+                <Button type="button" size="sm" onClick={submitReport} disabled={reporting}>
+                  {reporting ? 'Sending…' : 'Submit report'}
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setReportOpen(false)}>Cancel</Button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="flex gap-2 flex-wrap">
             <Badge variant="outline">
               {internship.stipend_type === 'incentive'

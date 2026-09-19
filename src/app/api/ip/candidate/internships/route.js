@@ -116,6 +116,8 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get('q') || '').trim().toLowerCase();
   const minStipend = Number(searchParams.get('minStipend') || 0);
+  const stipendType = (searchParams.get('stipendType') || '').trim().toLowerCase();
+  const maxDuration = Number(searchParams.get('maxDuration') || 0);
   const workMode = searchParams.get('workMode') || '';
   const location = (searchParams.get('location') || '').trim();
   const minMatch = Number(searchParams.get('minMatch') || 0);
@@ -228,7 +230,16 @@ export async function GET(request) {
   let items = mapped.filter((i) => {
     if (savedOnly && !i.saved) return false;
     if (!matchesQuery(i, q)) return false;
-    if (minStipend && Number(i.stipend_inr || 0) < minStipend) return false;
+    if (stipendType === 'unpaid') {
+      const unpaid = !Number(i.stipend_inr) || String(i.stipend_type || '').toLowerCase() === 'unpaid';
+      if (!unpaid) return false;
+    } else if (minStipend && Number(i.stipend_inr || 0) < minStipend) {
+      return false;
+    }
+    if (maxDuration > 0) {
+      const months = Number(i.duration_months);
+      if (!Number.isFinite(months) || months <= 0 || months > maxDuration) return false;
+    }
     if (!matchesWorkMode(i.work_mode, workMode)) return false;
     if (!matchesLocation(i, location)) return false;
     if (minMatch && (i.match_score ?? 0) < minMatch) return false;

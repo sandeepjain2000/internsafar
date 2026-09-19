@@ -385,6 +385,7 @@ export default function MyApplicationsPage() {
                 <p className="ip-ap-card__company">{a.company_name || '—'}</p>
                 <p className="ip-ap-card__meta">
                   Applied {appliedDate(a.created_at)}
+                  {a.closed_at ? ` · ${a.closed_label || 'Closed on'} ${appliedDate(a.closed_at)}` : ''}
                   {a.match_score != null ? ` · Match ${Math.round(Number(a.match_score))}%` : ''}
                 </p>
                 <div className="ip-ap-card__foot">
@@ -425,6 +426,7 @@ export default function MyApplicationsPage() {
                 <th>Stipend</th>
                 <th>Location</th>
                 <th>Applied</th>
+                <th>Closed</th>
                 <th>Status</th>
                 <th>Next</th>
                 <th>Actions</th>
@@ -442,6 +444,7 @@ export default function MyApplicationsPage() {
                   <td>{stipendLabel(a)}</td>
                   <td>{[a.work_mode, a.location].filter(Boolean).join(' • ') || '—'}</td>
                   <td>{appliedDate(a.created_at)}</td>
+                  <td>{a.closed_at ? appliedDate(a.closed_at) : '—'}</td>
                   <td>
                     <span className={`ip-ap-badge ${statusClass(a.status)}`}>
                       {a.display_status || 'Applied'}
@@ -562,7 +565,12 @@ export default function MyApplicationsPage() {
                   <h2 id="ip-ap-detail-title">{detail.title || 'Internship'}</h2>
                   <span className={`ip-ap-badge ${statusClass(detail.status)}`}>{detail.display_status}</span>
                 </div>
-                <p>{detail.company_name} • Applied on {appliedDate(detail.created_at)}</p>
+                <p>
+                  {detail.company_name} • Applied on {appliedDate(detail.created_at)}
+                  {detail.closed_at
+                    ? ` • ${detail.closed_label || 'Closed on'} ${appliedDate(detail.closed_at)}`
+                    : ''}
+                </p>
               </div>
               <button type="button" className="ip-ap-icon" onClick={() => setDetail(null)} aria-label="Close">×</button>
             </div>
@@ -573,6 +581,12 @@ export default function MyApplicationsPage() {
                 <div><dt>Work mode</dt><dd>{detail.work_mode || '—'}</dd></div>
                 <div><dt>Location</dt><dd>{detail.location || '—'}</dd></div>
                 <div><dt>Match</dt><dd>{detail.match_score != null ? `${Math.round(Number(detail.match_score))}%` : '—'}</dd></div>
+                {detail.closed_at ? (
+                  <div>
+                    <dt>{detail.closed_label || 'Closed on'}</dt>
+                    <dd>{appliedDate(detail.closed_at)}</dd>
+                  </div>
+                ) : null}
               </dl>
               <p className="ip-ap-muted">Status history is shown from live application updates. Candidates cannot edit this record.</p>
             </div>

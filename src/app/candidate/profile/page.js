@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Briefcase,
   Check,
@@ -26,6 +27,8 @@ import {
   serializeExperienceEntries,
 } from '@/lib/ipPostingBody';
 import '@/components/ip/ip-candidate-profile-gemini.css';
+
+const PROFILE_DRAFT_KEY = 'ip_candidate_profile_draft_v1';
 
 const PROFILE_TABS = [
   { id: 'basics', label: '1. Basics & Contact', Icon: User, saveLabel: 'Save Basics & Contact', wizardStep: 1 },
@@ -133,6 +136,7 @@ function missingBasics(form) {
 }
 
 export default function CandidateProfilePage() {
+  const router = useRouter();
   const [form, setForm] = useState(null);
   const [academics, setAcademics] = useState([emptyAcademicRow()]);
   const [experiences, setExperiences] = useState([emptyExperience()]);
@@ -156,6 +160,7 @@ export default function CandidateProfilePage() {
   const [showMissing, setShowMissing] = useState(false);
   /** Scroll target after quality-score action switches tab (section id). */
   const [pendingScrollId, setPendingScrollId] = useState('');
+  const [draftReady, setDraftReady] = useState(false);
   const { cityOptions, placeCityOptions, stateOptions, findCity, loading: citiesLoading } = useIpCityCatalog();
   const cityChoices = useMemo(() => {
     const needle = String(form?.state || '').trim().toLowerCase();
@@ -164,38 +169,68 @@ export default function CandidateProfilePage() {
   }, [placeCityOptions, form?.state]);
 
   useEffect(() => {
-    fetch('/api/ip/candidate/profile')
-      .then((r) => r.json())
-      .then((d) => {
-        setForm(d.profile);
-        setResumeFileName(resumeDisplayName(d.profile?.resume_url));
-        setExperiences(parseExperienceEntries(d.profile?.prior_experience));
-        // First-time wizard lock only — once apply-unlock is earned, all tabs stay open across refresh.
-        if (d.profile?.profile_complete) {
-          setWizardUnlockedThru(WIZARD_ORDER.length - 1);
+    let cancelled = false;
+    Promise.all([
+      fetch('/api/ip/candidate/profile').then((r) => r.json()),
+      fetch('/api/ip/candidate/academics').then((r) => r.json()).catch(() => ({ items: [] })),
+    ]).then(([d, acad]) => {
+      if (cancelled) return;
+      let nextForm = d.profile;
+      let nextAcademics = (acad.items || []).map((a) => ({
+        id: a.id,
+        row_label: a.row_label || '',
+        college: a.college || '',
+        degree: a.degree || '',
+        specialization: a.specialization || '',
+        study_status: a.study_status || '',
+        graduation_year: a.graduation_year || '',
+        cgpa: a.cgpa || '',
+      }));
+      if (!nextAcademics.length) nextAcademics = [emptyAcademicRow()];
+      let nextExperiences = parseExperienceEntries(d.profile?.prior_experience);
+      try {
+        const draft = JSON.parse(localStorage.getItem(PROFILE_DRAFT_KEY) || 'null');
+        if (draft?.form && typeof draft.form === 'object') {
+          nextForm = { ...nextForm, ...draft.form };
+          if (Array.isArray(draft.academics) && draft.academics.length) nextAcademics = draft.academics;
+          if (Array.isArray(draft.experiences) && draft.experiences.length) nextExperiences = draft.experiences;
+          setMessage('Restored an unsaved draft from this device. Use Save to store it on your account, or Save draft & exit to keep editing later.');
         }
-      });
-    fetch('/api/ip/candidate/academics')
-      .then((r) => r.json())
-      .then((d) => {
-        const items = (d.items || []).map((a) => ({
-          id: a.id,
-          row_label: a.row_label || '',
-          college: a.college || '',
-          degree: a.degree || '',
-          specialization: a.specialization || '',
-          study_status: a.study_status || '',
-          graduation_year: a.graduation_year || '',
-          cgpa: a.cgpa || '',
-        }));
-        setAcademics(items.length ? items : [emptyAcademicRow()]);
-      })
-      .catch(() => {});
+      } catch {
+        /* ignore */
+      }
+      setForm(nextForm);
+      setResumeFileName(resumeDisplayName(nextForm?.resume_url));
+      setExperiences(nextExperiences);
+      setAcademics(nextAcademics);
+      if (nextForm?.profile_complete) {
+        setWizardUnlockedThru(WIZARD_ORDER.length - 1);
+      }
+      setDraftReady(true);
+    }).catch(() => setDraftReady(true));
     fetch('/api/ip/endorsements')
       .then((r) => r.json())
-      .then((d) => setEndorsements(d.items || []))
+      .then((d) => { if (!cancelled) setEndorsements(d.items || []); })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!draftReady || !form) return undefined;
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(PROFILE_DRAFT_KEY, JSON.stringify({
+          savedAt: Date.now(),
+          form,
+          academics,
+          experiences,
+        }));
+      } catch {
+        /* ignore */
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [draftReady, form, academics, experiences]);
 
   useEffect(() => {
     if (!form?.college || academics[0]?.college) return;
@@ -356,6 +391,11 @@ export default function CandidateProfilePage() {
       setForm((current) => (current ? { ...current, profile_complete: data.profileComplete } : current));
       if (data.profileComplete) {
         setWizardUnlockedThru(WIZARD_ORDER.length - 1);
+      }
+      try {
+        localStorage.removeItem(PROFILE_DRAFT_KEY);
+      } catch {
+        /* ignore */
       }
       setMessage(
         data.profileComplete
@@ -1375,6 +1415,26 @@ export default function CandidateProfilePage() {
                   Back
                 </button>
               ) : null}
+              <button
+                type="button"
+                className="ip-cp-btn ip-cp-btn--outline"
+                onClick={() => {
+                  try {
+                    localStorage.setItem(PROFILE_DRAFT_KEY, JSON.stringify({
+                      savedAt: Date.now(),
+                      form,
+                      academics,
+                      experiences,
+                    }));
+                  } catch {
+                    /* ignore */
+                  }
+                  setMessage('Draft saved on this device. Returning to your dashboard — you can continue later.');
+                  router.push('/candidate');
+                }}
+              >
+                Save draft &amp; exit
+              </button>
               {hasNextStep ? null : (
                 <button type="submit" className="ip-cp-btn ip-cp-btn--primary" disabled={saving}>
                   {saving ? 'Saving...' : activeTab?.saveLabel || 'Save profile'}

@@ -83,6 +83,15 @@ function buildQueues(stats) {
       action: 'Audit Logs',
     },
     {
+      id: 'list-rep',
+      area: 'Listing Reports',
+      desc: 'Student reports of suspicious employers or internship listings.',
+      href: '/superadmin/listing-reports',
+      badge: 'Triage',
+      badgeClass: 'ip-sad-pill--warn',
+      action: 'Review Reports',
+    },
+    {
       id: 'msg-thr',
       area: 'Messages & Support',
       desc: 'Operational alerts and support notifications routed to SuperAdmin.',

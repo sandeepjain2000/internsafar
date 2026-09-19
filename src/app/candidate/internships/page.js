@@ -35,9 +35,18 @@ const WORK_MODES = [
 
 const STIPEND_OPTIONS = [
   { value: '0', label: 'Any Stipend' },
+  { value: 'unpaid', label: 'Unpaid / not specified' },
   { value: '15000', label: '₹15,000 / mo or more' },
   { value: '18000', label: '₹18,000 / mo or more' },
   { value: '20000', label: '₹20,000 / mo or more' },
+];
+
+const DURATION_OPTIONS = [
+  { value: '0', label: 'Any duration' },
+  { value: '1', label: 'Up to 1 month' },
+  { value: '2', label: 'Up to 2 months' },
+  { value: '3', label: 'Up to 3 months' },
+  { value: '6', label: 'Up to 6 months' },
 ];
 
 const MATCH_OPTIONS = [
@@ -85,6 +94,7 @@ export default function BrowseInternshipsPage() {
   const [counts, setCounts] = useState({ all: 0, saved: 0, recommended: 0 });
   const [q, setQ] = useState('');
   const [minStipend, setMinStipend] = useState('0');
+  const [maxDuration, setMaxDuration] = useState('0');
   const [workMode, setWorkMode] = useState('all');
   const [selectedCities, setSelectedCities] = useState([]);
   const [minMatch, setMinMatch] = useState('0');
@@ -101,10 +111,10 @@ export default function BrowseInternshipsPage() {
 
   const snapshot = useMemo(() => ({
     filters: {
-      q, minStipend, workMode, selectedCities, minMatch, minValidation, tab, chip,
+      q, minStipend, maxDuration, workMode, selectedCities, minMatch, minValidation, tab, chip,
     },
     sort,
-  }), [q, minStipend, workMode, selectedCities, minMatch, minValidation, tab, chip, sort]);
+  }), [q, minStipend, maxDuration, workMode, selectedCities, minMatch, minValidation, tab, chip, sort]);
   const prefs = useListPrefsSync({
     tableKey: 'candidate.internships',
     snapshot,
@@ -112,6 +122,7 @@ export default function BrowseInternshipsPage() {
       const f = s.filters || {};
       if (f.q != null) setQ(f.q);
       if (f.minStipend != null) setMinStipend(String(f.minStipend));
+      if (f.maxDuration != null) setMaxDuration(String(f.maxDuration));
       if (f.workMode != null) setWorkMode(f.workMode);
       if (Array.isArray(f.selectedCities)) setSelectedCities(f.selectedCities);
       if (f.minMatch != null) setMinMatch(String(f.minMatch));
@@ -138,6 +149,7 @@ export default function BrowseInternshipsPage() {
   async function load(next = {}) {
     const nextQ = next.q !== undefined ? next.q : q;
     const nextStipend = next.minStipend !== undefined ? next.minStipend : minStipend;
+    const nextDuration = next.maxDuration !== undefined ? next.maxDuration : maxDuration;
     const nextMode = next.workMode !== undefined ? next.workMode : workMode;
     const nextCities = next.selectedCities !== undefined ? next.selectedCities : selectedCities;
     const nextMatch = next.minMatch !== undefined ? next.minMatch : minMatch;
@@ -150,7 +162,9 @@ export default function BrowseInternshipsPage() {
     setLoading(true);
     const params = new URLSearchParams();
     if (nextQ) params.set('q', nextQ);
-    if (Number(nextStipend)) params.set('minStipend', nextStipend);
+    if (nextStipend === 'unpaid') params.set('stipendType', 'unpaid');
+    else if (Number(nextStipend)) params.set('minStipend', nextStipend);
+    if (Number(nextDuration)) params.set('maxDuration', nextDuration);
     if (nextMode && nextMode !== 'all') params.set('workMode', nextMode);
     if (nextCities?.length) params.set('location', nextCities.join(','));
     if (Number(nextMatch)) params.set('minMatch', nextMatch);
@@ -174,11 +188,11 @@ export default function BrowseInternshipsPage() {
     }, q ? 250 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefs.ready, q, minStipend, workMode, selectedCities, minMatch, minValidation, sort, tab, chip]);
+  }, [prefs.ready, q, minStipend, maxDuration, workMode, selectedCities, minMatch, minValidation, sort, tab, chip]);
 
   useEffect(() => {
     setPage(1);
-  }, [q, minStipend, workMode, selectedCities, minMatch, minValidation, sort, tab, chip, setPage]);
+  }, [q, minStipend, maxDuration, workMode, selectedCities, minMatch, minValidation, sort, tab, chip, setPage]);
 
   async function toggleSave(internshipId, saved) {
     await fetch('/api/ip/candidate/saved', {
@@ -192,6 +206,7 @@ export default function BrowseInternshipsPage() {
   function resetFilters() {
     setQ('');
     setMinStipend('0');
+    setMaxDuration('0');
     setWorkMode('all');
     setSelectedCities([]);
     setMinMatch('0');
@@ -204,13 +219,14 @@ export default function BrowseInternshipsPage() {
 
   const filtersActiveCount = useMemo(() => {
     let n = 0;
-    if (Number(minStipend) > 0) n += 1;
+    if (minStipend !== '0') n += 1;
+    if (Number(maxDuration) > 0) n += 1;
     if (workMode !== 'all') n += 1;
     if (selectedCities.length > 0) n += 1;
     if (Number(minMatch) > 0) n += 1;
     if (Boolean(minValidation)) n += 1;
     return n;
-  }, [minStipend, workMode, selectedCities, minMatch, minValidation]);
+  }, [minStipend, maxDuration, workMode, selectedCities, minMatch, minValidation]);
 
   const browseCityOptions = useMemo(() => {
     const remote = (catalogCities || []).filter((o) => /^remote$/i.test(String(o.value || o.city || '')));
@@ -304,7 +320,7 @@ export default function BrowseInternshipsPage() {
               <button type="button" className="ip-br-sheet-x" onClick={() => setFiltersOpen(false)} aria-label="Close filters">×</button>
             </div>
             <label>
-              Work Mode
+              Work Mode / internship type
               <select value={workMode} onChange={(e) => setWorkMode(e.target.value)}>
                 {WORK_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
               </select>
@@ -313,6 +329,12 @@ export default function BrowseInternshipsPage() {
               Minimum Monthly Stipend
               <select value={minStipend} onChange={(e) => setMinStipend(e.target.value)}>
                 {STIPEND_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </label>
+            <label>
+              Max duration
+              <select value={maxDuration} onChange={(e) => setMaxDuration(e.target.value)}>
+                {DURATION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </label>
             <label className="ip-br-city-filter">

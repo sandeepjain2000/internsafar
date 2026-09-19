@@ -87,9 +87,8 @@ coreaccountspass.json
 **/coreaccountspass.json
 *.bak
 *.bak-*
-# Cursor / local AI context (do not push to GitHub, Vercel, or AWS packs)
+# Cursor IDE settings (local)
 .cursor/
-docs/ai-context/
 # Local prompt libraries (test/QA packs from Downloads zip — not for deploy)
 prompts/
 .vercel
