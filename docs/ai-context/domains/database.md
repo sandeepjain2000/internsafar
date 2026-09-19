@@ -9,7 +9,7 @@ Postgres access for InternSafar, `ip_*` schema, SQL migrations, migrate safety g
 | Path | Role |
 |------|------|
 | `src/lib/db.js` | `pg` pool — app queries must use **`ip_*` only** |
-| `db/migrations/` | Numbered SQL (47 files as of 2026-09-18; prefer `*ip*`) |
+| `db/migrations/` | Numbered SQL (47 files as of 2026-09-19; prefer `*ip*`) |
 | `docs/ip-er-diagram-notes.md` | ER notes (synced through **039**; also see **040**, **041**) |
 | `docs/ip-er-diagram.puml` | PlantUML diagram |
 | `scripts/db_exec_sql_file.js` | Applies one SQL file (gated) |

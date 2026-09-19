@@ -2,6 +2,7 @@
  * InternSafar ops failure email (lean).
  * To: IP_OPS_ALERT_EMAIL or placementhubsupport@gmail.com
  * Not for validation / 429 / single-key flaky NIM timeouts.
+ * QA probes on local/Vercel: accepted by API, no inbox mail.
  */
 import { sendMail } from '@/lib/mail';
 import { newId } from '@/lib/ids';
@@ -75,12 +76,16 @@ export async function reportOpsFailure(payload) {
 
     const ref = newId('ip_ops');
     const host = hostLabel();
-    // QA suites intentionally POST synthetic probes — label clearly so Gmail is not
-    // mistaken for a real user/site FAILURE (same inbox as ops alerts).
+    // QA suites intentionally POST synthetic probes. API still accepts them so
+    // regression stays green; local + Vercel must not email placementhubsupport.
     const isQaProbe =
       kind === 'QA_PROBE' ||
       /^QA\b/i.test(message) ||
       String(route || '').startsWith('/qa/');
+    if (isQaProbe && (host === 'local' || host === 'vercel')) {
+      console.info('[ipOpsAlert] QA probe accepted without mail', { host, kind, ref, route });
+      return { sent: false, reason: 'qa_probe_no_mail', ref, host };
+    }
     const subject = isQaProbe
       ? `[InternSafar][QA-PROBE][${kind}] ${truncate(message, 80)}`
       : `[InternSafar][FAILURE][${kind}] ${truncate(message, 80)}`;

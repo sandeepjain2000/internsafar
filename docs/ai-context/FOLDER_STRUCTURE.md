@@ -1,7 +1,7 @@
 # InternSafar — folder structure map
 
 **App root:** `internship-portal/`  
-**Generated from live tree:** 2026-09-18  
+**Generated from live tree:** 2026-09-19  
 **Omits:** `node_modules/`, `.next/`, `.git/`, `test-results/`, scratch `tmp-*`
 
 Use this to **locate** files. Then open the real path.  
