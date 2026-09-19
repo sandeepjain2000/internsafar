@@ -57,6 +57,9 @@ export default function EmployerDashboard() {
 
   const employer = data?.employer;
   const stats = data?.stats || {};
+  const actionCenter = data?.actionCenter || {};
+  const stalePending = Number(actionCenter.pendingReviewStaleDays || 0);
+  const interviewsToday = Number(actionCenter.interviewsToday || 0);
   const postings = data?.postings || [];
   const recent = data?.recentApplications || [];
   const canPost =
@@ -114,6 +117,31 @@ export default function EmployerDashboard() {
           <Link className="ip-ed-btn-light" href="/employer/candidates">
             <Search aria-hidden />
             <span>Find Candidates</span>
+          </Link>
+        </div>
+      </div>
+
+      <div className="ip-ed-card ip-ed-action-center" data-testid="employer-action-center">
+        <div className="ip-ed-card-head">
+          <div>
+            <h2>Action center</h2>
+            <p>Tasks that need attention and what is coming up today.</p>
+          </div>
+        </div>
+        <div className="ip-ed-action-grid">
+          <Link className="ip-ed-action-card ip-ed-action-card--warn" href="/employer/internships">
+            <span className="ip-ed-action-kicker">Action required</span>
+            <strong>
+              {stalePending} application{stalePending === 1 ? '' : 's'} pending review for 3+ days
+            </strong>
+            <span className="ip-ed-action-hint">Open internships to shortlist or reject waiting candidates</span>
+          </Link>
+          <Link className="ip-ed-action-card ip-ed-action-card--info" href="/employer/offers">
+            <span className="ip-ed-action-kicker">Upcoming</span>
+            <strong>
+              {interviewsToday} interview{interviewsToday === 1 ? '' : 's'} scheduled today
+            </strong>
+            <span className="ip-ed-action-hint">Check messages and offers for interview details</span>
           </Link>
         </div>
       </div>

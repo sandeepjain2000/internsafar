@@ -33,6 +33,12 @@ const WORK_MODES = [
   { value: 'On-site', label: 'On-site Only' },
 ];
 
+const START_DATE_OPTIONS = [
+  { value: 'any', label: 'Any start date' },
+  { value: 'next-30', label: 'Starts within 30 days' },
+  { value: 'flexible', label: 'Flexible / not specified' },
+];
+
 const STIPEND_OPTIONS = [
   { value: '0', label: 'Any Stipend' },
   { value: 'unpaid', label: 'Unpaid / not specified' },
@@ -96,6 +102,7 @@ export default function BrowseInternshipsPage() {
   const [minStipend, setMinStipend] = useState('0');
   const [maxDuration, setMaxDuration] = useState('0');
   const [workMode, setWorkMode] = useState('all');
+  const [startDate, setStartDate] = useState('any');
   const [selectedCities, setSelectedCities] = useState([]);
   const [minMatch, setMinMatch] = useState('0');
   const [minValidation, setMinValidation] = useState('');
@@ -111,10 +118,10 @@ export default function BrowseInternshipsPage() {
 
   const snapshot = useMemo(() => ({
     filters: {
-      q, minStipend, maxDuration, workMode, selectedCities, minMatch, minValidation, tab, chip,
+      q, minStipend, maxDuration, workMode, startDate, selectedCities, minMatch, minValidation, tab, chip,
     },
     sort,
-  }), [q, minStipend, maxDuration, workMode, selectedCities, minMatch, minValidation, tab, chip, sort]);
+  }), [q, minStipend, maxDuration, workMode, startDate, selectedCities, minMatch, minValidation, tab, chip, sort]);
   const prefs = useListPrefsSync({
     tableKey: 'candidate.internships',
     snapshot,
@@ -124,6 +131,7 @@ export default function BrowseInternshipsPage() {
       if (f.minStipend != null) setMinStipend(String(f.minStipend));
       if (f.maxDuration != null) setMaxDuration(String(f.maxDuration));
       if (f.workMode != null) setWorkMode(f.workMode);
+      if (f.startDate != null) setStartDate(f.startDate);
       if (Array.isArray(f.selectedCities)) setSelectedCities(f.selectedCities);
       if (f.minMatch != null) setMinMatch(String(f.minMatch));
       if (f.minValidation != null) setMinValidation(f.minValidation);
@@ -151,6 +159,7 @@ export default function BrowseInternshipsPage() {
     const nextStipend = next.minStipend !== undefined ? next.minStipend : minStipend;
     const nextDuration = next.maxDuration !== undefined ? next.maxDuration : maxDuration;
     const nextMode = next.workMode !== undefined ? next.workMode : workMode;
+    const nextStart = next.startDate !== undefined ? next.startDate : startDate;
     const nextCities = next.selectedCities !== undefined ? next.selectedCities : selectedCities;
     const nextMatch = next.minMatch !== undefined ? next.minMatch : minMatch;
     const nextValid = next.minValidation !== undefined ? next.minValidation : minValidation;
@@ -166,6 +175,7 @@ export default function BrowseInternshipsPage() {
     else if (Number(nextStipend)) params.set('minStipend', nextStipend);
     if (Number(nextDuration)) params.set('maxDuration', nextDuration);
     if (nextMode && nextMode !== 'all') params.set('workMode', nextMode);
+    if (nextStart && nextStart !== 'any') params.set('startDate', nextStart);
     if (nextCities?.length) params.set('location', nextCities.join(','));
     if (Number(nextMatch)) params.set('minMatch', nextMatch);
     if (nextValid) params.set('minValidation', nextValid);
@@ -188,11 +198,11 @@ export default function BrowseInternshipsPage() {
     }, q ? 250 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefs.ready, q, minStipend, maxDuration, workMode, selectedCities, minMatch, minValidation, sort, tab, chip]);
+  }, [prefs.ready, q, minStipend, maxDuration, workMode, startDate, selectedCities, minMatch, minValidation, sort, tab, chip]);
 
   useEffect(() => {
     setPage(1);
-  }, [q, minStipend, maxDuration, workMode, selectedCities, minMatch, minValidation, sort, tab, chip, setPage]);
+  }, [q, minStipend, maxDuration, workMode, startDate, selectedCities, minMatch, minValidation, sort, tab, chip, setPage]);
 
   async function toggleSave(internshipId, saved) {
     await fetch('/api/ip/candidate/saved', {
@@ -208,6 +218,7 @@ export default function BrowseInternshipsPage() {
     setMinStipend('0');
     setMaxDuration('0');
     setWorkMode('all');
+    setStartDate('any');
     setSelectedCities([]);
     setMinMatch('0');
     setMinValidation('');
@@ -222,11 +233,12 @@ export default function BrowseInternshipsPage() {
     if (minStipend !== '0') n += 1;
     if (Number(maxDuration) > 0) n += 1;
     if (workMode !== 'all') n += 1;
+    if (startDate !== 'any') n += 1;
     if (selectedCities.length > 0) n += 1;
     if (Number(minMatch) > 0) n += 1;
     if (Boolean(minValidation)) n += 1;
     return n;
-  }, [minStipend, maxDuration, workMode, selectedCities, minMatch, minValidation]);
+  }, [minStipend, maxDuration, workMode, startDate, selectedCities, minMatch, minValidation]);
 
   const browseCityOptions = useMemo(() => {
     const remote = (catalogCities || []).filter((o) => /^remote$/i.test(String(o.value || o.city || '')));
@@ -335,6 +347,12 @@ export default function BrowseInternshipsPage() {
               Max duration
               <select value={maxDuration} onChange={(e) => setMaxDuration(e.target.value)}>
                 {DURATION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </label>
+            <label>
+              Start date
+              <select value={startDate} onChange={(e) => setStartDate(e.target.value)}>
+                {START_DATE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </label>
             <label className="ip-br-city-filter">

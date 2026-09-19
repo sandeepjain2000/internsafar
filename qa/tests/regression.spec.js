@@ -254,4 +254,43 @@ test.describe('InternSafar regression', () => {
       await expect(pager).toBeVisible();
     }
   });
+
+  test('IS-061 internship detail exposes Report listing control', async ({ page, request }) => {
+    const listRes = await apiWithSession(request, candidate.email, 'GET', '/api/ip/candidate/internships');
+    expect(listRes.ok()).toBeTruthy();
+    const listBody = await listRes.json();
+    const firstId = listBody?.items?.[0]?.id;
+    test.skip(!firstId, 'No visible internships for candidate in this environment');
+    await openWithSession(page, candidate.email, `/candidate/internships/${firstId}`);
+    await expect(page).toHaveURL(new RegExp(`/candidate/internships/${firstId}`), { timeout: 20_000 });
+    await expect(page.getByRole('button', { name: /^Report$/i }).first()).toBeVisible({ timeout: 20_000 });
+  });
+
+  test('IS-062 profile has Save draft & exit', async ({ page }) => {
+    await openWithSession(page, candidate.email, '/candidate/profile');
+    await expect(page).toHaveURL(/\/candidate\/profile/, { timeout: 25_000 });
+    await expect(page.getByRole('button', { name: /Save draft/i }).first()).toBeVisible({
+      timeout: 30_000,
+    });
+  });
+
+  test('IS-063 employer dashboard Action center', async ({ page }) => {
+    await openWithSession(page, employer.email, '/employer');
+    await expect(page).toHaveURL(/\/employer\/?$/, { timeout: 25_000 });
+    const center = page.locator('[data-testid="employer-action-center"]');
+    await expect(center).toBeVisible({ timeout: 30_000 });
+    await expect(center.getByText(/Action required/i).first()).toBeVisible();
+    await expect(center.getByText(/Upcoming/i).first()).toBeVisible();
+    await expect(center.getByText(/pending review for 3\+ days/i).first()).toBeVisible();
+    await expect(center.getByText(/interview/i).first()).toBeVisible();
+  });
+
+  test('IS-064 browse filters include start date', async ({ page }) => {
+    await openWithSession(page, candidate.email, '/candidate/internships');
+    await expect(page).toHaveURL(/\/candidate\/internships/, { timeout: 25_000 });
+    await page.locator('button.ip-br-btn').filter({ hasText: /Filter/i }).first().click();
+    await expect(page.locator('.ip-br-drawer')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('.ip-br-drawer label').filter({ hasText: /Start date/i })).toBeVisible();
+    await expect(page.locator('.ip-br-drawer option', { hasText: 'Starts within 30 days' })).toBeAttached();
+  });
 });

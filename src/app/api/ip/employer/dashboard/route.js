@@ -1,11 +1,15 @@
 import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { POINTS_PER_POST } from '@/lib/pointsEconomy';
+import { processAutoRejectExpiredApplications } from '@/lib/ipAutoRejectExpiredApplications';
+import { ensureIpApplicationInterviewSchema } from '@/lib/ensureIpApplicationInterviewSchema';
 
 /** Employer home aggregates — recent apps + week delta (no new tables). */
 export async function GET() {
   const { session, error } = await requireSession(['employer']);
   if (error) return error;
+
+  await ensureIpApplicationInterviewSchema();
 
   const emp = await query(
     `SELECT e.id, e.company_name, e.approval_status, u.points, u.name, u.email
@@ -15,6 +19,15 @@ export async function GET() {
   );
   const employer = emp.rows[0];
   if (!employer) return jsonError('Employer profile not found', 404);
+
+  // Backup only: primary path is Vercel cron / npm run cron:auto-reject-expired
+  // (employer login must not be required). Keep this small so dashboard stay snappy.
+  // AWS (future): prefer EC2 crontab hitting /api/ip/cron/auto-reject-expired — see that route.
+  try {
+    await processAutoRejectExpiredApplications({ employerId: employer.id, limit: 25 });
+  } catch (err) {
+    console.warn('[employer dashboard auto-reject]', err.message);
+  }
 
   const applicantTotals = await query(
     `SELECT count(*)::int AS n
@@ -68,6 +81,28 @@ export async function GET() {
     [employer.id],
   );
 
+  /** Action Required: applications awaiting review for 3+ days */
+  const stalePending = await query(
+    `SELECT count(*)::int AS n
+     FROM ip_applications a
+     JOIN ip_internships i ON i.id = a.internship_id
+     WHERE i.employer_id = $1
+       AND a.status IN ('applied','shortlisted')
+       AND a.created_at <= now() - interval '3 days'`,
+    [employer.id],
+  );
+
+  /** Upcoming: interviews scheduled for today (employer local calendar day via timestamptz) */
+  const interviewsToday = await query(
+    `SELECT count(*)::int AS n
+     FROM ip_applications a
+     JOIN ip_internships i ON i.id = a.internship_id
+     WHERE i.employer_id = $1
+       AND a.interview_at IS NOT NULL
+       AND a.interview_at::date = (now() AT TIME ZONE 'Asia/Kolkata')::date`,
+    [employer.id],
+  );
+
   const ratings = await query(
     `SELECT coalesce(avg(stars),0)::float AS avg_stars, count(*)::int AS n
      FROM ip_ratings WHERE to_user_id = $1`,
@@ -99,6 +134,10 @@ export async function GET() {
       pointsPerPost: POINTS_PER_POST,
       avgRating: ratings.rows[0]?.avg_stars || 0,
       ratingCount: ratings.rows[0]?.n || 0,
+    },
+    actionCenter: {
+      pendingReviewStaleDays: Number(stalePending.rows[0]?.n || 0),
+      interviewsToday: Number(interviewsToday.rows[0]?.n || 0),
     },
     postings: published.slice(0, 5),
     recentApplications: recentApps.rows,

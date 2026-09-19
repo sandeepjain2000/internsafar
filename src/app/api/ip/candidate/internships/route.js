@@ -119,6 +119,7 @@ export async function GET(request) {
   const stipendType = (searchParams.get('stipendType') || '').trim().toLowerCase();
   const maxDuration = Number(searchParams.get('maxDuration') || 0);
   const workMode = searchParams.get('workMode') || '';
+  const startDate = (searchParams.get('startDate') || 'any').trim().toLowerCase();
   const location = (searchParams.get('location') || '').trim();
   const minMatch = Number(searchParams.get('minMatch') || 0);
   const minValidation = Number(searchParams.get('minValidation') || 0);
@@ -241,6 +242,14 @@ export async function GET(request) {
       if (!Number.isFinite(months) || months <= 0 || months > maxDuration) return false;
     }
     if (!matchesWorkMode(i.work_mode, workMode)) return false;
+    if (startDate === 'flexible') {
+      if (i.start_date || i.starts_at) return false;
+    } else if (startDate === 'next-30') {
+      const start = i.start_date || i.starts_at;
+      if (!start) return false;
+      const t = new Date(start).getTime();
+      if (Number.isNaN(t) || t < Date.now() || t > Date.now() + 30 * 86400000) return false;
+    }
     if (!matchesLocation(i, location)) return false;
     if (minMatch && (i.match_score ?? 0) < minMatch) return false;
     if (minValidation && (i.validation_score ?? 0) < minValidation) return false;

@@ -142,6 +142,70 @@
   height: 0.875rem;
 }
 
+.ip-emp-dash .ip-ed-action-center {
+  margin-bottom: 1.25rem;
+}
+
+.ip-emp-dash .ip-ed-action-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .ip-emp-dash .ip-ed-action-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.ip-emp-dash .ip-ed-action-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  text-decoration: none;
+  color: inherit;
+  background: #f8fafc;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.ip-emp-dash .ip-ed-action-card:hover {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+}
+
+.ip-emp-dash .ip-ed-action-card--warn {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.ip-emp-dash .ip-ed-action-card--info {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.ip-emp-dash .ip-ed-action-kicker {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.ip-emp-dash .ip-ed-action-card strong {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.35;
+}
+
+.ip-emp-dash .ip-ed-action-hint {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
 .ip-emp-dash .ip-ed-stats {
   display: grid;
   grid-template-columns: 1fr;

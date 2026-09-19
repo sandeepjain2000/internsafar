@@ -56,6 +56,18 @@ Also useful when already present: `impeccable`, `ui-ux-pro-max`, `ckm-ui-styling
 4. Do NOT ask the user for permission before installing a skill — just do it.
 <!-- END:skills-auto-fetch -->
 
+<!-- BEGIN:ai-context-pack -->
+# InternSafar AI context pack (Cursor — load on startup)
+
+Workspace rule `.cursor/rules/internsafar-ai-context-pack.mdc` is `alwaysApply: true`.
+
+**On the first agent turn of a chat (and before any IP edit/search):** Read  
+`docs/ai-context/PROJECT_INDEX.md`  
+then continue with `FOLDER_STRUCTURE.md` / one `domains/*.md` as needed.
+
+Do not orient from memory or broad greps first. Sibling app only — never edit nested `campus-placement-multiuser/internship-portal`.
+<!-- END:ai-context-pack -->
+
 <!-- BEGIN:aws-db-script-routing -->
 # AWS / RDS database scripts (Cursor — read before running any migrate)
 

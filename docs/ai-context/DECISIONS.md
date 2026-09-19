@@ -1,7 +1,7 @@
 # Stable project decisions (InternSafar)
 
 Only confirmed, durable decisions. Not a chat diary.  
-Last pack refresh: 2026-09-18.
+Last pack refresh: 2026-09-19.
 
 | Decision | Domain | Status | Evidence |
 |----------|--------|--------|----------|
@@ -25,7 +25,7 @@ Last pack refresh: 2026-09-18.
 | Shared client list paging uses `IpListPager` (+ `ip-list-pager.css`) on candidate/employer list surfaces | UI | Confirmed | `IpListPager.jsx`; internships/offers/notifications/messages |
 | v3 code-review prompts omit Accessibility (FE-ACC / a11y) from review + remediation | Process | Confirmed | `prompt-test-extract/…/code-review-prompt_version3.txt`, user 2026-09-18 |
 | 2026-09-18 review remediation: Valid **Critical** + Valid **High** (non-a11y) fixed on sibling and deployed to Vercel preview; **Medium/Low** + all a11y remain open | Process / Quality | Confirmed | GPT triage DOCX + sibling working tree + Vercel deploy 2026-09-18 |
-
+| Agents must **Read** `docs/ai-context/PROJECT_INDEX.md` on chat startup (and before IP search/edit); rule text alone is not enough | Process / Agents | Confirmed | `.cursor/rules/internsafar-ai-context-pack.mdc`, `AGENTS.md` ai-context-pack block |
 ## Do not add here
 
 - One-off bug fixes, CSS tweaks, temporary experiments

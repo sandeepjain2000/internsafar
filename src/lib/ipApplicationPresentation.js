@@ -94,7 +94,8 @@ export function applicationClosedAt(row) {
 
 export function applicationClosedLabel(row) {
   const s = applicationStatusKey(row?.status);
-  if (s === 'rejected') return 'Rejected on';
+  // Excel competitor example: "Not selected on 18 Sep" for rejected applications
+  if (s === 'rejected') return 'Not selected on';
   if (s === 'withdrawn') return 'Withdrawn on';
   if (s === 'declined_offer') return 'Offer declined on';
   if (s === 'completed') return 'Completed on';
