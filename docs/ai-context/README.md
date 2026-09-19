@@ -9,7 +9,7 @@ It is **not** the application source. It is a map so an AI (or human) can orient
 |----------|--------|
 | Lives at | `internship-portal/docs/ai-context/` |
 | Handoff zip | `internship-portal/docs/internsafar-ai-context.zip` (rebuild after pack edits — see `CONTEXT_UPDATE.md`) |
-| Git | **Gitignored** (folder + zip) — not pushed, not in Vercel, not in AWS handoff tar |
+| Git | **Tracked in git** (folder + zip) — pushed to GitHub with the app repo |
 | App to edit | Sibling folder `internship-portal/` (same repo root as this `docs/` tree) |
 | Do not edit | `campus-placement-multiuser/internship-portal/` (frozen nested copy) |
 | Last pack refresh | 2026-09-19 |
