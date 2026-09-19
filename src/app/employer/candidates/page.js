@@ -10,6 +10,7 @@ import { useViewMode } from '@/hooks/useViewMode';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
+import { IP_REGION_SELECT_OPTIONS } from '@/lib/ipRegions';
 import { experienceSummaryLabel } from '@/lib/ipCandidateExperience';
 import '@/components/ip/ip-employer-candidates-gemini.css';
 
@@ -76,6 +77,7 @@ export default function CandidateSearchPage() {
   const [summary, setSummary] = useState({ found: 0, roleMatches: 0, shortlisted: 0, invitesPending: 0 });
   const [q, setQ] = useState('');
   const [cities, setCities] = useState([]);
+  const [regions, setRegions] = useState([]);
   const [degree, setDegree] = useState('');
   const [degreeOptions, setDegreeOptions] = useState([]);
   const [workMode, setWorkMode] = useState('');
@@ -108,16 +110,17 @@ export default function CandidateSearchPage() {
 
   const snapshot = useMemo(() => ({
     filters: {
-      q, cities, degree, workMode, skill, chip, experience, availability, minCgpa, freshnessDays, matchInternshipId,
+      q, regions, cities, degree, workMode, skill, chip, experience, availability, minCgpa, freshnessDays, matchInternshipId,
     },
     sort,
-  }), [q, cities, degree, workMode, skill, chip, experience, availability, minCgpa, freshnessDays, matchInternshipId, sort]);
+  }), [q, regions, cities, degree, workMode, skill, chip, experience, availability, minCgpa, freshnessDays, matchInternshipId, sort]);
   const prefs = useListPrefsSync({
     tableKey: 'employer.candidates',
     snapshot,
     applySnapshot: (s) => {
       const f = s.filters || {};
       if (f.q != null) setQ(f.q);
+      if (Array.isArray(f.regions)) setRegions(f.regions);
       if (Array.isArray(f.cities)) setCities(f.cities);
       if (f.degree != null) setDegree(f.degree);
       if (f.workMode != null) setWorkMode(f.workMode);
@@ -143,6 +146,7 @@ export default function CandidateSearchPage() {
     if (skill && skill !== 'All') params.set('skill', skill);
     if (matchInternshipId) params.set('internshipId', matchInternshipId);
     if (cities.length) params.set('city', cities.join(','));
+    if (regions.length) params.set('region', regions.join(','));
     if (degree) params.set('degree', degree);
     if (workMode) params.set('workMode', workMode);
     if (chip && chip !== 'all') params.set('chip', chip);
@@ -169,10 +173,11 @@ export default function CandidateSearchPage() {
   useEffect(() => {
     if (!prefs.ready) return;
     load();
-  }, [prefs.ready, skill, matchInternshipId, chip, sort, cities, degree, workMode, experience, availability, minCgpa, freshnessDays]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [prefs.ready, skill, matchInternshipId, chip, sort, regions, cities, degree, workMode, experience, availability, minCgpa, freshnessDays]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function clearFilters() {
     setQ('');
+    setRegions([]);
     setCities([]);
     setDegree('');
     setWorkMode('');
@@ -202,6 +207,7 @@ export default function CandidateSearchPage() {
     workMode,
     chip !== 'all' ? chip : '',
     skill !== 'All' ? skill : '',
+    regions.length ? 'regions' : '',
     cities.length ? 'cities' : '',
     experience,
     availability,
@@ -413,6 +419,17 @@ export default function CandidateSearchPage() {
                 </div>
               </div>
               <div className="ip-ec-fsec">
+                <span>Region</span>
+                <SearchableMultiSelect
+                  options={IP_REGION_SELECT_OPTIONS}
+                  value={regions}
+                  onChange={setRegions}
+                  placeholder="Select regions…"
+                  ariaLabel="Region"
+                  emptyHint="No regions"
+                />
+              </div>
+              <div className="ip-ec-fsec">
                 <span>Location</span>
                 <SearchableMultiSelect
                   options={placeCityOptions}
@@ -621,6 +638,17 @@ export default function CandidateSearchPage() {
         <aside className="ip-ec-side">
           <div className="ip-ec-box">
             <h3>Refine results</h3>
+            <div className="ip-ec-fsec">
+              <span>Region</span>
+              <SearchableMultiSelect
+                options={IP_REGION_SELECT_OPTIONS}
+                value={regions}
+                onChange={setRegions}
+                placeholder="Select regions…"
+                ariaLabel="Region"
+                emptyHint="No regions"
+              />
+            </div>
             <div className="ip-ec-fsec">
               <span>Location</span>
               <SearchableMultiSelect

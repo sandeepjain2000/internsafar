@@ -34,6 +34,8 @@ Nav order: `src/lib/ipNav.js` → `CANDIDATE_NAV`.
 
 Several candidate list surfaces use shared `IpListPager` (`src/components/ip/IpListPager.jsx`): internships browse, offers, notifications, and message panes. Prefer that component over inventing a second pager.
 
+Internship browse filters include **Region** (UI label; query `region`; matches employer `hq_country`) ahead of city — see `src/lib/ipRegions.js`. Profile field remains labeled **Country**.
+
 Candidate profile location/phone update path: `src/lib/ipCandidateProfileUpdate.js` + `/api/ip/candidate/profile` — preserve validation when restyling.
 
 ## Constraints

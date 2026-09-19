@@ -10,6 +10,7 @@ import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
+import { IP_REGION_SELECT_OPTIONS } from '@/lib/ipRegions';
 import { POINTS_PER_APPLICATION } from '@/lib/pointsEconomy';
 import ValidationScoreButton from '@/components/ip/ValidationScoreButton';
 import IpListPager from '@/components/ip/IpListPager';
@@ -104,6 +105,7 @@ export default function BrowseInternshipsPage() {
   const [workMode, setWorkMode] = useState('all');
   const [startDate, setStartDate] = useState('any');
   const [selectedCities, setSelectedCities] = useState([]);
+  const [selectedRegions, setSelectedRegions] = useState([]);
   const [minMatch, setMinMatch] = useState('0');
   const [minValidation, setMinValidation] = useState('');
   const [sort, setSort] = useState('best-match');
@@ -118,10 +120,10 @@ export default function BrowseInternshipsPage() {
 
   const snapshot = useMemo(() => ({
     filters: {
-      q, minStipend, maxDuration, workMode, startDate, selectedCities, minMatch, minValidation, tab, chip,
+      q, minStipend, maxDuration, workMode, startDate, selectedRegions, selectedCities, minMatch, minValidation, tab, chip,
     },
     sort,
-  }), [q, minStipend, maxDuration, workMode, startDate, selectedCities, minMatch, minValidation, tab, chip, sort]);
+  }), [q, minStipend, maxDuration, workMode, startDate, selectedRegions, selectedCities, minMatch, minValidation, tab, chip, sort]);
   const prefs = useListPrefsSync({
     tableKey: 'candidate.internships',
     snapshot,
@@ -132,6 +134,7 @@ export default function BrowseInternshipsPage() {
       if (f.maxDuration != null) setMaxDuration(String(f.maxDuration));
       if (f.workMode != null) setWorkMode(f.workMode);
       if (f.startDate != null) setStartDate(f.startDate);
+      if (Array.isArray(f.selectedRegions)) setSelectedRegions(f.selectedRegions);
       if (Array.isArray(f.selectedCities)) setSelectedCities(f.selectedCities);
       if (f.minMatch != null) setMinMatch(String(f.minMatch));
       if (f.minValidation != null) setMinValidation(f.minValidation);
@@ -161,6 +164,7 @@ export default function BrowseInternshipsPage() {
     const nextMode = next.workMode !== undefined ? next.workMode : workMode;
     const nextStart = next.startDate !== undefined ? next.startDate : startDate;
     const nextCities = next.selectedCities !== undefined ? next.selectedCities : selectedCities;
+    const nextRegions = next.selectedRegions !== undefined ? next.selectedRegions : selectedRegions;
     const nextMatch = next.minMatch !== undefined ? next.minMatch : minMatch;
     const nextValid = next.minValidation !== undefined ? next.minValidation : minValidation;
     const nextSort = next.sort !== undefined ? next.sort : sort;
@@ -177,6 +181,7 @@ export default function BrowseInternshipsPage() {
     if (nextMode && nextMode !== 'all') params.set('workMode', nextMode);
     if (nextStart && nextStart !== 'any') params.set('startDate', nextStart);
     if (nextCities?.length) params.set('location', nextCities.join(','));
+    if (nextRegions?.length) params.set('region', nextRegions.join(','));
     if (Number(nextMatch)) params.set('minMatch', nextMatch);
     if (nextValid) params.set('minValidation', nextValid);
     params.set('sort', nextSort);
@@ -198,11 +203,11 @@ export default function BrowseInternshipsPage() {
     }, q ? 250 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefs.ready, q, minStipend, maxDuration, workMode, startDate, selectedCities, minMatch, minValidation, sort, tab, chip]);
+  }, [prefs.ready, q, minStipend, maxDuration, workMode, startDate, selectedRegions, selectedCities, minMatch, minValidation, sort, tab, chip]);
 
   useEffect(() => {
     setPage(1);
-  }, [q, minStipend, maxDuration, workMode, startDate, selectedCities, minMatch, minValidation, sort, tab, chip, setPage]);
+  }, [q, minStipend, maxDuration, workMode, startDate, selectedRegions, selectedCities, minMatch, minValidation, sort, tab, chip, setPage]);
 
   async function toggleSave(internshipId, saved) {
     await fetch('/api/ip/candidate/saved', {
@@ -219,6 +224,7 @@ export default function BrowseInternshipsPage() {
     setMaxDuration('0');
     setWorkMode('all');
     setStartDate('any');
+    setSelectedRegions([]);
     setSelectedCities([]);
     setMinMatch('0');
     setMinValidation('');
@@ -234,11 +240,12 @@ export default function BrowseInternshipsPage() {
     if (Number(maxDuration) > 0) n += 1;
     if (workMode !== 'all') n += 1;
     if (startDate !== 'any') n += 1;
+    if (selectedRegions.length > 0) n += 1;
     if (selectedCities.length > 0) n += 1;
     if (Number(minMatch) > 0) n += 1;
     if (Boolean(minValidation)) n += 1;
     return n;
-  }, [minStipend, maxDuration, workMode, startDate, selectedCities, minMatch, minValidation]);
+  }, [minStipend, maxDuration, workMode, startDate, selectedRegions, selectedCities, minMatch, minValidation]);
 
   const browseCityOptions = useMemo(() => {
     const remote = (catalogCities || []).filter((o) => /^remote$/i.test(String(o.value || o.city || '')));
@@ -354,6 +361,18 @@ export default function BrowseInternshipsPage() {
               <select value={startDate} onChange={(e) => setStartDate(e.target.value)}>
                 {START_DATE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
+            </label>
+            <label className="ip-br-city-filter">
+              Region
+              <span className="ip-br-city-hint">Filter internships by employer region.</span>
+              <SearchableMultiSelect
+                options={IP_REGION_SELECT_OPTIONS}
+                value={selectedRegions}
+                onChange={setSelectedRegions}
+                placeholder="Select regions…"
+                ariaLabel="Region"
+                emptyHint="No regions"
+              />
             </label>
             <label className="ip-br-city-filter">
               Work location (city)

@@ -26,6 +26,7 @@ Last pack refresh: 2026-09-19.
 | v3 code-review prompts omit Accessibility (FE-ACC / a11y) from review + remediation | Process | Confirmed | `prompt-test-extract/…/code-review-prompt_version3.txt`, user 2026-09-18 |
 | 2026-09-18 review remediation: Valid **Critical** + Valid **High** (non-a11y) fixed on sibling and deployed to Vercel preview; **Medium/Low** + all a11y remain open | Process / Quality | Confirmed | GPT triage DOCX + sibling working tree + Vercel deploy 2026-09-18 |
 | Agents must **Read** `docs/ai-context/PROJECT_INDEX.md` on chat startup (and before IP search/edit); rule text alone is not enough | Process / Agents | Confirmed | `.cursor/rules/internsafar-ai-context-pack.mdc`, `AGENTS.md` ai-context-pack block |
+| Profile/registration label = **Country**; list filters label = **Region** (same values: India, Bangladesh, Sri Lanka, Indonesia). Candidate browse filters employer `hq_country`; employer search filters candidate `country` via `region` query | Candidate / Employer | Confirmed | `src/lib/ipRegions.js`, browse + candidates pages/APIs |
 ## Do not add here
 
 - One-off bug fixes, CSS tweaks, temporary experiments

@@ -6,6 +6,7 @@ import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
 import { CANDIDATE_VISIBLE_SQL } from '@/lib/ipInternshipVisibility';
 import { publicApplicationVolumeLabel } from '@/lib/ipApplicationVolume';
 import { maskEmployerName } from '@/lib/ipEmployerIdentity';
+import { matchesRegionValue } from '@/lib/ipRegions';
 
 function eligibilitySkills(eligibility) {
   let el = eligibility;
@@ -121,6 +122,7 @@ export async function GET(request) {
   const workMode = searchParams.get('workMode') || '';
   const startDate = (searchParams.get('startDate') || 'any').trim().toLowerCase();
   const location = (searchParams.get('location') || '').trim();
+  const region = (searchParams.get('region') || '').trim();
   const minMatch = Number(searchParams.get('minMatch') || 0);
   const minValidation = Number(searchParams.get('minValidation') || 0);
   const savedOnly = searchParams.get('savedOnly') === '1';
@@ -138,6 +140,7 @@ export async function GET(request) {
             e.company_name,
             e.industry as employer_industry,
             e.hq_city as employer_hq_city,
+            e.hq_country as employer_hq_country,
             e.company_size as employer_company_size,
             e.logo_url,
             e.show_hiring_numbers,
@@ -251,6 +254,7 @@ export async function GET(request) {
       if (Number.isNaN(t) || t < Date.now() || t > Date.now() + 30 * 86400000) return false;
     }
     if (!matchesLocation(i, location)) return false;
+    if (!matchesRegionValue(i.employer_hq_country, region)) return false;
     if (minMatch && (i.match_score ?? 0) < minMatch) return false;
     if (minValidation && (i.validation_score ?? 0) < minValidation) return false;
     if (chip === 'starting-soon') {

@@ -3,6 +3,7 @@ import { requireSession, jsonOk } from '@/lib/apiAuth';
 import { skillMatchPercent } from '@/lib/skillMatch';
 import { ensureIpCandidateProfileSchema } from '@/lib/ensureIpCandidateProfileSchema';
 import { experienceYears } from '@/lib/ipCandidateExperience';
+import { normalizeRegionList } from '@/lib/ipRegions';
 
 function availabilityBucket(row) {
   if (row.immediate_start) return 'immediate';
@@ -27,6 +28,7 @@ export async function GET(request) {
   const skill = (searchParams.get('skill') || '').trim().toLowerCase();
   const internshipId = (searchParams.get('internshipId') || '').trim();
   const city = (searchParams.get('city') || '').trim().toLowerCase();
+  const region = (searchParams.get('region') || '').trim();
   const degree = (searchParams.get('degree') || '').trim().toLowerCase();
   const workMode = (searchParams.get('workMode') || '').trim().toLowerCase();
   const chip = (searchParams.get('chip') || 'all').trim().toLowerCase();
@@ -61,6 +63,14 @@ export async function GET(request) {
       });
       where.push(`(${parts.join(' OR ')})`);
     }
+  }
+  const regions = normalizeRegionList(region);
+  if (regions.length) {
+    const parts = regions.map((r) => {
+      params.push(r.toLowerCase());
+      return `lower(coalesce(nullif(trim(c.country), ''), 'India')) = $${params.length}`;
+    });
+    where.push(`(${parts.join(' OR ')})`);
   }
   if (degree) {
     params.push(`%${degree}%`);
@@ -98,7 +108,7 @@ export async function GET(request) {
   }
 
   const result = await query(
-    `SELECT c.id, c.user_id, c.name, c.college, c.degree, c.specialization, c.city, c.state, c.skills,
+    `SELECT c.id, c.user_id, c.name, c.college, c.degree, c.specialization, c.city, c.state, c.country, c.skills,
             c.study_status, c.graduation_year, c.cgpa, c.availability_date, c.show_completed_internships,
             c.preferred_work_mode, c.ongoing_commitment, c.ongoing_commitment_note,
             CASE WHEN c.show_profile_picture THEN c.profile_picture_url ELSE NULL END AS profile_picture_url,
