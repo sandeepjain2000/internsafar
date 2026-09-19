@@ -39,7 +39,7 @@ Nav order: `src/lib/ipNav.js` → `EMPLOYER_NAV`.
 
 Offers, notifications, and message panes use shared `IpListPager` — same component as candidate lists. Prefer it over a one-off pager.
 
-Candidate search (`/employer/candidates`) filters include **Region** (UI label; query `region`; matches candidate `country`) ahead of city — see `src/lib/ipRegions.js`. Employer profile HQ field remains labeled **Country**.
+Candidate search (`/employer/candidates`) filters include **Region** (UI label; query `region`; matches candidate `country`) ahead of city — see `src/lib/ipRegions.js`. Employer profile **HQ Country** uses the same searchable multi-select control (stores one value).
 
 ## Constraints
 

@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import IpUploadButton from '@/components/ip/IpUploadButton';
+import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import SearchableSelect from '@/components/ip/SearchableSelect';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
 import { documentAcceptAttr, imageAcceptAttr } from '@/lib/ipFileUpload';
 import { BUSINESS_ENTITY_TYPES } from '@/lib/employerBusinessEntity';
 import { PHONE_DIAL_OPTIONS, validateRequiredPhone } from '@/lib/ipPhoneValidation';
+import { IP_COUNTRY_SELECT_OPTIONS } from '@/lib/ipRegions';
 import '@/components/ip/ip-employer-profile-gemini.css';
 
 const DOC_TYPES = ['Shop Act', 'LLP registration', 'Business PAN', 'Other'];
@@ -33,8 +35,6 @@ const SIZE_OPTIONS = [
   { value: '501-1000', label: '501-1000 employees' },
   { value: '1000+', label: '1000+ employees' },
 ];
-
-const COUNTRY_OPTIONS = ['India', 'Bangladesh', 'Sri Lanka', 'Indonesia'];
 
 function Field({ label, children, span2, hint }) {
   return (
@@ -401,13 +401,17 @@ export default function EmployerProfilePage() {
             />
           </Field>
           <Field label="HQ Country">
-            <SelectInput value={form.hq_country || 'India'} onChange={(e) => set('hq_country', e.target.value)}>
-              {COUNTRY_OPTIONS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </SelectInput>
+            <SearchableMultiSelect
+              options={IP_COUNTRY_SELECT_OPTIONS}
+              value={form.hq_country ? [form.hq_country] : ['India']}
+              onChange={(next) => {
+                const pick = next.length ? next[next.length - 1] : 'India';
+                set('hq_country', pick);
+              }}
+              placeholder="Search countries…"
+              ariaLabel="HQ country"
+              emptyHint="No countries"
+            />
           </Field>
           <Field label="HQ State / Province">
             <SearchableSelect

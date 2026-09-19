@@ -44,3 +44,4 @@
 039_ip_feature_idea_detail_columns.sql
 040_ip_help_chat_analytics.sql
 041_ip_email_unsubscribe_requests.sql
+042_ip_country_region_fields.sql

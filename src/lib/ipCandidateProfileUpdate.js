@@ -5,6 +5,8 @@
  * directly against Postgres by scripts/check-ip-db-integrity.mjs.
  */
 
+import { normalizeCountry } from '@/lib/ipRegions';
+
 export const EDITABLE_FIELDS = [
   'name', 'first_name', 'middle_name', 'last_name', 'phone', 'phone_country_code',
   'whatsapp_number', 'telegram_handle', 'profile_picture_url', 'show_profile_picture', 'college', 'degree', 'specialization',
@@ -33,8 +35,6 @@ const NULL_WHEN_BLANK = new Set(['availability_date', 'graduation_year', 'cgpa']
 
 /** Stored as TEXT[]; node-postgres maps a JS array straight onto that. */
 const TEXT_ARRAYS = new Set(['skills', 'preferred_locations', 'preferred_roles']);
-
-const COUNTRY_OPTIONS = new Set(['India', 'Bangladesh', 'Sri Lanka', 'Indonesia']);
 
 export function normalizeOptionalBool(value) {
   if (value === null || value === undefined || value === '') return null;
@@ -91,8 +91,7 @@ export function buildCandidateProfileUpdate(body, userId, options = {}) {
       continue;
     }
     if (field === 'country') {
-      const v = value == null ? '' : String(value).trim();
-      value = COUNTRY_OPTIONS.has(v) ? v : 'India';
+      value = normalizeCountry(value);
     }
     if (NULL_WHEN_BLANK.has(field)) {
       value = (value == null ? '' : String(value).trim()) || null;

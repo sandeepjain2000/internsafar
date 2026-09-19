@@ -26,6 +26,7 @@ import {
   parseExperienceEntries,
   serializeExperienceEntries,
 } from '@/lib/ipPostingBody';
+import { IP_COUNTRY_SELECT_OPTIONS } from '@/lib/ipRegions';
 import '@/components/ip/ip-candidate-profile-gemini.css';
 
 const PROFILE_DRAFT_KEY = 'ip_candidate_profile_draft_v1';
@@ -41,8 +42,6 @@ const PROFILE_TABS = [
 const WIZARD_ORDER = ['basics', 'academic', 'readiness'];
 
 const WORK_MODES = ['Remote', 'Hybrid', 'On-site'];
-
-const COUNTRY_OPTIONS = ['India', 'Bangladesh', 'Sri Lanka', 'Indonesia'];
 
 const COMMITMENT_OPTIONS = [
   { value: '', label: 'Prefer not to say' },
@@ -816,13 +815,17 @@ export default function CandidateProfilePage() {
                   {phoneError ? <p className="ip-cp-error" role="alert">{phoneError}</p> : null}
                 </Field>
                 <Field label="Country" required invalid={isMissing('country')}>
-                  <select className="ip-cp-input" value={form.country || 'India'} onChange={(e) => set('country', e.target.value)}>
-                    {COUNTRY_OPTIONS.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
+                  <SearchableMultiSelect
+                    options={IP_COUNTRY_SELECT_OPTIONS}
+                    value={form.country ? [form.country] : ['India']}
+                    onChange={(next) => {
+                      const pick = next.length ? next[next.length - 1] : 'India';
+                      set('country', pick);
+                    }}
+                    placeholder="Search countries…"
+                    ariaLabel="Country"
+                    emptyHint="No countries"
+                  />
                 </Field>
                 <Field label="Current City" required invalid={isMissing('city')}>
                   <SearchableSelect

@@ -4,6 +4,7 @@ import { EMPLOYER_ETHICS_ITEMS, EMPLOYER_ETHICS_VERSION, allEthicsChecked } from
 import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
 import { isValidBusinessEntityType } from '@/lib/employerBusinessEntity';
 import { validateRequiredPhone } from '@/lib/ipPhoneValidation';
+import { normalizeCountry } from '@/lib/ipRegions';
 
 const EDITABLE_FIELDS = [
   'company_name', 'legal_name', 'brand_name', 'website', 'work_email', 'industry', 'company_size',
@@ -16,8 +17,6 @@ const REQUIRED_FOR_COMPLETE = [
   'company_name', 'website', 'work_email', 'industry', 'hq_city', 'contact_name', 'contact_phone',
   'business_entity_type',
 ];
-
-const COUNTRY_OPTIONS = new Set(['India', 'Bangladesh', 'Sri Lanka', 'Indonesia']);
 
 export async function GET() {
   const { session, error } = await requireSession(['employer']);
@@ -73,8 +72,7 @@ export async function PUT(request) {
     if (body[field] === undefined) continue;
     let value = body[field];
     if (field === 'hq_country') {
-      const v = value == null ? '' : String(value).trim();
-      value = COUNTRY_OPTIONS.has(v) ? v : 'India';
+      value = normalizeCountry(value);
     }
     params.push(value);
     sets.push(`${field} = $${params.length}`);
