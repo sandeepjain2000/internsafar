@@ -99,7 +99,7 @@ function RegisterChooserInner() {
                 </li>
                 <li>
                   <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" aria-hidden />
-                  <span>Domain register or SuperAdmin review form</span>
+                  <span>Google register or SuperAdmin review form</span>
                 </li>
               </ul>
             </div>

@@ -35,6 +35,7 @@
         "audit:demo-consistency": "node scripts/audit-demo-consistency.mjs",
         "delete:ip-generated-run": "node scripts/delete-ip-generated-run.mjs",
         "delete:ip-except-cores": "node scripts/delete-ip-generated-run.mjs --mode=except-cores",
+        "delete:ip-test-prefix": "node scripts/hard-delete-ip-test-prefix-users.js",
         "db:check-integrity": "node scripts/check-ip-db-integrity.mjs",
         "qa:checklist": "node scripts/run-ip-checklist-qa.mjs",
         "qa:checklist:apply": "node scripts/run-ip-checklist-qa.mjs --apply",

@@ -8,7 +8,7 @@ import { ArrowLeft, Building2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import LoginCaptchaField from '@/components/auth/LoginCaptchaField';
 import { IpGeminiBrand } from '@/components/ip/IpGeminiBrand';
-import { companyLabelFromWebsite, emailDomain, isFreeMailDomain } from '@/lib/emailDomains';
+import { companyLabelFromWebsite, emailDomain } from '@/lib/emailDomains';
 import { readCaptchaField } from '@/lib/captchaClient';
 import '@/components/ip/ip-register-gemini.css';
 import '@/components/ip/ip-login-gemini.css';
@@ -118,16 +118,6 @@ export default function EmployerRegisterPage() {
         setVerified(account);
         setEmail(account.email);
         setContactName((v) => v || account.name || '');
-        // A personal Gmail would derive "https://gmail.com" as the company website, which
-        // would satisfy the domain-match rule while meaning nothing. Company Google accounts
-        // only; everyone else uses the Form path, which SuperAdmin reviews.
-        if (isFreeMailDomain(emailDomain(account.email))) {
-          setPath('domain-google');
-          setError(
-            `${account.email} is a personal Google account, not a company one. Use your work Google account, or register through the Form path for SuperAdmin review.`,
-          );
-          return;
-        }
         await createFromGoogle(account);
       } catch (err) {
         if (alive) {
@@ -231,7 +221,7 @@ export default function EmployerRegisterPage() {
                   Back
                 </button>
               )}
-              <h2>Employer & Partner Registration</h2>
+              <h2>Employer Registration</h2>
               <p>Post internships and hire top verified students</p>
             </div>
             <span className="flex size-10 items-center justify-center rounded-xl border border-purple-400/30 bg-purple-500/20 text-purple-300">
@@ -270,7 +260,7 @@ export default function EmployerRegisterPage() {
                     setError('');
                   }}
                 >
-                  Domain register (matching website + work email)
+                  Domain register (Google work account)
                 </button>
                 <button
                   type="button"
@@ -283,8 +273,8 @@ export default function EmployerRegisterPage() {
                   Form — request SuperAdmin to create my account
                 </button>
                 <p className="m-0 text-xs text-slate-500">
-                  Domain path requires website hostname and email domain to be the same. Form is for cases without a
-                  matching company domain/email — SuperAdmin will create the account after review.
+                  Google path creates your employer account from your verified work Google account. Form is for cases
+                  where you prefer SuperAdmin review before an account is created.
                 </p>
               </div>
             ) : null}
@@ -304,7 +294,7 @@ export default function EmployerRegisterPage() {
                     <p className="m-0 text-center text-sm text-slate-500">
                       {checkingGv
                         ? 'Reading your Google verification…'
-                        : 'Sign in with your company Google account. Your work email and company domain come from Google, so there is nothing to fill in.'}
+                        : 'Sign in with your work Google account. Your work email comes from Google — no website or company-type fields to fill in.'}
                     </p>
                     <div className="ip-reg-social">
                       <button
@@ -374,7 +364,6 @@ export default function EmployerRegisterPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="sarah@company.com"
-                    required
                   />
                   <p className="hint">Please use your company domain email when possible.</p>
                 </div>

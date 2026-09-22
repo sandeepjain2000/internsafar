@@ -257,6 +257,8 @@ npm run delete:ip-generated-run -- --mode=run --confirm-generated-run <RUN_ID>
 | `npm run audit:core-coverage` | Check every core tab has ≥11 rows |
 | `npm run generate:ip-test-data -- --mode=gen-accounts` | Create +gen users |
 | `npm run delete:ip-generated-run -- --mode=run --confirm-generated-run ID` | Delete one run |
+| `npm run delete:ip-test-prefix -- --dry-run` | List users whose first name starts with `test` (case-insensitive: Test1 etc.) |
+| `npm run delete:ip-test-prefix -- --confirm` | Hard-delete those matches (cores protected) |
 | `npm run db:check-integrity` | Read-only integrity (offers, threads, endorsements, hired/completed ratings) |
 | `npm run db:migrate:pipeline` | Apply 023+024 pipeline FKs |
 | `npm run db:migrate:workbench` | Apply workbench migrations 016–024 |

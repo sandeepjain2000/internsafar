@@ -42,6 +42,7 @@ to the database. Deep detail on generating and deleting test data lives in
 | Script | Writes? | What it does |
 |---|---|---|
 | `hard-delete-ip-user.js` | data | Hard-deletes one `ip_*` user with full cascade. See `HARD_DELETE_IP_USER.md`. |
+| `hard-delete-ip-test-prefix-users.js` | data | Hard-deletes candidate/employer users whose first name starts with `test` (case-insensitive: `test1` / `Test1` / `Testcase` yes). Dry-run default; `--confirm` to delete. `npm run delete:ip-test-prefix`. |
 | `hard-delete-internship-local-users.js` | data | Hard-deletes every `*@internship.local` user. Leaves real accounts alone. |
 | `set-superadmin-email.js` | data | One-shot: points SuperAdmin at `support@placementhub.online`. |
 

@@ -5,13 +5,7 @@ import { newId, randomPassword, referralCodeFrom } from '@/lib/ids';
 import { sendMail, tempPasswordEmailHtml } from '@/lib/mail';
 import { notifyRole, notifyUser } from '@/lib/ipNotify';
 import { referrerRewardsForRole } from '@/lib/pointsEconomy';
-import {
-  domainFromEmail,
-  domainFromWebsite,
-  domainsMatch as emailWebsiteDomainsMatch,
-  isConsumerEmailDomain,
-  normalizeEmail,
-} from '@/lib/authRegisterRules';
+import { domainFromWebsite, normalizeEmail } from '@/lib/authRegisterRules';
 import { verifyLoginCaptcha } from '@/lib/simpleCaptcha';
 import {
   consumeGoogleVerification,
@@ -29,7 +23,7 @@ export async function POST(request) {
     await ensureIpEmployerApprovalSchema();
     const body = await request.json();
     const website = String(body.website || '').trim();
-    const email = normalizeEmail(body.email);
+    let email = normalizeEmail(body.email);
     const companyName = String(body.companyName || '').trim();
     const contactName = String(body.contactName || '').trim();
     const contactDesignation = String(body.designation || body.contactDesignation || '').trim();
@@ -39,63 +33,19 @@ export async function POST(request) {
     const referralCode = String(body.referralCode || '').trim() || null;
     const passwordPlain = String(body.password || '');
 
-    if (!email || !email.includes('@')) {
-      return NextResponse.json({ error: 'Work email is required' }, { status: 400 });
+    // Email is optional; when provided it must look like an address. Domain↔email match
+    // and consumer-mailbox checks are intentionally not enforced (non-blocking).
+    if (email && !email.includes('@')) {
+      return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
     }
 
-    // Domain Google path: entity type is optional at register — employer sets it on
-    // /employer/profile before profile_complete (and before live publish). Form/manual
-    // requests still require it so SA sees a classified request.
-    if (forceManual) {
-      if (!isValidBusinessEntityType(businessEntityType)) {
-        return NextResponse.json(
-          {
-            error:
-              'Business entity type is required (Professional, Partnership Firm, LLP, Private Limited, or Public Firm)',
-          },
-          { status: 400 },
-        );
-      }
-    } else if (businessEntityType && !isValidBusinessEntityType(businessEntityType)) {
-      return NextResponse.json(
-        {
-          error:
-            'Business entity type must be Professional, Partnership Firm, LLP, Private Limited, or Public Firm',
-        },
-        { status: 400 },
-      );
-    }
-
+    // Business entity type is optional at register (form UI has no field). Invalid/omitted
+    // values are stored as null — non-blocking. Employer can set it later on profile.
     const entityTypeForDb = isValidBusinessEntityType(businessEntityType)
       ? businessEntityType
       : null;
 
     const webDomain = domainFromWebsite(website);
-    const emailDomain = domainFromEmail(email);
-    const domainsMatch = emailWebsiteDomainsMatch(website, email);
-
-    // Explicit Domain path: reject mismatch (do not auto-flip to manual).
-    if (!forceManual) {
-      if (!website) {
-        return NextResponse.json({ error: 'Company website is required for domain registration' }, { status: 400 });
-      }
-      if (!domainsMatch) {
-        return NextResponse.json(
-          {
-            error: `Website domain (${webDomain || 'invalid'}) and email domain (${emailDomain || 'invalid'}) must match. Use the Form path if you cannot use a matching domain.`,
-          },
-          { status: 400 },
-        );
-      }
-      if (isConsumerEmailDomain(emailDomain)) {
-        return NextResponse.json(
-          {
-            error: `${emailDomain} is a personal mailbox provider, not a company domain. Use your company domain, or the Form path if you do not have one.`,
-          },
-          { status: 400 },
-        );
-      }
-    }
 
     if (forceManual) {
       if (!companyName) {
@@ -118,6 +68,7 @@ export async function POST(request) {
       }
       const passwordHash = await bcrypt.hash(passwordPlain, 10);
       const reqId = newId('ip_ereq');
+      const contactEmail = email || `pending+${reqId}@no-email.local`;
       await query(
         `INSERT INTO ip_employer_requests (
            id, company_name, website, contact_email, contact_name, reason, contact_designation, password_hash,
@@ -127,7 +78,7 @@ export async function POST(request) {
           reqId,
           companyName,
           website || null,
-          email,
+          contactEmail,
           contactName || null,
           reason,
           contactDesignation,
@@ -138,7 +89,7 @@ export async function POST(request) {
       await notifyRole({
         role: 'superadmin',
         title: 'Manual employer request',
-        body: `${companyName} — ${email}`,
+        body: `${companyName} — ${contactEmail}`,
         link: '/superadmin/form-registrations',
         category: 'system',
       });
@@ -152,12 +103,7 @@ export async function POST(request) {
       });
     }
 
-    // Duplicate email is decided before Google — clearer UX and allows API QA of 409
-    // without a live OAuth round-trip when the address is already registered.
-    const existing = await query(`SELECT id FROM ip_users WHERE lower(email) = $1`, [email]);
-    if (existing.rows[0]) {
-      return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409 });
-    }
+    // Website/domain is optional at register (nullable column). Google path may still send a derived URL.
 
     // Domain path requires a real Google verification token issued by the NextAuth
     // signIn callback, so the verified address comes from Google, not this request body.
@@ -173,18 +119,20 @@ export async function POST(request) {
           { status: 401 },
         );
       }
-      // The Google account must belong to the same company domain as the website and
-      // work email — it need not be the exact same address (sarah@acme.com may
-      // register hr@acme.com).
-      if (domainFromEmail(verified.email) !== emailDomain) {
-        return NextResponse.json(
-          {
-            error: `Your Google account (${verified.email}) is not on the ${emailDomain} domain. Sign in with your company Google account, or use the Form path.`,
-          },
-          { status: 400 },
-        );
-      }
       googleIdentity = verified;
+      if (!email) {
+        email = normalizeEmail(verified.email);
+      }
+    }
+
+    if (!email || !email.includes('@')) {
+      return NextResponse.json({ error: 'Work email is required' }, { status: 400 });
+    }
+
+    // Duplicate email is decided after Google so domain path can fall back to verified email.
+    const existing = await query(`SELECT id FROM ip_users WHERE lower(email) = $1`, [email]);
+    if (existing.rows[0]) {
+      return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409 });
     }
 
     const password = randomPassword(12);
@@ -192,6 +140,8 @@ export async function POST(request) {
     const userId = newId('ip_user');
     const employerId = newId('ip_emp');
     const name = contactName || companyName || email.split('@')[0];
+    const companyForDb = companyName || webDomain || email.split('@')[0] || 'Employer';
+    const websiteForDb = website || null;
 
     let referredBy = null;
     let referrerRole = null;
@@ -222,8 +172,8 @@ export async function POST(request) {
         [
           employerId,
           userId,
-          companyName || webDomain,
-          website,
+          companyForDb,
+          websiteForDb,
           email,
           contactName || name,
           contactDesignation || null,
@@ -285,7 +235,7 @@ export async function POST(request) {
     await notifyRole({
       role: 'superadmin',
       title: 'New employer registered',
-      body: `${companyName || webDomain} — ${email} (pending approval)`,
+      body: `${companyForDb} — ${email} (pending approval)`,
       link: '/superadmin/approvals',
       category: 'system',
     });
