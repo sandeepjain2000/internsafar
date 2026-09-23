@@ -28,6 +28,7 @@ import {
   IpMultiCheckFilter,
   IpTableFiltersShell,
 } from '@/components/ip/IpTableFiltersShell';
+import { IpListLoading } from '@/components/ip/IpListStatus';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { POINTS_PER_POST, REFERRAL_POINTS } from '@/lib/pointsEconomy';
 import '@/components/ip/ip-employer-referral-gemini.css';
@@ -114,6 +115,7 @@ function countActiveCols(cols) {
 
 export default function EmployerReferralPage() {
   const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState('');
   const [q, setQ] = useState('');
@@ -140,10 +142,12 @@ export default function EmployerReferralPage() {
   const affordPosts = POINTS_PER_POST > 0 ? Math.floor(points / POINTS_PER_POST) : 0;
 
   useEffect(() => {
+    setLoading(true);
     fetch('/api/ip/referral')
       .then((r) => r.json())
       .then(setData)
-      .catch(() => setData(null));
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
   }, []);
 
   const link = data?.viralLink || data?.referralLink || '';
@@ -490,15 +494,17 @@ export default function EmployerReferralPage() {
           </>
         ) : null}
 
-        {!referrals.length ? (
+        {loading ? (
+          <IpListLoading label="Loading Referrals…" />
+        ) : !referrals.length ? (
           <div className="ip-er-empty">
             <div className="ip-er-empty__icon">
               <Users size={22} aria-hidden />
             </div>
             <p>
-              <strong>No employer referrals yet</strong>
-              Share your unique referral link with fellow HR managers and recruiters to start earning free
-              posting points!
+              <strong>No Employer Referrals Yet</strong>
+              Share Your Unique Referral Link With Fellow HR Managers And Recruiters To Start Earning Free
+              Posting Points!
             </p>
             <div style={{ marginTop: '0.75rem' }}>
               <button type="button" className="ip-er-btn-primary" onClick={copy} disabled={!link}>
@@ -510,8 +516,8 @@ export default function EmployerReferralPage() {
         ) : !filtered.length ? (
           <div className="ip-er-empty">
             <p>
-              <strong>No matches</strong>
-              Try another search or status filter.
+              <strong>No Matches</strong>
+              Try Another Search Or Status Filter.
             </p>
           </div>
         ) : (

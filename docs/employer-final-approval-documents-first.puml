@@ -1,0 +1,52 @@
+@startuml InternSafar_Employer_Final_Approval_Documents_First
+title InternSafar - Final Employer Approval\n(Documents must be approved first)
+
+skinparam shadowing false
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #334155
+skinparam ActivityDiamondBackgroundColor #F8FAFC
+skinparam ActivityDiamondBorderColor #64748B
+skinparam ArrowColor #475569
+skinparam activityFontSize 12
+skinparam titleFontSize 14
+
+start
+
+note right
+  Live gate:
+  assertDocumentsReadyForFinalApproval
+  on employers/[id] PATCH.
+  Needs >=1 approved doc and
+  0 pending docs for that employer.
+end note
+
+:Employer registered\n(Domain or Free-email);
+:Email verified;\napproval_status = pending;
+:Employer can sign in\nto upload documents;\nPostings still locked;
+
+:SuperAdmin tries Final Approve\nwith no documents uploaded;
+if (Documents ready?) then (no - zero uploads)
+  :Final Approval blocked;\nEmployer must upload under\nProfile and docs first;\nNothing appears in Documents yet;
+endif
+
+:Employer uploads a\nverification document;
+:Document stored as pending;\nAppears on /superadmin/documents;
+
+:SuperAdmin tries Final Approve\nwhile document is still pending;
+if (Documents ready?) then (no - pending exists)
+  :Final Approval blocked;\nApprove the document in\nthe Documents tab first;
+endif
+
+:SuperAdmin approves the document\non /superadmin/documents;
+:Document review_status = approved;\nAt least one approved;\nzero pending;
+
+:SuperAdmin Final Approves employer\non /superadmin/approvals;
+if (Documents ready?) then (yes)
+  :Set approval_status = approved;
+  :Notify employer;
+  :Postings unlock when email\nis verified;
+endif
+
+stop
+
+@enduml

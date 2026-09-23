@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PageHeader from '@/components/ip/PageHeader';
 import ScreeningQuestionsEditor from '@/components/ip/ScreeningQuestionsEditor';
 import InternshipCandidatePreview from '@/components/ip/InternshipCandidatePreview';
-import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
+import PostingLocationsFields from '@/components/ip/PostingLocationsFields';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
 import { internshipDurationMonths } from '@/lib/internshipDurationMonths';
 import { normalizeScreeningQuestions } from '@/lib/ipScreeningQuestions';
@@ -36,7 +36,7 @@ function locationCitiesFromForm(internship) {
 export default function EditInternshipPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { placeCityOptions, loading: citiesLoading } = useIpCityCatalog();
+  const { findCity } = useIpCityCatalog();
   const [form, setForm] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [error, setError] = useState('');
@@ -48,9 +48,14 @@ export default function EditInternshipPage() {
       .then((r) => r.json())
       .then((d) => {
         const internship = d.internship;
+        const cities = locationCitiesFromForm(internship);
+        const firstHit = cities[0] ? findCity(cities[0]) : null;
+        const locationState =
+          firstHit?.state && !/^work mode$/i.test(firstHit.state) ? firstHit.state : '';
         setForm({
           ...internship,
-          locationCities: locationCitiesFromForm(internship),
+          locationCities: cities,
+          locationState,
         });
         const qs = Array.isArray(d.internship?.questions) ? d.internship.questions : [];
         const normalized = normalizeScreeningQuestions(qs);
@@ -106,6 +111,14 @@ export default function EditInternshipPage() {
     setSaving(true);
     setError('');
     try {
+      if (!String(form.work_mode || '').trim()) {
+        throw new Error('Choose a work mode (Remote, Hybrid, or On-site) before saving.');
+      }
+      if (form.stipend_type !== 'incentive' && form.stipend_inr && form.stipend_inr_max) {
+        if (Number(form.stipend_inr_max) < Number(form.stipend_inr)) {
+          throw new Error('Stipend maximum must be greater than or equal to the minimum.');
+        }
+      }
       if (startISO && endISO) {
         const expected = internshipDurationMonths(startISO, endISO);
         if (expected == null) {
@@ -135,6 +148,7 @@ export default function EditInternshipPage() {
           location: cities[0] || form.location || '',
           work_mode: form.work_mode,
           stipend_inr: form.stipend_inr ? Number(form.stipend_inr) : null,
+          stipend_inr_max: form.stipend_inr_max ? Number(form.stipend_inr_max) : null,
           duration_months: durationMonths != null && !Number.isNaN(durationMonths) ? durationMonths : null,
           start_date: form.start_date,
           end_date: form.end_date,
@@ -171,6 +185,9 @@ export default function EditInternshipPage() {
 
   const previewInternship = {
     ...form,
+    locations: (form.locationCities || []).length
+      ? form.locationCities
+      : (Array.isArray(form.locations) ? form.locations : (form.location ? [form.location] : [])),
     company_name: form.show_employer_identity !== false ? 'Your company' : 'Confidential employer',
     questions,
     application_volume_label: '50+',
@@ -211,23 +228,31 @@ export default function EditInternshipPage() {
                 <Field className="sm:col-span-2"><FieldLabel>Title</FieldLabel><Input value={form.title || ''} onChange={(e) => set('title', e.target.value)} required /></Field>
                 <Field className="sm:col-span-2"><FieldLabel>Description</FieldLabel><Textarea rows={4} value={form.description || ''} onChange={(e) => set('description', e.target.value)} /></Field>
                 <Field className="sm:col-span-2 overflow-visible">
-                  <FieldLabel>Locations (work city)</FieldLabel>
-                  <SearchableMultiSelect
-                    options={placeCityOptions}
-                    value={form.locationCities || []}
-                    loading={citiesLoading && !(placeCityOptions || []).length}
-                    onChange={(next) => {
-                      setForm((f) => ({
-                        ...f,
-                        locationCities: next,
-                        location: next[0] || '',
-                      }));
-                    }}
-                    placeholder="Search cities…"
-                    ariaLabel="Work cities"
-                  />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <PostingLocationsFields
+                      locationCities={form.locationCities || []}
+                      locationState={form.locationState || ''}
+                      onStateChange={(state) => set('locationState', state)}
+                      onCitiesChange={(next) => {
+                        setForm((f) => ({
+                          ...f,
+                          locationCities: next,
+                          location: next[0] || '',
+                        }));
+                      }}
+                    />
+                  </div>
                 </Field>
-                <Field><FieldLabel>Work mode</FieldLabel><Input value={form.work_mode || ''} onChange={(e) => set('work_mode', e.target.value)} /></Field>
+                <Field>
+                  <FieldLabel>Work mode</FieldLabel>
+                  <Input
+                    value={form.work_mode || ''}
+                    onChange={(e) => set('work_mode', e.target.value)}
+                    placeholder="Remote / Hybrid / On-site"
+                    required
+                  />
+                  <FieldDescription>No default — choose the mode candidates will see.</FieldDescription>
+                </Field>
                 <Field>
                   <FieldLabel>Duration (months)</FieldLabel>
                   <Input type="number" min={0} value={form.duration_months || ''} onChange={(e) => set('duration_months', e.target.value)} />
@@ -338,10 +363,30 @@ export default function EditInternshipPage() {
                   </select>
                 </Field>
                 {form.stipend_type !== 'incentive' ? (
-                  <Field>
-                    <FieldLabel>Stipend (INR/mo)</FieldLabel>
-                    <Input type="number" value={form.stipend_inr || ''} onChange={(e) => set('stipend_inr', e.target.value)} />
-                  </Field>
+                  <>
+                    <Field>
+                      <FieldLabel>Stipend min (INR/mo)</FieldLabel>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={form.stipend_inr || ''}
+                        onChange={(e) => set('stipend_inr', e.target.value)}
+                        placeholder="e.g. 10000"
+                      />
+                      <FieldDescription>Fixed amount, or the low end of a range.</FieldDescription>
+                    </Field>
+                    <Field>
+                      <FieldLabel>Stipend max (INR/mo)</FieldLabel>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={form.stipend_inr_max || ''}
+                        onChange={(e) => set('stipend_inr_max', e.target.value)}
+                        placeholder="Optional — e.g. 15000"
+                      />
+                      <FieldDescription>Leave blank for a single amount. Candidates see ₹10,000–₹15,000 when both are set.</FieldDescription>
+                    </Field>
+                  </>
                 ) : (
                   <Field className="sm:col-span-2">
                     <FieldLabel>Incentive basis</FieldLabel>

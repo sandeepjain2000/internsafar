@@ -6,12 +6,25 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import '@/components/ip/ip-list-pager.css';
+import IpListPager from '@/components/ip/IpListPager';
+import { useClientPagination } from '@/hooks/useClientPagination';
+import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
 
 export default function ListingReportsPage() {
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState('open');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
+
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(
+    items,
+    SA_PAGE_SIZE,
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [status, setPage]);
 
   async function load(nextStatus = status) {
     setLoading(true);
@@ -78,7 +91,7 @@ export default function ListingReportsPage() {
           {!loading && !items.length ? (
             <p className="text-sm text-muted-foreground">No reports in this view.</p>
           ) : null}
-          {items.map((r) => (
+          {pageItems.map((r) => (
             <div key={r.id} className="rounded-md border p-3 text-sm space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge>{r.reason}</Badge>
@@ -99,6 +112,18 @@ export default function ListingReportsPage() {
               ) : null}
             </div>
           ))}
+          {!loading && items.length ? (
+            <div className="ip-saq-pager">
+              <IpListPager
+                page={page}
+                totalPages={totalPages}
+                total={total}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                buttonClassName="ip-saq-btn ip-saq-btn--sm"
+              />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </div>

@@ -237,6 +237,10 @@ export default function EmployerProfilePage() {
 
   const industryValue = form.industry || '';
   const industryKnown = INDUSTRY_OPTIONS.includes(industryValue);
+  const showIndustryOther = !industryKnown || industryValue === 'Other';
+  const industrySelectValue = industryKnown && industryValue !== 'Other'
+    ? industryValue
+    : (industryValue ? 'Other' : '');
   const sizeValue = sizeSelectValue(form.company_size);
   const sizeKnown = SIZE_OPTIONS.some((o) => o.value === sizeValue);
   const approved = form.approval_status === 'approved';
@@ -344,20 +348,31 @@ export default function EmployerProfilePage() {
             </Field>
             <Field label="Industry">
               <SelectInput
-                value={industryKnown ? industryValue : industryValue || ''}
-                onChange={(e) => set('industry', e.target.value)}
+                value={industrySelectValue}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  set('industry', v === 'Other' ? 'Other' : v);
+                }}
                 required
               >
                 <option value="">Select industry</option>
-                {!industryKnown && industryValue ? (
-                  <option value={industryValue}>{industryValue}</option>
-                ) : null}
                 {INDUSTRY_OPTIONS.map((opt) => (
                   <option key={opt} value={opt}>
                     {opt}
                   </option>
                 ))}
               </SelectInput>
+              {showIndustryOther ? (
+                <input
+                  className="ip-ep-input"
+                  style={{ marginTop: '0.5rem' }}
+                  value={industryValue === 'Other' ? '' : industryValue}
+                  onChange={(e) => set('industry', e.target.value || 'Other')}
+                  placeholder="Describe your industry"
+                  aria-label="Custom industry"
+                  required
+                />
+              ) : null}
             </Field>
             <Field label="Company size">
               <SelectInput
@@ -614,7 +629,7 @@ export default function EmployerProfilePage() {
       <section className="ip-ep-card">
         <div className="ip-ep-card__head ip-ep-card__head--plain">
           <h2 className="ip-ep-card__title">
-            Verification Documents <span className="ip-ep-pill">Optional</span>
+            Verification Documents
           </h2>
           <p className="ip-ep-card__desc">
             Shop Act, LLP registration, Business PAN, or other company-registration evidence.

@@ -1,50 +1,26 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { signIn } from 'next-auth/react';
 import { ArrowLeft, Building2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import LoginCaptchaField from '@/components/auth/LoginCaptchaField';
 import { IpGeminiBrand } from '@/components/ip/IpGeminiBrand';
-import { companyLabelFromWebsite, emailDomain } from '@/lib/emailDomains';
 import { readCaptchaField } from '@/lib/captchaClient';
 import '@/components/ip/ip-register-gemini.css';
 import '@/components/ip/ip-login-gemini.css';
 
-function GoogleMark() {
-  return (
-    <svg className="size-4" viewBox="0 0 24 24" aria-hidden>
-      <path
-        fill="#4285F4"
-        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-      />
-      <path
-        fill="#EA4335"
-        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-      />
-    </svg>
-  );
-}
-
 /**
- * Employer registration — Gemini shell; live Domain vs SuperAdmin form paths unchanged.
+ * Employer registration — Domain-based vs Free-email-based (equal choose UI).
+ * Both paths: form + captcha + email verify + SuperAdmin approval. No Google.
  */
 export default function EmployerRegisterPage() {
   const sp = useSearchParams();
   const referralCode = sp.get('ref') || '';
-  const gv = sp.get('gv') || '';
-  const [path, setPath] = useState(gv ? 'domain' : 'choose'); // choose | domain-google | domain | form | done
+  const [path, setPath] = useState('choose'); // choose | domain | free_email | done
   const [email, setEmail] = useState('');
+  const [website, setWebsite] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [contactName, setContactName] = useState('');
   const [designation, setDesignation] = useState('');
@@ -55,150 +31,89 @@ export default function EmployerRegisterPage() {
   const [error, setError] = useState('');
   const [done, setDone] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [hint, setHint] = useState('');
-  // The Google Workspace account Google confirmed. The work email is derived from it, so a
-  // recruiter cannot claim a company domain they have no account on.
-  const [verified, setVerified] = useState(null);
-  const [checkingGv, setCheckingGv] = useState(Boolean(gv));
-  const [startingGoogle, setStartingGoogle] = useState(false);
-
-  /**
-   * Register straight from the Google verification, with no form. The work email is the
-   * verified account and the website is derived from its domain, which is exactly what the
-   * API checks the two against — so there is nothing left for the recruiter to type.
-   */
-  const createdRef = useRef('');
-  const createFromGoogle = useCallback(
-    async (account) => {
-      if (!account || createdRef.current === gv) return;
-      createdRef.current = gv;
-      setLoading(true);
-      setError('');
-      try {
-        const domain = emailDomain(account.email);
-        const res = await fetch('/api/ip/auth/register-employer', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            website: `https://${domain}`,
-            email: account.email,
-            companyName: companyLabelFromWebsite(`https://${domain}`),
-            contactName: account.name || '',
-            googleVerificationToken: gv,
-            manualRequest: false,
-            referralCode: referralCode || undefined,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Registration failed');
-        setDone(data);
-        setPath('done');
-      } catch (err) {
-        setError(err.message);
-        setPath('domain-google');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [gv, referralCode],
-  );
-
-  useEffect(() => {
-    if (!gv) return;
-    let alive = true;
-    (async () => {
-      try {
-        const res = await fetch(
-          `/api/ip/auth/google-verification?token=${encodeURIComponent(gv)}&purpose=employer-register`,
-        );
-        const data = await res.json();
-        if (!alive) return;
-        if (!res.ok) throw new Error(data.error || 'Verification could not be read');
-        const account = { email: data.email, name: data.name || '' };
-        setVerified(account);
-        setEmail(account.email);
-        setContactName((v) => v || account.name || '');
-        await createFromGoogle(account);
-      } catch (err) {
-        if (alive) {
-          setError(err.message);
-          setPath('domain-google');
-        }
-      } finally {
-        if (alive) setCheckingGv(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [gv, createFromGoogle]);
-
-  const continueWithGoogle = useCallback(async () => {
-    setError('');
-    setStartingGoogle(true);
-    try {
-      const res = await fetch('/api/ip/auth/google-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          purpose: 'employer-register',
-          referralCode: referralCode || undefined,
-        }),
-      });
-      if (!res.ok) throw new Error('Could not start Google verification');
-      const back = referralCode
-        ? `/register/employer?ref=${encodeURIComponent(referralCode)}`
-        : '/register/employer';
-      await signIn('google', { callbackUrl: back });
-    } catch (err) {
-      setError(err.message);
-      setStartingGoogle(false);
-    }
-  }, [referralCode]);
+  const [resendBusy, setResendBusy] = useState(false);
+  const [resendHint, setResendHint] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   function goBack() {
     if (path === 'choose') return;
     setPath('choose');
     setError('');
-    setHint('');
+  }
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return undefined;
+    const t = setTimeout(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
+
+  async function resendVerify() {
+    const target = String(done?.email || email || '').trim();
+    if (!target || resendBusy || resendCooldown > 0) return;
+    setResendBusy(true);
+    setResendHint('');
+    setError('');
+    try {
+      const res = await fetch('/api/ip/auth/employer-email-verify/resend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: target }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 429) {
+        setResendCooldown(Number(data.retryAfterSec) || 45);
+        setError(data.error || 'Please wait before requesting another email.');
+        return;
+      }
+      if (!res.ok) {
+        setError(data.error || 'Could not resend verification email');
+        return;
+      }
+      setResendCooldown(Number(data.cooldownSec) || 45);
+      setResendHint(data.message || 'If that email needs verification, a new link has been sent.');
+    } catch (err) {
+      setError(err.message || 'Could not resend verification email');
+    } finally {
+      setResendBusy(false);
+    }
   }
 
   async function submitForm(e) {
     e.preventDefault();
     setLoading(true);
     setError('');
-    // API still requires `reason`; mock has no reason field — auto-build from designation.
-    const mergedReason = designation.trim()
-      ? `Designation: ${designation.trim()}`
-      : 'Employer registration request via form';
     const challenge = readCaptchaField(captchaFieldRef, captchaToken, captchaAnswer);
     try {
       const res = await fetch('/api/ip/auth/register-employer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          path,
           email,
+          website: path === 'domain' ? website : undefined,
           companyName,
           contactName,
           designation,
           password,
-          reason: mergedReason,
-          manualRequest: true,
           captchaToken: challenge.token,
           captchaAnswer: challenge.answer,
           referralCode: referralCode || undefined,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed');
-      setDone(data);
+      if (!res.ok) throw new Error(data.error || 'Registration failed');
+      setDone({ ...data, email });
       setPath('done');
+      setResendCooldown(45);
+      setResendHint('');
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
   }
+
+  const formPath = path === 'domain' || path === 'free_email';
 
   return (
     <div className="ip-gemini-register">
@@ -214,6 +129,11 @@ export default function EmployerRegisterPage() {
                 <Link href="/register" className="ip-reg-back">
                   <ArrowLeft className="size-3.5" aria-hidden />
                   Change account type
+                </Link>
+              ) : path === 'done' ? (
+                <Link href="/register/employer" className="ip-reg-back">
+                  <ArrowLeft className="size-3.5" aria-hidden />
+                  Back
                 </Link>
               ) : (
                 <button type="button" className="ip-reg-back" onClick={goBack}>
@@ -244,11 +164,6 @@ export default function EmployerRegisterPage() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             ) : null}
-            {hint ? (
-              <Alert>
-                <AlertDescription>{hint}</AlertDescription>
-              </Alert>
-            ) : null}
 
             {path === 'choose' ? (
               <div className="flex flex-col gap-3">
@@ -256,66 +171,35 @@ export default function EmployerRegisterPage() {
                   type="button"
                   className="ip-reg-submit"
                   onClick={() => {
-                    setPath('domain-google');
+                    setPath('domain');
                     setError('');
                   }}
                 >
-                  Domain register (Google work account)
+                  Domain-based
                 </button>
                 <button
                   type="button"
-                  className="ip-reg-submit ip-reg-submit--outline"
+                  className="ip-reg-submit"
                   onClick={() => {
-                    setPath('form');
+                    setPath('free_email');
                     setError('');
                   }}
                 >
-                  Form — request SuperAdmin to create my account
+                  Free-email-based
                 </button>
                 <p className="m-0 text-xs text-slate-500">
-                  Google path creates your employer account from your verified work Google account. Form is for cases
-                  where you prefer SuperAdmin review before an account is created.
+                  Both options create a pending employer account. Verify your email, then sign in to upload documents.
+                  Postings unlock after SuperAdmin approval.
                 </p>
               </div>
             ) : null}
 
-            {path === 'domain-google' || path === 'domain' ? (
-              <div className="flex flex-col gap-3">
-                {verified && loading ? (
-                  <div className="ip-reg-verified">
-                    <GoogleMark />
-                    <div>
-                      <strong>{verified.email}</strong>
-                      <span>Creating your employer account…</span>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <p className="m-0 text-center text-sm text-slate-500">
-                      {checkingGv
-                        ? 'Reading your Google verification…'
-                        : 'Sign in with your work Google account. Your work email comes from Google — no website or company-type fields to fill in.'}
-                    </p>
-                    <div className="ip-reg-social">
-                      <button
-                        type="button"
-                        onClick={continueWithGoogle}
-                        disabled={startingGoogle || checkingGv}
-                      >
-                        <GoogleMark />
-                        {startingGoogle ? 'Opening Google…' : 'Continue with Google'}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : null}
-
-            {path === 'form' ? (
+            {formPath ? (
               <form className="flex flex-col gap-4" onSubmit={submitForm}>
                 <p className="m-0 text-xs text-slate-500">
-                  SuperAdmin must approve this registration before you can sign in. Use the password you set after
-                  approval.
+                  {path === 'domain'
+                    ? 'Use your company domain email. Captcha, email verification, and SuperAdmin approval are required. Free / consumer mailboxes are accepted but flagged for SuperAdmin review.'
+                    : 'Register with any email and password. Captcha, email verification, and SuperAdmin approval are required.'}
                 </p>
 
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -355,17 +239,38 @@ export default function EmployerRegisterPage() {
                   />
                 </div>
 
+                {path === 'domain' ? (
+                  <div className="ip-reg-field">
+                    <label htmlFor="m-website">Company Domain / Website</label>
+                    <input
+                      id="m-website"
+                      className="ip-reg-input"
+                      value={website}
+                      onChange={(e) => setWebsite(e.target.value)}
+                      placeholder="e.g. https://acme.com"
+                      required
+                    />
+                  </div>
+                ) : null}
+
                 <div className="ip-reg-field">
-                  <label htmlFor="m-email">Official Work Email</label>
+                  <label htmlFor="m-email">
+                    {path === 'domain' ? 'Company Domain Email' : 'Email'}
+                  </label>
                   <input
                     id="m-email"
                     className="ip-reg-input"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="sarah@company.com"
+                    placeholder={path === 'domain' ? 'sarah@company.com' : 'you@email.com'}
+                    required
                   />
-                  <p className="hint">Please use your company domain email when possible.</p>
+                  <p className="hint">
+                    {path === 'domain'
+                      ? 'Please use your company domain email only — do not use free email services.'
+                      : 'We will send a verification link to this address.'}
+                  </p>
                 </div>
 
                 <div className="ip-reg-field">
@@ -401,24 +306,29 @@ export default function EmployerRegisterPage() {
             {path === 'done' && done ? (
               <div className="flex flex-col gap-4">
                 <Alert>
-                  <AlertTitle>
-                    {done.mode === 'manual_request' ? 'Request submitted' : 'Registration complete'}
-                  </AlertTitle>
+                  <AlertTitle>Check your email</AlertTitle>
                   <AlertDescription>
-                    {done.mode === 'manual_request' ? (
-                      <>
-                        {done.message} SuperAdmin will create your account if approved — watch for
-                        follow-up.
-                      </>
-                    ) : (
-                      <>
-                        <strong>{email}</strong> has been registered. A temporary password has been
-                        emailed to that address — use it to sign in.
-                      </>
-                    )}
+                    {done.message ||
+                      'Account created. Verify your email from the link we sent, then sign in to upload documents. Postings unlock after SuperAdmin approval.'}
+                    {done.softFail
+                      ? ' Your email was flagged for SuperAdmin review (for example free-provider or inconclusive mail check).'
+                      : ''}
                     {done.warning ? ` ${done.warning}` : ''}
+                    {resendHint ? ` ${resendHint}` : ''}
                   </AlertDescription>
                 </Alert>
+                <button
+                  type="button"
+                  className="ip-reg-submit"
+                  disabled={resendBusy || resendCooldown > 0}
+                  onClick={resendVerify}
+                >
+                  {resendBusy
+                    ? 'Sending…'
+                    : resendCooldown > 0
+                      ? `Didn't get it? Resend (${resendCooldown}s)`
+                      : "Didn't get it? Resend"}
+                </button>
                 <Link href="/" className="ip-reg-submit ip-reg-submit--accent" style={{ textDecoration: 'none' }}>
                   Back to Sign In
                 </Link>

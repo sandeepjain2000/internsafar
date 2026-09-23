@@ -84,8 +84,9 @@
   flex-direction: column;
   background: rgba(248, 250, 252, 0.5);
   border-bottom: 1px solid #e2e8f0;
-  max-height: 16rem;
-  overflow: auto;
+  max-height: none;
+  min-width: 0;
+  overflow: hidden;
 }
 
 @media (min-width: 1024px) {

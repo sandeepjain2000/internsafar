@@ -289,24 +289,6 @@ export async function ensureIpWorkbenchSchema() {
   `);
   await query(`
     DO $$ BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ip_employer_requests_created_user_id_fkey') THEN
-        ALTER TABLE ip_employer_requests
-          ADD CONSTRAINT ip_employer_requests_created_user_id_fkey
-          FOREIGN KEY (created_user_id) REFERENCES ip_users(id) ON DELETE SET NULL;
-      END IF;
-    END $$
-  `);
-  await query(`
-    DO $$ BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ip_employer_requests_reviewer_id_fkey') THEN
-        ALTER TABLE ip_employer_requests
-          ADD CONSTRAINT ip_employer_requests_reviewer_id_fkey
-          FOREIGN KEY (reviewer_id) REFERENCES ip_users(id) ON DELETE SET NULL;
-      END IF;
-    END $$
-  `);
-  await query(`
-    DO $$ BEGIN
       IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ip_bulk_message_recipients_message_id_fkey') THEN
         ALTER TABLE ip_bulk_message_recipients
           ADD CONSTRAINT ip_bulk_message_recipients_message_id_fkey

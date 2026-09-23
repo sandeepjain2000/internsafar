@@ -52,12 +52,29 @@ export function resolveCandidateBucket(n) {
 export function actionForCandidateNotification(n, bucket) {
   const link = String(n.link || '').trim();
   const href = link && link !== '#' ? link : null;
+  const meta = parseMeta(n.meta);
+  const threadHref = meta.threadId
+    ? `/candidate/messages/${encodeURIComponent(meta.threadId)}`
+    : null;
   if (bucket === 'offers') return { label: 'Review Offer', href: href || '/candidate/offers' };
-  if (bucket === 'interviews') return { label: 'View Interview Details', href: href || '/candidate/messages' };
-  if (bucket === 'messages') return { label: 'Reply to Message', href: href || '/candidate/messages' };
+  if (bucket === 'interviews') {
+    return {
+      label: 'View Interview Details',
+      href: href || threadHref || '/candidate/messages',
+    };
+  }
+  if (bucket === 'messages') {
+    return { label: 'Reply to Message', href: href || threadHref || '/candidate/messages' };
+  }
   if (bucket === 'referrals') return { label: 'View Points Balance', href: href || '/candidate/referral' };
   if (bucket === 'applications') {
     if (href && href.includes('/internships/')) return { label: 'View Internship', href };
+    if (meta.applicationId) {
+      return {
+        label: 'View Application',
+        href: `/candidate/applications?id=${encodeURIComponent(meta.applicationId)}`,
+      };
+    }
     return { label: 'View Application', href: href || '/candidate/applications' };
   }
   if (bucket === 'profile') return { label: 'View Profile', href: href || '/candidate/profile' };

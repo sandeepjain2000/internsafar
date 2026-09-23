@@ -90,6 +90,8 @@
   padding: 0.3rem 0.65rem;
 }
 
-.ip-cand-msg .ip-cm-list-body .ip-list-pager--inbox {
+.ip-cand-msg .ip-cm-list > .ip-list-pager--inbox {
+  flex-shrink: 0;
   background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
 }

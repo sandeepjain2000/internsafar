@@ -12,6 +12,7 @@ import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
 import useIpCountryCatalog from '@/hooks/useIpCountryCatalog';
 import { experienceSummaryLabel } from '@/lib/ipCandidateExperience';
+import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 import '@/components/ip/ip-employer-candidates-gemini.css';
 
 const PAGE_SIZE = 10;
@@ -75,6 +76,7 @@ export default function CandidateSearchPage() {
   const { placeCityOptions, loading: citiesLoading } = useIpCityCatalog();
   const { countryOptions, loading: countriesLoading } = useIpCountryCatalog();
   const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState({ found: 0, roleMatches: 0, shortlisted: 0, invitesPending: 0 });
   const [q, setQ] = useState('');
   const [cities, setCities] = useState([]);
@@ -142,6 +144,8 @@ export default function CandidateSearchPage() {
   }
 
   async function load() {
+    setLoading(true);
+    try {
     const params = new URLSearchParams();
     if (q.trim()) params.set('q', q.trim());
     if (skill && skill !== 'All') params.set('skill', skill);
@@ -162,6 +166,9 @@ export default function CandidateSearchPage() {
     setSummary(data.summary || { found: (data.items || []).length, roleMatches: 0, shortlisted: 0, invitesPending: 0 });
     setMatchReady(Boolean(data.matchReady));
     setPage(1);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -516,7 +523,14 @@ export default function CandidateSearchPage() {
 
       <div className="ip-ec-layout">
         <div className="ip-ec-results">
-          {viewMode === 'list' ? (
+          {loading ? (
+            <IpListLoading label="Loading Candidates…" />
+          ) : !items.length ? (
+            <IpListEmpty
+              title="No Candidates Match These Filters"
+              hint="Try Removing A Filter Or Broadening Your Search."
+            />
+          ) : viewMode === 'list' ? (
             <div className="ip-ph-list-wrap">
               <table className="ip-ph-list">
                 <thead>
@@ -619,13 +633,7 @@ export default function CandidateSearchPage() {
               </article>
             );
           })}
-          {!items.length ? (
-            <div className="ip-ec-empty">
-              <strong style={{ display: 'block', color: '#344054', marginBottom: 5 }}>No candidates match these filters</strong>
-              Try removing a filter or broadening your search.
-            </div>
-          ) : null}
-          {total > 0 ? (
+          {!loading && total > 0 ? (
             <div className="ip-ec-pager">
               <span>Showing {from}–{to} of {total}</span>
               <span>

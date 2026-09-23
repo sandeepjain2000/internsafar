@@ -6,10 +6,19 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
+import { formatInternshipLocations } from '@/lib/ipInternshipLocations';
 
 /** Employer-only preview of candidate-facing posting + MCQ form. */
 export default function InternshipCandidatePreview({ internship, onClose }) {
   const questions = Array.isArray(internship?.questions) ? internship.questions : [];
+  const stipendText =
+    formatInternshipStipend(internship, { unpaidLabel: 'Unpaid / not specified' })
+    || 'Unpaid / not specified';
+  const locationsText = formatInternshipLocations(internship);
+  const placeLine = [internship?.company_name, locationsText || internship?.work_mode]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4">
@@ -25,23 +34,20 @@ export default function InternshipCandidatePreview({ internship, onClose }) {
             <div className="flex justify-between gap-2">
               <div>
                 <CardTitle className="text-xl">{internship.title}</CardTitle>
-                <CardDescription>
-                  {internship.company_name} · {internship.location || internship.work_mode}
-                </CardDescription>
+                <CardDescription>{placeLine || '—'}</CardDescription>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={onClose}>Close preview</Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2 flex-wrap">
-              <Badge variant="outline">
-                {internship.stipend_type === 'incentive'
-                  ? 'Incentive-based'
-                  : internship.stipend_inr
-                    ? `₹${internship.stipend_inr}/mo`
-                    : 'Unpaid / not specified'}
-              </Badge>
+              <Badge variant="outline">{stipendText}</Badge>
               <Badge variant="outline">Mode: {internship.work_mode || '—'}</Badge>
+              {locationsText ? (
+                <Badge variant="outline" title="Work cities">
+                  Cities: {locationsText}
+                </Badge>
+              ) : null}
               {internship.application_volume_label ? (
                 <Badge variant="secondary" title="Application volume range">
                   {internship.application_volume_label} applications

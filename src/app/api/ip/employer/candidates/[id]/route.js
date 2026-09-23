@@ -70,6 +70,8 @@ export async function GET(request, { params }) {
 
   const publicCandidate = {
     id: candidate.id,
+    /** Needed so employer Message can create/open an ip_message_threads row. */
+    user_id: candidate.user_id,
     name: candidate.name,
     college: candidate.college,
     degree: candidate.degree,

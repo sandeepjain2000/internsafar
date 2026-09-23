@@ -105,8 +105,6 @@ async function ensureIpPipelineSchema(client) {
   };
   await fkUser('ip_linkedin_promotions', 'reviewed_by', 'ip_linkedin_promotions_reviewed_by_fkey');
   await fkUser('ip_viral_shares', 'reviewed_by', 'ip_viral_shares_reviewed_by_fkey');
-  await fkUser('ip_employer_requests', 'created_user_id', 'ip_employer_requests_created_user_id_fkey');
-  await fkUser('ip_employer_requests', 'reviewer_id', 'ip_employer_requests_reviewer_id_fkey');
 
   await tryQ(`
     DO $$ BEGIN
@@ -199,11 +197,6 @@ async function deleteIpWorkbenchForActor(client, run, { userId, employerId, cand
       `UPDATE ip_viral_shares SET reviewed_by = NULL WHERE reviewed_by = $1`,
       [userId],
     );
-    await run(
-      'req_reviewer',
-      `UPDATE ip_employer_requests SET reviewer_id = NULL WHERE reviewer_id = $1`,
-      [userId],
-    );
   }
 }
 
@@ -261,13 +254,7 @@ END $$`,
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ip_users_registration_source_check') THEN
     ALTER TABLE ip_users ADD CONSTRAINT ip_users_registration_source_check
-      CHECK (registration_source IN ('legacy','form','google','domain','gmail_domain'));
-  END IF;
-END $$`,
-  `DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ip_users_form_approval_status_check') THEN
-    ALTER TABLE ip_users ADD CONSTRAINT ip_users_form_approval_status_check
-      CHECK (form_approval_status IS NULL OR form_approval_status IN ('pending','approved','rejected'));
+      CHECK (registration_source IN ('legacy','form','google','domain','gmail_domain','free_email'));
   END IF;
 END $$`,
   `DO $$ BEGIN

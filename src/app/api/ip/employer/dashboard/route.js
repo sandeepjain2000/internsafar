@@ -12,7 +12,8 @@ export async function GET() {
   await ensureIpApplicationInterviewSchema();
 
   const emp = await query(
-    `SELECT e.id, e.company_name, e.approval_status, u.points, u.name, u.email
+    `SELECT e.id, e.company_name, e.approval_status, u.points, u.name, u.email,
+            u.email_verified_at, u.email_verify_required, u.profile_complete
      FROM ip_employers e JOIN ip_users u ON u.id = e.user_id
      WHERE e.user_id = $1`,
     [session.user.id],
@@ -109,17 +110,36 @@ export async function GET() {
     [session.user.id],
   );
 
+  const docStats = await query(
+    `SELECT
+       count(*)::int AS uploaded,
+       count(*) FILTER (WHERE lower(coalesce(review_status, 'pending')) = 'approved')::int AS approved,
+       count(*) FILTER (WHERE lower(coalesce(review_status, 'pending')) = 'pending')::int AS pending
+     FROM ip_employer_documents
+     WHERE employer_id = $1`,
+    [employer.id],
+  );
+
   const points = Number(employer.points || 0);
   const postingsLeft = Math.floor(points / POINTS_PER_POST);
   const published = internships.rows.filter((i) => i.status === 'published');
   const totalApplicants = Number(applicantTotals.rows[0]?.n || 0);
   const activePostings = Number(liveCount.rows[0]?.n || published.length);
 
+  const emailVerified =
+    Boolean(employer.email_verified_at) || employer.email_verify_required === false;
+
+  const documentsUploaded = Number(docStats.rows[0]?.uploaded || 0);
+  const documentsApproved = Number(docStats.rows[0]?.approved || 0);
+  const documentsPending = Number(docStats.rows[0]?.pending || 0);
+
   return jsonOk({
     employer: {
       id: employer.id,
       companyName: employer.company_name,
       approvalStatus: employer.approval_status,
+      emailVerified,
+      profileComplete: Boolean(employer.profile_complete),
       points,
       name: employer.name,
       email: employer.email,
@@ -138,6 +158,9 @@ export async function GET() {
     actionCenter: {
       pendingReviewStaleDays: Number(stalePending.rows[0]?.n || 0),
       interviewsToday: Number(interviewsToday.rows[0]?.n || 0),
+      documentsUploaded,
+      documentsApproved,
+      documentsPending,
     },
     postings: published.slice(0, 5),
     recentApplications: recentApps.rows,

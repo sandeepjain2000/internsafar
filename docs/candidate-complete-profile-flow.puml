@@ -1,0 +1,125 @@
+@startuml InternSafar_Candidate_Complete_Profile
+title InternSafar - Candidate complete profile\n(/candidate/profile -> profile_complete -> apply unlock)
+
+skinparam shadowing false
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #334155
+skinparam ActivityDiamondBackgroundColor #F8FAFC
+skinparam ActivityDiamondBorderColor #64748B
+skinparam ArrowColor #475569
+skinparam activityFontSize 12
+skinparam titleFontSize 14
+
+start
+
+:Candidate signs in\n(email + password);
+:Open /candidate/profile;
+
+:UI loads page\n(candidate session required);
+
+:API GET /api/ip/candidate/profile;
+:API GET /api/ip/candidate/academics;
+:API GET /api/ip/endorsements\n(read-only later);
+
+if (Local draft exists\nip_candidate_profile_draft_v1?) then (yes)
+  :Merge draft over server data\nshow restore message;
+else (no)
+  :Show server profile;
+endif
+
+:Show 5 tabs:\n1. Basics and Contact\n2. Academic and Skills\n3. Work Readiness\n4. Privacy and Photo\n5. Endorsements (read-only);
+
+note right
+  First-time wizard locks tabs 2-3
+  until Save and Next advances.
+  Tabs 4-5 stay available.
+  If profile_complete is already true,
+  all tabs stay open.
+end note
+
+:==== Tab 1 - Basics and Contact ====;
+:Fill name, country, city, state,\nwork mode, availability;
+:Optional phone / WhatsApp / Telegram;
+
+if (Upload resume/CV?) then (yes)
+  :Choose resume file;
+  :API POST .../profile/resume/upload\n(S3 + validate);
+  :Set ip_candidates.resume_url;
+  :Show uploaded resume name;
+else (skip for now)
+endif
+
+:Optional extra CV links,\nLinkedIn / GitHub / portfolio;
+
+if (Click Save and Next?) then (yes)
+  :Validate optional phone format;
+  :API PUT /api/ip/candidate/profile;
+  :UPDATE ip_candidates;
+  :Recompute profile_complete;
+  :Clear local draft on success;
+  :Unlock next wizard step;
+  :Go to Tab 2;
+else (save later)
+  :Autosave draft to localStorage\n(~500ms debounce);
+endif
+
+:==== Tab 2 - Academic and Skills ====;
+:Add academic row(s):\ncollege, degree, specialization,\nstudy status, year, CGPA;
+:Add skill tags;
+
+if (Save Academic / Save and Next?) then (yes)
+  :API PUT /api/ip/candidate/academics;
+  :Replace ip_candidate_academics rows;
+  :Sync primary row to\nip_candidates.college / degree / ...;
+  :API PUT /api/ip/candidate/profile\n(skills + other fields;\nskips college fields on this tab);
+  :Recompute profile_complete;
+  :Advance wizard to Tab 3;
+else (draft only)
+endif
+
+:==== Tab 3 - Work Readiness ====;
+:Set preferred locations / roles,\nhours, commitments,\nimmediate start, relocate,\nprior experience entries;
+:Save Work Readiness -> PUT profile;
+:UPDATE + recompute profile_complete;
+
+:==== Tab 4 - Privacy and Photo (optional) ====;
+:Toggle searchable /\nhide phone / photo visibility;
+
+if (Upload photo?) then (yes)
+  :API POST .../profile/photo/upload;
+  :Set profile_picture_url;
+else (skip)
+endif
+
+if (Change account email?) then (yes)
+  :API POST .../email-change/request;
+  :API POST .../email-change/verify;
+else (keep email)
+endif
+
+:Save Privacy Settings -> PUT profile;
+
+:==== Tab 5 - Endorsements ====;
+:Show endorsements read-only\n(no edit on this stage);
+
+note right
+  Server unlock check (every profile PUT):
+  profile_complete = true when ALL filled:
+  name, college, degree, city, country, resume_url
+  (phone is optional)
+end note
+
+if (REQUIRED_FOR_COMPLETE\nall present?) then (yes)
+  :SET ip_users.profile_complete = true;
+  :Maybe award profile-complete\nbonus points (once);
+  :UI: applications unlocked;\nall tabs stay open;
+  :Candidate may apply to internships;
+  stop
+else (no)
+  :SET profile_complete = false;
+  :Keep apply locked;\nshow missing fields / continue wizard;
+  :Return to incomplete tabs;
+  stop
+endif
+
+@enduml

@@ -24,6 +24,7 @@ import {
   formatDurationMonths,
   formatStipendInr,
 } from '@/lib/ipMessagePresentation';
+import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
 // Both roles now render the candidate layout: the employer tree keeps its own content and
 // actions but uses this stylesheet, scoped by .ip-cand-msg--employer for its extras.
 // ip-employer-messages-gemini.css is intentionally no longer imported.
@@ -163,7 +164,11 @@ function ThreadPartyPanel({ role, thread }) {
         </div>
         <div className="ip-msg-party__sec">
           <span>Stipend</span>
-          <b>{thread.internship_stipend_inr ? `₹${Number(thread.internship_stipend_inr).toLocaleString('en-IN')}/mo` : '—'}</b>
+          <b>{formatInternshipStipend({
+            stipend_inr: thread.internship_stipend_inr,
+            stipend_inr_max: thread.internship_stipend_inr_max,
+            stipend_type: thread.internship_stipend_type,
+          }, { unpaidLabel: '—' }) || '—'}</b>
         </div>
         <div className="ip-msg-party__sec">
           <span>Duration</span>
@@ -302,7 +307,11 @@ const ATTACH_ACCEPT =
   'application/pdf,image/jpeg,image/png,image/webp,image/gif,.pdf,.jpg,.jpeg,.png,.webp,.gif';
 
 function roleMetaLine(t) {
-  const stipend = formatStipendInr(t.internship_stipend_inr);
+  const stipend = formatInternshipStipend({
+    stipend_inr: t.internship_stipend_inr,
+    stipend_inr_max: t.internship_stipend_inr_max,
+    stipend_type: t.internship_stipend_type,
+  });
   const mode = t.internship_work_mode;
   if (stipend && mode) return `${roleLine(t)} • ${stipend} (${mode})`;
   if (stipend) return `${roleLine(t)} • ${stipend}`;
@@ -589,7 +598,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
           <div>
             <strong>Keep it professional.</strong>{' '}
             <span className="ip-cm-policy__desk">
-              Messaging Workflow: Employers initiate direct communication after reviewing submitted applications. Candidates can reply to active employer threads below.
+              Messaging Workflow: After you apply, you can open a conversation for that role. Reply in active threads below for interview scheduling and offer discussions.
             </span>
             <span className="ip-cm-policy__mob">Share files only through InternSafar when possible.</span>
           </div>
@@ -762,14 +771,6 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                       })}
                     </tbody>
                   </table>
-                  <IpListPager
-                    className="ip-list-pager--inbox"
-                    page={page}
-                    totalPages={totalPages}
-                    total={total}
-                    pageSize={pageSize}
-                    onPageChange={setPage}
-                  />
                 </>
               ) : (
                 <div className="ip-cm-empty-list">
@@ -778,6 +779,16 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                 </div>
               )}
             </div>
+            {!loadingList && filtered.length ? (
+              <IpListPager
+                className="ip-list-pager--inbox"
+                page={page}
+                totalPages={totalPages}
+                total={total}
+                pageSize={pageSize}
+                onPageChange={setPage}
+              />
+            ) : null}
           </aside>
 
           <section className="ip-cm-thread">
@@ -1195,14 +1206,6 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                     })}
                   </tbody>
                 </table>
-                <IpListPager
-                  className="ip-list-pager--inbox"
-                  page={page}
-                  totalPages={totalPages}
-                  total={total}
-                  pageSize={pageSize}
-                  onPageChange={setPage}
-                />
               </>
             ) : (
               <div className="ip-cm-empty-list">
@@ -1211,6 +1214,16 @@ export default function MessagesSplitPane({ role = 'employer' }) {
               </div>
             )}
           </div>
+          {!loadingList && filtered.length ? (
+            <IpListPager
+              className="ip-list-pager--inbox"
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              pageSize={pageSize}
+              onPageChange={setPage}
+            />
+          ) : null}
         </aside>
 
         <section className="ip-cm-thread">

@@ -9,8 +9,15 @@ export function isEduDomain(domainOrEmail) {
   return Boolean(d && EDU_HINT.test(d));
 }
 
-/** Client-side risk tag for employer contact email vs website. */
-export function employerDomainRisk({ email, website }) {
+/** Client-side risk tag for employer contact email vs website (+ soft classification). */
+export function employerDomainRisk({ email, website, emailSoftFail, emailClassificationSummary }) {
+  if (emailSoftFail) {
+    return {
+      key: 'soft_fail',
+      label: emailClassificationSummary || 'Free / weak email — review',
+      tone: 'amber',
+    };
+  }
   const mail = domainFromEmail(email);
   const web = domainFromWebsite(website);
   if (!mail) return { key: 'unknown', label: 'No email', tone: 'slate' };

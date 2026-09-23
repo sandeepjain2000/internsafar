@@ -1,7 +1,7 @@
 # InternSafar — Project Context Index (Level 1)
 
 Compact map for AI agents. **Not** a full README of the product.  
-**Inspected from live sibling app:** 2026-09-19.
+**Inspected from live sibling app:** 2026-09-23.
 
 After this file: open `FOLDER_STRUCTURE.md` to locate paths, then **one** `domains/*.md`, then live source.
 
@@ -17,9 +17,9 @@ All paths below are relative to app root: `internship-portal/` unless marked oth
 |------|-------------|--------------|
 | **candidate** | `/candidate` | Profile, browse/apply, applications, messages, offers, referral, notifications |
 | **employer** | `/employer` | Profile/docs, postings, candidate search/workbench, messages, offers, analytics |
-| **superadmin** | `/superadmin` | Approvals, documents, postings oversight, form registrations, promos, viral, ideas |
+| **superadmin** | `/superadmin` | Approvals, documents, postings oversight, promos, viral, ideas |
 
-Public/marketing and auth surfaces: `/` (landing + Google sign-in entry), `/login`, `/register`, `/register/candidate`, `/register/employer`, `/forgot-password`, `/help`, `/ideas`, `/guidelines`, `/how-it-works`, `/account`, referral short links `/r/[code]`, email unsubscribe `/unsubscribe?token=…` (token only — email not in URL).
+Public/marketing and auth surfaces: `/` (landing + **email/password** sign-in), `/login`, `/register`, `/register/candidate`, `/register/employer`, `/forgot-password`, `/help`, `/ideas`, `/guidelines`, `/how-it-works`, `/account`, referral short links `/r/[code]`, email unsubscribe `/unsubscribe?token=…` (token only — email not in URL). Google OAuth is used for **registration verify** only, not home login.
 
 SuperAdmin has a **separate** login at `/superadmin/login` (not the public landing).
 
@@ -45,7 +45,7 @@ If a task says “Internship Portal / InternSafar / IP”, it means the **siblin
 | App | Next.js `^16.3.0` (`src/app`), React `19.2.4`, **JavaScript** (not TypeScript app code) |
 | UI | Tailwind 4, shadcn / Base UI (`components.json`, `src/components/ui`) |
 | Auth | NextAuth (`src/lib/auth.js`). **No** `middleware.js`. APIs enforce auth. |
-| DB | Postgres via `pg` (`src/lib/db.js`). Migrations: `db/migrations/` (47 SQL files as of this inspect; prefer `*ip*`; latest numbered `041_ip_email_unsubscribe_requests.sql`) |
+| DB | Postgres via `pg` (`src/lib/db.js`). Migrations: `db/migrations/` (48 SQL files as of this inspect; prefer `*ip*`; latest numbered `044_ip_internship_stipend_range.sql`) |
 | Files | AWS S3 (`src/lib/s3.js`), object prefix `internship-portal/…`; download authz helper `src/lib/ipFileAccess.js` |
 | Mail | ZeptoMail / SMTP (`src/lib/mail.js`, `zeptomail.js`); outbound footers can append unsubscribe via `src/lib/ipEmailUnsubscribe.js` |
 | Help chat LLM | NVIDIA NIM helpers (`src/lib/nvidiaLlm.js`, `/api/ip/help-chat`) |

@@ -2,11 +2,13 @@ import { query } from '@/lib/db';
 import { ensureIpMessageArchiveSchema } from '@/lib/ensureIpMessageArchiveSchema';
 import { ensureIpMessageAttachmentSchema } from '@/lib/ensureIpMessageAttachmentSchema';
 import { ensureIpApplicationInterviewSchema } from '@/lib/ensureIpApplicationInterviewSchema';
+import { ensureIpInternshipStipendRangeSchema } from '@/lib/ensureIpInternshipStipendRangeSchema';
 
 export async function ensureIpMessageInboxSchema() {
   await ensureIpMessageArchiveSchema();
   await ensureIpMessageAttachmentSchema();
   await ensureIpApplicationInterviewSchema();
+  await ensureIpInternshipStipendRangeSchema();
 }
 
 export const THREAD_LAST_MESSAGE_SQL = `(SELECT CASE
@@ -19,6 +21,8 @@ export const THREAD_SELECT_CORE = `
             t.*,
             i.title as internship_title,
             i.stipend_inr as internship_stipend_inr,
+            i.stipend_inr_max as internship_stipend_inr_max,
+            i.stipend_type as internship_stipend_type,
             i.work_mode as internship_work_mode,
             i.location as internship_location,
             i.duration_months as internship_duration_months,

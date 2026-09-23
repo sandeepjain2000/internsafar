@@ -96,3 +96,6 @@ prompts/
 
 .vercel
 .env*
+
+.vercel
+.env*

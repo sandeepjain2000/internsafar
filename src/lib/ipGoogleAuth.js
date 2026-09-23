@@ -19,8 +19,7 @@ const VERIFICATION_TTL_MS = 10 * 60 * 1000;
 /**
  * Registration intents that may consume a verification token.
  * With an intent cookie: Google is verification-only (returns ?gv=, no portal session).
- * Without an intent: home Sign in with Google may open a portal session only if
- * ip_google_identities is linked (see auth.js); otherwise GoogleAccountNotLinked.
+ * Without an intent: Google login is refused (email/password only on home — see auth.js).
  */
 export const GOOGLE_INTENTS = {
   employerRegister: { cookieValue: 'employer-register', returnTo: '/register/employer' },

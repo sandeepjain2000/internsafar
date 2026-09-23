@@ -1,0 +1,86 @@
+@startuml InternSafar_Candidate_Employer_E2E
+title InternSafar — Candidate & Employer end-to-end business flow\n(parallel setup → meet at apply)
+
+' Two independent actors. Fork = each sets up alone. Join = hiring starts.
+skinparam shadowing false
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #334155
+skinparam ActivityDiamondBackgroundColor #F8FAFC
+skinparam ActivityDiamondBorderColor #64748B
+skinparam ArrowColor #475569
+skinparam swimlaneWidth 240
+skinparam activityFontSize 13
+skinparam titleFontSize 15
+
+skinparam swimlane {
+  BorderColor #94A3B8
+  TitleFontSize 14
+  TitleFontStyle bold
+}
+
+|System|
+start
+:Platform open\n(two separate roles);
+
+fork
+  |Candidate|
+  :Register as candidate;
+  :Complete profile\n(CV, academics, skills);
+  :Ready to browse;
+fork again
+  |Employer|
+  :Register as employer;
+  :Complete company profile\n& upload documents;
+  :Create internship posting;
+  :Publish posting\n(may need admin approval);
+  :Posting is live;
+end fork
+
+|Candidate|
+:Browse open internships;
+:Open a posting;
+:Apply with selected CV;
+
+|Employer|
+:Receive application\nin workbench;
+:Review candidate;
+
+if (Fit for role?) then (yes)
+  :Shortlist / advance;
+  :Message candidate;
+
+  |Candidate|
+  :Reply in messages;
+
+  |Employer|
+  :Send internship offer;
+
+  |Candidate|
+  :Review offer;
+
+  if (Accept offer?) then (yes)
+    :Accept offer;
+
+    |Employer|
+    :Confirm hire / onboarding;
+
+    |Candidate|
+    :Internship starts;
+  else (no)
+    :Decline offer;
+
+    |Employer|
+    :Close or reopen search;
+  endif
+
+else (no)
+  :Reject application;
+
+  |Candidate|
+  :See rejection / status;
+endif
+
+|System|
+stop
+
+@enduml

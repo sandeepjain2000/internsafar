@@ -1,7 +1,7 @@
 # Stable project decisions (InternSafar)
 
 Only confirmed, durable decisions. Not a chat diary.  
-Last pack refresh: 2026-09-19.
+Last pack refresh: 2026-09-23.
 
 | Decision | Domain | Status | Evidence |
 |----------|--------|--------|----------|
@@ -27,7 +27,16 @@ Last pack refresh: 2026-09-19.
 | 2026-09-18 review remediation: Valid **Critical** + Valid **High** (non-a11y) fixed on sibling and deployed to Vercel preview; **Medium/Low** + all a11y remain open | Process / Quality | Confirmed | GPT triage DOCX + sibling working tree + Vercel deploy 2026-09-18 |
 | Agents must **Read** `docs/ai-context/PROJECT_INDEX.md` on chat startup (and before IP search/edit); rule text alone is not enough | Process / Agents | Confirmed | `.cursor/rules/internsafar-ai-context-pack.mdc`, `AGENTS.md` ai-context-pack block |
 | Profile/registration label = **Country**; list filters label = **Region**. Options live in DB table `ip_ref_countries` (migration `043_*`) and `/api/ip/ref/countries`, with static fallback in `src/lib/ipRegions.js`: India, Pakistan, Bangladesh, Sri Lanka, Nepal, Indonesia, Malaysia, Thailand. Candidate browse filters employer `hq_country`; employer search filters candidate `country` via `region` query. | Candidate / Employer | Confirmed | `ip_ref_countries`, `useIpCountryCatalog`, migration `043_*` |
-## Do not add here
+| Live Employer Register (Domain + Free Email) → `/superadmin/approvals` Only; Form Registrations + Manual Requests UI Retired; Candidates Have No SA Approval Queue; Path Column Uses `registration_source` | SuperAdmin / Auth | Confirmed | Live Register Proof 2026-09-23; `register-employer`, Redirects, `ipNav.js` |
+| Final Employer Approval Requires Documents First (At Least One Approved Doc, No Pending Docs); Documents Approve Does Not Alone Unlock Login/Posting | SuperAdmin / Employer | Confirmed | `employers/[id]` Gate 2026-09-23 |
+| Employer may sign in after email verification while still pending Final Approval (to upload docs); Postings nav/API stay gated until approved | Auth / Employer | Confirmed | `auth.js` + employer layout 2026-09-23 |
+| Employer email-verify QA exposure via `IP_QA_EMPLOYER_EMAIL_VERIFY_TOKEN_IN_RESPONSE` (token + mail metadata in register JSON); hard-off when `VERCEL_ENV=production`; employers use form password (no temp-password mail) | Testing / Auth | Confirmed | `ipQaEmployerRegister.js`, `qa-employer-reg-verify-approve-login.mjs`, `docs/qa-employer-register-e2e.md` |
+| Employer email verify resend (login + post-register); cooldown ~45s; candidates have no verify-before-login | Auth | Confirmed | `employer-email-verify/resend`, `IpSignInLanding`, `EmployerRegisterClient` |
+| Form candidate path + manualRequest employer queue retired (410); drop `ip_employer_requests` + `form_approval_status` via bootstrap | Auth / SuperAdmin | Confirmed | `ensureIpRetireDeadQueuesSchema.js` |
+| QA/seed accounts must use realistic varied personas; do not pile scripted traffic onto core showcase inboxes | Testing | Confirmed | `ipQaRealisticPersonas.mjs`, workspace rule `qa-test-account-variety` |
+| AWS email-verify: ADD schema + one-time fill `email_verified_at=created_at` for existing employers; **no** `email_verify_required=false` grandfather (temp runner deleted after run) | Auth / Deploy | Confirmed | Applied AWS RDS 2026-09-23; `ensureIpEmployerEmailVerifySchema` schema-only |
+
+## Do Not Add Here
 
 - One-off bug fixes, CSS tweaks, temporary experiments
 - Speculative roadmap items

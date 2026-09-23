@@ -9,9 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import PageHeader from '@/components/ip/PageHeader';
+import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 
 export default function RejectionTemplatesPage() {
   const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
   const [body, setBody] = useState('Hi {{candidate_first_name}}, thank you for applying to {{internship_title}}. …');
   const [editId, setEditId] = useState(null);
@@ -19,9 +21,14 @@ export default function RejectionTemplatesPage() {
   const [msg, setMsg] = useState('');
 
   async function load() {
-    const res = await fetch('/api/ip/employer/rejection-templates');
-    const data = await res.json();
-    setItems(data.items || []);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/ip/employer/rejection-templates');
+      const data = await res.json();
+      setItems(data.items || []);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, []);
@@ -105,7 +112,12 @@ export default function RejectionTemplatesPage() {
       <Card>
         <CardHeader><CardTitle className="text-base">Your templates</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          {items.map((t) => (
+          {loading ? (
+            <IpListLoading label="Loading Templates…" />
+          ) : !items.length ? (
+            <IpListEmpty title="No Templates Yet" hint="Create A Template Above To Reuse It On Bulk Reject." />
+          ) : (
+            items.map((t) => (
             <div key={t.id} className="border rounded-md p-3 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{t.name}</span>
@@ -120,8 +132,8 @@ export default function RejectionTemplatesPage() {
                 </div>
               ) : null}
             </div>
-          ))}
-          {!items.length ? <p className="text-sm text-muted-foreground">No templates yet.</p> : null}
+            ))
+          )}
         </CardContent>
       </Card>
     </div>

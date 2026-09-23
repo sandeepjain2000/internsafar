@@ -53,10 +53,11 @@ async function rewardPromo(promo) {
   if (!awarded) return false;
   await notifyUser({
     userId: promo.employer_user_id,
-    title: 'LinkedIn promotion verified',
-    body: `Rewards added for ${promo.title}: +${LINKEDIN_PROMO_POINTS} points.`,
+    title: 'LinkedIn Promotion Verified',
+    body: `Rewards Added For ${promo.title}: +${LINKEDIN_PROMO_POINTS} Points.`,
     link: '/employer/referral',
     category: 'referral',
+    forceEmail: true,
   });
   return true;
 }
@@ -107,10 +108,11 @@ export async function PATCH(request, { params }) {
       );
       await notifyUser({
         userId: row.employer_user_id,
-        title: 'LinkedIn promotion not verified',
-        body: notes || `Could not verify promotion for ${row.title}.`,
+        title: 'LinkedIn Promotion Not Verified',
+        body: notes || `Could Not Verify Promotion For ${row.title}.`,
         link: '/employer/internships',
         category: 'system',
+        forceEmail: true,
       });
     } else {
       await query(

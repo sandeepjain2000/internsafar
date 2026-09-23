@@ -13,7 +13,12 @@ import {
   XCircle,
 } from 'lucide-react';
 import '@/components/ip/ip-superadmin-queue-gemini.css';
+import '@/components/ip/ip-list-pager.css';
+import IpListPager from '@/components/ip/IpListPager';
+import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import { useClientPagination } from '@/hooks/useClientPagination';
 import { LINKEDIN_PROMO_POINTS } from '@/lib/pointsEconomy';
+import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
 
 function initial(name) {
   return String(name || '?').trim().charAt(0).toUpperCase() || '?';
@@ -45,6 +50,7 @@ export default function SuperAdminPromotionsPage() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [audit, setAudit] = useState(null);
@@ -52,15 +58,25 @@ export default function SuperAdminPromotionsPage() {
   const [notes, setNotes] = useState('');
 
   async function load() {
-    const res = await fetch('/api/ip/promotions?status=');
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error || 'Failed to load');
-      return;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/ip/promotions?status=');
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to load');
+        setItems([]);
+        return;
+      }
+      setItems(data.items || []);
+      if (data.economy?.LINKEDIN_PROMO_POINTS) setPts(data.economy.LINKEDIN_PROMO_POINTS);
+      setSelected([]);
+    } catch (e) {
+      setError(e.message || 'Failed to load');
+      setItems([]);
+    } finally {
+      setLoading(false);
     }
-    setItems(data.items || []);
-    if (data.economy?.LINKEDIN_PROMO_POINTS) setPts(data.economy.LINKEDIN_PROMO_POINTS);
-    setSelected([]);
   }
 
   useEffect(() => {
@@ -97,8 +113,16 @@ export default function SuperAdminPromotionsPage() {
     );
   }, [items, tab, search]);
 
-  const pendingSelectable = filtered.filter((p) => isPending(p.status));
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(
+    filtered,
+    SA_PAGE_SIZE,
+  );
 
+  useEffect(() => {
+    setPage(1);
+  }, [tab, search, setPage]);
+
+  const pendingSelectable = filtered.filter((p) => isPending(p.status));
   async function act(ids, action, reviewNotes = '') {
     if (!ids.length) return;
     setBusy(true);
@@ -236,13 +260,16 @@ export default function SuperAdminPromotionsPage() {
           </div>
         </div>
 
-        {!filtered.length ? (
-          <div className="ip-saq-empty">
-            <Medal size={28} aria-hidden />
-            <h4>No promotion claims in this view</h4>
-            <p>Employer LinkedIn promo submissions will appear here.</p>
-          </div>
+        {loading ? (
+          <IpListLoading label="Loading Promotions…" />
+        ) : !filtered.length ? (
+          <IpListEmpty
+            icon={Medal}
+            title="No Promotion Claims In This View"
+            hint="Employer LinkedIn Promo Submissions Will Appear Here."
+          />
         ) : (
+          <>
           <div className="ip-saq-table-wrap">
             <table className="ip-ph-list ip-saq-table">
               <thead>
@@ -267,7 +294,7 @@ export default function SuperAdminPromotionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p) => (
+                {pageItems.map((p) => (
                   <tr key={p.id}>
                     <td>
                       {isPending(p.status) ? (
@@ -331,6 +358,17 @@ export default function SuperAdminPromotionsPage() {
               </tbody>
             </table>
           </div>
+          <div className="ip-saq-pager">
+            <IpListPager
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              buttonClassName="ip-saq-btn ip-saq-btn--sm"
+            />
+          </div>
+          </>
         )}
       </div>
 

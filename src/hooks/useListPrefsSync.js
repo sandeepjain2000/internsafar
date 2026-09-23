@@ -20,7 +20,19 @@ export function useListPrefsSync({ tableKey, snapshot, applySnapshot }) {
     if (!tableKey) return [];
     const res = await fetch(`/api/ip/list-presets?tableKey=${encodeURIComponent(tableKey)}`);
     const data = await res.json().catch(() => ({}));
-    const items = data.items || [];
+    const raw = Array.isArray(data.items) ? data.items : [];
+    const items = raw.map((p) => {
+      let filters = p?.filters;
+      if (typeof filters === 'string') {
+        try {
+          filters = JSON.parse(filters);
+        } catch {
+          filters = {};
+        }
+      }
+      if (!filters || typeof filters !== 'object' || Array.isArray(filters)) filters = {};
+      return { ...p, filters };
+    });
     setPresets(items);
     return items;
   }, [tableKey]);
@@ -95,10 +107,17 @@ export function useListPrefsSync({ tableKey, snapshot, applySnapshot }) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       setPresetError(data.error || 'Could not save preset');
-      return false;
+      return { ok: false, id: null };
+    }
+    const newId = data.id || data.item?.id || null;
+    if (data.item?.id) {
+      setPresets((prev) => {
+        const without = (Array.isArray(prev) ? prev : []).filter((p) => p.id !== data.item.id);
+        return [...without, data.item];
+      });
     }
     await loadPresets();
-    return true;
+    return { ok: true, id: newId };
   }
 
   async function applyPreset(preset) {

@@ -18,6 +18,7 @@ import {
   Users,
 } from 'lucide-react';
 import '@/components/ip/ip-employer-dashboard-gemini.css';
+import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
 
 function initials(name) {
   const parts = String(name || '')
@@ -30,9 +31,7 @@ function initials(name) {
 }
 
 function stipendLabel(i) {
-  if (i.stipend_type === 'incentive') return 'Incentive-based';
-  if (i.stipend_inr) return `₹${i.stipend_inr}/mo`;
-  return 'Stipend TBD';
+  return formatInternshipStipend(i, { unpaidLabel: 'Stipend TBD' }) || 'Stipend TBD';
 }
 
 function modeLabel(i) {
@@ -60,10 +59,27 @@ export default function EmployerDashboard() {
   const actionCenter = data?.actionCenter || {};
   const stalePending = Number(actionCenter.pendingReviewStaleDays || 0);
   const interviewsToday = Number(actionCenter.interviewsToday || 0);
+  const documentsUploaded = Number(actionCenter.documentsUploaded || 0);
   const postings = data?.postings || [];
   const recent = data?.recentApplications || [];
-  const canPost =
-    session?.user?.profileComplete && employer?.approvalStatus === 'approved';
+  const finalApproved = employer?.approvalStatus === 'approved';
+  const canPost = finalApproved && employer?.emailVerified !== false;
+  const profileComplete = Boolean(employer?.profileComplete);
+  // Action center priority (first matching wins):
+  // 1) Upload docs (no uploads yet, still awaiting Final Approval)
+  // 2) Complete profile (after docs uploaded, or anytime profile incomplete once docs are done)
+  // 3) Stale applications (can post)
+  // 4) Waiting for Final Approval (docs + profile done, not approved yet)
+  let primaryAction = null;
+  if (!finalApproved && documentsUploaded === 0) {
+    primaryAction = 'upload_docs';
+  } else if (!profileComplete) {
+    primaryAction = 'complete_profile';
+  } else if (canPost) {
+    primaryAction = 'stale_apps';
+  } else if (!finalApproved) {
+    primaryAction = 'await_approval';
+  }
   const company = employer?.companyName || 'Employer';
   const avg = Number(stats.avgRating || 0);
   const activePct =
@@ -99,7 +115,8 @@ export default function EmployerDashboard() {
     <div className="ip-emp-dash ip-mobile-bleed">
       {employer?.approvalStatus && employer.approvalStatus !== 'approved' ? (
         <div className="ip-ed-alert">
-          Waiting for SuperAdmin approval — you can prepare draft postings meanwhile.
+          Waiting for SuperAdmin approval — complete your profile and upload verification documents under
+          Profile &amp; docs. Postings stay unavailable until Final Employer Approval.
         </div>
       ) : null}
 
@@ -129,13 +146,42 @@ export default function EmployerDashboard() {
           </div>
         </div>
         <div className="ip-ed-action-grid">
-          <Link className="ip-ed-action-card ip-ed-action-card--warn" href="/employer/internships">
-            <span className="ip-ed-action-kicker">Action required</span>
-            <strong>
-              {stalePending} application{stalePending === 1 ? '' : 's'} pending review for 3+ days
-            </strong>
-            <span className="ip-ed-action-hint">Open internships to shortlist or reject waiting candidates</span>
-          </Link>
+          {primaryAction === 'upload_docs' ? (
+            <Link className="ip-ed-action-card ip-ed-action-card--warn" href="/employer/profile">
+              <span className="ip-ed-action-kicker">Action required</span>
+              <strong>Upload verification documents</strong>
+              <span className="ip-ed-action-hint">
+                SuperAdmin needs approved documents before Final Employer Approval
+              </span>
+            </Link>
+          ) : null}
+          {primaryAction === 'complete_profile' ? (
+            <Link className="ip-ed-action-card ip-ed-action-card--warn" href="/employer/profile">
+              <span className="ip-ed-action-kicker">Action required</span>
+              <strong>Complete your company profile</strong>
+              <span className="ip-ed-action-hint">
+                Fill required company details and ethics acknowledgements under Profile &amp; docs
+              </span>
+            </Link>
+          ) : null}
+          {primaryAction === 'stale_apps' ? (
+            <Link className="ip-ed-action-card ip-ed-action-card--warn" href="/employer/internships">
+              <span className="ip-ed-action-kicker">Action required</span>
+              <strong>
+                {stalePending} application{stalePending === 1 ? '' : 's'} pending review for 3+ days
+              </strong>
+              <span className="ip-ed-action-hint">Open internships to shortlist or reject waiting candidates</span>
+            </Link>
+          ) : null}
+          {primaryAction === 'await_approval' ? (
+            <Link className="ip-ed-action-card ip-ed-action-card--warn" href="/employer/profile">
+              <span className="ip-ed-action-kicker">Action required</span>
+              <strong>Waiting for Final Employer Approval</strong>
+              <span className="ip-ed-action-hint">
+                Documents are with SuperAdmin. Postings unlock after Final Approval
+              </span>
+            </Link>
+          ) : null}
           <Link className="ip-ed-action-card ip-ed-action-card--info" href="/employer/offers">
             <span className="ip-ed-action-kicker">Upcoming</span>
             <strong>
@@ -266,6 +312,7 @@ export default function EmployerDashboard() {
         </div>
       </div>
 
+      {canPost ? (
       <div className="ip-ed-grid">
         <div className="ip-ed-col">
           <div className="ip-ed-card">
@@ -383,6 +430,19 @@ export default function EmployerDashboard() {
           </div>
         </div>
       </div>
+      ) : (
+        <div className="ip-ed-card" style={{ marginTop: '1.25rem' }}>
+          <h2>Next step</h2>
+          <p className="ip-ed-empty" style={{ paddingBottom: '0.5rem' }}>
+            Postings unlock after SuperAdmin Final Employer Approval. Upload your documents under Profile &amp; docs
+            so review can proceed.
+          </p>
+          <Link className="ip-ed-btn" href="/employer/profile">
+            <span>Open Profile &amp; docs</span>
+            <ArrowRight aria-hidden />
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

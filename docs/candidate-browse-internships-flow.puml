@@ -1,0 +1,91 @@
+@startuml InternSafar_Candidate_Browse_Internships
+title InternSafar - Candidate browse internships\n(/candidate/internships -> open posting)
+
+skinparam shadowing false
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #334155
+skinparam ActivityDiamondBackgroundColor #F8FAFC
+skinparam ActivityDiamondBorderColor #64748B
+skinparam ArrowColor #475569
+skinparam activityFontSize 12
+skinparam titleFontSize 14
+
+start
+
+:Candidate signs in\n(email + password);
+:Open /candidate/internships;
+
+note right
+  Requires candidate session.
+  Apply submit is the NEXT stage;
+  this stage ends at open detail.
+end note
+
+:UI restores list prefs\n(tableKey candidate.internships);
+:UI may set tab=saved\nif URL has ?saved=1;
+:GET /api/ip/candidate/profile\n(show points wallet);
+
+:Build query params from UI:\nq, workMode, minStipend / unpaid,\nmaxDuration, startDate,\nregion, location (cities),\nminMatch, minValidation,\nsort, savedOnly, chip;
+
+:GET /api/ip/candidate/internships?params;
+
+:API requireSession(candidate);
+:Load candidate skills\nfor match scoring;
+:Query published internships\nvisible now:\nstatus=published AND\nstarts_at ok AND\napply_ends_at not passed\nLIMIT 200;
+:Join employers + app counts;
+:Load employer documents\nfor validation score;
+:Load saved + applied ids\nfor this candidate;
+
+:For each posting compute:\nmatch_score (skills vs eligibility)\nvalidation_score\nmasked company name\nsaved / applied flags\napplication_volume_label\n(if employer shows hiring numbers);
+
+:Apply filters in memory:\nsearch q, stipend, duration,\nwork mode, start date,\ncity / region, min match,\nmin validation, chips;
+:Sort (best-match, stipend,\nnewest, earliest-start,\nfewest-applicants);
+:Return items + counts\n(all / saved / recommended);
+
+:UI shows list\n(cards or table view)\nclient page size 10;
+
+if (Change search / filters\n/ sort / tab / chip?) then (yes)
+  :Debounce search (~250ms)\nthen reload list;
+  :Reset pager to page 1;
+else (keep current list)
+endif
+
+if (Use quick chip?) then (yes)
+  :Chip options:\nAll / Starting soon / Saved /\nRecently updated /\nVerified employers;
+  :Reload with chip=...;
+else (no chip)
+endif
+
+if (Switch tab?) then (yes)
+  :Tabs: All / Saved / Recommended;
+  :Saved -> savedOnly=1;
+  :Recommended -> minMatch at least 85;
+  :Reload list;
+else (stay on tab)
+endif
+
+if (Toggle bookmark on a card?) then (yes)
+  :POST /api/ip/candidate/saved\n{ internshipId, saved };
+  :Reload list;
+else (no save change)
+endif
+
+if (Open a posting?) then (yes)
+  :Navigate to\n/candidate/internships/{id};
+  :GET /api/ip/candidate/internships/{id};
+  if (Posting still visible?) then (yes)
+    :Show detail page\n(title, company, stipend,\nvalidation, questions preview);
+    :Also load saved state\nand profile_complete / points;
+    :Browse stage complete;
+    :Ready for Apply stage\n(next diagram);
+    stop
+  else (not available)
+    :Show not found / unavailable;
+    stop
+  endif
+else (keep browsing)
+  :Page with IpListPager\nor refine filters;
+  stop
+endif
+
+@enduml

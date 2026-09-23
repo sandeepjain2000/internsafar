@@ -12,6 +12,7 @@ import { resolveAppOrigin } from '@/lib/ipAppOrigin';
  * Never throws — callers should fire-and-forget.
  *
  * skipEmail: caller will send a richer email if the email channel is on.
+ * forceEmail: send email even when category defaults to in-app only (important employer events).
  */
 const NOTIFY_CATEGORIES = ['application', 'referral', 'system', 'offer', 'interview', 'message'];
 
@@ -24,6 +25,7 @@ export async function notifyUser({
   meta = {},
   client,
   skipEmail = false,
+  forceEmail = false,
 }) {
   if (!userId || !title) return null;
   const cat = NOTIFY_CATEGORIES.includes(category) ? category : 'system';
@@ -63,7 +65,7 @@ export async function notifyUser({
     }
   }
 
-  if (channels.email && !skipEmail && !client) {
+  if ((channels.email || forceEmail) && !skipEmail && !client) {
     try {
       const user = await query(`SELECT email, name FROM ip_users WHERE id = $1`, [userId]);
       const to = user.rows[0]?.email;
@@ -73,7 +75,7 @@ export async function notifyUser({
         await sendMail({
           to,
           subject: title,
-          html: `<p>Hi ${user.rows[0]?.name || 'there'},</p><p>${body || title}</p><p><a href="${href}">Open in Internship Portal</a></p>`,
+          html: `<p>Hi ${user.rows[0]?.name || 'there'},</p><p>${body || title}</p><p><a href="${href}">Open In Internship Portal</a></p>`,
           text: `${body || title}\n${href}`,
         });
       }

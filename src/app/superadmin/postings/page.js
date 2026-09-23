@@ -13,6 +13,12 @@ import {
   X,
 } from 'lucide-react';
 import '@/components/ip/ip-superadmin-queue-gemini.css';
+import '@/components/ip/ip-list-pager.css';
+import IpListPager from '@/components/ip/IpListPager';
+import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import { useClientPagination } from '@/hooks/useClientPagination';
+import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
+import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
 
 function initial(name) {
   return String(name || '?').trim().charAt(0).toUpperCase() || '?';
@@ -27,9 +33,11 @@ function fmtDate(v) {
   }
 }
 
-function stipendLabel(n) {
-  if (n == null || n === '') return '—';
-  return `₹${Number(n).toLocaleString('en-IN')} / mo`;
+function stipendLabel(rowOrAmount) {
+  if (rowOrAmount != null && typeof rowOrAmount === 'object') {
+    return formatInternshipStipend(rowOrAmount, { suffix: ' / mo', unpaidLabel: '—' }) || '—';
+  }
+  return formatInternshipStipend({ stipend_inr: rowOrAmount }, { suffix: ' / mo', unpaidLabel: '—' }) || '—';
 }
 
 export default function SuperAdminPostingsPage() {
@@ -40,6 +48,7 @@ export default function SuperAdminPostingsPage() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [inspect, setInspect] = useState(null);
@@ -47,17 +56,27 @@ export default function SuperAdminPostingsPage() {
   const [reason, setReason] = useState('');
 
   async function load() {
-    const statusQ =
-      tab === 'all' ? '' : `status=${tab === 'live' ? 'published' : tab === 'takedown' ? 'closed' : tab}&`;
-    const res = await fetch(`/api/ip/superadmin/postings?${statusQ}meta=1`);
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error || 'Failed to load');
-      return;
+    setLoading(true);
+    setError('');
+    try {
+      const statusQ =
+        tab === 'all' ? '' : `status=${tab === 'live' ? 'published' : tab === 'takedown' ? 'closed' : tab}&`;
+      const res = await fetch(`/api/ip/superadmin/postings?${statusQ}meta=1`);
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to load');
+        setItems([]);
+        return;
+      }
+      setItems(data.items || []);
+      if (data.meta) setMeta(data.meta);
+      setSelected([]);
+    } catch (e) {
+      setError(e.message || 'Failed to load');
+      setItems([]);
+    } finally {
+      setLoading(false);
     }
-    setItems(data.items || []);
-    if (data.meta) setMeta(data.meta);
-    setSelected([]);
   }
 
   useEffect(() => {
@@ -86,6 +105,15 @@ export default function SuperAdminPostingsPage() {
         .some((v) => String(v).toLowerCase().includes(q)),
     );
   }, [items, search, companyFilter]);
+
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(
+    filtered,
+    SA_PAGE_SIZE,
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [tab, search, companyFilter, setPage]);
 
   async function applyStatus(ids, status, moderationReason = '') {
     if (!ids.length) return;
@@ -247,13 +275,16 @@ export default function SuperAdminPostingsPage() {
           </div>
         </div>
 
-        {!filtered.length ? (
-          <div className="ip-saq-empty">
-            <Briefcase size={28} aria-hidden />
-            <h4>No postings in this view</h4>
-            <p>Employer internship listings will appear here for moderation.</p>
-          </div>
+        {loading ? (
+          <IpListLoading label="Loading Postings…" />
+        ) : !filtered.length ? (
+          <IpListEmpty
+            icon={Briefcase}
+            title="No Postings In This View"
+            hint="Employer Internship Listings Will Appear Here For Moderation."
+          />
         ) : (
+          <>
           <div className="ip-saq-table-wrap">
             <table className="ip-ph-list ip-saq-table">
               <thead>
@@ -274,7 +305,7 @@ export default function SuperAdminPostingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((i) => (
+                {pageItems.map((i) => (
                   <tr key={i.id}>
                     <td>
                       <input
@@ -303,7 +334,7 @@ export default function SuperAdminPostingsPage() {
                     </td>
                     <td>{i.applicant_count ?? 0}</td>
                     <td>
-                      <strong style={{ display: 'block', color: '#4f46e5' }}>{stipendLabel(i.stipend_inr)}</strong>
+                      <strong style={{ display: 'block', color: '#4f46e5' }}>{stipendLabel(i)}</strong>
                       <span style={{ color: '#64748b', fontSize: '0.6875rem' }}>
                         {[i.location, i.work_mode].filter(Boolean).join(', ') || '—'}
                       </span>
@@ -368,6 +399,17 @@ export default function SuperAdminPostingsPage() {
               </tbody>
             </table>
           </div>
+          <div className="ip-saq-pager">
+            <IpListPager
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              buttonClassName="ip-saq-btn ip-saq-btn--sm"
+            />
+          </div>
+          </>
         )}
       </div>
 
@@ -397,7 +439,7 @@ export default function SuperAdminPostingsPage() {
               </div>
               <div className="ip-saq-modal-row">
                 <span>Stipend</span>
-                <strong>{stipendLabel(inspect.stipend_inr)}</strong>
+                <strong>{stipendLabel(inspect)}</strong>
               </div>
               <div className="ip-saq-modal-row">
                 <span>Location / mode</span>

@@ -106,17 +106,36 @@ export async function runLatestUpdateTcIsCases(ctx) {
 
   // TC-IS-02-027: manual Pass recorded in Excel — skipped here so apply does not re-Block.
 
-  // Browser: Google OAuth start, linked error, help UI
+  // Browser: register Google OAuth start, disabled/login errors, help UI
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
     await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    const homeEmail = await page.locator('#email').isVisible({ timeout: 20_000 }).catch(() => false);
+    const homeGoogleBtn = await page
+      .locator('button.ip-gemini-google-btn')
+      .isVisible({ timeout: 3_000 })
+      .catch(() => false);
+    if (homeGoogleBtn) {
+      assess('TC-IS-18-030', false, 'Home still shows Google sign-in button (expected email/password only)');
+    }
 
-    const googleBtn = page.locator('button.ip-gemini-google-btn');
+    await page.goto(`${BASE}/register/candidate`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 60_000,
+    });
+    const googleBtn = page.locator('button.ip-crg-google-btn').first();
     const googleVisible = await googleBtn.isVisible({ timeout: 20_000 }).catch(() => false);
     if (!googleVisible) {
-      assess('TC-IS-02-024', false, 'Google button not visible (GOOGLE_* missing?)');
-      assess('TC-IS-18-030', false, 'Google button not visible on home');
+      assess('TC-IS-02-024', false, 'Candidate register Google button not visible (GOOGLE_* missing?)');
+      if (!homeGoogleBtn) {
+        assess('TC-IS-18-030', homeEmail && cand.ok, {
+          homeEmailPassword: homeEmail,
+          homeNoGoogleBtn: !homeGoogleBtn,
+          registerGoogleVisible: false,
+          credentialsOk: cand.ok,
+        });
+      }
     } else {
       try {
         await googleBtn.click();
@@ -137,10 +156,13 @@ export async function runLatestUpdateTcIsCases(ctx) {
         assess('TC-IS-02-024', googleStartOk, {
           client_id: Boolean(url.searchParams.get('client_id')),
           redirectUri,
+          path: 'register/candidate',
         });
-        assess('TC-IS-18-030', googleStartOk && cand.ok, {
+        assess('TC-IS-18-030', googleStartOk && cand.ok && homeEmail && !homeGoogleBtn, {
           googleStart: googleStartOk,
           credentialsOk: cand.ok,
+          homeEmailPassword: homeEmail,
+          homeNoGoogleBtn: !homeGoogleBtn,
         });
       } catch (e) {
         // Do not abort the rest of latest-update cases (help/ops) on Google timing flakes.
@@ -156,15 +178,15 @@ export async function runLatestUpdateTcIsCases(ctx) {
       timeout: 60_000,
     });
     const friendly = await page
-      .getByText(/No InternSafar account is linked|Sign up with Google/i)
+      .getByText(/Google sign-in is not available/i)
       .first()
       .isVisible({ timeout: 20_000 })
       .catch(() => false);
     assess('TC-IS-02-025', friendly, { url: page.url() });
-    // TC-IS-03-021: unlinked no-intent path surfaces GoogleAccountNotLinked (full live consent still manual)
+    // TC-IS-03-021: unlinked / no-intent Google path surfaces a friendly disabled/unlinked message
     assess('TC-IS-03-021', friendly, {
       url: page.url(),
-      note: 'Automated friendly error UX; completing live Google consent with unlinked account remains manual.',
+      note: 'Automated friendly error UX; completing live Google consent remains manual.',
     });
 
     await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 60_000 });

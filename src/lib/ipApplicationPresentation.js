@@ -13,7 +13,7 @@ export function applicationDisplayStatus(status) {
   if (s === 'hired') return 'Hired';
   if (s === 'completed') return 'Completed';
   if (s === 'rejected') return 'Rejected';
-  if (s === 'withdrawn') return 'Withdrawn';
+  if (s === 'withdrawn') return 'Rejected By You';
   if (s === 'declined_offer') return 'Offer Declined';
   return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -52,7 +52,7 @@ export function applicationNextStep(row) {
   if (s === 'hired') return 'Offer accepted — onboarding with the employer';
   if (s === 'completed') return 'Internship completed';
   if (s === 'rejected') return 'This application was not taken forward';
-  if (s === 'withdrawn') return 'You withdrew this application';
+  if (s === 'withdrawn') return 'You rejected this application';
   if (s === 'declined_offer') return 'You declined this offer';
   return 'Check this application for the latest update';
 }
@@ -67,7 +67,7 @@ export const APPLICATION_NEXT_STEP_OPTIONS = [
   { value: 'hired', label: 'Offer accepted — onboarding with the employer' },
   { value: 'completed', label: 'Internship completed' },
   { value: 'rejected', label: 'This application was not taken forward' },
-  { value: 'withdrawn', label: 'You withdrew this application' },
+  { value: 'withdrawn', label: 'You rejected this application' },
   { value: 'declined_offer', label: 'You declined this offer' },
 ];
 
@@ -96,7 +96,7 @@ export function applicationClosedLabel(row) {
   const s = applicationStatusKey(row?.status);
   // Excel competitor example: "Not selected on 18 Sep" for rejected applications
   if (s === 'rejected') return 'Not selected on';
-  if (s === 'withdrawn') return 'Withdrawn on';
+  if (s === 'withdrawn') return 'Rejected on';
   if (s === 'declined_offer') return 'Offer declined on';
   if (s === 'completed') return 'Completed on';
   if (s === 'hired') return 'Hired on';

@@ -5,10 +5,27 @@ import { authOptions } from '@/lib/auth';
 export async function requireSession(roles) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+    return {
+      error: NextResponse.json(
+        { error: 'Unauthorized — your session expired or you are not signed in. Sign in again.' },
+        { status: 401 },
+      ),
+    };
   }
   if (roles?.length && !roles.includes(session.user.role)) {
-    return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
+    const needed = roles.join(' or ');
+    const actual = session.user.role || 'unknown';
+    return {
+      error: NextResponse.json(
+        {
+          error: `Forbidden — this API requires ${needed}, but your session role is “${actual}”. Sign out, then sign in as SuperAdmin (support@placementhub.online), and retry.`,
+          code: 'ROLE_MISMATCH',
+          requiredRoles: roles,
+          sessionRole: actual,
+        },
+        { status: 403 },
+      ),
+    };
   }
   return { session };
 }

@@ -2,11 +2,13 @@
 /**
  * Internship Portal core-sample reset (single executable).
  *
- * Preserves the 3 demo login accounts (candidate / employer / superadmin),
- * deletes everyone else (+ cascade), clears core transactional data, then
- * re-seeds â‰ˆ2 pages of meaningful rows for those cores (+ support cast) and
- * finally runs scripts/fill-core-coverage.mjs for the employer + SuperAdmin
- * tabs, queues, and workbench tables the baseline does not reach.
+ * Execute runner — Transactions should be cleaned:
+ *   1. Delete ALL non-core accounts (+ cascaded rows)
+ *   2. Delete transactional data owned by the three core accounts
+ *   3. Keep the three core login rows (and their profile rows) themselves
+ *
+ * Re-seeding (baseline catalog + fill-core-coverage) is TEMPORARILY COMMENTED OUT.
+ * Re-enable later when a reseed path is re-implemented.
  *
  * Cores (passwords from local coreaccountspass.json — gitignored):
  *   Candidate   lawsonlclintern+1@gmail.com
@@ -14,6 +16,10 @@
  *   SuperAdmin  support@placementhub.online
  *
  * Edit scripts/lib/ipCoreSampleConfig.js + ipCoreBaselinePostings.js for baseline.
+ *
+ * Hang note: do NOT call ensureIpPipelineSchema on every reset — it DROP/ADD FKs and
+ * will wait forever for locks if the app/pooler still holds connections. Pass
+ * --ensure-schema only when you intentionally need schema repair (and stop the app first).
  */
 const fs = require('fs');
 const path = require('path');
@@ -26,7 +32,9 @@ assertDbMigrateTargetAllowed(process.argv);
 
 const coreCfg = require('./lib/ipCoreSampleConfig.js');
 const { CORE_BASELINE_POSTINGS } = require('./lib/ipCoreBaselinePostings.js');
+// Kept for when reseed is re-enabled below:
 const { seedCoreBaseline } = require('./lib/ipSeedCoreBaseline.js');
+void seedCoreBaseline;
 
 const CONFIG = {
   superadminEmail: coreCfg.SUPERADMIN_EMAIL,
@@ -43,7 +51,11 @@ const CONFIG = {
 };
 
 function parseArgs(argv) {
-  return { yes: argv.includes('--yes') || argv.includes('-y'), dryRun: argv.includes('--dry-run') };
+  return {
+    yes: argv.includes('--yes') || argv.includes('-y'),
+    dryRun: argv.includes('--dry-run'),
+    ensureSchema: argv.includes('--ensure-schema'),
+  };
 }
 
 function resolveIpRoot(scriptDir) {
@@ -109,62 +121,178 @@ async function runDelete(client, sql, params = []) {
   }
 }
 
-async function deleteUserCascade(client, userId, email) {
-  const cand = await client.query(`SELECT id FROM ip_candidates WHERE user_id = $1`, [userId]);
-  const emp = await client.query(`SELECT id FROM ip_employers WHERE user_id = $1`, [userId]);
-  const candidateId = cand.rows[0]?.id || null;
-  const employerId = emp.rows[0]?.id || null;
-
-  await client.query('BEGIN');
-  try {
-    await runDelete(client, `DELETE FROM ip_messages WHERE thread_id IN (SELECT id FROM ip_message_threads WHERE candidate_user_id=$1 OR employer_user_id=$1)`, [userId]);
-    await runDelete(client, `DELETE FROM ip_messages WHERE sender_user_id=$1`, [userId]);
-    await runDelete(client, `DELETE FROM ip_message_threads WHERE candidate_user_id=$1 OR employer_user_id=$1`, [userId]);
-    await runDelete(client, `DELETE FROM ip_ratings WHERE from_user_id=$1 OR to_user_id=$1`, [userId]);
-    await runDelete(client, `DELETE FROM ip_endorsements WHERE ($1::text IS NOT NULL AND candidate_id=$1) OR ($2::text IS NOT NULL AND employer_id=$2)`, [candidateId, employerId]);
-    const { deleteIpWorkbenchForActor } = require(path.join(__dirname, 'lib', 'ensureIpPipelineSchema.js'));
-    await deleteIpWorkbenchForActor(client, async (_label, sql, params) => runDelete(client, sql, params), {
-      userId,
-      employerId,
-      candidateId,
-    });
-
-    if (employerId) {
-      await runDelete(client, `DELETE FROM ip_linkedin_promotions WHERE employer_id=$1`, [employerId]);
-      await runDelete(client, `DELETE FROM ip_employer_documents WHERE employer_id=$1`, [employerId]);
-      await runDelete(client, `DELETE FROM ip_offers WHERE employer_id=$1`, [employerId]);
-      await runDelete(client, `DELETE FROM ip_internships WHERE employer_id=$1`, [employerId]);
-      await runDelete(client, `DELETE FROM ip_employers WHERE id=$1`, [employerId]);
-    }
-    if (candidateId) {
-      await runDelete(client, `DELETE FROM ip_saved_internships WHERE candidate_id=$1`, [candidateId]);
-      await runDelete(client, `DELETE FROM ip_offers WHERE candidate_id=$1`, [candidateId]);
-      await runDelete(client, `DELETE FROM ip_applications WHERE candidate_id=$1`, [candidateId]);
-      await runDelete(client, `DELETE FROM ip_candidates WHERE id=$1`, [candidateId]);
-    }
-
-    for (const [sql, params] of [
-    [`DELETE FROM ip_viral_shares WHERE user_id=$1`, [userId]],
-    [`DELETE FROM ip_notifications WHERE user_id=$1`, [userId]],
-    [`DELETE FROM ip_points_ledger WHERE user_id=$1`, [userId]],
-    [`DELETE FROM ip_password_resets WHERE user_id=$1`, [userId]],
-    [`DELETE FROM ip_login_events WHERE user_id=$1`, [userId]],
-    [`DELETE FROM ip_auth_sessions WHERE user_id=$1`, [userId]],
-    [`DELETE FROM ip_feature_idea_votes WHERE user_id=$1`, [userId]],
-    [`DELETE FROM ip_feature_idea_comments WHERE author_user_id=$1`, [userId]],
-    [`UPDATE ip_feature_ideas SET author_user_id=NULL WHERE author_user_id=$1`, [userId]],
-    [`DELETE FROM ip_referrals WHERE referrer_user_id=$1`, [userId]],
-    [`UPDATE ip_referrals SET referred_user_id=NULL WHERE referred_user_id=$1`, [userId]],
-    [`DELETE FROM ip_employer_requests WHERE lower(contact_email)=lower($1) OR created_user_id=$2`, [email, userId]],
-    [`DELETE FROM ip_users WHERE id=$1`, [userId]],
-  ]) {
-    await runDelete(client, sql, params);
+/**
+ * Bulk-delete every non-core user in one pass (table-oriented, not per-user loops).
+ * Avoids the hang/timeout pattern of N× BEGIN + dozens of DELETEs per victim.
+ */
+async function bulkDeleteNonCoreUsers(client, victimUsers) {
+  if (!victimUsers.length) {
+    console.log('No non-core users to delete.');
+    return { deletedUsers: 0 };
   }
-  await client.query('COMMIT');
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
+
+  const victimUserIds = victimUsers.map((u) => u.id);
+  const victimEmails = victimUsers.map((u) => String(u.email || '').toLowerCase());
+  console.log(`Bulk-deleting ${victimUserIds.length} non-core users…`);
+
+  const cand = await client.query(
+    `SELECT id FROM ip_candidates WHERE user_id = ANY($1::text[])`,
+    [victimUserIds],
+  );
+  const emp = await client.query(
+    `SELECT id FROM ip_employers WHERE user_id = ANY($1::text[])`,
+    [victimUserIds],
+  );
+  const candidateIds = cand.rows.map((r) => r.id);
+  const employerIds = emp.rows.map((r) => r.id);
+
+  // Workbench rows block internship/user deletes — clear in bulk for all victims.
+  if (employerIds.length) {
+    await runDelete(client, `DELETE FROM ip_export_jobs WHERE employer_id = ANY($1::text[])`, [employerIds]);
+    await runDelete(
+      client,
+      `DELETE FROM ip_bulk_message_recipients
+       WHERE job_id IN (SELECT id FROM ip_bulk_message_jobs WHERE employer_id = ANY($1::text[]))`,
+      [employerIds],
+    );
+    await runDelete(client, `DELETE FROM ip_bulk_message_jobs WHERE employer_id = ANY($1::text[])`, [employerIds]);
+    await runDelete(
+      client,
+      `DELETE FROM ip_employer_list_members
+       WHERE list_id IN (SELECT id FROM ip_employer_lists WHERE employer_id = ANY($1::text[]))`,
+      [employerIds],
+    );
+    await runDelete(client, `DELETE FROM ip_employer_lists WHERE employer_id = ANY($1::text[])`, [employerIds]);
+    await runDelete(client, `DELETE FROM ip_follow_up_reminders WHERE employer_id = ANY($1::text[])`, [employerIds]);
+    await runDelete(client, `DELETE FROM ip_application_notes WHERE employer_id = ANY($1::text[])`, [employerIds]);
+    await runDelete(client, `DELETE FROM ip_rejection_templates WHERE employer_id = ANY($1::text[])`, [employerIds]);
+    await runDelete(client, `DELETE FROM ip_saved_applicant_views WHERE employer_id = ANY($1::text[])`, [employerIds]);
   }
+  if (candidateIds.length) {
+    await runDelete(
+      client,
+      `DELETE FROM ip_application_events
+       WHERE application_id IN (SELECT id FROM ip_applications WHERE candidate_id = ANY($1::text[]))`,
+      [candidateIds],
+    );
+  }
+  await runDelete(client, `DELETE FROM ip_table_filter_prefs WHERE user_id = ANY($1::text[])`, [victimUserIds]);
+  await runDelete(client, `DELETE FROM ip_export_jobs WHERE created_by_user_id = ANY($1::text[])`, [victimUserIds]);
+  await runDelete(
+    client,
+    `UPDATE ip_linkedin_promotions SET reviewed_by = NULL WHERE reviewed_by = ANY($1::text[])`,
+    [victimUserIds],
+  );
+  await runDelete(
+    client,
+    `UPDATE ip_viral_shares SET reviewed_by = NULL WHERE reviewed_by = ANY($1::text[])`,
+    [victimUserIds],
+  );
+  if (await tableExists(client, 'ip_employer_requests')) {
+    await runDelete(
+      client,
+      `UPDATE ip_employer_requests SET reviewer_id = NULL WHERE reviewer_id = ANY($1::text[])`,
+      [victimUserIds],
+    );
+  }
+
+  console.log('  clearing messages / ratings / endorsements…');
+  await runDelete(
+    client,
+    `DELETE FROM ip_messages WHERE thread_id IN (
+       SELECT id FROM ip_message_threads
+       WHERE candidate_user_id = ANY($1::text[]) OR employer_user_id = ANY($1::text[])
+     )`,
+    [victimUserIds],
+  );
+  await runDelete(client, `DELETE FROM ip_messages WHERE sender_user_id = ANY($1::text[])`, [victimUserIds]);
+  await runDelete(
+    client,
+    `DELETE FROM ip_message_threads WHERE candidate_user_id = ANY($1::text[]) OR employer_user_id = ANY($1::text[])`,
+    [victimUserIds],
+  );
+  await runDelete(
+    client,
+    `DELETE FROM ip_ratings WHERE from_user_id = ANY($1::text[]) OR to_user_id = ANY($1::text[])`,
+    [victimUserIds],
+  );
+  if (candidateIds.length) {
+    await runDelete(client, `DELETE FROM ip_endorsements WHERE candidate_id = ANY($1::text[])`, [candidateIds]);
+  }
+  if (employerIds.length) {
+    await runDelete(client, `DELETE FROM ip_endorsements WHERE employer_id = ANY($1::text[])`, [employerIds]);
+  }
+
+  if (employerIds.length) {
+    console.log(`  clearing ${employerIds.length} non-core employers (docs/offers/postings)…`);
+    await runDelete(client, `DELETE FROM ip_linkedin_promotions WHERE employer_id = ANY($1::text[])`, [employerIds]);
+    await runDelete(client, `DELETE FROM ip_employer_documents WHERE employer_id = ANY($1::text[])`, [employerIds]);
+    await runDelete(client, `DELETE FROM ip_offers WHERE employer_id = ANY($1::text[])`, [employerIds]);
+    // Child rows of internships mostly CASCADE; explicit cleanup for SET NULL / workbench leftovers
+    const posts = await client.query(`SELECT id FROM ip_internships WHERE employer_id = ANY($1::text[])`, [employerIds]);
+    const postIds = posts.rows.map((r) => r.id);
+    if (postIds.length) {
+      await runDelete(client, `DELETE FROM ip_ratings WHERE internship_id = ANY($1::text[])`, [postIds]);
+      await runDelete(client, `DELETE FROM ip_endorsements WHERE internship_id = ANY($1::text[])`, [postIds]);
+      await runDelete(
+        client,
+        `DELETE FROM ip_messages WHERE thread_id IN (SELECT id FROM ip_message_threads WHERE internship_id = ANY($1::text[]))`,
+        [postIds],
+      );
+      await runDelete(client, `DELETE FROM ip_message_threads WHERE internship_id = ANY($1::text[])`, [postIds]);
+      await runDelete(client, `DELETE FROM ip_saved_internships WHERE internship_id = ANY($1::text[])`, [postIds]);
+      await runDelete(client, `DELETE FROM ip_offers WHERE internship_id = ANY($1::text[])`, [postIds]);
+      await runDelete(client, `DELETE FROM ip_applications WHERE internship_id = ANY($1::text[])`, [postIds]);
+      await runDelete(client, `DELETE FROM ip_internships WHERE id = ANY($1::text[])`, [postIds]);
+    }
+    await runDelete(client, `DELETE FROM ip_employers WHERE id = ANY($1::text[])`, [employerIds]);
+  }
+
+  if (candidateIds.length) {
+    console.log(`  clearing ${candidateIds.length} non-core candidates…`);
+    await runDelete(client, `DELETE FROM ip_saved_internships WHERE candidate_id = ANY($1::text[])`, [candidateIds]);
+    await runDelete(client, `DELETE FROM ip_offers WHERE candidate_id = ANY($1::text[])`, [candidateIds]);
+    await runDelete(client, `DELETE FROM ip_applications WHERE candidate_id = ANY($1::text[])`, [candidateIds]);
+    await runDelete(client, `DELETE FROM ip_candidates WHERE id = ANY($1::text[])`, [candidateIds]);
+  }
+
+  console.log('  clearing user-scoped rows + ip_users…');
+  await runDelete(client, `DELETE FROM ip_viral_shares WHERE user_id = ANY($1::text[])`, [victimUserIds]);
+  await runDelete(client, `DELETE FROM ip_notifications WHERE user_id = ANY($1::text[])`, [victimUserIds]);
+  await runDelete(client, `DELETE FROM ip_points_ledger WHERE user_id = ANY($1::text[])`, [victimUserIds]);
+  await runDelete(client, `DELETE FROM ip_password_resets WHERE user_id = ANY($1::text[])`, [victimUserIds]);
+  await runDelete(client, `DELETE FROM ip_login_events WHERE user_id = ANY($1::text[])`, [victimUserIds]);
+  await runDelete(client, `DELETE FROM ip_auth_sessions WHERE user_id = ANY($1::text[])`, [victimUserIds]);
+  await runDelete(client, `DELETE FROM ip_feature_idea_votes WHERE user_id = ANY($1::text[])`, [victimUserIds]);
+  await runDelete(client, `DELETE FROM ip_feature_idea_comments WHERE author_user_id = ANY($1::text[])`, [victimUserIds]);
+  await runDelete(
+    client,
+    `UPDATE ip_feature_ideas SET author_user_id = NULL WHERE author_user_id = ANY($1::text[])`,
+    [victimUserIds],
+  );
+  await runDelete(client, `DELETE FROM ip_referrals WHERE referrer_user_id = ANY($1::text[])`, [victimUserIds]);
+  await runDelete(
+    client,
+    `UPDATE ip_referrals SET referred_user_id = NULL WHERE referred_user_id = ANY($1::text[])`,
+    [victimUserIds],
+  );
+  if (await tableExists(client, 'ip_employer_requests')) {
+    await runDelete(
+      client,
+      `DELETE FROM ip_employer_requests
+       WHERE lower(contact_email) = ANY($1::text[]) OR created_user_id = ANY($2::text[])`,
+      [victimEmails, victimUserIds],
+    );
+  }
+  // Clear self-referral / referred_by pointing at victims before user delete
+  await runDelete(
+    client,
+    `UPDATE ip_users SET referred_by = NULL WHERE referred_by = ANY($1::text[])`,
+    [victimUserIds],
+  );
+  const deleted = await runDelete(client, `DELETE FROM ip_users WHERE id = ANY($1::text[])`, [victimUserIds]);
+  console.log(`  deleted ip_users rows: ${deleted}`);
+  return { deletedUsers: deleted };
 }
 
 async function ensureUser(client, bcrypt, { email, role, name, points = 80, password }) {
@@ -278,7 +406,7 @@ async function clearCoreOwnedData(client, { candidateUserId, employerUserId, can
     await runDelete(client, `DELETE FROM ip_ratings WHERE from_user_id = ANY($1::text[]) OR to_user_id = ANY($1::text[])`, [coreUserIds]);
     await runDelete(client, `DELETE FROM ip_notifications WHERE user_id = ANY($1::text[])`, [coreUserIds]);
     await runDelete(client, `DELETE FROM ip_auth_sessions WHERE user_id = ANY($1::text[])`, [coreUserIds]);
-    await runDelete(client, `DELETE FROM ip_login_events WHERE user_id = ANY($1::text[])`, [coreUserIds]);
+    // Keep ip_login_events — Login Report needs durable auth history across resets.
     await runDelete(client, `DELETE FROM ip_password_resets WHERE user_id = ANY($1::text[])`, [coreUserIds]);
   }
 }
@@ -326,21 +454,46 @@ async function main() {
   preserve.add(CONFIG.candidateBase.email.toLowerCase());
   preserve.add(CONFIG.employerBase.email.toLowerCase());
 
+  // Refuse AWS RDS from laptop/Vercel (assert-db-migrate-target already ran).
+  const host = (() => {
+    try {
+      return new URL(connectionString).hostname;
+    } catch {
+      return '';
+    }
+  })();
+  console.log(`DB host: ${host || '(unparsed)'}`);
+
   const client = new pg.Client({ connectionString, ssl: { rejectUnauthorized: false } });
   await client.connect();
   try {
-    const { ensureIpPipelineSchema } = require(path.join(ipRoot, 'scripts', 'lib', 'ensureIpPipelineSchema.js'));
-    await ensureIpPipelineSchema(client);
+    // Fail fast instead of hanging forever on lock waits (common with pooler + live app).
+    await client.query(`SET lock_timeout = '15s'`);
+    await client.query(`SET statement_timeout = '180s'`);
+
+    if (args.ensureSchema) {
+      console.log('Ensuring pipeline schema (--ensure-schema)…');
+      const { ensureIpPipelineSchema } = require(path.join(
+        ipRoot,
+        'scripts',
+        'lib',
+        'ensureIpPipelineSchema.js',
+      ));
+      await ensureIpPipelineSchema(client);
+    } else {
+      console.log('Skipping ensureIpPipelineSchema (pass --ensure-schema to force; stop the app first).');
+    }
+
     const users = await client.query(`SELECT id,email,role FROM ip_users ORDER BY role,email`);
     const toDelete = users.rows.filter((u) => !preserve.has(String(u.email || '').toLowerCase()));
     console.log(`IP root: ${ipRoot}`);
     console.log(`Preserve cores: ${[...preserve].join(', ')}`);
     console.log(`Users in DB: ${users.rows.length}; will remove: ${toDelete.length}`);
-    console.log(`Baseline Nova postings to seed: ${CORE_BASELINE_POSTINGS.length}`);
+    console.log(`Baseline Nova postings available (reseed commented out): ${CORE_BASELINE_POSTINGS.length}`);
     if (args.dryRun) {
       console.log('Dry run only. Sample delete emails:');
       for (const u of toDelete.slice(0, 15)) console.log(`  - ${u.email}`);
-      if (toDelete.length > 15) console.log(`  â€¦ +${toDelete.length - 15} more`);
+      if (toDelete.length > 15) console.log(`  … +${toDelete.length - 15} more`);
       return;
     }
     if (!args.yes) {
@@ -348,7 +501,7 @@ async function main() {
       if (c !== 'RESET') return console.log('Cancelled.');
     }
 
-    for (const u of toDelete) await deleteUserCascade(client, u.id, u.email);
+    await bulkDeleteNonCoreUsers(client, toDelete);
 
     const superadminId = await ensureSuperadmin(client, bcrypt);
     const candPw = CONFIG.passwordFor(CONFIG.candidateBase.email, 'candidate');
@@ -380,7 +533,7 @@ async function main() {
     const candRow = await client.query(`SELECT id FROM ip_candidates WHERE user_id=$1`, [candUserId]);
     const empRow = await client.query(`SELECT id FROM ip_employers WHERE user_id=$1`, [empUserId]);
 
-    console.log('Clearing transactional data on preserved coresâ€¦');
+    console.log('Clearing transactional data on preserved cores…');
     await clearCoreOwnedData(client, {
       candidateUserId: candUserId,
       employerUserId: empUserId,
@@ -389,15 +542,25 @@ async function main() {
       superadminId,
     });
 
-    for (const table of ['ip_feature_idea_votes', 'ip_feature_idea_comments', 'ip_feature_ideas', 'ip_employer_requests']) {
-      if (await tableExists(client, table)) await client.query(`DELETE FROM ${table}`);
+    for (const table of [
+      'ip_feature_idea_votes',
+      'ip_feature_idea_comments',
+      'ip_feature_ideas',
+      'ip_employer_requests',
+    ]) {
+      if (await tableExists(client, table)) {
+        const r = await client.query(`DELETE FROM ${table}`);
+        console.log(`  cleared ${table}: ${r.rowCount || 0}`);
+      }
     }
 
-    await seedCoreBaseline(client, bcrypt);
-    // Last word on roles, after every seeder has written its accounts.
+    // --- Re-seed temporarily disabled (revisit later) ---
+    // await seedCoreBaseline(client, bcrypt);
+    // await runCoverageFill(ipRoot);
+    console.log('Re-seed skipped (seedCoreBaseline + fill-core-coverage commented out).');
+
     await demoteStraySuperadmins(client);
-    await runCoverageFill(ipRoot);
-    console.log('Reset complete. Three cores preserved; baseline catalog + cast/support transactions restored.');
+    console.log('Reset complete. Three cores preserved; non-cores deleted; core transactions cleaned; no reseed.');
     console.log(`  Candidate  ${CONFIG.candidateBase.email}  (password from coreaccountspass.json)`);
     console.log(`  Employer   ${CONFIG.employerBase.email}  (password from coreaccountspass.json)`);
     console.log(`  SuperAdmin ${CONFIG.superadminEmail}  (password from coreaccountspass.json)`);

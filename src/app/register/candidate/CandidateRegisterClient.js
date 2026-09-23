@@ -97,12 +97,6 @@ export default function CandidateRegisterPage() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Registration failed');
-        // Server established a normal NextAuth session after Google link — open role home.
-        // Do not send the user back to login for a second Google round trip.
-        if (data.sessionEstablished && data.redirectTo) {
-          window.location.assign(data.redirectTo);
-          return;
-        }
         setDone({
           name: account.name || '',
           email: normalizeEmail(account.email),
@@ -110,9 +104,9 @@ export default function CandidateRegisterPage() {
           referralApplied: Boolean(data.referralApplied),
           message:
             data.message ||
-            'Account created. Sign in with Google on the login page to continue.',
+            'Account created. Check your email for a temporary password, then sign in with email and password.',
           warning: data.warning || '',
-          sessionEstablished: Boolean(data.sessionEstablished),
+          sessionEstablished: false,
         });
         setStep('done');
       } catch (err) {
@@ -261,6 +255,10 @@ export default function CandidateRegisterPage() {
                         is created from that Google address. We never ask you to type your Gmail, so an
                         account can only be created for the Google account you actually sign in to.
                       </p>
+                      <p className="ip-crg-legal ip-crg-legal--emph">
+                        Google is only for registration (to verify your Gmail). After you register you
+                        sign in with email and the temporary password we email you — not with Google.
+                      </p>
                     </>
                   )}
                 </div>
@@ -300,7 +298,7 @@ export default function CandidateRegisterPage() {
               <p>
                 <strong>{done?.email}</strong> has been registered.{' '}
                 {done?.message ||
-                  'Sign in with Google on the login page, or use the temporary password if one was emailed.'}
+                  'Check your email for a temporary password, then sign in with email and password (not Google). Use Forgot password if you need a reset.'}
               </p>
               {done?.warning ? (
                 <Alert>

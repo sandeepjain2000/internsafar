@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import ValidationScoreButton from '@/components/ip/ValidationScoreButton';
 import { POINTS_PER_APPLICATION } from '@/lib/pointsEconomy';
+import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
+import { formatInternshipLocations } from '@/lib/ipInternshipLocations';
 
 const REPORT_REASONS = [
   { value: 'spam', label: 'Spam' },
@@ -188,7 +190,11 @@ export default function InternshipDetailPage() {
           <div className="ip-id-head flex justify-between gap-2">
             <div className="min-w-0">
               <CardTitle className="text-xl">{internship.title}</CardTitle>
-              <CardDescription>{internship.company_name} · {internship.location || internship.work_mode}</CardDescription>
+              <CardDescription>
+                {[internship.company_name, formatInternshipLocations(internship) || internship.work_mode]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </CardDescription>
               <div className="mt-2 flex flex-wrap gap-2">
                 <ValidationScoreButton
                   score={internship.validation_score}
@@ -255,11 +261,8 @@ export default function InternshipDetailPage() {
 
           <div className="flex gap-2 flex-wrap">
             <Badge variant="outline">
-              {internship.stipend_type === 'incentive'
-                ? 'Incentive-based'
-                : internship.stipend_inr
-                  ? `₹${internship.stipend_inr}/mo`
-                  : 'Unpaid / not specified'}
+              {formatInternshipStipend(internship, { unpaidLabel: 'Unpaid / not specified' })
+                || 'Unpaid / not specified'}
             </Badge>
             {internship.stipend_type === 'fixed' ? <Badge variant="secondary">Fixed stipend</Badge> : null}
             <Badge variant="outline">Duration: {internship.duration_months ? `${internship.duration_months} months` : '—'}</Badge>

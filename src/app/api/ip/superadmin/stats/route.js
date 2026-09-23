@@ -21,7 +21,6 @@ export async function GET() {
   const offers = await query(
     `SELECT count(*) FILTER (WHERE status='accepted')::int AS accepted, count(*)::int AS total FROM ip_offers`,
   );
-  const requests = await query(`SELECT count(*)::int AS n FROM ip_employer_requests WHERE status = 'pending'`);
   const ideas = await query(`SELECT count(*)::int AS n FROM ip_feature_ideas WHERE status = 'Pending approval'`);
   const pendingDocs = await query(
     `SELECT count(*)::int AS n FROM ip_employer_documents WHERE coalesce(review_status,'pending') = 'pending'`,
@@ -33,10 +32,6 @@ export async function GET() {
   const pendingPromos = await query(
     `SELECT count(*)::int AS n FROM ip_linkedin_promotions
      WHERE status IN ('pending','scheduled','fast_track_pending','searching')`,
-  );
-  const pendingFormRegs = await query(
-    `SELECT count(*)::int AS n FROM ip_users
-     WHERE role = 'candidate' AND registration_source = 'form' AND form_approval_status = 'pending'`,
   );
   const unreadNotifs = await query(
     `SELECT count(*)::int AS n FROM ip_notifications WHERE user_id = $1 AND read_at IS NULL`,
@@ -92,12 +87,12 @@ export async function GET() {
     internships: internships.rows[0],
     applications: applications.rows[0].n,
     offers: offers.rows[0],
-    pendingRequests: requests.rows[0].n,
+    pendingRequests: 0,
     pendingIdeas: ideas.rows[0].n,
     pendingDocuments: pendingDocs.rows[0].n,
     pendingViral: pendingViral.rows[0].n,
     pendingPromotions: pendingPromos.rows[0].n,
-    pendingFormRegistrations: pendingFormRegs.rows[0].n,
+    pendingFormRegistrations: 0,
     unreadMessages: unreadNotifs.rows[0].n,
     pendingEmployersList,
   });

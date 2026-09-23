@@ -9,11 +9,11 @@ export const AUTH_KNOWLEDGE = [
     topic: 'authentication',
     keywords: ['sign in', 'login', 'log in', 'password', 'captcha', 'google sign'],
     facts: [
-      'Sign in is on the home page / with email and password.',
+      'Sign in is on the home page / with email and password only — there is no Google sign-in on login.',
       'Security Verification (CAPTCHA) may appear on login; New Code regenerates the arithmetic challenge.',
-      'Google sign-in opens a portal session only for accounts already linked via Sign up with Google (ip_google_identities).',
-      'Password-only accounts without a Google link cannot sign in with Google.',
+      'Google is used only during candidate (and employer) registration to verify identity; a temporary password is emailed for later sign-in.',
       'Forgot password is available at /forgot-password.',
+      'Change password after sign-in from Account settings.',
     ],
   },
   {
@@ -24,7 +24,7 @@ export const AUTH_KNOWLEDGE = [
     facts: [
       'Candidates register at /register/candidate.',
       'Candidate signup is Gmail-oriented (@gmail.com / @googlemail.com).',
-      'Sign up with Google verifies identity and can open an authenticated candidate session after registration.',
+      'Sign up with Google verifies identity, then a temporary password is emailed; sign in with email and password (not Google).',
     ],
   },
   {

@@ -103,25 +103,19 @@ async function checkHost(base) {
   const jar = new CookieJar();
   const report = { base, checks: {}, failures: [], warnings: [] };
 
-  // 1) Home must render (no crash)
+  // 1) Home must render email/password login — Google sign-in button must NOT be present
   {
     const res = await fetch(`${base}/`, { headers: { 'user-agent': 'InternSafar-GoogleAuth-Verify/1.0' } });
     const html = await res.text();
     report.checks.homeStatus = res.status;
-    report.checks.homeHasGoogleBtn = /ip-gemini-google|Sign in with Google|google-btn/i.test(html);
+    report.checks.homeHasEmailField = /id=["']email["']/i.test(html);
+    report.checks.homeHasGoogleBtn = /ip-gemini-google-btn|Sign in with Google/i.test(html);
     if (res.status !== 200) report.failures.push(`home status ${res.status}`);
-    // Production builds that still use useSearchParams may SSR only a Suspense
-    // "Loading…" shell (BAILOUT_TO_CLIENT_SIDE_RENDERING). That is not an OAuth
-    // failure — browser hydration still shows Google. Treat missing SSR chrome as
-    // a warning on remote hosts; fail only on localhost where SSR should include it.
-    if (!report.checks.homeHasGoogleBtn) {
-      const isLocal = /localhost|127\.0\.0\.1/i.test(base);
-      if (isLocal) report.failures.push('home missing Google button chrome in SSR HTML');
-      else {
-        report.warnings.push(
-          'home SSR HTML lacks Google chrome (likely client-bailout Loading shell); use browser verify',
-        );
-      }
+    if (!report.checks.homeHasEmailField) {
+      report.failures.push('home missing email login field in HTML');
+    }
+    if (report.checks.homeHasGoogleBtn) {
+      report.failures.push('home still exposes Google sign-in button (login is email/password only)');
     }
   }
 
@@ -135,14 +129,21 @@ async function checkHost(base) {
     if (!providers.google) report.failures.push('google provider missing from /api/auth/providers');
   }
 
-  // 3) Real OAuth start → Google accounts URL with client_id + redirect_uri
+  // 3) Real OAuth start via register intent → Google accounts URL with client_id + redirect_uri
   {
-    const started = await startGoogleSignIn(base, jar);
+    const intentJar = new CookieJar();
+    const intentRes = await fetch(`${base}/api/ip/auth/google-intent`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: intentJar.header() },
+      body: JSON.stringify({ purpose: 'candidate-register' }),
+    });
+    intentJar.absorb(intentRes, base);
+    const started = await startGoogleSignIn(base, intentJar);
     if (started.error) {
-      report.failures.push(`oauth start: ${started.error}`);
+      report.failures.push(`oauth start (register intent): ${started.error}`);
       report.checks.oauth = started;
     } else if (!started.ok) {
-      report.failures.push('oauth start did not reach accounts.google.com');
+      report.failures.push('oauth start (register intent) did not reach accounts.google.com');
       report.checks.oauth = started;
     } else {
       const q = parseQuery(started.googleUrl);
@@ -157,6 +158,7 @@ async function checkHost(base) {
       const baseOrigin = new URL(base).origin;
       report.checks.oauth = {
         reachedGoogle: true,
+        via: 'google-intent candidate-register',
         clientIdPrefix: clientId ? `${clientId.slice(0, 20)}…` : '',
         hasClientId: Boolean(clientId),
         redirectUri,
@@ -204,6 +206,7 @@ async function checkHost(base) {
 
   // 5) Error query pages must not 500 / crash
   for (const err of [
+    'GoogleLoginDisabled',
     'GoogleAccountNotLinked',
     'GoogleAccountInactive',
     'GoogleNoEmail',

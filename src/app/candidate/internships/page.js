@@ -16,10 +16,12 @@ import ValidationScoreButton from '@/components/ip/ValidationScoreButton';
 import IpListPager from '@/components/ip/IpListPager';
 import '@/components/ip/ip-browse-internships-gemini.css';
 import '@/components/ip/ip-list-pager.css';
+import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
 
 const PAGE_SIZE = 10;
 
 const QUICK_CHIPS = [
+  { id: 'unapplied', label: 'Unapplied' },
   { id: '', label: 'All listings' },
   { id: 'starting-soon', label: 'Starting soon' },
   { id: 'saved', label: 'Saved' },
@@ -71,14 +73,12 @@ const SORT_OPTIONS = [
 ];
 
 function stipendLabel(i) {
-  if (i.stipend_inr) return `₹${Number(i.stipend_inr).toLocaleString('en-IN')}/mo`;
-  if (i.stipend_type === 'incentive') return 'Incentive';
-  return 'Unpaid';
+  return formatInternshipStipend(i, { unpaidLabel: 'Unpaid' }) || 'Unpaid';
 }
 
 function durationLabel(i) {
   if (i.duration_months) return `${i.duration_months} month${Number(i.duration_months) === 1 ? '' : 's'}`;
-  return 'Duration not listed';
+  return '-';
 }
 
 function startLabel(i) {
@@ -111,13 +111,13 @@ export default function BrowseInternshipsPage() {
   const [minValidation, setMinValidation] = useState('');
   const [sort, setSort] = useState('best-match');
   const [tab, setTab] = useState('all');
-  const [chip, setChip] = useState('');
+  const [chip, setChip] = useState('unapplied');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [points, setPoints] = useState(null);
   const [viewMode, setViewMode] = useViewMode('ip_browse_view', 'cards');
   const reqRef = useRef(0);
-  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(items, PAGE_SIZE);
+  const { page, setPage, totalPages, total, pageItems, pageSize, serialOffset } = useClientPagination(items, PAGE_SIZE);
 
   const snapshot = useMemo(() => ({
     filters: {
@@ -231,7 +231,7 @@ export default function BrowseInternshipsPage() {
     setMinValidation('');
     setSort('best-match');
     setTab('all');
-    setChip('');
+    setChip('unapplied');
     setFiltersOpen(false);
   }
 
@@ -462,6 +462,7 @@ export default function BrowseInternshipsPage() {
             <table className="ip-ph-list">
               <thead>
                 <tr>
+                  <th>#</th>
                   <th>Role</th>
                   <th>Employer</th>
                   <th>Location</th>
@@ -472,21 +473,41 @@ export default function BrowseInternshipsPage() {
                 </tr>
               </thead>
               <tbody>
-                {pageItems.map((i) => (
+                {pageItems.map((i, idx) => {
+                  const confidential = i.company_name === 'Confidential employer';
+                  const canLinkEmployer = !confidential && i.employer_id;
+                  return (
                   <tr key={i.id}>
+                    <td className="ip-br-num">{serialOffset + idx + 1}</td>
                     <td>
-                      <button type="button" className="ip-ph-role" onClick={() => router.push(`/candidate/internships/${i.id}`)}>
-                        {i.title}
-                      </button>
+                      <div className="ip-br-cell-stack">
+                        <button type="button" className="ip-ph-role" onClick={() => router.push(`/candidate/internships/${i.id}`)}>
+                          {i.title}
+                        </button>
+                        {i.applied ? <span className="ip-br-applied">Applied</span> : null}
+                      </div>
                     </td>
-                    <td>{i.company_name}</td>
+                    <td>
+                      {canLinkEmployer ? (
+                        <button
+                          type="button"
+                          className="ip-ph-role"
+                          onClick={() => router.push(`/candidate/employers/${i.employer_id}`)}
+                        >
+                          {i.company_name}
+                        </button>
+                      ) : (
+                        i.company_name
+                      )}
+                    </td>
                     <td>{[i.work_mode, i.location].filter(Boolean).join(' • ') || '—'}</td>
                     <td>{startLabel(i)}</td>
                     <td>{durationLabel(i)}</td>
                     <td>{stipendLabel(i)}</td>
                     <td>{i.match_score != null ? `${Math.round(Number(i.match_score))}%` : '—'}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -506,7 +527,17 @@ export default function BrowseInternshipsPage() {
                       </button>
                     </h2>
                     <p>
-                      {i.company_name}
+                      {i.company_name !== 'Confidential employer' && i.employer_id ? (
+                        <button
+                          type="button"
+                          className="ip-br-emp-link"
+                          onClick={() => router.push(`/candidate/employers/${i.employer_id}`)}
+                        >
+                          {i.company_name}
+                        </button>
+                      ) : (
+                        i.company_name
+                      )}
                       {i.employer_verified ? <span className="ip-br-verified">Verified employer</span> : null}
                     </p>
                     {i.company_name !== 'Confidential employer' ? (

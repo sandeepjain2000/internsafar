@@ -23,8 +23,10 @@ import {
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import UrlClaimDialog from '@/components/ip/UrlClaimDialog';
 import { useClientPagination } from '@/hooks/useClientPagination';
+import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 import '@/components/ip/ip-employer-postings-gemini.css';
 import '@/components/ip/ip-table-filters.css';
+import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
 
 const PAGE_SIZE = 10;
 
@@ -38,9 +40,7 @@ const EMPTY_COLS = {
 };
 
 function stipendLabel(i) {
-  if (i.stipend_type === 'incentive') return 'Incentive-based';
-  if (i.stipend_inr) return `₹${i.stipend_inr}/mo`;
-  return 'Unpaid';
+  return formatInternshipStipend(i, { unpaidLabel: 'Unpaid' }) || 'Unpaid';
 }
 
 function postedLabel(i) {
@@ -120,6 +120,7 @@ function countActiveCols(cols) {
 export default function EmployerInternshipsPage() {
   const router = useRouter();
   const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [cols, setCols] = useState(EMPTY_COLS);
@@ -147,9 +148,14 @@ export default function EmployerInternshipsPage() {
   });
 
   async function load() {
-    const res = await fetch('/api/ip/employer/internships');
-    const data = await res.json();
-    setItems(data.items || []);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/ip/employer/internships');
+      const data = await res.json();
+      setItems(data.items || []);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -479,6 +485,19 @@ export default function EmployerInternshipsPage() {
           </IpTableFiltersShell>
         </div>
 
+        {loading ? (
+          <IpListLoading label="Loading Postings…" />
+        ) : !filtered.length ? (
+          <IpListEmpty
+            title={items.length ? 'No Matching Postings' : 'No Postings Yet'}
+            hint={
+              items.length
+                ? 'No Internship Postings Found Matching Your Search.'
+                : 'Create A Posting To See It Listed Here.'
+            }
+          />
+        ) : (
+          <>
         <div className="ip-epo-cards" aria-label="Postings cards">
           {pageItems.map((i) => {
             const bucket = statusBucket(i.status, i.lifecycle_label);
@@ -511,13 +530,6 @@ export default function EmployerInternshipsPage() {
               </article>
             );
           })}
-          {!filtered.length ? (
-            <p className="ip-epo-empty">
-              {items.length
-                ? 'No internship postings found matching your search.'
-                : 'No postings yet.'}
-            </p>
-          ) : null}
         </div>
 
         <div className="ip-ph-list-wrap ip-epo-table-wrap">
@@ -567,20 +579,13 @@ export default function EmployerInternshipsPage() {
                   </tr>
                 );
               })}
-              {!filtered.length ? (
-                <tr>
-                  <td colSpan={6} className="ip-epo-empty">
-                    {items.length
-                      ? 'No internship postings found matching your search.'
-                      : 'No postings yet.'}
-                  </td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
         </div>
+          </>
+        )}
 
-        {total > 0 ? (
+        {!loading && total > 0 ? (
           <div className="ip-epo-foot">
             <span>
               Showing {from}–{to} of {total}

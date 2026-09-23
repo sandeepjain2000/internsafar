@@ -14,7 +14,8 @@ export async function GET(request) {
   const params = status ? [status] : [];
 
   const result = await query(
-    `SELECT e.*, u.email as account_email, u.name as account_name
+    `SELECT e.*, u.email as account_email, u.name as account_name,
+            u.registration_source as registration_source
      FROM ip_employers e JOIN ip_users u ON u.id = e.user_id
      ${where} ORDER BY e.created_at DESC
      LIMIT 500`,
@@ -37,10 +38,24 @@ export async function GET(request) {
     }
   }
 
-  const items = result.rows.map((e) => ({
-    ...e,
-    documents: docsByEmployer[e.id] || [],
-  }));
+  const items = result.rows.map((e) => {
+    const documents = docsByEmployer[e.id] || [];
+    const pendingDocs = documents.filter(
+      (d) => String(d.review_status || 'pending').toLowerCase() === 'pending',
+    ).length;
+    const approvedDocs = documents.filter(
+      (d) => String(d.review_status || '').toLowerCase() === 'approved',
+    ).length;
+    const docsReadyForFinalApproval =
+      documents.length > 0 && pendingDocs === 0 && approvedDocs > 0;
+    return {
+      ...e,
+      documents,
+      docs_pending_count: pendingDocs,
+      docs_approved_count: approvedDocs,
+      docs_ready_for_final_approval: docsReadyForFinalApproval,
+    };
+  });
 
   if (!withMeta) return jsonOk({ items });
 

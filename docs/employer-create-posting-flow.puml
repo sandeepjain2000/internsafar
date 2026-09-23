@@ -1,0 +1,94 @@
+@startuml InternSafar_Employer_Create_Posting
+title InternSafar - Employer create internship posting\n(/employer/internships/new)
+
+skinparam shadowing false
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #334155
+skinparam ActivityDiamondBackgroundColor #F8FAFC
+skinparam ActivityDiamondBorderColor #64748B
+skinparam ArrowColor #475569
+skinparam activityFontSize 12
+skinparam titleFontSize 14
+
+start
+
+:Employer opens\n/employer/internships/new;
+
+note right
+  Posting gate (server-enforced):
+  1) profile_complete
+  2) approval_status = approved
+  3) email verified
+  Publish costs 50 points.
+  Draft costs 0 points.
+end note
+
+:UI loads degree catalog\nGET /api/ip/ref/degrees;
+:UI loads city catalog;
+
+:Fill posting form tabs:\ntitle, description, location/cities,\nwork mode, stipend, duration,\nstart/end dates, hours,\neligibility skills/degrees,\nscreening questions,\napply window, reminders,\nshow employer identity;
+
+:Optional candidate preview;
+:Quality checklist hints\n(title, description,\nlocation/remote, schedule);
+
+if (Duration vs start/end\ndates mismatch?) then (yes)
+  :UI blocks submit\nwith duration error;
+  stop
+else (ok)
+endif
+
+if (Action?) then (Save as draft)
+  :POST /api/ip/employer/internships\nstatus=draft;
+else (Publish now)
+  :POST /api/ip/employer/internships\nstatus=published;
+endif
+
+:API requireSession(employer);
+:getEmployerPostingGate(userId);
+
+if (Gate ok?) then (no)
+  :Return 403\ncomplete profile /\nawait approval /\nverify email;
+  stop
+else (yes)
+endif
+
+:Require title;
+:validateScreeningQuestions;
+
+if (Question errors?) then (yes)
+  :Return 400;
+  stop
+else (ok)
+endif
+
+:validateScheduleFields\n(startsAt / applyEndsAt);
+
+if (Schedule errors?) then (yes)
+  :Return 400;
+  stop
+else (ok)
+endif
+
+if (Publishing not draft?) then (yes)
+  :chargePublishPoints\n(debit 50 if points >= 50);
+  if (Not enough points?) then (yes)
+    :Return 403\nNeed 50 points... Or save as draft;
+    stop
+  else (charged)
+    :Insert points ledger\nreason=posting_spend;
+  endif
+else (draft - no charge)
+endif
+
+:Check similar open titles\n(duplicate warning only);
+:INSERT ip_internships\nstatus=draft or published;
+
+:Return 201\nid + pointsCharged\n+ optional duplicateWarning;
+
+:UI may show duplicate warning;
+:Redirect to\n/employer/internships;
+
+:Create posting stage complete;
+stop
+
+@enduml

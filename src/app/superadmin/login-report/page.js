@@ -12,8 +12,11 @@ import {
   X,
 } from 'lucide-react';
 import '@/components/ip/ip-superadmin-queue-gemini.css';
-
-const PAGE_SIZE = 10;
+import '@/components/ip/ip-list-pager.css';
+import IpListPager from '@/components/ip/IpListPager';
+import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import { useClientPagination } from '@/hooks/useClientPagination';
+import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
 
 function rolePill(role) {
   const r = String(role || '').toLowerCase();
@@ -24,7 +27,7 @@ function rolePill(role) {
 }
 
 export default function LoginReportPage() {
-  const [range, setRange] = useState('24h');
+  const [range, setRange] = useState('all');
   const [roleTab, setRoleTab] = useState('all');
   const [resultFilter, setResultFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -36,10 +39,26 @@ export default function LoginReportPage() {
     activeSessions: 0,
     successRate: '0%',
   });
-  const [page, setPage] = useState(1);
+  const [rangeTotals, setRangeTotals] = useState({ '24h': 0, '7d': 0, '30d': 0, all: 0 });
   const [error, setError] = useState('');
   const [inspect, setInspect] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  async function loadRangeTotals() {
+    try {
+      const ranges = ['24h', '7d', '30d', 'all'];
+      const entries = await Promise.all(
+        ranges.map(async (r) => {
+          const res = await fetch(`/api/ip/superadmin/login-report?range=${r}&meta=1`);
+          const data = await res.json();
+          return [r, Number(data?.meta?.total || 0)];
+        }),
+      );
+      setRangeTotals(Object.fromEntries(entries));
+    } catch {
+      /* ignore */
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -47,12 +66,16 @@ export default function LoginReportPage() {
     try {
       const res = await fetch(`/api/ip/superadmin/login-report?range=${range}&meta=1`);
       const data = await res.json();
-      if (!res.ok) setError(data.error || 'Failed to load');
-      else {
+      if (!res.ok) {
+        setError(data.error || 'Failed to load');
+        setItems([]);
+      } else {
         setItems(data.items || []);
         if (data.meta) setMeta(data.meta);
-        setPage(1);
       }
+    } catch (e) {
+      setError(e.message || 'Failed to load');
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -61,6 +84,10 @@ export default function LoginReportPage() {
   useEffect(() => {
     load();
   }, [range]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    loadRangeTotals();
+  }, []);
 
   const roleCounts = useMemo(() => {
     const employers = items.filter((e) => e.role === 'employer').length;
@@ -85,12 +112,14 @@ export default function LoginReportPage() {
     );
   }, [items, roleTab, resultFilter, search]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const { page, setPage, totalPages, total, pageItems, pageSize, serialOffset } = useClientPagination(
+    filtered,
+    SA_PAGE_SIZE,
+  );
 
   useEffect(() => {
-    if (page > totalPages) setPage(1);
-  }, [totalPages, page]);
+    setPage(1);
+  }, [range, roleTab, resultFilter, search, setPage]);
 
   return (
     <div className="ip-sa-q ip-mobile-bleed">
@@ -104,10 +133,10 @@ export default function LoginReportPage() {
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <select className="ip-saq-select" value={range} onChange={(e) => setRange(e.target.value)} aria-label="Time range">
-            <option value="24h">Last 24 Hours ({meta.total} events)</option>
-            <option value="7d">Last 7 Days</option>
-            <option value="30d">Last 30 Days</option>
-            <option value="all">All time</option>
+            <option value="24h">Last 24 Hours ({rangeTotals['24h']} Events)</option>
+            <option value="7d">Last 7 Days ({rangeTotals['7d']} Events)</option>
+            <option value="30d">Last 30 Days ({rangeTotals['30d']} Events)</option>
+            <option value="all">All Time ({rangeTotals.all} Events)</option>
           </select>
           <button type="button" className="ip-saq-btn ip-saq-btn--icon" aria-label="Refresh" disabled={loading} onClick={load}>
             <RefreshCw size={15} />
@@ -187,7 +216,6 @@ export default function LoginReportPage() {
                 className={`ip-saq-tab${roleTab === t.id ? ' ip-saq-tab--on' : ''}`}
                 onClick={() => {
                   setRoleTab(t.id);
-                  setPage(1);
                 }}
               >
                 {t.label}
@@ -200,7 +228,6 @@ export default function LoginReportPage() {
               value={resultFilter}
               onChange={(e) => {
                 setResultFilter(e.target.value);
-                setPage(1);
               }}
               aria-label="Result filter"
             >
@@ -216,19 +243,20 @@ export default function LoginReportPage() {
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
-                  setPage(1);
                 }}
               />
             </div>
           </div>
         </div>
 
-        {!filtered.length ? (
-          <div className="ip-saq-empty">
-            <Activity size={28} aria-hidden />
-            <h4>No auth events in this view</h4>
-            <p>Successful and failed sign-ins will appear here as users authenticate.</p>
-          </div>
+        {loading ? (
+          <IpListLoading label="Loading Login Report…" />
+        ) : !filtered.length ? (
+          <IpListEmpty
+            icon={Activity}
+            title="No Auth Events In This View"
+            hint="Successful And Failed Sign-Ins Will Appear Here As Users Authenticate."
+          />
         ) : (
           <>
             <div className="ip-saq-table-wrap">
@@ -248,7 +276,7 @@ export default function LoginReportPage() {
                 <tbody>
                   {pageItems.map((ev, idx) => (
                     <tr key={ev.id}>
-                      <td style={{ color: '#94a3b8' }}>{(page - 1) * PAGE_SIZE + idx + 1}</td>
+                      <td style={{ color: '#94a3b8' }}>{serialOffset + idx + 1}</td>
                       <td>{ev.created_at ? new Date(ev.created_at).toLocaleString() : '—'}</td>
                       <td>{ev.email || '—'}</td>
                       <td>
@@ -282,36 +310,15 @@ export default function LoginReportPage() {
                 </tbody>
               </table>
             </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginTop: '0.75rem',
-                fontSize: '0.75rem',
-                color: '#64748b',
-              }}
-            >
-              <span>
-                Showing {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}{' '}
-                auth events
-              </span>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button type="button" className="ip-saq-btn ip-saq-btn--sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                  Previous
-                </button>
-                <span>
-                  Page {page} / {totalPages}
-                </span>
-                <button
-                  type="button"
-                  className="ip-saq-btn ip-saq-btn--sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Next
-                </button>
-              </div>
+            <div className="ip-saq-pager">
+              <IpListPager
+                page={page}
+                totalPages={totalPages}
+                total={total}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                buttonClassName="ip-saq-btn ip-saq-btn--sm"
+              />
             </div>
           </>
         )}

@@ -1,0 +1,40 @@
+.ip-list-status {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: #64748b;
+}
+
+.ip-list-status h4 {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: #0f172a;
+  text-transform: capitalize;
+}
+
+.ip-list-status p {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.ip-list-status__spinner {
+  display: inline-block;
+  color: #4f46e5;
+  animation: ip-list-spin 0.85s linear infinite;
+}
+
+.ip-list-status__icon {
+  display: inline-block;
+  color: #94a3b8;
+}
+
+@keyframes ip-list-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* SuperAdmin queue panels reuse the same chrome */
+.ip-sa-q .ip-list-status {
+  padding: 2.5rem 1rem;
+}

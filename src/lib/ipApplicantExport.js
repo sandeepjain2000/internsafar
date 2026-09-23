@@ -4,6 +4,9 @@ import { newId } from '@/lib/ids';
 import { applicationsToCsv } from '@/lib/ipMcqAnalytics';
 import { getIpObject, isS3Configured } from '@/lib/s3';
 import { shouldUseBackgroundJob, SYNC_EXPORT_THRESHOLD } from '@/lib/ipApplicantExportPolicy';
+import { employerCanSeeCandidatePhone } from '@/lib/ipCandidatePhonePrivacy';
+import { experienceExportText } from '@/lib/ipCandidateExperience';
+import { workbookToBuffer } from '@/lib/ipXlsxWorkbook';
 
 export { shouldUseBackgroundJob, SYNC_EXPORT_THRESHOLD };
 
@@ -101,7 +104,12 @@ async function fetchResumeBuffer(resumeUrl) {
 export async function loadAppsForExport(employerId, internshipId, applicationIds) {
   const result = await query(
     `SELECT a.id, a.status, a.match_score, a.screening_disabled, a.created_at,
-            c.name, c.email, c.college, c.degree, c.city, c.skills, c.resume_url,
+            c.name, c.email, c.college, c.degree, c.specialization, c.study_status,
+            c.graduation_year, c.cgpa, c.city, c.state, c.country, c.skills, c.resume_url,
+            c.preferred_work_mode, c.preferred_hours_start, c.preferred_hours_end,
+            c.availability_date, c.prior_experience, c.immediate_start, c.willing_to_relocate,
+            c.ongoing_commitment, c.linkedin_url, c.github_url, c.portfolio_url,
+            c.has_wired_broadband, c.has_dedicated_laptop,
             c.hide_phone_until_shortlist, c.phone
      FROM ip_applications a
      JOIN ip_candidates c ON c.id = a.candidate_id
@@ -110,7 +118,14 @@ export async function loadAppsForExport(employerId, internshipId, applicationIds
      ORDER BY a.created_at ASC`,
     [employerId, internshipId, applicationIds],
   );
-  return result.rows;
+  return result.rows.map((row) => {
+    const hide = row.hide_phone_until_shortlist !== false;
+    const revealPhone = employerCanSeeCandidatePhone(row.status, hide);
+    return {
+      ...row,
+      phone: revealPhone ? row.phone : '',
+    };
+  });
 }
 
 /** Keep IDs that still exist on this internship; report the rest (deleted/stale). */
@@ -130,23 +145,72 @@ export async function partitionExportApplicationIds(employerId, internshipId, ap
   };
 }
 
+function applicantSheetRows(rows) {
+  const yn = (v) => (v == null || v === '' ? '' : v ? 'yes' : 'no');
+  return (rows || []).map((r) => ({
+    application_id: r.id || '',
+    candidate_name: r.name || '',
+    email: r.email || '',
+    phone: r.phone || '',
+    college: r.college || '',
+    degree: r.degree || '',
+    specialization: r.specialization || '',
+    study_status: r.study_status || '',
+    graduation_year: r.graduation_year ?? '',
+    cgpa: r.cgpa ?? '',
+    city: r.city || '',
+    state: r.state || '',
+    country: r.country || '',
+    skills: Array.isArray(r.skills) ? r.skills.join('; ') : r.skills || '',
+    preferred_work_mode: r.preferred_work_mode || '',
+    preferred_hours_start: r.preferred_hours_start || '',
+    preferred_hours_end: r.preferred_hours_end || '',
+    availability_date: r.availability_date || '',
+    prior_experience: experienceExportText(r.prior_experience) || r.prior_experience || '',
+    immediate_start: yn(r.immediate_start),
+    willing_to_relocate: yn(r.willing_to_relocate),
+    ongoing_commitment: r.ongoing_commitment || '',
+    linkedin_url: r.linkedin_url || '',
+    github_url: r.github_url || '',
+    portfolio_url: r.portfolio_url || '',
+    has_wired_broadband: yn(r.has_wired_broadband),
+    has_dedicated_laptop: yn(r.has_dedicated_laptop),
+    match_score: r.match_score ?? '',
+    status: r.status || '',
+    screening_disabled: r.screening_disabled ? 'yes' : 'no',
+    resume_included: r.resume_url ? 'yes' : 'no',
+    created_at: r.created_at || '',
+  }));
+}
+
 /**
- * Build CSV (+ optional ZIP of resumes the employer is allowed to see).
+ * Build XLSX (+ optional ZIP of resumes the employer is allowed to see).
  * Phone-hidden rules: still allow resume if URL present (resume is already on applicant row).
+ * `csv` kept for legacy job clients; prefer `xlsxBase64` / zip with applicants.xlsx.
  */
 export async function buildApplicantExportPackage(rows, { includeResumes = false, onProgress } = {}) {
   const csv = applicationsToCsv(rows);
+  const sheetRows = applicantSheetRows(rows);
+  const xlsxBuffer = await workbookToBuffer([
+    {
+      name: 'Applicants',
+      rows: sheetRows.length
+        ? sheetRows
+        : [{ application_id: '', candidate_name: '', email: '', phone: '', status: '' }],
+    },
+  ]);
+  const xlsxBase64 = xlsxBuffer.toString('base64');
   let zipBase64 = null;
   let resumeCount = 0;
   let skipped = 0;
-  let filename = 'applicants-export.csv';
+  let filename = 'applicants-export.xlsx';
 
   if (includeResumes) {
     const zip = new JSZip();
-    zip.file('applicants.csv', csv);
+    zip.file('applicants.xlsx', xlsxBuffer);
     zip.file(
       'README.txt',
-      'InternSafar applicant export.\nCSV contains authorized screening fields.\nresumes/ contains downloaded CVs when available.\nHidden phone numbers are not included.\n',
+      'InternSafar applicant export.\napplicants.xlsx = full profile fields the employer is allowed to see.\nresumes/ = CV files when available.\nPhone is included only when shortlist/privacy rules allow.\n',
     );
     let i = 0;
     for (const row of rows) {
@@ -162,14 +226,14 @@ export async function buildApplicantExportPackage(rows, { includeResumes = false
         continue;
       }
       resumeCount += 1;
-      zip.file(`resumes/${safeName(row.name)}_${row.id.slice(-6)}${file.ext}`, file.buffer);
+      zip.file(`resumes/${safeName(row.name)}_${String(row.id || '').slice(-6)}${file.ext}`, file.buffer);
     }
     const buf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
     zipBase64 = buf.toString('base64');
     filename = 'applicants-export.zip';
   }
 
-  return { csv, zipBase64, filename, resumeCount, skipped };
+  return { csv, xlsxBase64, zipBase64, filename, resumeCount, skipped };
 }
 
 export async function createExportJob({
@@ -240,7 +304,8 @@ export async function processExportJob(jobId) {
        WHERE id = $1`,
       [
         jobId,
-        pack.csv,
+        // When no zip: store xlsx as base64 in result_csv (UI checks .xlsx filename).
+        pack.zipBase64 ? pack.csv : (pack.xlsxBase64 || pack.csv),
         pack.zipBase64,
         pack.filename,
         pack.resumeCount,

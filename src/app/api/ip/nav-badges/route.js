@@ -40,8 +40,10 @@ export async function GET() {
 
   if (role === 'candidate') {
     if (notifN) badges['/candidate/notifications'] = String(notifN);
+    if (msgN) badges['/candidate/messages'] = String(msgN);
   } else if (role === 'employer') {
     if (notifN) badges['/employer/notifications'] = String(notifN);
+    if (msgN) badges['/employer/messages'] = String(msgN);
   }
 
   return jsonOk({ badges });

@@ -23,8 +23,10 @@ const reportPath = resolve(
 const TITLE_TO_TC = [
   [/IS-001/, ['TC-IS-01-001']],
   [/IS-002/, ['TC-IS-01-002']],
-  [/IS-004/, ['TC-IS-02-025']],
-  [/IS-005/, ['TC-IS-03-005']],
+  [/IS-003|no Google sign-in button/, ['TC-IS-18-030']],
+  [/IS-004b|GoogleLoginDisabled/, ['TC-IS-02-025']],
+  [/IS-004\b|GoogleAccountNotLinked/, ['TC-IS-02-025']],
+  [/IS-005|candidate register Google control/, ['TC-IS-03-005']],
   [/IS-006|IS-009/, ['TC-IS-02-001']],
   [/IS-007/, ['TC-IS-02-001']],
   [/IS-008/, ['TC-IS-02-015']],
@@ -46,10 +48,17 @@ const TITLE_TO_TC = [
   [/IS-039/, ['TC-IS-18-041']],
   [/IS-040/, ['TC-IS-18-044']],
   [/IS-041/, ['TC-IS-07-007']],
-  [/GoogleAccountNotLinked/, ['TC-IS-02-025']],
-  [/Google reaches Google OAuth|matching redirect_uri/, ['TC-IS-02-024', 'TC-IS-18-030']],
+  [/candidate register Google reaches Google OAuth|matching redirect_uri/, ['TC-IS-02-024', 'TC-IS-18-030']],
   [/candidate register Google/, ['TC-IS-03-005']],
 ];
+
+/** openpyxl rejects control chars / ANSI from Playwright failure dumps */
+function sanitizeExcelText(value) {
+  return String(value || '')
+    .replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ' ')
+    .slice(0, 500);
+}
 
 function statusFromPw(result) {
   if (result === 'passed' || result === 'expected') return 'Pass';
@@ -85,17 +94,19 @@ function main() {
     const title = spec.title || '';
     const last = (spec.tests || [])[0]?.results?.slice(-1)[0];
     const st = statusFromPw(last?.status || (spec.ok ? 'passed' : 'failed'));
-    const actual = last?.error?.message
-      ? String(last.error.message).slice(0, 500)
-      : st === 'Pass'
-        ? 'Playwright regression passed'
-        : `Playwright ${last?.status || 'failed'}`;
+    const actual = sanitizeExcelText(
+      last?.error?.message
+        ? last.error.message
+        : st === 'Pass'
+          ? 'Playwright regression passed'
+          : `Playwright ${last?.status || 'failed'}`,
+    );
     for (const [re, ids] of TITLE_TO_TC) {
       if (!re.test(title)) continue;
       for (const id of ids) {
         // Prefer Fail over prior Pass in same run
         if (byTcId[id]?.status === 'Fail') continue;
-        byTcId[id] = { status: st, actual: `${title}: ${actual}` };
+        byTcId[id] = { status: st, actual: sanitizeExcelText(`${title}: ${actual}`) };
       }
     }
   }

@@ -20,14 +20,28 @@ async function setOne(id, reviewStatus, notes, reviewerId) {
   const row = result.rows[0];
   if (!row) return { ok: false };
   try {
-    const emp = await query(`SELECT user_id, company_name FROM ip_employers WHERE id = $1`, [row.employer_id]);
+    const emp = await query(
+      `SELECT e.user_id, e.company_name, u.email, u.name
+       FROM ip_employers e
+       JOIN ip_users u ON u.id = e.user_id
+       WHERE e.id = $1`,
+      [row.employer_id],
+    );
     if (emp.rows[0]) {
+      const rejected = reviewStatus === 'flagged';
+      const title = rejected ? 'Document Rejected' : 'Document Approved';
+      const body = `${row.doc_type || 'Document'}${notes ? `: ${notes}` : ''}${
+        rejected
+          ? ''
+          : '. When All Required Documents Are Approved, SuperAdmin Can Complete Final Employer Approval.'
+      }`;
       await notifyUser({
         userId: emp.rows[0].user_id,
-        title: `Document ${reviewStatus === 'flagged' ? 'rejected' : reviewStatus}`,
-        body: `${row.doc_type || 'Document'}${notes ? `: ${notes}` : ''}`,
+        title,
+        body,
         link: '/employer/profile',
         category: 'system',
+        forceEmail: true,
       });
     }
   } catch (e) {

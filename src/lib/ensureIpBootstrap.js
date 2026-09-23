@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { query } from '@/lib/db';
 import { newId, referralCodeFrom } from '@/lib/ids';
 import { ensureIpFormRegistrationSchema } from '@/lib/ensureIpFormRegistrationSchema';
+import { ensureIpRetireDeadQueuesSchema } from '@/lib/ensureIpRetireDeadQueuesSchema';
 import { ensureIpMessageArchiveSchema } from '@/lib/ensureIpMessageArchiveSchema';
 import { ensureIpNotificationCategorySchema } from '@/lib/ensureIpNotificationCategorySchema';
 import { ensureIpFeatureIdeaCommentsSchema } from '@/lib/ensureIpFeatureIdeaCommentsSchema';
@@ -12,7 +13,9 @@ import { ensureIpCandidateProfileSchema } from '@/lib/ensureIpCandidateProfileSc
 import { ensureIpMessageAttachmentSchema } from '@/lib/ensureIpMessageAttachmentSchema';
 import { ensureIpOfferOnboardingSchema } from '@/lib/ensureIpOfferOnboardingSchema';
 import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
+import { ensureIpEmployerEmailVerifySchema } from '@/lib/ipEmployerEmailVerify';
 import { ensureIpIntegrityConstraints } from '@/lib/ensureIpIntegrityConstraints';
+import { ensureIpInternshipStipendRangeSchema } from '@/lib/ensureIpInternshipStipendRangeSchema';
 
 /**
  * Showcase / ops SuperAdmin login. Single account, so it holds the Zoho support
@@ -31,6 +34,7 @@ const LEGACY_SUPERADMIN_EMAIL = 'superadmin@internship.local';
  */
 export async function ensureIpBootstrap() {
   await ensureIpFormRegistrationSchema();
+  await ensureIpRetireDeadQueuesSchema();
   await ensureIpMessageArchiveSchema();
   await ensureIpNotificationCategorySchema();
   await ensureIpFeatureIdeaCommentsSchema();
@@ -41,6 +45,8 @@ export async function ensureIpBootstrap() {
   await ensureIpMessageAttachmentSchema();
   await ensureIpOfferOnboardingSchema();
   await ensureIpEmployerApprovalSchema();
+  await ensureIpEmployerEmailVerifySchema();
+  await ensureIpInternshipStipendRangeSchema();
   await ensureIpIntegrityConstraints();
   let initialized = false;
 

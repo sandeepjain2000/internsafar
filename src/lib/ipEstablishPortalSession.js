@@ -65,7 +65,7 @@ export async function attachPortalSessionCookie(
   }
 
   const result = await query(
-    `SELECT id, email, role, name, active, profile_complete, form_approval_status
+    `SELECT id, email, role, name, active, profile_complete
      FROM ip_users WHERE id = $1 LIMIT 1`,
     [userId],
   );

@@ -6,6 +6,25 @@ import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
 const MAX_PRESETS = 5;
 const PRESET_SELECT = `id, table_key, name, filters, sort, is_default, created_at, updated_at`;
 
+function normalizePresetRow(row) {
+  if (!row) return row;
+  let filters = row.filters;
+  if (typeof filters === 'string') {
+    try {
+      filters = JSON.parse(filters);
+    } catch {
+      filters = {};
+    }
+  }
+  if (!filters || typeof filters !== 'object' || Array.isArray(filters)) filters = {};
+  return {
+    ...row,
+    filters,
+    sort: row.sort != null ? String(row.sort) : '',
+    is_default: Boolean(row.is_default),
+  };
+}
+
 export async function GET(request) {
   const { session, error } = await requireSession(['employer', 'candidate']);
   if (error) return error;
@@ -19,7 +38,8 @@ export async function GET(request) {
      ORDER BY is_default DESC, name ASC`,
     [session.user.id, tableKey],
   );
-  return jsonOk({ items: result.rows });
+  const items = Array.isArray(result.rows) ? result.rows.map(normalizePresetRow) : [];
+  return jsonOk({ items });
 }
 
 export async function POST(request) {
@@ -50,6 +70,7 @@ export async function POST(request) {
   }
   const id = newId('ip_lpr');
   try {
+    // employer_id may be null for candidates (column is nullable after ensureIpWorkbenchSchema).
     await query(
       `INSERT INTO ip_saved_applicant_views (id, employer_id, name, filters, user_id, table_key, sort, is_default, updated_at)
        VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8, now())`,
@@ -76,7 +97,21 @@ export async function POST(request) {
       [session.user.id, tableKey, id],
     );
   }
-  return jsonOk({ ok: true, id }, 201);
+  const inserted = await query(
+    `SELECT ${PRESET_SELECT} FROM ip_saved_applicant_views WHERE id = $1 AND user_id = $2`,
+    [id, session.user.id],
+  );
+  const item = normalizePresetRow(inserted.rows[0] || {
+    id,
+    table_key: tableKey,
+    name,
+    filters: body.filters || {},
+    sort: body.sort != null ? String(body.sort) : '',
+    is_default: Boolean(body.isDefault),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  });
+  return jsonOk({ ok: true, id, item }, 201);
 }
 
 export async function PATCH(request) {

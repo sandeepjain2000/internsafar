@@ -385,7 +385,79 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.25rem;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.ip-apps .ip-ap-list--tworow {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.ip-apps .ip-ap-list--tworow th:nth-child(1),
+.ip-apps .ip-ap-list--tworow td:nth-child(1) {
+  width: 2.5rem;
+}
+
+.ip-apps .ip-ap-list--tworow th:nth-child(6),
+.ip-apps .ip-ap-list--tworow td:nth-child(6) {
+  width: 6.5rem;
+}
+
+.ip-apps .ip-ap-list--tworow td {
+  vertical-align: top;
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+}
+
+.ip-apps .ip-ap-cell-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.ip-apps .ip-ap-cell-stack .ip-ph-role,
+.ip-apps .ip-ap-cell-stack .ip-ap-company {
+  font-weight: 600;
+  color: #0f172a;
+  text-decoration: none;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.ip-apps .ip-ap-cell-stack .ip-ph-role:hover,
+.ip-apps .ip-ap-cell-stack .ip-ap-company:hover {
+  color: var(--ip-brand);
+  text-decoration: underline;
+}
+
+.ip-apps .ip-ap-cell-stack .ip-ap-badge {
+  font-size: 0.625rem;
+  padding: 0.1rem 0.4rem;
+}
+
+.ip-apps .ip-ap-next-cell {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.75rem;
+  color: #475569;
+  line-height: 1.35;
+}
+
+.ip-apps .ip-ap-card__company a {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.ip-apps .ip-ap-card__company a:hover {
+  color: var(--ip-brand);
+  text-decoration: underline;
 }
 
 .ip-apps .ip-ap-btn {

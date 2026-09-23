@@ -19,6 +19,7 @@ import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useIsMobile } from '@/hooks/useViewMode';
 import { StandardTableIconAction } from '@/components/ui/StandardTableIconAction';
+import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 
 const STATUS_OPTIONS = ['applied', 'shortlisted', 'interviewing', 'rejected', 'hired', 'completed'];
 const STATUS_VARIANT = {
@@ -51,6 +52,7 @@ export default function ApplicantsPipelinePage() {
   const searchParams = useSearchParams();
   const [internship, setInternship] = useState(null);
   const [applicants, setApplicants] = useState([]);
+  const [applicantsLoading, setApplicantsLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [capacity, setCapacity] = useState(null);
   const [questions, setQuestions] = useState([]);
@@ -112,6 +114,8 @@ export default function ApplicantsPipelinePage() {
   }, [id]);
 
   const load = useCallback(async () => {
+    setApplicantsLoading(true);
+    try {
     const params = new URLSearchParams();
     if (filters.q) params.set('q', filters.q);
     if (filters.status) params.set('status', filters.status);
@@ -138,6 +142,9 @@ export default function ApplicantsPipelinePage() {
     setCapacity(apps.capacity || null);
     setQuestions(apps.questions || []);
     setMcqSummary(apps.mcqSummary || []);
+    } finally {
+      setApplicantsLoading(false);
+    }
   }, [id, filters, page, sort]);
 
   useEffect(() => { loadMeta(); }, [loadMeta]);
@@ -517,6 +524,15 @@ export default function ApplicantsPipelinePage() {
           </div>
         </CardHeader>
         <CardContent>
+          {applicantsLoading ? (
+            <IpListLoading label="Loading Applicants…" />
+          ) : !applicants.length ? (
+            <IpListEmpty
+              title="No Applicants Match Filters"
+              hint="Try Clearing Filters Or Wait For New Applications."
+            />
+          ) : (
+            <>
           {/* Mobile applicant cards */}
           <div className="md:hidden space-y-3" aria-label="Applicants cards">
             <div className="flex items-center justify-between gap-2 text-sm">
@@ -599,9 +615,6 @@ export default function ApplicantsPipelinePage() {
                 </article>
               );
             })}
-            {!applicants.length ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">No applicants match filters.</p>
-            ) : null}
           </div>
 
           {/* Desktop table */}
@@ -676,9 +689,6 @@ export default function ApplicantsPipelinePage() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {!applicants.length ? (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">No applicants match filters.</TableCell></TableRow>
-                ) : null}
               </TableBody>
             </Table>
           </div>
@@ -687,6 +697,8 @@ export default function ApplicantsPipelinePage() {
             <span className="text-sm text-muted-foreground">Page {page} · {total} total</span>
             <Button size="sm" variant="outline" disabled={page * pageSize >= total} onClick={() => setPage((p) => p + 1)}>Next</Button>
           </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -727,9 +739,7 @@ export default function ApplicantsPipelinePage() {
               {lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
             <Button size="sm" variant="outline" onClick={async () => {
-              const includeResumes = window.confirm(
-                'Include resumes in a ZIP (CSV + resumes)?\n\nOK = ZIP with resumes (may run as background job)\nCancel = CSV only',
-              );
+              const includeResumes = true;
               const res = await fetch(`/api/ip/employer/internships/${id}/applicants/bulk`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -772,13 +782,27 @@ export default function ApplicantsPipelinePage() {
                       a.click();
                       URL.revokeObjectURL(url);
                     } else if (job.result_csv) {
-                      const blob = new Blob([job.result_csv], { type: 'text/csv;charset=utf-8' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = job.result_filename || 'applicants-export.csv';
-                      a.click();
-                      URL.revokeObjectURL(url);
+                      const fname = job.result_filename || 'applicants-export.xlsx';
+                      if (String(fname).toLowerCase().endsWith('.xlsx')) {
+                        const bin = Uint8Array.from(atob(job.result_csv), (c) => c.charCodeAt(0));
+                        const blob = new Blob([bin], {
+                          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = fname;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      } else {
+                        const blob = new Blob([job.result_csv], { type: 'text/csv;charset=utf-8' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = fname.endsWith('.csv') ? fname : 'applicants-export.csv';
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }
                     }
                     return;
                   }
@@ -805,6 +829,17 @@ export default function ApplicantsPipelinePage() {
                 a.download = res.filename || 'applicants-export.zip';
                 a.click();
                 URL.revokeObjectURL(url);
+              } else if (res.xlsxBase64) {
+                const bin = Uint8Array.from(atob(res.xlsxBase64), (c) => c.charCodeAt(0));
+                const blob = new Blob([bin], {
+                  type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = res.filename || 'applicants-export.xlsx';
+                a.click();
+                URL.revokeObjectURL(url);
               } else {
                 const blob = new Blob([res.csv || ''], { type: 'text/csv;charset=utf-8' });
                 const url = URL.createObjectURL(blob);
@@ -814,7 +849,7 @@ export default function ApplicantsPipelinePage() {
                 a.click();
                 URL.revokeObjectURL(url);
               }
-            }}>Export CSV/ZIP</Button>
+            }}>Download Excel + CV (ZIP)</Button>
             </div>
           </div>
         </div>

@@ -8,6 +8,7 @@ export const MESSAGING_KNOWLEDGE = [
     facts: [
       'Messaging uses an email-style inbox (subject = last message), not chat-bubble threads.',
       'Candidates: /candidate/messages. Employers: /employer/messages.',
+      'From My Applications, Message opens an existing thread or creates one for that applied internship.',
     ],
   },
 ];

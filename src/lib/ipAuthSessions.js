@@ -19,21 +19,28 @@ export async function createAuthSession({ userId, userAgent, ip }) {
   return id;
 }
 
-/** Returns false if missing/revoked. Touches last_seen at most once per ~2 minutes. */
+/**
+ * Touch a tracked session.
+ * @returns {'ok'|'missing'|'revoked'}
+ *  - ok: row exists and is active (last_seen maybe updated)
+ *  - missing: row gone (e.g. DB reset wiped ip_auth_sessions) — caller should mint a new sid
+ *  - revoked: row explicitly revoked — caller must end the JWT
+ */
 export async function touchAuthSession(sessionId, userId) {
-  if (!sessionId || !userId) return false;
+  if (!sessionId || !userId) return 'missing';
   await ensureIpAuthSessionsSchema();
   const row = await query(
     `SELECT id, revoked_at, last_seen_at FROM ip_auth_sessions WHERE id = $1 AND user_id = $2`,
     [sessionId, userId],
   );
   const sess = row.rows[0];
-  if (!sess || sess.revoked_at) return false;
+  if (!sess) return 'missing';
+  if (sess.revoked_at) return 'revoked';
   const last = sess.last_seen_at ? new Date(sess.last_seen_at).getTime() : 0;
   if (Date.now() - last > 120_000) {
     await query(`UPDATE ip_auth_sessions SET last_seen_at = now() WHERE id = $1`, [sessionId]);
   }
-  return true;
+  return 'ok';
 }
 
 export async function revokeAuthSession({ sessionId, userId }) {

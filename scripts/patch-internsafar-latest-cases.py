@@ -112,13 +112,13 @@ NEW_CASES = [
     case(
         "TC-IS-02-024",
         "02 Auth & Access",
-        "Google OAuth login",
-        "Home Sign in with Google reaches accounts.google.com with matching redirect_uri",
+        "Google OAuth register verify",
+        "Candidate register Sign up with Google reaches accounts.google.com with matching redirect_uri",
         "Regression",
         "Guest",
         "GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET configured for this host",
-        "1. Open `/` signed out.\n2. Click Sign in with Google (button.ip-gemini-google-btn).\n3. Stop on Google accounts URL; inspect client_id and redirect_uri.",
-        "Browser reaches accounts.google.com. redirect_uri is `{origin}/api/auth/callback/google` matching the app origin.",
+        "1. Open `/register/candidate` signed out.\n2. Click Sign up with Google (button.ip-crg-google-btn).\n3. Stop on Google accounts URL; inspect client_id and redirect_uri.",
+        "Browser reaches accounts.google.com. redirect_uri is `{origin}/api/auth/callback/google` matching the app origin. Home `/` has no Google login button.",
         "Completing Google consent is optional. Playwright: qa/tests/google-auth.spec.js",
         "Automated (google-auth + QA remaining suite)",
         "AUTH-GOOGLE-1",
@@ -127,12 +127,12 @@ NEW_CASES = [
         "TC-IS-02-025",
         "02 Auth & Access",
         "Google OAuth errors",
-        "GoogleAccountNotLinked shows friendly message",
+        "GoogleLoginDisabled / GoogleAccountNotLinked show friendly message",
         "Negative",
         "Guest",
         "None",
-        "1. Open `/?error=GoogleAccountNotLinked`.\n2. Read the banner/message.",
-        "Friendly copy about no linked account / sign up with Google — not a raw NextAuth dump.",
+        "1. Open `/?error=GoogleLoginDisabled` and `/?error=GoogleAccountNotLinked`.\n2. Read the banner/message.",
+        "Friendly copy that Google sign-in is not available — use email/password (or Forgot password). Not a raw NextAuth dump.",
         "Playwright google-auth.spec.js / regression.spec.js",
         "Automated",
         "AUTH-GOOGLE-2",
@@ -295,21 +295,21 @@ def patch_regx1(ws, cols: dict):
         if ws.cell(r, id_col).value != "TC-IS-18-030":
             continue
         mapping = {
-            "Issue Summary": "Home and register expose real Google OAuth; password login still works",
+            "Issue Summary": "Register exposes Google verify; home login is email/password only",
             "Description": (
-                "1. Open `/` — confirm Sign in with Google is present when GOOGLE_* is configured.\n"
-                "2. Click it and confirm redirect to accounts.google.com with matching redirect_uri.\n"
-                "3. Return; sign in with email/password + captcha — lands on role home.\n"
-                "4. Open /register/candidate — Google control still present."
+                "1. Open `/` — confirm email/password fields and that Sign in with Google is absent.\n"
+                "2. Open /register/candidate — click Sign up with Google; confirm accounts.google.com "
+                "with matching redirect_uri.\n"
+                "3. Return; sign in with email/password + captcha — lands on role home."
             ),
             "Suggestion / Expected Behaviour": (
-                "GoogleProvider is enabled when secrets exist. Credentials login remains independent. "
-                "Linked Google login may open a portal session; unlinked → GoogleAccountNotLinked "
-                "(see TC-IS-02-027 / TC-IS-03-021)."
+                "GoogleProvider is enabled when secrets exist. Home login never uses Google. "
+                "Register uses google-intent → verify token. Credentials login remains independent. "
+                "Bare Google callback without intent → GoogleLoginDisabled."
             ),
             "Comments / Notes": (
-                "Correction vs older checklist: home Google login is in product. "
-                "See TC-IS-02-024..027. Automation: google-auth.spec.js + QA."
+                "Aligned 2026-09-23: home Google login removed. "
+                "See TC-IS-02-024..026. Automation: google-auth.spec.js + QA."
             ),
             "Automation": "Automated (partial) + Manual consent",
             "Reference": "Automated (partial) + Manual consent",

@@ -5,11 +5,11 @@ import { ensureIpAccountSettingsSchema } from '@/lib/ensureIpAccountSettingsSche
 import { ensureIpStudentDiscoveryFeatures } from '@/lib/ensureIpStudentDiscoveryFeatures';
 import { maybeAwardProfileCompleteBonus } from '@/lib/ipReferralCredit';
 import { PROFILE_COMPLETE_POINTS } from '@/lib/pointsEconomy';
-import { validateOptionalPhone } from '@/lib/ipPhoneValidation';
+import { validateRequiredPhone } from '@/lib/ipPhoneValidation';
 import { buildCandidateProfileUpdate } from '@/lib/ipCandidateProfileUpdate';
 
-/** Phone is optional for save / completeness; blank is allowed. */
-const REQUIRED_FOR_COMPLETE = ['name', 'college', 'degree', 'city', 'country', 'resume_url'];
+/** Phone is required for account Save / apply unlock; local draft may still omit it. */
+const REQUIRED_FOR_COMPLETE = ['name', 'phone', 'college', 'degree', 'city', 'country', 'resume_url'];
 
 /** Field labels as the candidate sees them on the profile form. */
 const FIELD_LABELS = {
@@ -135,24 +135,26 @@ async function putProfile(request) {
   let phonePrev = null;
   let nextPhone = null;
   let nextCode = null;
-  if (body.phone !== undefined || body.phone_country_code !== undefined) {
+  {
     const currentPhone = await query(
       `SELECT phone, phone_country_code FROM ip_candidates WHERE user_id = $1`,
       [session.user.id],
     );
     phonePrev = currentPhone.rows[0] || {};
-    nextPhone = body.phone !== undefined ? String(body.phone || '').trim() : String(phonePrev.phone || '').trim();
+    nextPhone =
+      body.phone !== undefined ? String(body.phone || '').trim() : String(phonePrev.phone || '').trim();
     nextCode =
       body.phone_country_code !== undefined
         ? String(body.phone_country_code || '').trim()
-        : String(phonePrev.phone_country_code || '').trim();
-    const phoneCheck = validateOptionalPhone(nextPhone, nextCode || '+91');
-    if (!phoneCheck.ok) return jsonError(phoneCheck.error, 400);
+        : String(phonePrev.phone_country_code || '').trim() || '+91';
+    const phoneCheck = validateRequiredPhone(nextPhone, nextCode);
+    if (!phoneCheck.ok) return jsonError(phoneCheck.error || 'Mobile phone is required', 400);
+    if (body.phone === undefined) body.phone = nextPhone;
+    if (body.phone_country_code === undefined) body.phone_country_code = nextCode;
   }
 
   const phoneChanged = Boolean(
     phonePrev
-      && nextPhone !== null
       && (nextPhone !== String(phonePrev.phone || '').trim()
         || nextCode !== String(phonePrev.phone_country_code || '').trim()),
   );

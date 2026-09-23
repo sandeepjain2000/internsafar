@@ -66,6 +66,18 @@ STYLE = {
     "Not Run": (NOTRUN_FILL, Font(name="Calibri")),
 }
 
+# openpyxl / OOXML reject control chars and ANSI escapes from Playwright dumps
+_ANSI_RE = __import__("re").compile(r"\x1B\[[0-9;?]*[ -/]*[@-~]")
+_ILLEGAL_XML_RE = __import__("re").compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F]")
+
+
+def sanitize_excel_text(value):
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        value = json.dumps(value)
+    return _ILLEGAL_XML_RE.sub(" ", _ANSI_RE.sub("", value))[:2000]
+
 
 def find_header(ws):
     for r in range(1, 12):
@@ -140,9 +152,7 @@ def main():
             if not rec:
                 continue
             status = rec.get("status") or "Not Run"
-            actual = rec.get("actual")
-            if actual is not None and not isinstance(actual, str):
-                actual = json.dumps(actual)
+            actual = sanitize_excel_text(rec.get("actual"))
             style_status(ws.cell(r, sc), status)
             if ac:
                 ws.cell(r, ac).value = actual

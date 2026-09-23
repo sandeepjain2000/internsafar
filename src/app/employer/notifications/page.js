@@ -9,6 +9,7 @@ import {
   Check,
   CheckCheck,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Coins,
   FileText,
@@ -26,22 +27,29 @@ import { useClientPagination } from '@/hooks/useClientPagination';
 import IpListPager from '@/components/ip/IpListPager';
 import '@/components/ip/ip-employer-notifications-gemini.css';
 import '@/components/ip/ip-list-pager.css';
-import ViewModeToggle from '@/components/ip/ViewModeToggle';
-import { useViewMode } from '@/hooks/useViewMode';
 
 const PAGE_SIZE = 10;
 const TABS = ['All', 'Unread', 'Applications', 'Offers', 'Rewards', 'Time-limited', 'Last 24h', 'Last 7 days'];
 
-function formatWhen(value) {
+function relativeTime(value) {
   if (!value) return '—';
   const d = new Date(value);
-  return d.toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  if (Number.isNaN(d.getTime())) return '—';
+  const sec = Math.round((Date.now() - d.getTime()) / 1000);
+  if (sec < 45) return 'Just now';
+  if (sec < 3600) {
+    const m = Math.max(1, Math.floor(sec / 60));
+    return `${m} minute${m === 1 ? '' : 's'} ago`;
+  }
+  if (sec < 86400) {
+    const h = Math.floor(sec / 3600);
+    return `${h} hour${h === 1 ? '' : 's'} ago`;
+  }
+  if (sec < 86400 * 7) {
+    const days = Math.floor(sec / 86400);
+    return `${days} day${days === 1 ? '' : 's'} ago`;
+  }
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 /** Employer-facing bucket for filters / icons (from live category + link + copy). */
@@ -113,7 +121,7 @@ export default function EmployerNotificationsPage() {
   const [toastMsg, setToastMsg] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [viewMode, setViewMode, { isMobile }] = useViewMode('ip_emp_notif_view', 'cards');
+  const [expandedId, setExpandedId] = useState(null);
 
   const snapshot = useMemo(() => ({ filters: { tab, search }, sort: '' }), [tab, search]);
   const prefs = useListPrefsSync({
@@ -143,10 +151,6 @@ export default function EmployerNotificationsPage() {
   useEffect(() => {
     load();
   }, []);
-
-  useEffect(() => {
-    if (!isMobile) setFiltersOpen(false);
-  }, [isMobile]);
 
   useEffect(() => {
     if (!filtersOpen) return undefined;
@@ -189,6 +193,7 @@ export default function EmployerNotificationsPage() {
       if (tab === 'Unread' && n.read_at) return false;
       if (tab === 'Applications' && bucket !== 'applications') return false;
       if (tab === 'Offers' && bucket !== 'offers') return false;
+      if (tab === 'Rewards' && bucket !== 'rewards') return false;
       if (tab === 'Time-limited') {
         const timed = bucket === 'offers' || /expir|deadline|accept/i.test(`${n.title} ${n.body}`);
         if (!timed) return false;
@@ -211,6 +216,14 @@ export default function EmployerNotificationsPage() {
   function resetFilters() {
     setTab('All');
     setSearch('');
+  }
+
+  function toggleExpand(n) {
+    const next = expandedId === n.id ? null : n.id;
+    setExpandedId(next);
+    if (next && !n.read_at) {
+      markRead(n.id);
+    }
   }
 
   return (
@@ -249,9 +262,6 @@ export default function EmployerNotificationsPage() {
             {unreadCount > 0 ? <span className="ip-en-unread-badge">{unreadCount} Unread</span> : null}
           </div>
           <p>Stay updated on candidate applications, offer sign-offs, and platform reward milestones.</p>
-        </div>
-        <div className="ip-en-view-toggle">
-          <ViewModeToggle value={viewMode} onChange={setViewMode} />
         </div>
       </div>
 
@@ -386,30 +396,8 @@ export default function EmployerNotificationsPage() {
           <p>New applications, offer responses, and reward updates will show up here.</p>
         </div>
       ) : filtered.length ? (
-        viewMode === 'list' ? (
-          <div className="ip-ph-list-wrap">
-            <table className="ip-ph-list">
-              <thead>
-                <tr className="border-b text-left text-slate-500">
-                  <th className="p-3">Title</th>
-                  <th className="p-3">When</th>
-                  <th className="p-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageItems.map((n) => (
-                  <tr key={n.id} className="border-b">
-                    <td className="p-3">{n.title}</td>
-                    <td className="p-3">{formatWhen(n.created_at)}</td>
-                    <td className="p-3">{n.read_at ? 'Read' : 'Unread'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
         <>
-          <ul className="ip-en-list">
+          <ul className="ip-en-list ip-en-list--compact">
             {pageItems.map((n) => {
               const unread = !n.read_at;
               const bucket = resolveBucket(n);
@@ -417,60 +405,70 @@ export default function EmployerNotificationsPage() {
               const action = actionFor(n, bucket);
               const href = n.resourceUnavailable ? null : n.link && n.link !== '#' ? n.link : null;
               const ActionIcon = action.Icon;
+              const open = expandedId === n.id;
               return (
-                <li key={n.id} className={`ip-en-card${unread ? ' ip-en-card--unread' : ''}`}>
-                  <div className="ip-en-card-main">
+                <li key={n.id} className={`ip-en-row${unread ? ' is-unread' : ''}${open ? ' is-open' : ''}`}>
+                  <button
+                    type="button"
+                    className="ip-en-row__main"
+                    onClick={() => toggleExpand(n)}
+                    aria-expanded={open}
+                  >
                     <div className={`ip-en-icon ip-en-icon--${tone}`}>
-                      <Icon size={20} aria-hidden />
+                      <Icon size={18} aria-hidden />
                     </div>
-                    <div className="ip-en-body">
-                      <h3 className="ip-en-card-title">
-                        <span>{n.title}</span>
-                        {unread ? <span className="ip-en-dot" title="Unread" /> : null}
-                      </h3>
+                    <div className="ip-en-row__text">
+                      <div className="ip-en-row__title">
+                        <h3>{n.title}</h3>
+                      </div>
+                      <div className="ip-en-row__meta">
+                        <span className="ip-en-time">{relativeTime(n.created_at)}</span>
+                        {unread ? (
+                          <span className="ip-en-dot" title="Unread" />
+                        ) : (
+                          <span className="ip-en-read">Read</span>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronDown className="ip-en-row__chev" aria-hidden />
+                  </button>
+                  {open ? (
+                    <div className="ip-en-row__detail">
                       {n.body ? <p className="ip-en-desc">{n.body}</p> : null}
                       {n.resourceUnavailable ? (
                         <p className="ip-en-desc">{n.resourceUnavailableMessage}</p>
                       ) : null}
-                      <span className="ip-en-time">{formatWhen(n.created_at)}</span>
+                      <div className="ip-en-row__actions">
+                        {href ? (
+                          <Link
+                            href={href}
+                            className="ip-en-cta"
+                            onClick={() => {
+                              if (unread) markRead(n.id);
+                            }}
+                          >
+                            <ActionIcon size={14} aria-hidden />
+                            <span>{action.label}</span>
+                          </Link>
+                        ) : (
+                          <span />
+                        )}
+                        {unread ? (
+                          <button type="button" className="ip-en-icon-btn" title="Mark as read" onClick={() => markRead(n.id)}>
+                            <Check size={16} aria-hidden />
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                  <div className="ip-en-card-actions">
-                    {href ? (
-                      <Link
-                        href={href}
-                        className="ip-en-cta"
-                        onClick={() => {
-                          if (unread) markRead(n.id);
-                        }}
-                      >
-                        <ActionIcon size={14} aria-hidden />
-                        <span>{action.label}</span>
-                      </Link>
-                    ) : (
-                      <span className="ip-en-cta" style={{ opacity: 0.55, pointerEvents: 'none' }}>
-                        <ActionIcon size={14} aria-hidden />
-                        <span>{action.label}</span>
-                      </span>
-                    )}
-                    {unread ? (
-                      <button
-                        type="button"
-                        className="ip-en-icon-btn"
-                        title="Mark as read"
-                        onClick={() => markRead(n.id)}
-                      >
-                        <Check size={16} aria-hidden />
-                      </button>
-                    ) : null}
-                  </div>
+                  ) : null}
                 </li>
               );
             })}
           </ul>
           <div className="ip-en-footer">
             <span>
-              Showing {total ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)}` : 0} of {items.length} notifications
+              Showing {total ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)}` : 0} of {items.length}{' '}
+              notifications
             </span>
             <span>Updated when you open this page</span>
           </div>
@@ -484,7 +482,6 @@ export default function EmployerNotificationsPage() {
             />
           ) : null}
         </>
-        )
       ) : (
         <div className="ip-en-empty">
           <div className="ip-en-empty__icon ip-en-empty__icon--muted">

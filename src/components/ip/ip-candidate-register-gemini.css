@@ -370,6 +370,11 @@
   line-height: 1.45;
 }
 
+.ip-cand-reg .ip-crg-legal--emph {
+  font-weight: 650;
+  color: #334155;
+}
+
 /* ---------------------------------------------------------------------------
    Google-only entry point. Before Google confirms an account there is no email
    field on this page at all, so a visitor cannot register an address they do

@@ -167,7 +167,12 @@ async function deleteExceptCores(client, { confirm }) {
 
   const before = await snapshotProtected(client);
   const deleted = [];
-  for (const u of victims) {
+  console.log(`Deleting ${victims.length} non-core users (keeping ${cores.length} cores)...`);
+  for (let i = 0; i < victims.length; i += 1) {
+    const u = victims[i];
+    if (i === 0 || (i + 1) % 25 === 0 || i + 1 === victims.length) {
+      console.log(`  progress ${i + 1}/${victims.length}: ${u.email}`);
+    }
     const res = await hardDeleteIpUser(client, { userId: u.id, allowSuperadmin: false });
     if (!res.ok) {
       console.warn(`Skip/fail ${u.email}: ${res.error}`);
@@ -218,9 +223,12 @@ See scripts/IP_TEST_DATA_GUIDE.md`);
   }
 
   const pool = new pg.Pool(parseUrl(dbUrl));
+  console.log('Connecting to database...');
   const client = await pool.connect();
+  console.log('Connected. Ensuring pipeline schema...');
   try {
     await ensureIpPipelineSchema(client);
+    console.log('Schema ready.');
     if (mode === 'except-cores') {
       const token = argFlag('confirm-except-cores') || arg('confirm-except-cores', null);
       const confirm = String(token || '').toUpperCase() === 'YES';

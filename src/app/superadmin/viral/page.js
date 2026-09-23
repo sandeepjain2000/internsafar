@@ -15,7 +15,12 @@ import {
   X,
 } from 'lucide-react';
 import '@/components/ip/ip-superadmin-queue-gemini.css';
+import '@/components/ip/ip-list-pager.css';
+import IpListPager from '@/components/ip/IpListPager';
+import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import { useClientPagination } from '@/hooks/useClientPagination';
 import { LINKEDIN_PROMO_POINTS } from '@/lib/pointsEconomy';
+import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
 
 function initial(name) {
   return String(name || '?').trim().charAt(0).toUpperCase() || '?';
@@ -59,20 +64,31 @@ export default function SuperAdminViralPage() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [audit, setAudit] = useState(null);
 
   async function load() {
-    const res = await fetch('/api/ip/viral');
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error || 'Failed to load');
-      return;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/ip/viral');
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to load');
+        setItems([]);
+        return;
+      }
+      setItems(data.items || []);
+      if (data.rewardPreview?.points) setPts(data.rewardPreview.points);
+      setSelected([]);
+    } catch (e) {
+      setError(e.message || 'Failed to load');
+      setItems([]);
+    } finally {
+      setLoading(false);
     }
-    setItems(data.items || []);
-    if (data.rewardPreview?.points) setPts(data.rewardPreview.points);
-    setSelected([]);
   }
 
   useEffect(() => {
@@ -109,6 +125,15 @@ export default function SuperAdminViralPage() {
         .some((v) => String(v).toLowerCase().includes(q)),
     );
   }, [items, tab, channel, search]);
+
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(
+    filtered,
+    SA_PAGE_SIZE,
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [tab, channel, search, setPage]);
 
   const pendingSelectable = filtered.filter((s) => isPending(s.status));
 
@@ -289,13 +314,16 @@ export default function SuperAdminViralPage() {
           </div>
         </div>
 
-        {!filtered.length ? (
-          <div className="ip-saq-empty">
-            <Zap size={28} aria-hidden />
-            <h4>No viral shares in this view</h4>
-            <p>Scheduled and fast-track share claims will appear here.</p>
-          </div>
+        {loading ? (
+          <IpListLoading label="Loading Viral Shares…" />
+        ) : !filtered.length ? (
+          <IpListEmpty
+            icon={Zap}
+            title="No Viral Shares In This View"
+            hint="Scheduled And Fast-Track Share Claims Will Appear Here."
+          />
         ) : (
+          <>
           <div className="ip-saq-table-wrap">
             <table className="ip-ph-list ip-saq-table">
               <thead>
@@ -320,7 +348,7 @@ export default function SuperAdminViralPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((s) => (
+                {pageItems.map((s) => (
                   <tr key={s.id}>
                     <td>
                       {isPending(s.status) ? (
@@ -387,6 +415,17 @@ export default function SuperAdminViralPage() {
               </tbody>
             </table>
           </div>
+          <div className="ip-saq-pager">
+            <IpListPager
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              buttonClassName="ip-saq-btn ip-saq-btn--sm"
+            />
+          </div>
+          </>
         )}
       </div>
 

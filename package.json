@@ -50,6 +50,8 @@
         "qa:patch-latest-cases": "python scripts/patch-internsafar-latest-cases.py",
         "qa:migrate-xlsx-cols": "python scripts/migrate-internsafar-xlsx-boarders-cols.py",
         "qa:manual:email-change": "node scripts/manual/run-tc-is-06-007-email-change.mjs",
+        "qa:employer-reg-e2e": "node scripts/qa-employer-reg-verify-approve-login.mjs",
+        "qa:register-approve-post-apply": "node scripts/qa-register-approve-post-apply-smoke.mjs",
         "qa:audit-xlsx": "python scripts/audit-internsafar-test-cases-xlsx.py"
     },
     "dependencies": {
@@ -59,9 +61,11 @@
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "dotenv": "^17.4.2",
+        "exceljs": "^4.4.0",
         "jszip": "^3.10.1",
         "libphonenumber-js": "^1.13.11",
         "lucide-react": "^1.8.0",
+        "mr-email-checker": "^0.1.1",
         "next": "^16.3.0",
         "next-auth": "^4.24.15",
         "nodemailer": "^9.0.5",

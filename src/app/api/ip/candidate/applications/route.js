@@ -17,6 +17,7 @@ import {
 } from '@/lib/ipScreeningQuestions';
 import { withApplicationCapacityLock } from '@/lib/ipApplicationCapacity';
 import { maskEmployerName } from '@/lib/ipEmployerIdentity';
+import { ensureIpInternshipStipendRangeSchema } from '@/lib/ensureIpInternshipStipendRangeSchema';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +43,7 @@ export async function GET(request) {
   const { session, error } = await requireSession(['candidate']);
   if (error) return error;
   try {
+    await ensureIpInternshipStipendRangeSchema();
     const candidateId = await resolveCandidateId(session);
     if (!candidateId) return jsonOk({ items: [], total: 0, page: 1, pageSize: 20 });
 
@@ -77,8 +79,8 @@ export async function GET(request) {
 
     const result = await query(
       `SELECT a.id, a.internship_id, a.candidate_id, a.status, a.match_score, a.created_at, a.updated_at,
-              i.title, i.stipend_inr, i.work_mode, i.location, i.show_employer_identity,
-              e.company_name, e.approval_status
+              i.title, i.stipend_inr, i.stipend_inr_max, i.stipend_type, i.work_mode, i.location, i.show_employer_identity,
+              e.id AS employer_id, e.company_name, e.approval_status, e.user_id AS employer_user_id
        FROM ip_applications a
        LEFT JOIN ip_internships i ON i.id = a.internship_id
        LEFT JOIN ip_employers e ON e.id = i.employer_id
@@ -91,6 +93,8 @@ export async function GET(request) {
     const items = result.rows.map((row) =>
       decorateCandidateApplication({
         ...row,
+        employer_id: row.employer_id || null,
+        employer_user_id: row.employer_user_id || null,
         company_name: maskEmployerName(row.company_name, row.show_employer_identity !== false),
       }),
     );
@@ -243,17 +247,19 @@ export async function POST(request) {
   if (employer.rows[0]) {
     await notifyUser({
       userId: employer.rows[0].user_id,
-      title: 'New applicant',
-      body: `New application for ${internship.rows[0].title}`,
+      title: 'New Applicant',
+      body: `New Application For ${internship.rows[0].title}`,
       link: `/employer/internships/${internshipId}`,
       category: 'application',
+      forceEmail: true,
+      skipEmail: true,
     });
     try {
       await sendMail({
         to: employer.rows[0].email,
-        subject: `New applicant — ${internship.rows[0].title}`,
-        html: `<p>You received a new application for <strong>${internship.rows[0].title}</strong>.</p><p>Sign in to review applicants.</p>`,
-        text: `New application for ${internship.rows[0].title}.`,
+        subject: `New Applicant — ${internship.rows[0].title}`,
+        html: `<p>You Received A New Application For <strong>${internship.rows[0].title}</strong>.</p><p>Sign In To Review Applicants.</p>`,
+        text: `New Application For ${internship.rows[0].title}.`,
       });
     } catch (e) {
       console.warn('[applications] employer email', e.message);
@@ -264,8 +270,9 @@ export async function POST(request) {
     userId: session.user.id,
     title: 'Application submitted',
     body: `You applied to ${internship.rows[0].title}`,
-    link: '/candidate/applications',
+    link: `/candidate/applications?id=${encodeURIComponent(id)}`,
     category: 'application',
+    meta: { applicationId: id },
   });
 
   const bal = await query(`SELECT points FROM ip_users WHERE id = $1`, [session.user.id]);

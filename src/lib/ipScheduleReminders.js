@@ -37,13 +37,15 @@ export async function processScheduleReminders({ now = new Date() } = {}) {
         body,
         link: `/employer/internships/${row.id}/edit`,
         category: 'system',
+        forceEmail: true,
+        skipEmail: true,
       });
       try {
         await sendMail({
           to: row.email,
           subject: title,
           text: body,
-          html: `<p>${body}</p><p><a href="/employer/internships/${row.id}">Open posting</a></p>`,
+          html: `<p>${body}</p><p><a href="/employer/internships/${row.id}">Open Posting</a></p>`,
         });
       } catch (e) {
         console.warn('[scheduleReminders] mail start', e.message);
@@ -85,6 +87,8 @@ export async function processScheduleReminders({ now = new Date() } = {}) {
         body,
         link: `/employer/internships/${row.id}`,
         category: 'system',
+        forceEmail: true,
+        skipEmail: true,
       });
       try {
         await sendMail({

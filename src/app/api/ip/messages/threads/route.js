@@ -77,6 +77,29 @@ export async function POST(request) {
   const employerUserId = isEmployer ? session.user.id : otherUserId;
   const candidateUserId = isEmployer ? otherUserId : session.user.id;
 
+  // Candidates may open a channel only for an internship they applied to,
+  // and only with that posting's employer (blocks arbitrary otherUserId).
+  if (!isEmployer) {
+    if (!internshipId) {
+      return jsonError('internshipId is required to message an employer', 400);
+    }
+    const allowed = await query(
+      `SELECT 1
+       FROM ip_applications a
+       JOIN ip_candidates c ON c.id = a.candidate_id
+       JOIN ip_internships i ON i.id = a.internship_id
+       JOIN ip_employers e ON e.id = i.employer_id
+       WHERE c.user_id = $1
+         AND a.internship_id = $2
+         AND e.user_id = $3
+       LIMIT 1`,
+      [candidateUserId, internshipId, employerUserId],
+    );
+    if (!allowed.rows[0]) {
+      return jsonError('You can only message the employer for an internship you applied to', 403);
+    }
+  }
+
   const existing = await query(
     `SELECT id FROM ip_message_threads
      WHERE candidate_user_id = $1 AND employer_user_id = $2 AND (internship_id = $3 OR ($3 IS NULL AND internship_id IS NULL))`,

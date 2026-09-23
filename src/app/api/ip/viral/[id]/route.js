@@ -49,10 +49,11 @@ async function reward(share) {
   if (!awarded) return false;
   await notifyUser({
     userId: share.user_id,
-    title: 'Viral share verified',
-    body: `+${LINKEDIN_PROMO_POINTS} points added.`,
+    title: 'Viral Share Verified',
+    body: `+${LINKEDIN_PROMO_POINTS} Points Added.`,
     link: '/employer/viral',
     category: 'system',
+    forceEmail: true,
   });
   return true;
 }

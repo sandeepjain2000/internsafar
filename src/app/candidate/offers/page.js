@@ -19,6 +19,7 @@ import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import IpListPager from '@/components/ip/IpListPager';
+import { IpListLoading } from '@/components/ip/IpListStatus';
 import '@/components/ip/ip-offers-gemini.css';
 import '@/components/ip/ip-list-pager.css';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
@@ -347,14 +348,16 @@ export default function CandidateOffersPage() {
 
       {error ? <div className="ip-of-alert ip-mobile-inset">{error}</div> : null}
 
-      {!loading && !filtered.length ? (
+      {loading ? (
+        <IpListLoading label="Loading Offers…" />
+      ) : !filtered.length ? (
         <div className="ip-of-empty ip-mobile-inset">
           <Inbox strokeWidth={1.5} className="size-10" style={{ margin: '0 auto', color: '#4f46e5' }} />
-          <h3>{items.length ? 'No offers found' : 'No offers yet'}</h3>
+          <h3>{items.length ? 'No Offers Found' : 'No Offers Yet'}</h3>
           <p>
             {items.length
-              ? 'There are no internship offers matching your current filter or search.'
-              : "You haven't received any internship offers at the moment. Continue browsing and applying to open roles."}
+              ? 'There Are No Internship Offers Matching Your Current Filter Or Search.'
+              : "You Haven't Received Any Internship Offers At The Moment. Continue Browsing And Applying To Open Roles."}
           </p>
           {items.length ? (
             <button type="button" className="ip-of-btn ip-of-btn--primary" onClick={resetFilters}>
@@ -369,6 +372,7 @@ export default function CandidateOffersPage() {
         </div>
       ) : null}
 
+      {!loading && filtered.length ? (
       <div className={displayMode === 'list' ? 'ip-ph-list-wrap' : 'ip-of-list'}>
         {displayMode === 'list' ? (
           <table className="ip-ph-list">
@@ -619,6 +623,7 @@ export default function CandidateOffersPage() {
         })
         )}
       </div>
+      ) : null}
 
       {!loading && total > 0 ? (
         <IpListPager

@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
+import { signOutAndEndSession } from '@/lib/ipClientSignOut';
 import {
   Activity,
   Award,
@@ -131,7 +132,30 @@ export default function PortalShell({
       </div>
     );
   }
-  if (session?.user?.role !== role) return null;
+  if (session?.user?.role !== role) {
+    return (
+      <div className="flex min-h-svh items-center justify-center bg-background px-4 text-foreground">
+        <div className="max-w-md space-y-3 text-center">
+          <p className="text-sm font-medium">Wrong account for this workspace</p>
+          <p className="text-sm text-muted-foreground">
+            This area needs role “{role}”, but you are signed in as “{session?.user?.role || 'unknown'}”
+            ({session?.user?.email || 'no email'}). Sign out, then sign in with the correct account
+            {role === 'superadmin' ? ' at /superadmin/login' : ''}.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setSigningOut(true);
+              signOutAndEndSession({ callbackUrl: loginHref });
+            }}
+          >
+            Sign out
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const displayName = session.user.name || session.user.email || 'User';
   const notificationsHref = nav.find((n) => /notif/i.test(n.label) || /notifications/.test(n.href))?.href;
@@ -142,7 +166,7 @@ export default function PortalShell({
   }
 
   return (
-    <div className="dashboard-layout flex min-h-svh w-full bg-background text-foreground">
+    <div className="dashboard-layout flex min-h-svh w-full min-w-0 overflow-x-clip bg-background text-foreground">
       {mobileOpen ? (
         <button
           type="button"
@@ -326,7 +350,7 @@ export default function PortalShell({
 
       <div
         className={cn(
-          'flex min-h-svh min-w-0 flex-1 flex-col bg-background transition-[margin] duration-200 ease-linear',
+          'flex min-h-svh min-w-0 flex-1 flex-col overflow-x-clip bg-background transition-[margin] duration-200 ease-linear',
           sidebarCollapsed ? 'md:ml-12' : 'md:ml-64',
         )}
       >
@@ -387,7 +411,7 @@ export default function PortalShell({
                 size="sm"
                 onClick={() => {
                   setSigningOut(true);
-                  signOut({ callbackUrl: loginHref });
+                  signOutAndEndSession({ callbackUrl: loginHref });
                 }}
               >
                 <LogOut data-icon="inline-start" className="size-4" />
@@ -397,7 +421,7 @@ export default function PortalShell({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-4 sm:px-6 sm:py-6">
+        <main className="mx-auto w-full min-w-0 max-w-[1440px] flex-1 px-4 py-4 sm:px-6 sm:py-6">
           {(role === 'candidate' || role === 'employer') ? <ProfileReminderBanner /> : null}
           {children}
         </main>

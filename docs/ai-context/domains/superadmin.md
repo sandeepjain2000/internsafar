@@ -20,16 +20,21 @@ Platform oversight: employer approvals, manual requests, documents, postings, pr
 |-------|---------|
 | `/superadmin` | Dashboard |
 | `/superadmin/login` | SuperAdmin login |
-| `/superadmin/form-registrations` | Form registrations |
-| `/superadmin/approvals` | Employer approvals |
-| `/superadmin/requests` | Manual requests |
+| `/superadmin/approvals` | **Only** employer approval queue (Domain + Free-email). Path column on rows. |
 | `/superadmin/documents` | Documents |
 | `/superadmin/postings` | Postings oversight |
 | `/superadmin/promotions` | LinkedIn promos |
 | `/superadmin/viral` | Viral shares |
-| `/superadmin/login-report` | Login report |
+| `/superadmin/login-report` | Login report (default **All time**; not wiped by core reset) |
 | `/superadmin/messages` | Messages |
 | `/superadmin/feature-ideas` | Feature ideas |
+
+Retired (redirect → `/superadmin/approvals`): `/superadmin/form-registrations`, `/superadmin/requests`.  
+APIs for those queues return **410**. Schema dropped on bootstrap: `ip_employer_requests`, `ip_users.form_approval_status` (`ensureIpRetireDeadQueuesSchema`).
+
+Live employer onboarding = Domain / Free-email → Approvals only. Candidate register = Google path only (`path=form` → 410).
+
+Employer email verify resend: `POST /api/ip/auth/employer-email-verify/resend` (login + post-register UI). Candidates do **not** use this verify gate.
 
 Nav order: `src/lib/ipNav.js` → `SUPERADMIN_NAV`.
 

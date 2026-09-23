@@ -7,11 +7,15 @@ import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
 import { validateScreeningQuestions } from '@/lib/ipScreeningQuestions';
 import { validateScheduleFields, deriveLifecycleLabel } from '@/lib/ipInternshipVisibility';
 import { MAX_ACTIVE_APPLICATIONS_PER_POSTING } from '@/lib/ipApplicationCapacity';
+import { getEmployerPostingGate } from '@/lib/ipEmployerPostingGate';
+import { ensureIpInternshipStipendRangeSchema } from '@/lib/ensureIpInternshipStipendRangeSchema';
+import { parseStipendRangeFields } from '@/lib/ipInternshipStipend';
 
 export async function GET() {
   const { session, error } = await requireSession(['employer']);
   if (error) return error;
   await ensureIpWorkbenchSchema();
+  await ensureIpInternshipStipendRangeSchema();
   const emp = await query(`SELECT id FROM ip_employers WHERE user_id = $1`, [session.user.id]);
   if (!emp.rows[0]) return jsonOk({ items: [] });
   const result = await query(
@@ -36,17 +40,11 @@ export async function POST(request) {
   const { session, error } = await requireSession(['employer']);
   if (error) return error;
   await ensureIpWorkbenchSchema();
+  await ensureIpInternshipStipendRangeSchema();
 
-  const profileGate = await query(`SELECT profile_complete FROM ip_users WHERE id = $1`, [session.user.id]);
-  if (!profileGate.rows[0]?.profile_complete) {
-    return jsonError('Complete your employer profile before posting', 403);
-  }
-
-  const emp = await query(`SELECT id, approval_status FROM ip_employers WHERE user_id = $1`, [session.user.id]);
-  if (!emp.rows[0]) return jsonError('Employer profile missing', 404);
-  if (emp.rows[0].approval_status !== 'approved') {
-    return jsonError('Your employer account must be approved by SuperAdmin before posting', 403);
-  }
+  const gate = await getEmployerPostingGate(session.user.id);
+  if (!gate.ok) return jsonError(gate.error || 'Cannot post', gate.status || 403);
+  const emp = { rows: [{ id: gate.employer.employer_id, approval_status: gate.employer.approval_status }] };
 
   let body;
   try {
@@ -56,6 +54,12 @@ export async function POST(request) {
   }
   const title = String(body.title || '').trim();
   if (!title) return jsonError('Title is required');
+
+  const workMode = String(body.workMode || body.work_mode || '').trim();
+  const publishing = body.status !== 'draft';
+  if (!workMode) {
+    return jsonError('Work mode is required (e.g. Remote, Hybrid, or On-site)', 400);
+  }
 
   const { errors: qErrors, questions } = validateScreeningQuestions(body.questions || []);
   if (qErrors.length) return jsonError(qErrors[0], 400);
@@ -69,7 +73,6 @@ export async function POST(request) {
   });
   if (schedule.errors.length) return jsonError(schedule.errors[0], 400);
 
-  const publishing = body.status !== 'draft';
   if (publishing) {
     const spendErr = await chargePublishPoints(session.user.id, { action: 'create_publish' });
     if (spendErr) {
@@ -82,6 +85,10 @@ export async function POST(request) {
   const weeklyHours = body.weeklyHours ?? body.weekly_hours ?? null;
   const incentiveBasis = body.incentiveBasis || body.incentive_basis || null;
   const locations = normalizeLocations(body.locations, body.location);
+  const stipendParsed = parseStipendRangeFields(body);
+  if (stipendParsed.error) return jsonError(stipendParsed.error, 400);
+  const stipendInr = stipendType === 'incentive' ? null : stipendParsed.stipendInr;
+  const stipendInrMax = stipendType === 'incentive' ? null : stipendParsed.stipendInrMax;
 
   // Duplicate warning data (non-blocking)
   const dupes = await query(
@@ -99,15 +106,15 @@ export async function POST(request) {
   const id = newId('ip_int');
   await query(
     `INSERT INTO ip_internships (
-       id, employer_id, title, description, location, work_mode, stipend_inr, duration_months,
+       id, employer_id, title, description, location, work_mode, stipend_inr, stipend_inr_max, duration_months,
        start_date, end_date, eligibility, questions, status, show_employer_identity,
        work_hours_start, work_hours_end, engagement_type, weekly_hours, stipend_type, incentive_basis,
        starts_at, apply_ends_at, locations,
        remind_before_start, remind_before_end, remind_start_hours, remind_end_hours
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23::jsonb,$24,$25,$26,$27)`,
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24::jsonb,$25,$26,$27,$28)`,
     [
-      id, emp.rows[0].id, title, body.description || '', body.location || locations[0] || '', body.workMode || 'Remote',
-      body.stipendInr || null, body.durationMonths || null, body.startDate || null, body.endDate || null,
+      id, emp.rows[0].id, title, body.description || '', body.location || locations[0] || '', workMode,
+      stipendInr, stipendInrMax, body.durationMonths || null, body.startDate || null, body.endDate || null,
       JSON.stringify(body.eligibility || {}), JSON.stringify(questions),
       publishing ? 'published' : 'draft',
       body.showEmployerIdentity !== false,

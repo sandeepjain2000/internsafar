@@ -69,7 +69,7 @@ Config: `playwright.config.js` at the app root.
 | Spec | Focus |
 |---|---|
 | `qa/tests/auth.spec.js` | InternSafar authentication (home login, roles, sign-out) |
-| `qa/tests/google-auth.spec.js` | Real Google OAuth start + error UX |
+| `qa/tests/google-auth.spec.js` | Google register OAuth start + home has no Google login + disabled/unlinked error UX |
 | `qa/tests/regression.spec.js` | Latest-update regression smoke (IS-* → InternSafar-Test-Cases.xlsx) |
 | `qa/tests/screens.spec.js` | Role screen smoke after login |
 | `qa/tests/mobile-candidate-internships.spec.js` | Candidate internships on mobile viewport |

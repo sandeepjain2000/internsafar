@@ -12,10 +12,11 @@ async function setOne(id, status, reason, moderatorId) {
   await query(`UPDATE ip_internships SET status = $2, updated_at = now() WHERE id = $1`, [id, status]);
   await notifyUser({
     userId: row.rows[0].user_id,
-    title: 'Posting moderation update',
-    body: `${row.rows[0].title} was set to ${status}${reason ? `: ${reason}` : ''}.`,
+    title: 'Posting Moderation Update',
+    body: `${row.rows[0].title} Was Set To ${status}${reason ? `: ${reason}` : ''}.`,
     link: '/employer/internships',
     category: 'system',
+    forceEmail: true,
   });
   return { ok: true, moderatedBy: moderatorId };
 }

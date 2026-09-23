@@ -66,7 +66,7 @@ function RegisterChooserInner() {
                 </li>
                 <li>
                   <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" aria-hidden />
-                  <span>Gmail signup — temporary password emailed to you</span>
+                  <span>Gmail signup via Google (registration only) — then sign in with email and temporary password</span>
                 </li>
               </ul>
             </div>

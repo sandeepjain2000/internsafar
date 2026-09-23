@@ -10,11 +10,9 @@ export async function ensureIpEmployerApprovalSchema() {
   await query(`ALTER TABLE ip_employers ADD COLUMN IF NOT EXISTS rejection_reason TEXT`);
   await query(`ALTER TABLE ip_employers ADD COLUMN IF NOT EXISTS business_entity_type TEXT`);
   await query(`ALTER TABLE ip_employers ADD COLUMN IF NOT EXISTS contact_phone_country_code TEXT`);
-  await query(`ALTER TABLE ip_employer_requests ADD COLUMN IF NOT EXISTS rejection_reason TEXT`);
-  await query(`ALTER TABLE ip_employer_requests ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ`);
-  await query(`ALTER TABLE ip_employer_requests ADD COLUMN IF NOT EXISTS contact_designation TEXT`);
-  await query(`ALTER TABLE ip_employer_requests ADD COLUMN IF NOT EXISTS password_hash TEXT`);
-  await query(`ALTER TABLE ip_employer_requests ADD COLUMN IF NOT EXISTS business_entity_type TEXT`);
+  await query(`ALTER TABLE ip_employers ADD COLUMN IF NOT EXISTS email_soft_fail BOOLEAN DEFAULT false`);
+  await query(`ALTER TABLE ip_employers ADD COLUMN IF NOT EXISTS email_classification_summary TEXT`);
+  await query(`ALTER TABLE ip_employers ADD COLUMN IF NOT EXISTS email_classification_reasons TEXT`);
   try {
     await query(`ALTER TABLE ip_employer_documents ADD COLUMN IF NOT EXISTS review_status TEXT DEFAULT 'pending'`);
   } catch {

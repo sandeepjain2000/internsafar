@@ -27,8 +27,9 @@ Sign-in, registration, sessions, role homes, Google auth helpers, 2FA, account s
 - Roles: `candidate`, `employer`, `superadmin` only.
 - No `middleware.js`. **API routes enforce auth.** `PortalShell` is a client-side guard only.
 - Google on **register** = verification flow (intent cookie → `?gv=` token); no portal session during signup.
-- Google on **home** opens a portal session only when `ip_google_identities` is linked; otherwise `/?error=GoogleAccountNotLinked`.
-- Each deploy host needs matching `NEXTAUTH_URL` + Google OAuth redirect URI.
+- Google on **home/login is disabled**. Sign-in is **email + password** only (`/?error=GoogleLoginDisabled` if Google OAuth is attempted without a register intent).
+- Candidate Google register: verify Gmail → create account → temp password emailed → sign in with email/password; change password in Account; Forgot password at `/forgot-password`.
+- Each deploy host needs matching `NEXTAUTH_URL` + Google OAuth redirect URI (still required for **register** verify).
 
 ## Constraints
 

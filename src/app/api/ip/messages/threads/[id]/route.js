@@ -136,10 +136,11 @@ export async function POST(request, { params }) {
   const isCandidateRecipient = otherUserId === thread.candidate_user_id;
   await notifyUser({
     userId: otherUserId,
-    title: isCandidateRecipient ? 'New message from recruiter' : 'New message',
+    title: isCandidateRecipient ? 'New Message From Recruiter' : 'New Message From Candidate',
     body: notifyText.slice(0, 120),
     link: otherLink,
     category: isCandidateRecipient ? 'message' : 'system',
+    forceEmail: !isCandidateRecipient,
     meta: {
       threadId: id,
       company: isCandidateRecipient ? thread.company_name || null : null,

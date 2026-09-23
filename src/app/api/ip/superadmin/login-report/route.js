@@ -21,7 +21,7 @@ export async function GET(request) {
      FROM ip_login_events
      ${where}
      ORDER BY created_at DESC
-     LIMIT 500`,
+     LIMIT 5000`,
   );
 
   const items = result.rows.map((ev) => ({

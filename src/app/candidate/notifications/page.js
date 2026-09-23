@@ -8,6 +8,7 @@ import {
   Calendar,
   Check,
   CheckCheck,
+  ChevronDown,
   Clock,
   FileText,
   Inbox,
@@ -24,8 +25,6 @@ import { useClientPagination } from '@/hooks/useClientPagination';
 import IpListPager from '@/components/ip/IpListPager';
 import '@/components/ip/ip-candidate-notifications-gemini.css';
 import '@/components/ip/ip-list-pager.css';
-import ViewModeToggle from '@/components/ip/ViewModeToggle';
-import { useViewMode } from '@/hooks/useViewMode';
 
 const PAGE_SIZE = 10;
 
@@ -79,8 +78,8 @@ export default function CandidateNotificationsPage() {
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(true);
-  const [displayMode, setViewMode, { stored: viewMode }] = useViewMode('ip_cand_notif_view', 'cards');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
 
   const snapshot = useMemo(() => ({ filters: { filter, search }, sort: '' }), [filter, search]);
   const prefs = useListPrefsSync({
@@ -176,6 +175,14 @@ export default function CandidateNotificationsPage() {
     setSearch('');
   }
 
+  function toggleExpand(n) {
+    const next = expandedId === n.id ? null : n.id;
+    setExpandedId(next);
+    if (next && (n.isUnread || !n.read_at)) {
+      markRead(n.id);
+    }
+  }
+
   let emptyTitle = "You're all caught up.";
   let emptyDesc = 'There are no new updates or pending notifications for your account at this time.';
   if (search || filter !== 'all') {
@@ -203,9 +210,6 @@ export default function CandidateNotificationsPage() {
           <CheckCheck aria-hidden />
           Mark all as read
         </button>
-        <div className="ip-cn-view-toggle">
-          <ViewModeToggle value={viewMode} onChange={setViewMode} />
-        </div>
       </div>
 
       <div className="ip-cn-toolbar">
@@ -327,65 +331,52 @@ export default function CandidateNotificationsPage() {
           <p>Loading notifications…</p>
         </div>
       ) : filtered.length ? (
-        displayMode === 'list' ? (
-          <div className="ip-ph-list-wrap">
-            <table className="ip-ph-list">
-              <thead>
-                <tr className="border-b text-left text-slate-500">
-                  <th className="p-3">Title</th>
-                  <th className="p-3">When</th>
-                  <th className="p-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageItems.map((n) => (
-                  <tr key={n.id} className="border-b">
-                    <td className="p-3">{n.title}</td>
-                    <td className="p-3">{relativeTime(n.created_at)}</td>
-                    <td className="p-3">{n.isUnread || !n.read_at ? 'Unread' : 'Read'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-        <ul className="ip-cn-list">
+        <ul className="ip-cn-list ip-cn-list--compact">
           {pageItems.map((n) => {
             const unread = n.isUnread || !n.read_at;
             const Icon = iconFor(n.bucket);
+            const open = expandedId === n.id;
             return (
-              <li key={n.id} className={`ip-cn-card${unread ? ' is-unread' : ''}`}>
-                <div className="ip-cn-card-row">
+              <li key={n.id} className={`ip-cn-row${unread ? ' is-unread' : ''}${open ? ' is-open' : ''}`}>
+                <button
+                  type="button"
+                  className="ip-cn-row__main"
+                  onClick={() => toggleExpand(n)}
+                  aria-expanded={open}
+                >
                   <div className={`ip-cn-icon ip-cn-icon--${n.bucket || 'system'}`}>
-                    <Icon size={20} aria-hidden />
+                    <Icon size={18} aria-hidden />
                   </div>
-                  <div className="ip-cn-body">
-                    <div className="ip-cn-topline">
-                      <div className="ip-cn-name">
-                        <h3>{n.title}</h3>
-                        {n.priority === 'urgent' ? (
-                          <span className="ip-cn-badge ip-cn-badge--urgent">Time-sensitive</span>
-                        ) : null}
-                        {n.priority === 'action_required' ? (
-                          <span className="ip-cn-badge ip-cn-badge--action">Action required</span>
-                        ) : null}
-                        {n.company ? <span className="ip-cn-company">• {n.company}</span> : null}
-                      </div>
-                      <div className="ip-cn-meta">
-                        {n.deadlineText ? (
-                          <span className="ip-cn-deadline">
-                            <Clock size={12} aria-hidden />
-                            {n.deadlineText}
-                          </span>
-                        ) : null}
-                        <span className="ip-cn-time">{relativeTime(n.created_at)}</span>
-                        {unread ? (
-                          <span className="ip-cn-unread-dot" title="Unread" />
-                        ) : (
-                          <span className="ip-cn-read">Read</span>
-                        )}
-                      </div>
+                  <div className="ip-cn-row__text">
+                    <div className="ip-cn-row__title">
+                      <h3>{n.title}</h3>
+                      {n.priority === 'urgent' ? (
+                        <span className="ip-cn-badge ip-cn-badge--urgent">Time-sensitive</span>
+                      ) : null}
+                      {n.priority === 'action_required' ? (
+                        <span className="ip-cn-badge ip-cn-badge--action">Action required</span>
+                      ) : null}
+                      {n.company ? <span className="ip-cn-company">• {n.company}</span> : null}
                     </div>
+                    <div className="ip-cn-row__meta">
+                      {n.deadlineText ? (
+                        <span className="ip-cn-deadline">
+                          <Clock size={12} aria-hidden />
+                          {n.deadlineText}
+                        </span>
+                      ) : null}
+                      <span className="ip-cn-time">{relativeTime(n.created_at)}</span>
+                      {unread ? (
+                        <span className="ip-cn-unread-dot" title="Unread" />
+                      ) : (
+                        <span className="ip-cn-read">Read</span>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronDown className="ip-cn-row__chev" aria-hidden />
+                </button>
+                {open ? (
+                  <div className="ip-cn-row__detail">
                     {n.body ? <p className="ip-cn-desc">{n.body}</p> : null}
                     {n.resourceUnavailable ? (
                       <p className="ip-cn-desc">{n.resourceUnavailableMessage}</p>
@@ -413,12 +404,11 @@ export default function CandidateNotificationsPage() {
                       ) : null}
                     </div>
                   </div>
-                </div>
+                ) : null}
               </li>
             );
           })}
         </ul>
-        )
       ) : (
         <div className="ip-cn-empty">
           <div className="ip-cn-empty__icon">

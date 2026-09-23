@@ -6,9 +6,11 @@ import { validateScreeningQuestions } from '@/lib/ipScreeningQuestions';
 import { validateScheduleFields, deriveLifecycleLabel } from '@/lib/ipInternshipVisibility';
 import { newId } from '@/lib/ids';
 import { MAX_ACTIVE_APPLICATIONS_PER_POSTING } from '@/lib/ipApplicationCapacity';
+import { ensureIpInternshipStipendRangeSchema } from '@/lib/ensureIpInternshipStipendRangeSchema';
+import { parseStipendRangeFields } from '@/lib/ipInternshipStipend';
 
 const EDITABLE_FIELDS = [
-  'title', 'description', 'location', 'work_mode', 'stipend_inr', 'duration_months', 'start_date',
+  'title', 'description', 'location', 'work_mode', 'stipend_inr', 'stipend_inr_max', 'duration_months', 'start_date',
   'end_date', 'status', 'show_employer_identity',
   'work_hours_start', 'work_hours_end', 'engagement_type', 'weekly_hours', 'stipend_type', 'incentive_basis',
   'starts_at', 'apply_ends_at', 'closed_reason',
@@ -24,6 +26,7 @@ export async function GET(request, { params }) {
   const { session, error } = await requireSession(['employer']);
   if (error) return error;
   await ensureIpWorkbenchSchema();
+  await ensureIpInternshipStipendRangeSchema();
   const { id } = await params;
   const emp = await query(`SELECT id FROM ip_employers WHERE user_id = $1`, [session.user.id]);
   const row = await loadOwned(id, emp.rows[0]?.id);
@@ -52,6 +55,7 @@ export async function PUT(request, { params }) {
   const { session, error } = await requireSession(['employer']);
   if (error) return error;
   await ensureIpWorkbenchSchema();
+  await ensureIpInternshipStipendRangeSchema();
   const { id } = await params;
   const emp = await query(`SELECT id FROM ip_employers WHERE user_id = $1`, [session.user.id]);
   const existing = await loadOwned(id, emp.rows[0]?.id);
@@ -69,12 +73,12 @@ export async function PUT(request, { params }) {
     const newIdVal = newId('ip_int');
     await query(
       `INSERT INTO ip_internships (
-         id, employer_id, title, description, location, work_mode, stipend_inr, duration_months,
+         id, employer_id, title, description, location, work_mode, stipend_inr, stipend_inr_max, duration_months,
          start_date, end_date, eligibility, questions, status, show_employer_identity,
          work_hours_start, work_hours_end, engagement_type, weekly_hours, stipend_type, incentive_basis,
          starts_at, apply_ends_at, locations
        )
-       SELECT $1, employer_id, title, description, location, work_mode, stipend_inr, duration_months,
+       SELECT $1, employer_id, title, description, location, work_mode, stipend_inr, stipend_inr_max, duration_months,
          start_date, end_date, eligibility, questions, 'draft', show_employer_identity,
          work_hours_start, work_hours_end, engagement_type, weekly_hours, stipend_type, incentive_basis,
          NULL, NULL, locations
@@ -85,7 +89,7 @@ export async function PUT(request, { params }) {
   }
 
   const camelToSnake = {
-    workMode: 'work_mode', stipendInr: 'stipend_inr', durationMonths: 'duration_months',
+    workMode: 'work_mode', stipendInr: 'stipend_inr', stipendInrMax: 'stipend_inr_max', durationMonths: 'duration_months',
     startDate: 'start_date', endDate: 'end_date', showEmployerIdentity: 'show_employer_identity',
     workHoursStart: 'work_hours_start', workHoursEnd: 'work_hours_end',
     engagementType: 'engagement_type', weeklyHours: 'weekly_hours',
@@ -97,6 +101,41 @@ export async function PUT(request, { params }) {
   const normalized = {};
   for (const [k, v] of Object.entries(body)) {
     normalized[camelToSnake[k] || k] = v;
+  }
+
+  if (
+    normalized.stipend_inr !== undefined
+    || normalized.stipend_inr_max !== undefined
+    || normalized.stipend_type !== undefined
+  ) {
+    const stipendParsed = parseStipendRangeFields({
+      stipend_inr: normalized.stipend_inr !== undefined ? normalized.stipend_inr : existing.stipend_inr,
+      stipend_inr_max:
+        normalized.stipend_inr_max !== undefined ? normalized.stipend_inr_max : existing.stipend_inr_max,
+    });
+    if (stipendParsed.error) return jsonError(stipendParsed.error, 400);
+    const nextType = normalized.stipend_type !== undefined ? normalized.stipend_type : existing.stipend_type;
+    if (String(nextType || '').toLowerCase() === 'incentive') {
+      normalized.stipend_inr = null;
+      normalized.stipend_inr_max = null;
+    } else {
+      normalized.stipend_inr = stipendParsed.stipendInr;
+      normalized.stipend_inr_max = stipendParsed.stipendInrMax;
+    }
+  }
+
+  if (normalized.work_mode !== undefined) {
+    normalized.work_mode = String(normalized.work_mode || '').trim();
+    if (!normalized.work_mode) {
+      return jsonError('Work mode is required (e.g. Remote, Hybrid, or On-site)', 400);
+    }
+  }
+
+  const nextStatus = normalized.status !== undefined ? normalized.status : existing.status;
+  const nextWorkMode =
+    normalized.work_mode !== undefined ? normalized.work_mode : String(existing.work_mode || '').trim();
+  if (nextStatus === 'published' && !nextWorkMode) {
+    return jsonError('Work mode is required before publishing (e.g. Remote, Hybrid, or On-site)', 400);
   }
 
   if (normalized.starts_at !== undefined || normalized.apply_ends_at !== undefined) {

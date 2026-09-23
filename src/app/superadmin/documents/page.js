@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import {
   AlertTriangle,
   Check,
@@ -13,8 +14,14 @@ import {
   ShieldCheck,
   X,
 } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import '@/components/ip/ip-superadmin-queue-gemini.css';
+import '@/components/ip/ip-list-pager.css';
+import IpListPager from '@/components/ip/IpListPager';
+import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import { useClientPagination } from '@/hooks/useClientPagination';
 import { employerDomainRisk, REJECT_PRESETS } from '@/lib/ipDomainRisk';
+import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
 
 function initial(name) {
   return String(name || '?').trim().charAt(0).toUpperCase() || '?';
@@ -32,6 +39,7 @@ function fmtDate(v) {
 const DOC_TYPES = ['all', 'Shop Act', 'Business PAN', 'GST', 'Other'];
 
 export default function SuperAdminDocumentsPage() {
+  const { data: session, status: sessionStatus } = useSession();
   const [tab, setTab] = useState('all');
   const [docType, setDocType] = useState('all');
   const [items, setItems] = useState([]);
@@ -39,6 +47,7 @@ export default function SuperAdminDocumentsPage() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [audit, setAudit] = useState(null);
@@ -47,21 +56,44 @@ export default function SuperAdminDocumentsPage() {
   const [rejectNote, setRejectNote] = useState('');
 
   async function load() {
-    const statusQ = tab === 'all' ? '' : `status=${tab === 'rejected' ? 'flagged' : tab}&`;
-    const res = await fetch(`/api/ip/superadmin/documents?${statusQ}meta=1`);
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error || 'Failed to load');
-      return;
+    setLoading(true);
+    setError('');
+    try {
+      const statusQ = tab === 'all' ? '' : `status=${tab === 'rejected' ? 'flagged' : tab}&`;
+      const res = await fetch(`/api/ip/superadmin/documents?${statusQ}meta=1`, {
+        credentials: 'same-origin',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || `Failed to load documents (${res.status})`);
+        setItems([]);
+        return;
+      }
+      setItems(data.items || []);
+      if (data.meta) setMeta(data.meta);
+      setSelected([]);
+    } catch (e) {
+      setError(e.message || 'Failed to load');
+      setItems([]);
+    } finally {
+      setLoading(false);
     }
-    setItems(data.items || []);
-    if (data.meta) setMeta(data.meta);
-    setSelected([]);
   }
 
   useEffect(() => {
-    load();
-  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (sessionStatus === 'loading') return;
+    if (session?.user?.role === 'superadmin') {
+      load();
+      return;
+    }
+    setLoading(false);
+    if (sessionStatus === 'authenticated') {
+      setError(
+        `Forbidden — Documents requires SuperAdmin. Your session role is “${session?.user?.role || 'unknown'}”. Sign out, then sign in at /superadmin/login as support@placementhub.online.`,
+      );
+      setItems([]);
+    }
+  }, [session, sessionStatus, tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -92,6 +124,15 @@ export default function SuperAdminDocumentsPage() {
       [d.company_name, d.work_email, d.file_name, d.doc_type].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)),
     );
   }, [enriched, search, docType]);
+
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(
+    filtered,
+    SA_PAGE_SIZE,
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [tab, search, docType, setPage]);
 
   async function review(ids, reviewStatus, notes) {
     if (!ids.length) return;
@@ -145,18 +186,34 @@ export default function SuperAdminDocumentsPage() {
           </div>
           <p>Review Shop Act, Business PAN, GST registration, and company identity evidence submitted by recruiters.</p>
         </div>
-        <button
-          type="button"
-          className="ip-saq-btn ip-saq-btn--emerald"
-          disabled={!selected.length || busy}
-          onClick={() => review(selected, 'approved')}
-        >
-          <CheckCheck size={15} aria-hidden />
-          Approve Selected ({selected.length})
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="ip-saq-btn ip-saq-btn--emerald"
+            disabled={!selected.length || busy}
+            onClick={() => review(selected, 'approved')}
+          >
+            <CheckCheck size={15} aria-hidden />
+            Approve Selected ({selected.length})
+          </button>
+          <button
+            type="button"
+            className="ip-saq-btn ip-saq-btn--rose"
+            disabled={!selected.length || busy}
+            onClick={() => review(selected, 'flagged', 'Bulk rejected by SuperAdmin')}
+          >
+            Reject Selected ({selected.length})
+          </button>
+        </div>
       </div>
 
-      {error ? <div className="ip-saq-error">{error}</div> : null}
+      {error ? (
+        <Alert variant="destructive" className="mb-4" role="alert">
+          <AlertTriangle className="size-4" aria-hidden />
+          <AlertTitle>Could not load Documents</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
 
       <div className="ip-saq-metrics">
         <div className="ip-saq-metric">
@@ -252,13 +309,16 @@ export default function SuperAdminDocumentsPage() {
           </div>
         </div>
 
-        {!filtered.length ? (
-          <div className="ip-saq-empty">
-            <FolderArchive size={28} aria-hidden />
-            <h4>No documents in this view</h4>
-            <p>Employer uploads will appear here for compliance review.</p>
-          </div>
+        {loading ? (
+          <IpListLoading label="Loading Documents…" />
+        ) : !filtered.length ? (
+          <IpListEmpty
+            icon={FolderArchive}
+            title="No Documents In This View"
+            hint="Employer Uploads Will Appear Here For Compliance Review."
+          />
         ) : (
+          <>
           <div className="ip-saq-table-wrap">
             <table className="ip-ph-list ip-saq-table">
               <thead>
@@ -282,7 +342,7 @@ export default function SuperAdminDocumentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((d) => (
+                {pageItems.map((d) => (
                   <tr key={d.id}>
                     <td>
                       {d.status === 'pending' ? (
@@ -367,6 +427,17 @@ export default function SuperAdminDocumentsPage() {
               </tbody>
             </table>
           </div>
+          <div className="ip-saq-pager">
+            <IpListPager
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              buttonClassName="ip-saq-btn ip-saq-btn--sm"
+            />
+          </div>
+          </>
         )}
       </div>
 

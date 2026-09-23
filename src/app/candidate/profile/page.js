@@ -11,12 +11,13 @@ import {
   Lock,
   Plus,
   Shield,
+  Sparkles,
   Star,
   Trash2,
   User,
 } from 'lucide-react';
 import { imageAcceptAttr, resumeAcceptAttr } from '@/lib/ipFileUpload';
-import { validateOptionalPhone, PHONE_DIAL_OPTIONS } from '@/lib/ipPhoneValidation';
+import { validateRequiredPhone, PHONE_DIAL_OPTIONS } from '@/lib/ipPhoneValidation';
 import IpUploadButton from '@/components/ip/IpUploadButton';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import SearchableSelect from '@/components/ip/SearchableSelect';
@@ -33,13 +34,14 @@ const PROFILE_DRAFT_KEY = 'ip_candidate_profile_draft_v1';
 
 const PROFILE_TABS = [
   { id: 'basics', label: '1. Basics & Contact', Icon: User, saveLabel: 'Save Basics & Contact', wizardStep: 1 },
-  { id: 'academic', label: '2. Academic & Skills', Icon: GraduationCap, saveLabel: 'Save Academic & Skills', wizardStep: 2 },
-  { id: 'readiness', label: '3. Work Readiness', Icon: Briefcase, saveLabel: 'Save Work Readiness', wizardStep: 3 },
-  { id: 'privacy', label: '4. Privacy & Photo', Icon: Lock, saveLabel: 'Save Privacy Settings' },
-  { id: 'history', label: '5. Endorsements (Read-Only)', Icon: Star },
+  { id: 'academic', label: '2. Academic', Icon: GraduationCap, saveLabel: 'Save Academic', wizardStep: 2 },
+  { id: 'skills', label: '3. Skills & Experience', Icon: Sparkles, saveLabel: 'Save Skills & Experience', wizardStep: 3 },
+  { id: 'readiness', label: '4. Work Readiness', Icon: Briefcase, saveLabel: 'Save Work Readiness', wizardStep: 4 },
+  { id: 'privacy', label: '5. Privacy & Photo', Icon: Lock, saveLabel: 'Save Privacy Settings' },
+  { id: 'history', label: '6. Endorsements (Read-Only)', Icon: Star },
 ];
 
-const WIZARD_ORDER = ['basics', 'academic', 'readiness'];
+const WIZARD_ORDER = ['basics', 'academic', 'skills', 'readiness'];
 
 const WORK_MODES = ['Remote', 'Hybrid', 'On-site'];
 
@@ -121,6 +123,7 @@ function Field({ label, hint, required, optional, children, span, invalid }) {
 const BASICS_REQUIRED = [
   { key: 'first_name', label: 'First Name' },
   { key: 'last_name', label: 'Last Name' },
+  { key: 'phone', label: 'Mobile phone' },
   { key: 'country', label: 'Country' },
   { key: 'city', label: 'Current City' },
   { key: 'state', label: 'State / Union Territory' },
@@ -306,7 +309,8 @@ export default function CandidateProfilePage() {
 
   async function saveProfileBody() {
     const dial = form.phone_country_code || '+91';
-    const phoneCheck = validateOptionalPhone(form.phone, dial);
+    // Draft (local) may omit phone; account Save always requires a valid phone.
+    const phoneCheck = validateRequiredPhone(form.phone, dial);
     if (!phoneCheck.ok) {
       setPhoneError(phoneCheck.error);
       throw new Error(phoneCheck.error);
@@ -470,6 +474,7 @@ export default function CandidateProfilePage() {
     if (!form) return [];
     return [
       { label: 'Full Name *', done: Boolean(form.first_name && form.last_name) },
+      { label: 'Mobile Phone *', done: Boolean(form.phone) },
       { label: 'Country *', done: Boolean(form.country) },
       { label: 'City & State *', done: Boolean(form.city && form.state) },
       { label: 'College / Edu *', done: collegeDone },
@@ -509,7 +514,10 @@ export default function CandidateProfilePage() {
       actions.push({ label: 'Upload or link a resume', tab: 'basics', scrollId: 'ip-cp-resume' });
     }
     if (!skills.length) {
-      actions.push({ label: 'Add key skills', tab: 'academic', scrollId: 'ip-cp-skills' });
+      actions.push({ label: 'Add key skills', tab: 'skills', scrollId: 'ip-cp-skills' });
+    }
+    if (!form.phone) {
+      actions.push({ label: 'Add mobile phone', tab: 'basics', scrollId: 'ip-cp-basics-contact' });
     }
     if (!form.preferred_work_mode) {
       actions.push({ label: 'Set preferred work mode', tab: 'basics', scrollId: 'ip-cp-preferences' });
@@ -561,10 +569,13 @@ export default function CandidateProfilePage() {
   }
 
   function goQualityAction(action) {
-    if (tabIsLocked(action.tab)) {
-      setMessage('Use Save & Next to continue through the profile steps in order.');
-      return;
+    // Quality-score CTAs must land on the field they name. Wizard lock would otherwise
+    // leave "Add key skills" looking broken while the user is still on Basics.
+    const targetIdx = WIZARD_ORDER.indexOf(action.tab);
+    if (targetIdx >= 0) {
+      setWizardUnlockedThru((u) => Math.max(u, targetIdx));
     }
+    setMessage('');
     setProfileTab(action.tab);
     if (action.scrollId) setPendingScrollId(action.scrollId);
   }
@@ -781,7 +792,7 @@ export default function CandidateProfilePage() {
             <section>
               <div className="ip-cp-sec-head"><h3>Contact &amp; Location</h3></div>
               <div className="ip-cp-grid ip-cp-grid--3">
-                <Field label="Mobile phone" optional span={2}>
+                <Field label="Mobile phone" required span={2} invalid={Boolean(phoneError) || isMissing('phone')}>
                   <div className="ip-cp-phone" role="group" aria-label="Mobile phone with country code">
                     <select
                       className="ip-cp-phone__dial"
@@ -811,6 +822,7 @@ export default function CandidateProfilePage() {
                       placeholder="98765 43210"
                       aria-label="Mobile phone number"
                       aria-invalid={phoneError ? 'true' : 'false'}
+                      required
                     />
                   </div>
                   {phoneError ? <p className="ip-cp-error" role="alert">{phoneError}</p> : null}
@@ -1096,14 +1108,18 @@ export default function CandidateProfilePage() {
                 ))}
               </div>
             </section>
+          </div>
+        ) : null}
 
+        {profileTab === 'skills' ? (
+          <div className="ip-cp-stack" role="tabpanel">
             <section id="ip-cp-skills">
               <div className="ip-cp-sec-head">
                 <div>
                   <h3>Technical &amp; Domain Skills <span className="ip-cp-req">*</span> <span className="ip-cp-opt">(Tag-based)</span></h3>
                   <p className="ip-cp-hint">Add skills as tags — recruiters use them to match candidates with posted internships.</p>
                 </div>
-                <span className="ip-cp-pill">Tag-based</span>
+                <span className="ip-cp-pill">Tag-Based</span>
               </div>
               <div className="ip-cp-skills-box">
                 <div className="ip-cp-skills">
@@ -1326,9 +1342,11 @@ export default function CandidateProfilePage() {
             <section>
               <div className="ip-cp-sec-head">
                 <h3>Instant Messaging Alerts <span className="ip-cp-opt">(optional)</span></h3>
-                <span className="ip-cp-pill is-muted">Optional Channels</span>
+                <span className="ip-cp-pill is-muted">Work In Progress</span>
               </div>
-              <p className="ip-cp-hint">Opt-in to receive status updates for interview schedules and offer letters via instant messaging.</p>
+              <p className="ip-cp-hint">
+                This feature is work in progress. You can save WhatsApp / Telegram preferences now; delivery is not live until a carrier is connected.
+              </p>
               <div className="ip-cp-grid">
                 <Field label="WhatsApp number" optional>
                   <input className="ip-cp-input" type="tel" value={form.whatsapp_number || ''} onChange={(e) => set('whatsapp_number', e.target.value)} placeholder="+91 98765 43210" />
@@ -1338,7 +1356,12 @@ export default function CandidateProfilePage() {
                 </Field>
                 <label className={`ip-cp-toggle-card is-wa${!waReady ? ' is-disabled' : ''}`}>
                   <span className="ip-cp-im">
-                    <span className="ip-cp-im__badge is-wa">WA</span>
+                    <span className="ip-cp-im__badge is-wa" aria-hidden>
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" role="img">
+                        <title>WhatsApp</title>
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                      </svg>
+                    </span>
                     <span>
                       <strong>WhatsApp Updates</strong>
                       <small>Requires verified mobile phone number</small>
@@ -1483,13 +1506,13 @@ export default function CandidateProfilePage() {
         <div>
           <div className="ip-cp-export__title">
             <Download />
-            <h3>Export Candidate Profile Data (.csv)</h3>
+            <h3>Export Candidate Profile Data (.xlsx)</h3>
           </div>
-          <p>Download a privacy-compliant summary of your basic profile, academic records, and skills history.</p>
+          <p>Download a multi-sheet Excel workbook with your full profile, academics, skills, applications, offers, and endorsements.</p>
         </div>
         <a className="ip-cp-btn ip-cp-btn--outline" href="/api/ip/candidate/export">
           <Download />
-          Download Excel (.csv)
+          Download Excel (.xlsx)
         </a>
       </div>
     </div>

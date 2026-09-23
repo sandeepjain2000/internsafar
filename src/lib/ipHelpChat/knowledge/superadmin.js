@@ -8,7 +8,7 @@ export const SUPERADMIN_KNOWLEDGE = [
     facts: [
       'SuperAdmin signs in on the standard home page (`/`) with email and password, then lands on `/superadmin`.',
       'SuperAdmin can approve employer registrations and manage portal oversight tools.',
-      'Form registrations and approvals are available under SuperAdmin routes such as /superadmin/approvals and /superadmin/form-registrations.',
+      'Employer approvals are under /superadmin/approvals (Domain and Free-email). Form registrations and Manual requests are retired (410). Resend employer email verify from login or post-register.',
     ],
   },
 ];

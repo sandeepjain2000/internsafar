@@ -1,0 +1,113 @@
+@startuml InternSafar_Employer_Registration
+title InternSafar - Employer registration\n(/register/employer -> email verify -> SuperAdmin approval)
+
+skinparam shadowing false
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #334155
+skinparam ActivityDiamondBackgroundColor #F8FAFC
+skinparam ActivityDiamondBorderColor #64748B
+skinparam ArrowColor #475569
+skinparam activityFontSize 12
+skinparam titleFontSize 14
+
+start
+
+if (Has referral link\n/r/{code}?) then (yes)
+  :Open /r/{code};
+  :Redirect to\n/register?ref={code};
+else (no)
+  :Open /register;
+endif
+
+:Show role chooser\n(Candidate / Employer);
+:Choose Register as Employer;
+:Open /register/employer\n(keep ?ref= if present);
+
+note right
+  Live UI has NO Google signup
+  on employer register.
+  Paths: Domain-based or Free-email-based.
+  Employer sets password on the form —
+  there is NO temporary-password email
+  (unlike candidate Google register).
+end note
+
+:Show path chooser:\nDomain-based / Free-email-based;
+
+if (Choose Domain-based?) then (yes)
+  :Form: contact name, designation,\ncompany, website, domain email,\npassword (min 8), captcha;
+else (Free-email-based)
+  :Form: contact name, designation,\ncompany, email, password (min 8),\ncaptcha (no website required);
+endif
+
+:Submit Register as Employer;
+:POST /api/ip/auth/register-employer\npath=domain or free_email;
+
+:Validate required fields\n+ captcha;
+
+if (Validation failed?) then (yes)
+  :Return 400 with error;
+  stop
+else (ok)
+endif
+
+if (Email already exists?) then (yes)
+  :Return 409\naccount already exists;
+  stop
+else (new email)
+endif
+
+if (path=domain?) then (yes)
+  :classifyEmployerEmail(email);
+  :May set softFail flag\nfor SuperAdmin review;
+else (free_email)
+endif
+
+:BEGIN transaction;
+:Insert ip_users\nrole=employer, points=50,\nfree_post_credits=1,\nemail_verify_required=true,\nemail_verified_at=null;
+:Insert ip_employers\napproval_status=pending\n(+ softFail fields if any);
+:Insert points ledger +50;
+
+if (Valid referral code?) then (yes)
+  :Credit referrer + notify;
+else (no referral)
+endif
+
+:COMMIT;
+
+:Notify SuperAdmin\nNew employer registered\n(or review email if softFail);
+
+:Send email verification link\n/register/employer/verify?token=...\n(expires ~48 hours);
+
+if (Verify mail failed?) then (yes)
+  :Return ok with warning\nverification email failed;
+else (sent)
+endif
+
+:Send ack email\nregistration received / pending approval;
+
+:UI done screen:\nCheck your email;
+:CTA Back to Sign In (/);
+
+:Employer opens verify link;
+:Open /register/employer/verify?token=...;
+:consumeEmployerEmailVerification;
+
+if (Token valid?) then (yes)
+  :Mark email verified;
+  :Show Email verified\n(still need SuperAdmin approval);
+else (invalid / expired)
+  :Show Could not verify;
+endif
+
+note right
+  Sign-in and posting require
+  email verification AND
+  SuperAdmin approval of employer.
+  Profile/docs stage comes after.
+end note
+
+:Registration stage complete\n(pending approval gate);
+stop
+
+@enduml

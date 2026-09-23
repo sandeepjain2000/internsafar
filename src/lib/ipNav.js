@@ -29,9 +29,7 @@ export const EMPLOYER_NAV = [
 
 export const SUPERADMIN_NAV = [
   { href: '/superadmin', label: 'Dashboard', icon: 'layout-dashboard' },
-  { href: '/superadmin/form-registrations', label: 'Form registrations', icon: 'file-text' },
   { href: '/superadmin/approvals', label: 'Employer approvals', icon: 'shield-check' },
-  { href: '/superadmin/requests', label: 'Manual requests', icon: 'user-plus' },
   { href: '/superadmin/documents', label: 'Documents', icon: 'folder-check' },
   { href: '/superadmin/postings', label: 'Postings', icon: 'briefcase' },
   { href: '/superadmin/promotions', label: 'LinkedIn promos', icon: 'share-2' },

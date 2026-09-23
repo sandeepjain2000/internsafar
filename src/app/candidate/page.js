@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import RatingsReceivedCard from '@/components/ip/RatingsReceivedCard';
 import { POINTS_PER_APPLICATION } from '@/lib/pointsEconomy';
+import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
 import '@/components/ip/ip-candidate-dashboard-gemini.css';
 
 const FEATURES = [
@@ -57,9 +58,7 @@ const FEATURES = [
 ];
 
 function stipendLabel(row) {
-  const n = Number(row?.stipend_inr);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return `₹${n.toLocaleString('en-IN')}/mo`;
+  return formatInternshipStipend(row);
 }
 
 function modeLabel(row) {
@@ -142,6 +141,7 @@ export default function CandidateDashboard() {
   const [offers, setOffers] = useState([]);
   const [busySave, setBusySave] = useState('');
   const [dashReady, setDashReady] = useState(false);
+  const [listsReady, setListsReady] = useState(false);
 
   const reloadLists = useCallback(async () => {
     const [rec, sav] = await Promise.all([
@@ -150,6 +150,7 @@ export default function CandidateDashboard() {
     ]);
     setRecommended((rec.items || []).slice(0, 3));
     setSaved((sav.items || []).slice(0, 4));
+    setListsReady(true);
   }, []);
 
   useEffect(() => {
@@ -430,9 +431,13 @@ export default function CandidateDashboard() {
                   );
                 })}
               </div>
+            ) : !listsReady ? (
+              <div className="ip-cd-empty">
+                <p>Loading Recommendations…</p>
+              </div>
             ) : (
               <div className="ip-cd-empty">
-                <p>No recommendations yet — complete skills on your profile.</p>
+                <p>No Recommendations Yet — Complete Skills On Your Profile.</p>
               </div>
             )}
           </div>
@@ -465,9 +470,13 @@ export default function CandidateDashboard() {
                 View All Listings →
               </Link>
             </div>
+          ) : !listsReady ? (
+            <div className="ip-cd-empty">
+              <p>Loading Saved Roles…</p>
+            </div>
           ) : (
             <div className="ip-cd-empty">
-              <p>No saved roles yet.</p>
+              <p>No Saved Roles Yet.</p>
               <Link href="/candidate/internships" className="ip-cd-link">
                 Browse all postings →
               </Link>

@@ -7,6 +7,7 @@ import { CANDIDATE_VISIBLE_SQL } from '@/lib/ipInternshipVisibility';
 import { publicApplicationVolumeLabel } from '@/lib/ipApplicationVolume';
 import { maskEmployerName } from '@/lib/ipEmployerIdentity';
 import { matchesRegionValue } from '@/lib/ipRegions';
+import { ensureIpInternshipStipendRangeSchema } from '@/lib/ensureIpInternshipStipendRangeSchema';
 
 function eligibilitySkills(eligibility) {
   let el = eligibility;
@@ -82,7 +83,7 @@ function sqlOrderBy(sort) {
     return 'COALESCE(app_counts.applicant_count, 0) ASC, i.created_at DESC';
   }
   if (sort === 'highest-stipend') {
-    return 'COALESCE(i.stipend_inr, 0) DESC, i.created_at DESC';
+    return 'COALESCE(i.stipend_inr_max, i.stipend_inr, 0) DESC, i.created_at DESC';
   }
   if (sort === 'availability' || sort === 'earliest-start') {
     return 'i.start_date ASC NULLS LAST, i.created_at DESC';
@@ -95,7 +96,10 @@ function sortItems(items, sort) {
   if (sort === 'best-match') {
     copy.sort((a, b) => (b.match_score ?? -1) - (a.match_score ?? -1));
   } else if (sort === 'highest-stipend') {
-    copy.sort((a, b) => Number(b.stipend_inr || 0) - Number(a.stipend_inr || 0));
+    copy.sort(
+      (a, b) =>
+        Number(b.stipend_inr_max || b.stipend_inr || 0) - Number(a.stipend_inr_max || a.stipend_inr || 0),
+    );
   } else if (sort === 'availability' || sort === 'earliest-start') {
     copy.sort((a, b) => {
       const da = a.start_date ? new Date(a.start_date).getTime() : Number.POSITIVE_INFINITY;
@@ -114,6 +118,7 @@ export async function GET(request) {
   const { session, error } = await requireSession(['candidate']);
   if (error) return error;
   await ensureIpWorkbenchSchema();
+  await ensureIpInternshipStipendRangeSchema();
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get('q') || '').trim().toLowerCase();
   const minStipend = Number(searchParams.get('minStipend') || 0);
@@ -210,6 +215,7 @@ export async function GET(request) {
       : null;
     return {
       ...r,
+      employer_id: r.employer_id || r.employer_row_id || null,
       company_name: maskEmployerName(r.company_name, r.show_employer_identity !== false),
       _applicantCount: Number(r.historical_application_count || 0),
       historical_application_count: undefined,
@@ -235,10 +241,13 @@ export async function GET(request) {
     if (savedOnly && !i.saved) return false;
     if (!matchesQuery(i, q)) return false;
     if (stipendType === 'unpaid') {
-      const unpaid = !Number(i.stipend_inr) || String(i.stipend_type || '').toLowerCase() === 'unpaid';
+      const unpaid =
+        (!Number(i.stipend_inr) && !Number(i.stipend_inr_max))
+        || String(i.stipend_type || '').toLowerCase() === 'unpaid';
       if (!unpaid) return false;
-    } else if (minStipend && Number(i.stipend_inr || 0) < minStipend) {
-      return false;
+    } else if (minStipend) {
+      const offeredTop = Number(i.stipend_inr_max || i.stipend_inr || 0);
+      if (offeredTop < minStipend) return false;
     }
     if (maxDuration > 0) {
       const months = Number(i.duration_months);
@@ -257,6 +266,7 @@ export async function GET(request) {
     if (!matchesRegionValue(i.employer_hq_country, region)) return false;
     if (minMatch && (i.match_score ?? 0) < minMatch) return false;
     if (minValidation && (i.validation_score ?? 0) < minValidation) return false;
+    if (chip === 'unapplied' && i.applied) return false;
     if (chip === 'starting-soon') {
       const start = i.start_date || i.starts_at;
       if (!start) return false;

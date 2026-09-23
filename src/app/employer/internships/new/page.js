@@ -13,21 +13,21 @@ import PageHeader from '@/components/ip/PageHeader';
 import ScreeningQuestionsEditor from '@/components/ip/ScreeningQuestionsEditor';
 import InternshipCandidatePreview from '@/components/ip/InternshipCandidatePreview';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
-import useIpCityCatalog from '@/hooks/useIpCityCatalog';
+import PostingLocationsFields from '@/components/ip/PostingLocationsFields';
 import { internshipDurationMonths } from '@/lib/internshipDurationMonths';
 
 const QUALITY_CHECKS = [
   { key: 'title', label: 'Clear title' },
   { key: 'description', label: 'Description filled' },
+  { key: 'workMode', label: 'Work mode chosen (Remote / Hybrid / On-site)' },
   { key: 'location', label: 'Location or Remote mode' },
   { key: 'schedule', label: 'Application window set (optional but recommended)' },
 ];
 
 export default function NewInternshipPage() {
   const router = useRouter();
-  const { placeCityOptions, loading: citiesLoading, loadError: citiesLoadError } = useIpCityCatalog();
   const [form, setForm] = useState({
-    title: '', description: '', location: '', locationCities: [], workMode: 'Remote', stipendInr: '', durationMonths: '',
+    title: '', description: '', location: '', locationCities: [], locationState: '', workMode: '', stipendInr: '', stipendInrMax: '', durationMonths: '',
     startDate: '', endDate: '', skills: '', degree: '', degrees: [], minCgpa: '',
     workHoursStart: '', workHoursEnd: '', engagementType: '', weeklyHours: '',
     stipendType: '', incentiveBasis: '',
@@ -90,6 +90,7 @@ export default function NewInternshipPage() {
   const checklist = {
     title: Boolean(form.title.trim()),
     description: Boolean(form.description.trim()),
+    workMode: Boolean(String(form.workMode || '').trim()),
     location: Boolean(form.location.trim()) || /remote/i.test(form.workMode),
     schedule: Boolean(form.startsAt || form.applyEndsAt),
   };
@@ -100,6 +101,14 @@ export default function NewInternshipPage() {
     setError('');
     setWarning('');
     try {
+      if (!String(form.workMode || '').trim()) {
+        throw new Error('Choose a work mode (Remote, Hybrid, or On-site) before saving.');
+      }
+      if (form.stipendType !== 'incentive' && form.stipendInr && form.stipendInrMax) {
+        if (Number(form.stipendInrMax) < Number(form.stipendInr)) {
+          throw new Error('Stipend maximum must be greater than or equal to the minimum.');
+        }
+      }
       if (form.startDate && form.endDate) {
         const expected = internshipDurationMonths(form.startDate, form.endDate);
         if (expected == null) {
@@ -123,6 +132,7 @@ export default function NewInternshipPage() {
         body: JSON.stringify({
           ...form,
           stipendInr: form.stipendInr ? Number(form.stipendInr) : null,
+          stipendInrMax: form.stipendInrMax ? Number(form.stipendInrMax) : null,
           durationMonths: durationMonths != null && !Number.isNaN(durationMonths) ? durationMonths : null,
           weeklyHours: form.weeklyHours ? Number(form.weeklyHours) : null,
           startsAt: form.startsAt || null,
@@ -158,8 +168,13 @@ export default function NewInternshipPage() {
     title: form.title || 'Untitled internship',
     description: form.description,
     location: form.location,
+    locationCities: form.locationCities || [],
+    locations: (form.locationCities || []).length
+      ? form.locationCities
+      : (form.location ? [form.location] : []),
     work_mode: form.workMode,
     stipend_inr: form.stipendInr,
+    stipend_inr_max: form.stipendInrMax,
     stipend_type: form.stipendType,
     incentive_basis: form.incentiveBasis,
     duration_months: form.durationMonths,
@@ -228,21 +243,28 @@ export default function NewInternshipPage() {
                 <Field className="sm:col-span-2"><FieldLabel>Title</FieldLabel><Input required value={form.title} onChange={(e) => set('title', e.target.value)} /></Field>
                 <Field className="sm:col-span-2"><FieldLabel>Description</FieldLabel><Textarea rows={4} value={form.description} onChange={(e) => set('description', e.target.value)} /></Field>
                 <Field className="sm:col-span-2 overflow-visible">
-                  <FieldLabel>Locations (work city)</FieldLabel>
-                  <SearchableMultiSelect
-                    options={placeCityOptions}
-                    value={form.locationCities || []}
-                    loading={citiesLoading && !(placeCityOptions || []).length}
-                    emptyHint={citiesLoadError || 'No cities available'}
-                    onChange={(next) => {
-                      set('locationCities', next);
-                      set('location', next[0] || '');
-                    }}
-                    placeholder="Search cities…"
-                    ariaLabel="Work cities"
-                  />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <PostingLocationsFields
+                      locationCities={form.locationCities || []}
+                      locationState={form.locationState || ''}
+                      onStateChange={(state) => set('locationState', state)}
+                      onCitiesChange={(next) => {
+                        set('locationCities', next);
+                        set('location', next[0] || '');
+                      }}
+                    />
+                  </div>
                 </Field>
-                <Field><FieldLabel>Work mode</FieldLabel><Input value={form.workMode} onChange={(e) => set('workMode', e.target.value)} placeholder="Remote / Hybrid / On-site" /></Field>
+                <Field>
+                  <FieldLabel>Work mode</FieldLabel>
+                  <Input
+                    value={form.workMode}
+                    onChange={(e) => set('workMode', e.target.value)}
+                    placeholder="Remote / Hybrid / On-site"
+                    required
+                  />
+                  <FieldDescription>No default — choose the mode candidates will see.</FieldDescription>
+                </Field>
                 <Field>
                   <FieldLabel>Duration (months)</FieldLabel>
                   <Input
@@ -340,10 +362,30 @@ export default function NewInternshipPage() {
                   </select>
                 </Field>
                 {form.stipendType !== 'incentive' ? (
-                  <Field>
-                    <FieldLabel>Stipend (INR / month)</FieldLabel>
-                    <Input type="number" value={form.stipendInr} onChange={(e) => set('stipendInr', e.target.value)} />
-                  </Field>
+                  <>
+                    <Field>
+                      <FieldLabel>Stipend min (INR / month)</FieldLabel>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={form.stipendInr}
+                        onChange={(e) => set('stipendInr', e.target.value)}
+                        placeholder="e.g. 10000"
+                      />
+                      <FieldDescription>Fixed amount, or the low end of a range.</FieldDescription>
+                    </Field>
+                    <Field>
+                      <FieldLabel>Stipend max (INR / month)</FieldLabel>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={form.stipendInrMax}
+                        onChange={(e) => set('stipendInrMax', e.target.value)}
+                        placeholder="Optional — e.g. 15000"
+                      />
+                      <FieldDescription>Leave blank for a single amount. Candidates see ₹10,000–₹15,000 when both are set.</FieldDescription>
+                    </Field>
+                  </>
                 ) : (
                   <Field className="sm:col-span-2">
                     <FieldLabel>Incentive basis</FieldLabel>

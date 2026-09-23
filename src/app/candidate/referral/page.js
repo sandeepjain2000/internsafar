@@ -38,6 +38,7 @@ import {
   IpMultiCheckFilter,
   IpTableFiltersShell,
 } from '@/components/ip/IpTableFiltersShell';
+import { IpListLoading } from '@/components/ip/IpListStatus';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import '@/components/ip/ip-candidate-referral-gemini.css';
@@ -146,6 +147,7 @@ function countActiveCols(cols, empty) {
 
 export default function CandidateReferralPage() {
   const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [ledger, setLedger] = useState([]);
   const [ledgerBalance, setLedgerBalance] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -178,15 +180,20 @@ export default function CandidateReferralPage() {
   }
 
   async function load() {
-    const [refRes, ledRes] = await Promise.all([
-      fetch('/api/ip/referral'),
-      fetch('/api/ip/points/ledger'),
-    ]);
-    const refJson = await refRes.json().catch(() => null);
-    const ledJson = await ledRes.json().catch(() => null);
-    setData(refJson);
-    setLedger(ledJson?.items || []);
-    setLedgerBalance(ledJson?.balance ?? refJson?.points ?? null);
+    setLoading(true);
+    try {
+      const [refRes, ledRes] = await Promise.all([
+        fetch('/api/ip/referral'),
+        fetch('/api/ip/points/ledger'),
+      ]);
+      const refJson = await refRes.json().catch(() => null);
+      const ledJson = await ledRes.json().catch(() => null);
+      setData(refJson);
+      setLedger(ledJson?.items || []);
+      setLedgerBalance(ledJson?.balance ?? refJson?.points ?? null);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -629,13 +636,15 @@ export default function CandidateReferralPage() {
           />
         </IpTableFiltersShell>
 
-        {!referrals.length ? (
+        {loading ? (
+          <IpListLoading label="Loading Referrals…" />
+        ) : !referrals.length ? (
           <div className="ip-cr-empty">
             <div className="ip-cr-empty__icon">
               <Users size={22} aria-hidden />
             </div>
-            <p>No referrals yet</p>
-            <span>Share your unique referral link with candidates to start earning points.</span>
+            <p>No Referrals Yet</p>
+            <span>Share Your Unique Referral Link With Candidates To Start Earning Points.</span>
             <div style={{ marginTop: '0.75rem' }}>
               <button type="button" className="ip-cr-btn ip-cr-btn--primary" onClick={copyLink} disabled={!link}>
                 <Copy aria-hidden />
@@ -648,8 +657,8 @@ export default function CandidateReferralPage() {
             <div className="ip-cr-empty__icon">
               <Users size={22} aria-hidden />
             </div>
-            <p>No referrals found</p>
-            <span>There are no referrals matching this status filter.</span>
+            <p>No Referrals Found</p>
+            <span>There Are No Referrals Matching This Status Filter.</span>
           </div>
         ) : (
           <>
@@ -781,21 +790,23 @@ export default function CandidateReferralPage() {
           />
         </IpTableFiltersShell>
 
-        {!ledger.length ? (
+        {loading ? (
+          <IpListLoading label="Loading Ledger…" />
+        ) : !ledger.length ? (
           <div className="ip-cr-empty">
             <div className="ip-cr-empty__icon">
               <Coins size={22} aria-hidden />
             </div>
-            <p>No ledger rows yet</p>
-            <span>Signup, referrals, profile completion, and applications appear here.</span>
+            <p>No Ledger Rows Yet</p>
+            <span>Signup, Referrals, Profile Completion, And Applications Appear Here.</span>
           </div>
         ) : !filteredLedger.length ? (
           <div className="ip-cr-empty">
             <div className="ip-cr-empty__icon">
               <Coins size={22} aria-hidden />
             </div>
-            <p>No ledger rows match</p>
-            <span>Try clearing column filters.</span>
+            <p>No Ledger Rows Match</p>
+            <span>Try Clearing Column Filters.</span>
           </div>
         ) : (
           <>
@@ -966,8 +977,7 @@ export default function CandidateReferralPage() {
             <div className="ip-cr-modal__body">
               <p>
                 <strong>1. Qualifying event:</strong> Points credit after the referred candidate
-                registers via your unique link and their account is verified (Gmail signup, or
-                SuperAdmin approval for form registration).
+                registers via your unique link and their account is verified (Gmail / form signup).
               </p>
               <p>
                 <strong>2. Point credit value:</strong> Referrers receive {REFERRAL_POINTS} points per

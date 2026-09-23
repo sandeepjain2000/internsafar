@@ -57,37 +57,14 @@ function BrandMark({ variant = 'dark' }) {
 
 const GOOGLE_AUTH_ERRORS = {
   GoogleLoginDisabled:
-    'Google sign-in is not available for that account. Use email and password, or register with Google first.',
+    'Google sign-in is not available. Use the email and temporary password from registration (or Forgot password).',
   GoogleAccountNotLinked:
-    'No InternSafar account is linked to that Google account yet. Create an account with Sign up with Google first.',
+    'Google sign-in is not available. Use the email and password from registration (or Forgot password).',
   GoogleAccountInactive: 'That account is inactive. Contact support if you need help.',
-  GoogleNoEmail: 'Google did not return an email address. Try another Google account or use email sign-in.',
+  GoogleNoEmail: 'Google did not return an email address during registration. Try again or use email sign-in.',
   GoogleEmailUnverified:
-    'That Google email is not verified. Verify it in Google or register with email instead.',
+    'That Google email is not verified. Verify it in Google or register again.',
 };
-
-function GoogleMark() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
-      <path
-        fill="#EA4335"
-        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-      />
-      <path
-        fill="#4285F4"
-        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
-      />
-      <path
-        fill="#34A853"
-        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-      />
-    </svg>
-  );
-}
 
 export default function IpSignInLanding() {
   const router = useRouter();
@@ -105,23 +82,18 @@ export default function IpSignInLanding() {
   const [otpChallengeId, setOtpChallengeId] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [otpHint, setOtpHint] = useState('');
-  const [startingGoogle, setStartingGoogle] = useState(false);
-  const [googleReady, setGoogleReady] = useState(true);
+  const [emailVerifyNeeded, setEmailVerifyNeeded] = useState(false);
+  const [resendBusy, setResendBusy] = useState(false);
+  const [resendHint, setResendHint] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
     fetch('/api/ip/bootstrap', { method: 'POST' }).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    fetch('/api/auth/providers')
-      .then((r) => r.json())
-      .then((providers) => setGoogleReady(Boolean(providers?.google)))
-      .catch(() => setGoogleReady(false));
-  }, []);
-
   // Read ?error= from the URL without useSearchParams — that API forces a client-only
   // bailout (BAILOUT_TO_CLIENT_SIDE_RENDERING) so production SSR only shipped "Loading…"
-  // until JS hydrated. Google Auth must remain usable from the first HTML paint.
+  // until JS hydrated.
   useEffect(() => {
     try {
       const authError = new URLSearchParams(window.location.search).get('error');
@@ -133,22 +105,54 @@ export default function IpSignInLanding() {
     }
   }, []);
 
-  async function continueWithGoogle() {
-    setError('');
-    setStartingGoogle(true);
-    try {
-      // No registration intent cookie — auth.js treats this as linked-account login.
-      await signIn('google', { callbackUrl: '/app' });
-    } catch (err) {
-      setError(err.message || 'Google sign-in failed');
-      setStartingGoogle(false);
-    }
-  }
-
   function parseTwoFactorRequired(err) {
     const raw = decodeURIComponent(String(err || ''));
     const m = raw.match(/TWO_FACTOR_REQUIRED:([A-Za-z0-9_-]+)/);
     return m ? m[1] : null;
+  }
+
+  function parseEmailNotVerified(err) {
+    const raw = decodeURIComponent(String(err || ''));
+    if (!raw.startsWith('EMAIL_NOT_VERIFIED:')) return null;
+    return raw.slice('EMAIL_NOT_VERIFIED:'.length).trim() || 'Verify your email before signing in.';
+  }
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return undefined;
+    const t = setTimeout(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
+
+  async function resendEmployerVerify() {
+    if (!email.trim() || resendBusy || resendCooldown > 0) return;
+    setResendBusy(true);
+    setResendHint('');
+    setError('');
+    try {
+      const res = await fetch('/api/ip/auth/employer-email-verify/resend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 429) {
+        const sec = Number(data.retryAfterSec) || 45;
+        setResendCooldown(sec);
+        setError(data.error || 'Please wait before requesting another email.');
+        return;
+      }
+      if (!res.ok) {
+        setError(data.error || 'Could not resend verification email');
+        return;
+      }
+      setResendCooldown(Number(data.cooldownSec) || 45);
+      setResendHint(data.message || 'If that email needs verification, a new link has been sent.');
+      setEmailVerifyNeeded(true);
+    } catch (err) {
+      setError(err.message || 'Could not resend verification email');
+    } finally {
+      setResendBusy(false);
+    }
   }
 
   async function finishLogin() {
@@ -208,6 +212,8 @@ export default function IpSignInLanding() {
   async function onSubmit(e) {
     e.preventDefault();
     setError('');
+    setResendHint('');
+    setEmailVerifyNeeded(false);
     setLoading(true);
     try {
       const challenge = readCaptchaField(captchaFieldRef, captchaToken, captchaAnswer);
@@ -242,6 +248,12 @@ export default function IpSignInLanding() {
           setOtpCode('');
           setOtpHint('We emailed a 6-digit code. Check your inbox (or QA override inbox if configured).');
           setError('');
+          return;
+        }
+        const verifyMsg = parseEmailNotVerified(res.error);
+        if (verifyMsg) {
+          setEmailVerifyNeeded(true);
+          setError(verifyMsg);
           return;
         }
         setError(res.error);
@@ -305,14 +317,38 @@ export default function IpSignInLanding() {
           <div className="mx-auto my-auto flex w-full max-w-md flex-col gap-7">
             <div className="flex flex-col gap-1.5">
               <h2>Sign in to your account</h2>
-              <p className="ip-gemini-sub">Use Google (if you registered with Google) or email and password.</p>
+              <p className="ip-gemini-sub">Use your email and password to continue.</p>
             </div>
 
             <form className="flex flex-col gap-5" onSubmit={otpStep ? onSubmitOtp : onSubmit}>
               {error ? (
                 <Alert variant="destructive">
                   <AlertTitle>{otpStep ? 'Verification failed' : 'Sign in failed'}</AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertDescription>
+                    <div className="flex flex-col gap-2">
+                      <span>{error}</span>
+                      {emailVerifyNeeded && !otpStep ? (
+                        <button
+                          type="button"
+                          className="ip-gemini-link-btn self-start text-left text-sm font-medium underline underline-offset-2 disabled:opacity-60"
+                          disabled={resendBusy || resendCooldown > 0 || !email.trim()}
+                          onClick={resendEmployerVerify}
+                        >
+                          {resendBusy
+                            ? 'Sending…'
+                            : resendCooldown > 0
+                              ? `Resend verification email (${resendCooldown}s)`
+                              : 'Resend verification email'}
+                        </button>
+                      ) : null}
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+              {resendHint && !error ? (
+                <Alert>
+                  <AlertTitle>Verification email</AlertTitle>
+                  <AlertDescription>{resendHint}</AlertDescription>
                 </Alert>
               ) : null}
 
@@ -371,30 +407,6 @@ export default function IpSignInLanding() {
                 </>
               ) : (
                 <>
-                  {googleReady ? (
-                    <button
-                      type="button"
-                      className="ip-gemini-google-btn"
-                      onClick={continueWithGoogle}
-                      disabled={loading || startingGoogle}
-                    >
-                      <GoogleMark />
-                      {startingGoogle ? 'Opening Google…' : 'Sign in with Google'}
-                    </button>
-                  ) : (
-                    <Alert className="mb-3">
-                      <AlertTitle>Google sign-in unavailable</AlertTitle>
-                      <AlertDescription>
-                        Google Auth is not configured on this environment. Use email and password,
-                        or ask an admin to set GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  <div className="ip-gemini-or" role="separator" aria-label="Or continue with email">
-                    <span>Or with email</span>
-                  </div>
-
                   <div className="ip-gemini-field">
                     <label htmlFor="email">Email address</label>
                     <input
@@ -404,7 +416,7 @@ export default function IpSignInLanding() {
                       autoComplete="username"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@company.com"
+                      placeholder="you@gmail.com"
                       className="ip-gemini-input ip-gemini-input--plain"
                     />
                   </div>

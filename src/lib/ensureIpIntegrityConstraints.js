@@ -58,13 +58,7 @@ END $$`,
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ip_users_registration_source_check') THEN
     ALTER TABLE ip_users ADD CONSTRAINT ip_users_registration_source_check
-      CHECK (registration_source IN ('legacy','form','google','domain','gmail_domain'));
-  END IF;
-END $$`,
-  `DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ip_users_form_approval_status_check') THEN
-    ALTER TABLE ip_users ADD CONSTRAINT ip_users_form_approval_status_check
-      CHECK (form_approval_status IS NULL OR form_approval_status IN ('pending','approved','rejected'));
+      CHECK (registration_source IN ('legacy','form','google','domain','gmail_domain','free_email'));
   END IF;
 END $$`,
   `DO $$ BEGIN

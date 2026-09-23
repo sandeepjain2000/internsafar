@@ -17,8 +17,11 @@ import {
   X,
 } from 'lucide-react';
 import '@/components/ip/ip-superadmin-queue-gemini.css';
-
-const PAGE_SIZE = 10;
+import '@/components/ip/ip-list-pager.css';
+import IpListPager from '@/components/ip/IpListPager';
+import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import { useClientPagination } from '@/hooks/useClientPagination';
+import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
 
 /** Classify live notifications into mock-style buckets without new DB fields. */
 function classifyAlert(n) {
@@ -43,8 +46,9 @@ function classifyAlert(n) {
   if (
     /employer|onboard|approval|manual request|domain mismatch|recruiter|document/.test(blob) ||
     link.includes('/superadmin/approvals') ||
-    link.includes('/superadmin/requests') ||
+    link.includes('/superadmin/approvals') ||
     link.includes('/superadmin/documents') ||
+    link.includes('/superadmin/requests') ||
     link.includes('/superadmin/form-registrations')
   ) {
     return {
@@ -95,21 +99,30 @@ export default function SuperAdminMessagesPage() {
   const [selected, setSelected] = useState([]);
   const [inspect, setInspect] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
-  const [page, setPage] = useState(1);
 
   async function load() {
+    setLoading(true);
     setError('');
-    const res = await fetch('/api/ip/notifications?meta=1');
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error || 'Failed to load');
-      return;
+    try {
+      const res = await fetch('/api/ip/notifications?meta=1');
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to load');
+        setItems([]);
+        return;
+      }
+      setItems(data.items || []);
+      if (data.meta) setMeta(data.meta);
+      setSelected([]);
+    } catch (e) {
+      setError(e.message || 'Failed to load');
+      setItems([]);
+    } finally {
+      setLoading(false);
     }
-    setItems(data.items || []);
-    if (data.meta) setMeta(data.meta);
-    setSelected([]);
   }
 
   useEffect(() => {
@@ -167,13 +180,16 @@ export default function SuperAdminMessagesPage() {
     return rows;
   }, [enriched, tab, statusFilter, search]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const unresolvedOnPage = pageItems.filter((n) => n.unresolved);
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(
+    filtered,
+    SA_PAGE_SIZE,
+  );
 
   useEffect(() => {
-    if (page > totalPages) setPage(1);
-  }, [page, totalPages]);
+    setPage(1);
+  }, [tab, statusFilter, search, setPage]);
+
+  const unresolvedSelectable = filtered.filter((n) => n.unresolved);
 
   async function resolveIds(ids) {
     if (!ids.length) return;
@@ -325,7 +341,6 @@ export default function SuperAdminMessagesPage() {
                   className={`ip-saq-tab${tab === t.id ? ' ip-saq-tab--on' : ''}`}
                   onClick={() => {
                     setTab(t.id);
-                    setPage(1);
                   }}
                 >
                   <Icon size={14} aria-hidden />
@@ -340,7 +355,6 @@ export default function SuperAdminMessagesPage() {
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);
-                setPage(1);
               }}
               aria-label="Status filter"
             >
@@ -357,7 +371,6 @@ export default function SuperAdminMessagesPage() {
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
-                  setPage(1);
                 }}
               />
             </div>
@@ -370,12 +383,14 @@ export default function SuperAdminMessagesPage() {
           </div>
         </div>
 
-        {!filtered.length ? (
-          <div className="ip-saq-empty">
-            <Bell size={28} aria-hidden />
-            <h4>No alerts in this view</h4>
-            <p>Employer onboarding, feature ideas, and system notifications will appear here.</p>
-          </div>
+        {loading ? (
+          <IpListLoading label="Loading Alerts…" />
+        ) : !filtered.length ? (
+          <IpListEmpty
+            icon={Bell}
+            title="No Alerts In This View"
+            hint="Employer Onboarding, Feature Ideas, And System Notifications Will Appear Here."
+          />
         ) : (
           <>
             <div className="ip-saq-table-wrap">
@@ -385,12 +400,13 @@ export default function SuperAdminMessagesPage() {
                     <th>
                       <input
                         type="checkbox"
-                        aria-label="Select unresolved on page"
+                        aria-label="Select all unresolved"
                         checked={
-                          unresolvedOnPage.length > 0 && unresolvedOnPage.every((n) => selected.includes(n.id))
+                          unresolvedSelectable.length > 0 &&
+                          unresolvedSelectable.every((n) => selected.includes(n.id))
                         }
                         onChange={(e) =>
-                          setSelected(e.target.checked ? unresolvedOnPage.map((n) => n.id) : [])
+                          setSelected(e.target.checked ? unresolvedSelectable.map((n) => n.id) : [])
                         }
                       />
                     </th>
@@ -499,41 +515,15 @@ export default function SuperAdminMessagesPage() {
                 </tbody>
               </table>
             </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginTop: '0.75rem',
-                fontSize: '0.75rem',
-                color: '#64748b',
-              }}
-            >
-              <span>
-                Showing {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}{' '}
-                system alerts
-              </span>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button
-                  type="button"
-                  className="ip-saq-btn ip-saq-btn--sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => p - 1)}
-                >
-                  Previous
-                </button>
-                <span>
-                  Page {page}/{totalPages}
-                </span>
-                <button
-                  type="button"
-                  className="ip-saq-btn ip-saq-btn--sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Next
-                </button>
-              </div>
+            <div className="ip-saq-pager">
+              <IpListPager
+                page={page}
+                totalPages={totalPages}
+                total={total}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                buttonClassName="ip-saq-btn ip-saq-btn--sm"
+              />
             </div>
           </>
         )}

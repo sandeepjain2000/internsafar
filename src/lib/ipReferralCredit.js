@@ -357,7 +357,7 @@ export async function maybeBackfillFirstApplicationBonus(userId) {
   return maybeAwardFirstApplicationBonus(userId, apps.rows[0].id);
 }
 
-/** Catch form-path referrals created before pending rows were stored. */
+/** Catch referrals for referred users that never got an ip_referrals row. */
 export async function syncReferralHistoryForReferrer(referrerId) {
   if (!referrerId) return;
   await ensureIpReferralExtraSchema();
@@ -365,32 +365,14 @@ export async function syncReferralHistoryForReferrer(referrerId) {
   const code = referrer.rows[0]?.referral_code;
   if (!code) return;
 
-  const pending = await query(
+  const missing = await query(
     `SELECT u.id
      FROM ip_users u
      WHERE u.referred_by = $1
-       AND u.registration_source = 'form'
-       AND u.form_approval_status = 'pending'
        AND NOT EXISTS (SELECT 1 FROM ip_referrals r WHERE r.referred_user_id = u.id)`,
     [referrerId],
   );
-  for (const row of pending.rows) {
-    await insertPendingReferral({
-      referrerUserId: referrerId,
-      referredUserId: row.id,
-      referralCode: code,
-    });
-  }
-
-  const approved = await query(
-    `SELECT u.id
-     FROM ip_users u
-     WHERE u.referred_by = $1
-       AND coalesce(u.form_approval_status, '') = 'approved'
-       AND NOT EXISTS (SELECT 1 FROM ip_referrals r WHERE r.referred_user_id = u.id)`,
-    [referrerId],
-  );
-  for (const row of approved.rows) {
+  for (const row of missing.rows) {
     await creditReferralForReferredUser(row.id).catch(() => {});
   }
 }

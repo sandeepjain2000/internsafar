@@ -1,0 +1,99 @@
+@startuml InternSafar_Candidate_Track_Applications
+title InternSafar - Candidate track applications\n(/candidate/applications)
+
+skinparam shadowing false
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #334155
+skinparam ActivityDiamondBackgroundColor #F8FAFC
+skinparam ActivityDiamondBorderColor #64748B
+skinparam ArrowColor #475569
+skinparam activityFontSize 12
+skinparam titleFontSize 14
+
+start
+
+:Candidate opens\n/candidate/applications;
+
+note right
+  Usually after a successful Apply
+  (redirect) or from candidate nav.
+  Messaging depth is Message stage;
+  Offers is a later stage.
+end note
+
+:UI restores list prefs\n(tableKey candidate.applications);
+
+:GET /api/ip/candidate/applications\n?pageSize=200;
+:API requireSession(candidate);
+:Resolve candidate id;
+:Query ip_applications\njoined to internship + employer;
+:Decorate each row:\ndisplay_status, status_tab,\nnext_step, closed labels,\nmasked company name;
+:Return items + total;
+
+:Also GET /api/ip/messages/threads;
+:Map internship_id -> thread id\nfor Message buttons;
+
+:UI shows My Applications\nmetrics + list/cards;
+
+if (Change tab / search / sort\n/ column filters?) then (yes)
+  :Filter client-side:\ntabs All / Applied / Under Review /\nInterview / Offer / Rejected / Withdrawn;
+  :Search role or company;
+  :Sort latest / oldest /\nstatus / match;
+  :Column filters:\nrole, employer, stipend,\nlocation, applied dates,\nstatus, next step;
+  :Reset pager to page 1\n(page size 10);
+else (keep current view)
+endif
+
+if (Open View Details?) then (yes)
+  :Show detail modal:\ntitle, company, status,\napplied date, next_step,\nstipend, mode, location, match;
+  if (Open internship link?) then (yes)
+    :Go to\n/candidate/internships/{id};
+  else (stay in modal)
+  endif
+else (no detail)
+endif
+
+if (Message employer?) then (yes)
+  if (Thread exists for posting?) then (yes)
+    :Go to\n/candidate/messages/{threadId};
+  else (no thread yet)
+    :Go to /candidate/messages;
+  endif
+  :Handoff to Message stage;
+else (no message)
+endif
+
+if (Withdraw application?) then (yes)
+  note right
+    UI + API allow withdraw only when
+    status is applied or pending.
+  end note
+  if (Status is applied or pending?) then (no)
+    :UI hides Withdraw\nor API rejects;
+  else (yes)
+    :PATCH /api/ip/candidate/applications/{id}\n{ status: withdrawn };
+    :API requireSession(candidate);
+    :UPDATE status=withdrawn\nonly if still applied/pending\nand owned by candidate;
+    if (Update succeeded?) then (yes)
+      :Return ok;
+      :Close detail; reload list;
+    else (no)
+      if (Not found?) then (yes)
+        :Return 404;
+      else (already moved on)
+        :Return 409\nalready withdrawn or\nno longer withdrawable;
+      endif
+    endif
+  endif
+else (keep application)
+endif
+
+if (Browse more internships?) then (yes)
+  :Go to /candidate/internships;
+  stop
+else (stay on applications)
+  :Continue tracking\nstatus and next steps;
+  stop
+endif
+
+@enduml

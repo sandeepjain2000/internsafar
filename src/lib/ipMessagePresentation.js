@@ -59,8 +59,26 @@ export function decorateMessageThread(row) {
   };
 }
 
-const ATTACH_PREFIX = '/api/ip/files?key=internship-portal/messages/';
+const ATTACH_PATH = '/api/ip/files';
+const ATTACH_KEY_PREFIX = 'internship-portal/messages/';
 
+/**
+ * Message attachments must be our proxied file URLs under messages/.
+ * uploadIpBuffer encodes the full key (`internship-portal%2Fmessages%2F…`);
+ * compare the decoded `key` query value — not a raw string prefix on the URL.
+ */
 export function isAllowedMessageAttachmentUrl(url) {
-  return String(url || '').startsWith(ATTACH_PREFIX);
+  const raw = String(url || '').trim();
+  // Relative app path only (blocks foreign hosts).
+  if (!raw.startsWith('/api/ip/files?')) return false;
+  try {
+    const parsed = new URL(raw, 'http://internsafar.local');
+    if (parsed.pathname !== ATTACH_PATH) return false;
+    const key = String(parsed.searchParams.get('key') || '');
+    if (!key.startsWith(ATTACH_KEY_PREFIX)) return false;
+    if (key.includes('..') || key.includes('\\')) return false;
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -38,6 +38,17 @@ export async function DELETE(request) {
   const url = new URL(request.url);
   const id = url.searchParams.get('id');
   const others = url.searchParams.get('others') === '1';
+  // self=1: terminate this browser's tracked row before NextAuth clears the cookie
+  // (Sign out header). Without this, Active Sessions can keep showing "Active".
+  const self = url.searchParams.get('self') === '1';
+
+  if (self) {
+    const sid = session.user.sessionId;
+    if (sid) {
+      await revokeAuthSession({ sessionId: sid, userId: session.user.id });
+    }
+    return jsonOk({ ok: true, revoked: Boolean(sid) });
+  }
 
   if (others) {
     const keep = session.user.sessionId;
@@ -46,7 +57,7 @@ export async function DELETE(request) {
     return jsonOk({ ok: true });
   }
 
-  if (!id) return jsonError('id or others=1 is required');
+  if (!id) return jsonError('id, others=1, or self=1 is required');
   if (session.user.sessionId && id === session.user.sessionId) {
     return jsonError('Cannot revoke the current session here — use Sign out', 400);
   }

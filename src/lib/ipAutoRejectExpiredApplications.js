@@ -119,8 +119,9 @@ export async function processAutoRejectExpiredApplications(opts = {}) {
         userId: row.candidate_user_id,
         title: 'Application update',
         body: `Your application for ${internship.title} was not taken forward after the deadline.`,
-        link: '/candidate/applications',
+        link: `/candidate/applications?id=${encodeURIComponent(row.id)}`,
         category: 'application',
+        meta: { applicationId: row.id },
         skipEmail: false,
       });
     }

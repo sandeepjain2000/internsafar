@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { CalendarDays, ClipboardList, Hourglass, MessageSquare, Search, Target, XCircle } from 'lucide-react';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
@@ -14,6 +14,7 @@ import {
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
+import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
 import '@/components/ip/ip-applications-gemini.css';
 import '@/components/ip/ip-table-filters.css';
 
@@ -26,7 +27,7 @@ const TABS = [
   { id: 'interview', label: 'Interview Scheduled' },
   { id: 'offer', label: 'Offer Received' },
   { id: 'rejected', label: 'Rejected' },
-  { id: 'withdrawn', label: 'Withdrawn' },
+  { id: 'withdrawn', label: 'Rejected By You' },
 ];
 
 const EMPTY_COLS = {
@@ -41,8 +42,7 @@ const EMPTY_COLS = {
 };
 
 function stipendLabel(a) {
-  if (a.stipend_inr) return `₹${Number(a.stipend_inr).toLocaleString('en-IN')}/mo`;
-  return '—';
+  return formatInternshipStipend(a, { unpaidLabel: '—' }) || '—';
 }
 
 function appliedDate(value) {
@@ -99,6 +99,10 @@ function statusClass(status) {
   return 'is-other';
 }
 
+function isConfidentialCompany(name) {
+  return String(name || '') === 'Confidential employer';
+}
+
 function canWithdraw(status) {
   const s = String(status || '').toLowerCase();
   return s === 'applied' || s === 'pending';
@@ -106,9 +110,12 @@ function canWithdraw(status) {
 
 export default function MyApplicationsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get('id') || searchParams.get('highlight') || '';
   const [items, setItems] = useState([]);
   const [totalServer, setTotalServer] = useState(0);
   const [threadByInternship, setThreadByInternship] = useState({});
+  const [msgBusyId, setMsgBusyId] = useState(null);
   const [q, setQ] = useState('');
   const [sort, setSort] = useState('latest');
   const [tab, setTab] = useState('all');
@@ -118,6 +125,7 @@ export default function MyApplicationsPage() {
   const [displayMode, setViewMode, { stored: viewMode }] = useViewMode('ip_apps_view', 'list');
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [highlightConsumed, setHighlightConsumed] = useState('');
 
   const snapshot = useMemo(
     () => ({ filters: { q, tab, cols }, sort }),
@@ -190,7 +198,7 @@ export default function MyApplicationsPage() {
     [items],
   );
 
-  const { page, setPage, totalPages, total, pageItems } = useClientPagination(filtered, PAGE_SIZE);
+  const { page, setPage, totalPages, total, pageItems, serialOffset } = useClientPagination(filtered, PAGE_SIZE);
   const colsActive = countActiveCols(cols);
 
   useEffect(() => {
@@ -235,9 +243,57 @@ export default function MyApplicationsPage() {
     loadThreads();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function openThread(internshipId) {
-    const threadId = threadByInternship[internshipId];
-    router.push(threadId ? `/candidate/messages/${threadId}` : '/candidate/messages');
+  useEffect(() => {
+    if (!highlightId || loading || !items.length) return;
+    if (highlightConsumed === highlightId) return;
+    const hit = items.find((a) => String(a.id) === String(highlightId));
+    if (hit) {
+      setDetail(hit);
+      setHighlightConsumed(highlightId);
+    }
+  }, [highlightId, highlightConsumed, items, loading]);
+
+  /**
+   * Open an existing thread for this application, or create one (same pattern as
+   * employer candidate Message) then land on /candidate/messages?thread=…
+   */
+  async function openThread(app) {
+    const internshipId = app?.internship_id;
+    if (!internshipId || msgBusyId) return;
+
+    let threadId = threadByInternship[internshipId];
+    if (threadId) {
+      router.push(`/candidate/messages?thread=${encodeURIComponent(threadId)}`);
+      return;
+    }
+
+    const employerUserId = app.employer_user_id;
+    if (!employerUserId) {
+      window.alert('Cannot open chat — employer account is missing for this posting.');
+      return;
+    }
+
+    setMsgBusyId(app.id || internshipId);
+    try {
+      const res = await fetch('/api/ip/messages/threads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          otherUserId: employerUserId,
+          internshipId,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Could not open chat');
+      threadId = json.threadId;
+      if (!threadId) throw new Error('Chat channel was not created');
+      setThreadByInternship((prev) => ({ ...prev, [internshipId]: threadId }));
+      router.push(`/candidate/messages?thread=${encodeURIComponent(threadId)}`);
+    } catch (err) {
+      window.alert(err.message || 'Could not open chat');
+    } finally {
+      setMsgBusyId(null);
+    }
   }
 
   async function withdraw(id) {
@@ -277,6 +333,38 @@ export default function MyApplicationsPage() {
       </div>
 
       {loadError ? <p className="ip-ap-empty" style={{ margin: '0.75rem 0' }}>{loadError}</p> : null}
+
+      {/* METRICS ALWAYS AT TOP — do not move below the list (UI rule 2026-09-23) */}
+      <div className="ip-ap-metrics">
+        <div className="ip-ap-metric">
+          <div>
+            <span>Total Submitted</span>
+            <strong>{metrics.total}</strong>
+          </div>
+          <span className="ip-ap-metric__ico is-slate"><ClipboardList /></span>
+        </div>
+        <div className="ip-ap-metric">
+          <div>
+            <span>In Review</span>
+            <strong className="is-amber">{metrics.review}</strong>
+          </div>
+          <span className="ip-ap-metric__ico is-amber"><Hourglass /></span>
+        </div>
+        <div className="ip-ap-metric">
+          <div>
+            <span>Interviews Scheduled</span>
+            <strong className="is-brand">{metrics.interview}</strong>
+          </div>
+          <span className="ip-ap-metric__ico is-brand"><CalendarDays /></span>
+        </div>
+        <div className="ip-ap-metric">
+          <div>
+            <span>Offers Received</span>
+            <strong className="is-ok">{metrics.offers}</strong>
+          </div>
+          <span className="ip-ap-metric__ico is-ok"><Target /></span>
+        </div>
+      </div>
 
       <div className="ip-ap-toolbar">
         <div className="ip-ap-toolbar__row">
@@ -382,7 +470,13 @@ export default function MyApplicationsPage() {
                     {a.display_status || 'Applied'}
                   </span>
                 </div>
-                <p className="ip-ap-card__company">{a.company_name || '—'}</p>
+                <p className="ip-ap-card__company">
+                  {a.employer_id && !isConfidentialCompany(a.company_name) ? (
+                    <Link href={`/candidate/employers/${a.employer_id}`}>{a.company_name || '—'}</Link>
+                  ) : (
+                    a.company_name || '—'
+                  )}
+                </p>
                 <p className="ip-ap-card__meta">
                   Applied {appliedDate(a.created_at)}
                   {a.closed_at ? ` · ${a.closed_label || 'Closed on'} ${appliedDate(a.closed_at)}` : ''}
@@ -397,15 +491,16 @@ export default function MyApplicationsPage() {
                     className="ip-ap-icon"
                     title="Message employer"
                     aria-label="Message employer"
-                    onClick={() => openThread(a.internship_id)}
+                    disabled={Boolean(msgBusyId)}
+                    onClick={() => openThread(a)}
                   >
                     <MessageSquare />
                   </button>
                   <button
                     type="button"
                     className="ip-ap-icon is-withdraw"
-                    title="Withdraw application"
-                    aria-label="Withdraw application"
+                    title="Reject"
+                    aria-label="Reject"
                     disabled={!canWithdraw(a.status)}
                     onClick={() => withdraw(a.id)}
                   >
@@ -418,58 +513,81 @@ export default function MyApplicationsPage() {
         ) : null}
         {displayMode === 'list' ? (
         <div className="ip-ph-list-wrap">
-          <table className="ip-ph-list">
+          <table className="ip-ph-list ip-ap-list--tworow">
             <thead>
               <tr>
+                <th className="ip-ap-num">#</th>
                 <th>Role</th>
                 <th>Employer</th>
-                <th>Stipend</th>
-                <th>Location</th>
-                <th>Applied</th>
-                <th>Closed</th>
-                <th>Status</th>
+                <th>Details</th>
                 <th>Next</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {pageItems.map((a) => (
+              {pageItems.map((a, idx) => (
                 <tr key={a.id}>
+                  <td className="ip-ap-num">{serialOffset + idx + 1}</td>
                   <td>
-                    <Link href={`/candidate/internships/${a.internship_id}`} className="ip-ph-role">
-                      {a.title || 'Internship'}
-                    </Link>
+                    <div className="ip-ap-cell-stack">
+                      <Link href={`/candidate/internships/${a.internship_id}`} className="ip-ph-role">
+                        {a.title || 'Internship'}
+                      </Link>
+                      <span className={`ip-ap-badge ${statusClass(a.status)}`}>
+                        {a.display_status || 'Applied'}
+                      </span>
+                    </div>
                   </td>
-                  <td>{a.company_name || '—'}</td>
-                  <td>{stipendLabel(a)}</td>
-                  <td>{[a.work_mode, a.location].filter(Boolean).join(' • ') || '—'}</td>
-                  <td>{appliedDate(a.created_at)}</td>
-                  <td>{a.closed_at ? appliedDate(a.closed_at) : '—'}</td>
                   <td>
-                    <span className={`ip-ap-badge ${statusClass(a.status)}`}>
-                      {a.display_status || 'Applied'}
-                    </span>
+                    <div className="ip-ap-cell-stack">
+                      {a.employer_id && !isConfidentialCompany(a.company_name) ? (
+                        <Link href={`/candidate/employers/${a.employer_id}`} className="ip-ap-company">
+                          {a.company_name || '—'}
+                        </Link>
+                      ) : (
+                        <span className="ip-ap-company">{a.company_name || '—'}</span>
+                      )}
+                      <span className="ip-ap-muted">{locationLabel(a)}</span>
+                    </div>
                   </td>
-                  <td>{a.next_step || '—'}</td>
+                  <td>
+                    <div className="ip-ap-cell-stack">
+                      <span className="ip-ap-stipend">{stipendLabel(a)}</span>
+                      <span className="ip-ap-muted">
+                        Applied {appliedDate(a.created_at)}
+                        {a.closed_at ? ` · ${a.closed_label || 'Closed'} ${appliedDate(a.closed_at)}` : ''}
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    <span className="ip-ap-next-cell">{a.next_step || '—'}</span>
+                  </td>
                   <td>
                     <div className="ip-ap-actions__row">
-                      <button type="button" className="ip-ap-btn ip-ap-btn--ghost" onClick={() => setDetail(a)}>
-                        View Details
+                      <button
+                        type="button"
+                        className="ip-ap-icon"
+                        title="View details"
+                        aria-label="View details"
+                        onClick={() => setDetail(a)}
+                      >
+                        <ClipboardList />
                       </button>
                       <button
                         type="button"
                         className="ip-ap-icon"
                         title="Message employer"
                         aria-label="Message employer"
-                        onClick={() => openThread(a.internship_id)}
+                        onClick={() => openThread(a)}
+                        disabled={Boolean(msgBusyId)}
                       >
                         <MessageSquare />
                       </button>
                       <button
                         type="button"
                         className="ip-ap-icon is-withdraw"
-                        title="Withdraw application"
-                        aria-label="Withdraw application"
+                        title="Reject"
+                        aria-label="Reject"
                         disabled={!canWithdraw(a.status)}
                         onClick={() => withdraw(a.id)}
                       >
@@ -524,37 +642,6 @@ export default function MyApplicationsPage() {
         )}
       </div>
 
-      <div className="ip-ap-metrics">
-        <div className="ip-ap-metric">
-          <div>
-            <span>Total Submitted</span>
-            <strong>{metrics.total}</strong>
-          </div>
-          <span className="ip-ap-metric__ico is-slate"><ClipboardList /></span>
-        </div>
-        <div className="ip-ap-metric">
-          <div>
-            <span>In Review</span>
-            <strong className="is-amber">{metrics.review}</strong>
-          </div>
-          <span className="ip-ap-metric__ico is-amber"><Hourglass /></span>
-        </div>
-        <div className="ip-ap-metric">
-          <div>
-            <span>Interviews Scheduled</span>
-            <strong className="is-brand">{metrics.interview}</strong>
-          </div>
-          <span className="ip-ap-metric__ico is-brand"><CalendarDays /></span>
-        </div>
-        <div className="ip-ap-metric">
-          <div>
-            <span>Offers Received</span>
-            <strong className="is-ok">{metrics.offers}</strong>
-          </div>
-          <span className="ip-ap-metric__ico is-ok"><Target /></span>
-        </div>
-      </div>
-
       {detail ? (
         <div className="ip-ap-modal" role="dialog" aria-modal="true" aria-labelledby="ip-ap-detail-title">
           <button type="button" className="ip-ap-modal__backdrop" aria-label="Close" onClick={() => setDetail(null)} />
@@ -566,7 +653,12 @@ export default function MyApplicationsPage() {
                   <span className={`ip-ap-badge ${statusClass(detail.status)}`}>{detail.display_status}</span>
                 </div>
                 <p>
-                  {detail.company_name} • Applied on {appliedDate(detail.created_at)}
+                  {detail.employer_id && !isConfidentialCompany(detail.company_name) ? (
+                    <Link href={`/candidate/employers/${detail.employer_id}`}>{detail.company_name}</Link>
+                  ) : (
+                    detail.company_name
+                  )}
+                  {' '}• Applied on {appliedDate(detail.created_at)}
                   {detail.closed_at
                     ? ` • ${detail.closed_label || 'Closed on'} ${appliedDate(detail.closed_at)}`
                     : ''}
@@ -592,9 +684,16 @@ export default function MyApplicationsPage() {
             </div>
             <div className="ip-ap-modal__foot">
               <Link href={`/candidate/internships/${detail.internship_id}`} className="ip-ap-btn ip-ap-btn--ghost">Open internship</Link>
-              <button type="button" className="ip-ap-btn ip-ap-btn--ghost" onClick={() => openThread(detail.internship_id)}>Message employer</button>
+              <button
+                type="button"
+                className="ip-ap-btn ip-ap-btn--ghost"
+                disabled={Boolean(msgBusyId)}
+                onClick={() => openThread(detail)}
+              >
+                Message employer
+              </button>
               {canWithdraw(detail.status) ? (
-                <button type="button" className="ip-ap-btn ip-ap-btn--danger" onClick={() => withdraw(detail.id)}>Withdraw</button>
+                <button type="button" className="ip-ap-btn ip-ap-btn--danger" onClick={() => withdraw(detail.id)}>Reject</button>
               ) : null}
             </div>
           </div>

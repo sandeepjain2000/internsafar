@@ -23,12 +23,10 @@ export async function GET() {
 
   const [
     pendingEmployers,
-    pendingRequests,
     pendingIdeas,
     pendingDocs,
     pendingViral,
     pendingPromos,
-    pendingFormRegs,
     loginEvents,
     liveInternships,
     offers,
@@ -38,11 +36,6 @@ export async function GET() {
        FROM ip_employers e JOIN ip_users u ON u.id = e.user_id
        WHERE e.approval_status = 'pending'
        ORDER BY e.created_at DESC LIMIT 200`,
-    ),
-    query(
-      `SELECT id, company_name, work_email, status, created_at
-       FROM ip_employer_requests WHERE status = 'pending'
-       ORDER BY created_at DESC LIMIT 200`,
     ),
     query(
       `SELECT id, title, status, created_at FROM ip_feature_ideas
@@ -71,12 +64,6 @@ export async function GET() {
        ORDER BY p.created_at DESC LIMIT 200`,
     ),
     query(
-      `SELECT id, email, name, role, form_approval_status, created_at
-       FROM ip_users
-       WHERE role = 'candidate' AND registration_source = 'form' AND form_approval_status = 'pending'
-       ORDER BY created_at DESC LIMIT 200`,
-    ),
-    query(
       `SELECT id, email, role, success, created_at
        FROM ip_login_events
        ORDER BY created_at DESC LIMIT 200`,
@@ -94,17 +81,26 @@ export async function GET() {
   section(
     lines,
     'Summary',
-    ['generated_at', 'pending_employers', 'pending_requests', 'pending_ideas', 'pending_documents', 'pending_viral', 'pending_promotions', 'pending_form_registrations', 'internships_live', 'internships_total', 'offers_accepted', 'offers_total'],
+    [
+      'generated_at',
+      'pending_employers',
+      'pending_ideas',
+      'pending_documents',
+      'pending_viral',
+      'pending_promotions',
+      'internships_live',
+      'internships_total',
+      'offers_accepted',
+      'offers_total',
+    ],
     [
       [
         generatedAt,
         pendingEmployers.rows.length,
-        pendingRequests.rows.length,
         pendingIdeas.rows.length,
         pendingDocs.rows.length,
         pendingViral.rows.length,
         pendingPromos.rows.length,
-        pendingFormRegs.rows.length,
         liveInternships.rows[0]?.live ?? 0,
         liveInternships.rows[0]?.total ?? 0,
         offers.rows[0]?.accepted ?? 0,
@@ -118,18 +114,6 @@ export async function GET() {
     'PendingEmployers',
     ['id', 'company_name', 'work_email', 'account_email', 'approval_status', 'created_at'],
     pendingEmployers.rows.map((r) => [r.id, r.company_name, r.work_email, r.email, r.approval_status, r.created_at]),
-  );
-  section(
-    lines,
-    'PendingManualRequests',
-    ['id', 'company_name', 'work_email', 'status', 'created_at'],
-    pendingRequests.rows.map((r) => [r.id, r.company_name, r.work_email, r.status, r.created_at]),
-  );
-  section(
-    lines,
-    'PendingFormRegistrations',
-    ['id', 'email', 'name', 'role', 'form_approval_status', 'created_at'],
-    pendingFormRegs.rows.map((r) => [r.id, r.email, r.name, r.role, r.form_approval_status, r.created_at]),
   );
   section(
     lines,
@@ -151,7 +135,7 @@ export async function GET() {
   );
   section(
     lines,
-    'PendingLinkedInPromotions',
+    'PendingPromotions',
     ['id', 'company_name', 'title', 'status', 'created_at'],
     pendingPromos.rows.map((r) => [r.id, r.company_name, r.title, r.status, r.created_at]),
   );
@@ -162,12 +146,12 @@ export async function GET() {
     loginEvents.rows.map((r) => [r.id, r.email, r.role, r.success, r.created_at]),
   );
 
-  const stamp = generatedAt.slice(0, 10);
-  return new Response(lines.join('\n'), {
+  const body = lines.join('\n');
+  return new Response(body, {
     status: 200,
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="superadmin-system-audit-${stamp}.csv"`,
+      'Content-Disposition': `attachment; filename="ip-superadmin-audit-${generatedAt.slice(0, 10)}.csv"`,
     },
   });
 }

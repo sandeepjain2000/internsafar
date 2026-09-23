@@ -154,12 +154,15 @@
 
 .ip-sa-dash .ip-sad-pill {
   display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   padding: 0.125rem 0.5rem;
   border-radius: 9999px;
   font-size: 0.6875rem;
   font-weight: 800;
   border: 1px solid transparent;
   white-space: nowrap;
+  text-transform: capitalize;
 }
 
 .ip-sa-dash .ip-sad-pill--ok {

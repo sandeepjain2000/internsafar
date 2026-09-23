@@ -37,18 +37,31 @@ test.describe('InternSafar regression', () => {
     await expect(page.locator('#email')).toBeVisible();
   });
 
+  test('IS-003 home has no Google sign-in button', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('#email')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('button.ip-gemini-google-btn')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /sign in with google/i })).toHaveCount(0);
+  });
+
   test('IS-004 GoogleAccountNotLinked friendly message', async ({ page }) => {
     await page.goto('/?error=GoogleAccountNotLinked');
-    await expect(page.getByText(/No InternSafar account is linked|Sign up with Google/i)).toBeVisible({
+    await expect(page.getByText(/Google sign-in is not available/i).first()).toBeVisible({
+      timeout: 45_000,
+    });
+  });
+
+  test('IS-004b GoogleLoginDisabled friendly message', async ({ page }) => {
+    await page.goto('/?error=GoogleLoginDisabled');
+    await expect(page.getByText(/Google sign-in is not available/i).first()).toBeVisible({
       timeout: 45_000,
     });
   });
 
   test('IS-005 candidate register Google control visible', async ({ page }) => {
     await page.goto('/register/candidate');
-    await expect(
-      page.locator('button.ip-crg-google-btn, button:has-text("Google")').first(),
-    ).toBeVisible({ timeout: 45_000 });
+    await expect(page.locator('button.ip-crg-google-btn').first()).toBeVisible({ timeout: 45_000 });
+    await expect(page.locator('button.ip-crg-google-btn').first()).toContainText(/Sign up with Google/i);
   });
 
   test('IS-006 / IS-009 candidate session and sign-out', async ({ page }) => {

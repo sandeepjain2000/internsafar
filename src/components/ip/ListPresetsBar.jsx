@@ -25,9 +25,14 @@ export default function ListPresetsBar({
     const n = name.trim();
     if (!n) return;
     setBusy(true);
-    const ok = await savePreset(n, asDefault);
+    const result = await savePreset(n, asDefault);
     setBusy(false);
-    if (ok) setName('');
+    const ok = result === true || result?.ok === true;
+    const newId = result?.id || null;
+    if (ok) {
+      setName('');
+      if (newId) setSelectedId(newId);
+    }
   }
 
   const selected = presets.find((p) => p.id === selectedId);
@@ -96,7 +101,16 @@ export default function ListPresetsBar({
           </button>
         </>
       ) : null}
-      {presetError ? <span className="text-xs text-destructive">{presetError}</span> : null}
+      {presets.length === 0 ? (
+        <span className="text-[11px] font-medium text-slate-500">
+          Save filters as a preset to reuse them later.
+        </span>
+      ) : null}
+      {presetError ? (
+        <span className="w-full text-xs font-semibold text-red-600" role="alert">
+          {presetError}
+        </span>
+      ) : null}
       <span className="text-[11px] font-semibold text-slate-400">{presets.length}/5</span>
     </div>
   );

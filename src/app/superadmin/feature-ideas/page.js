@@ -15,8 +15,11 @@ import {
   X,
 } from 'lucide-react';
 import '@/components/ip/ip-superadmin-queue-gemini.css';
-
-const PAGE_SIZE = 10;
+import '@/components/ip/ip-list-pager.css';
+import IpListPager from '@/components/ip/IpListPager';
+import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import { useClientPagination } from '@/hooks/useClientPagination';
+import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
 
 const STATUS_TABS = [
   { id: 'all', label: 'All Ideas' },
@@ -91,8 +94,8 @@ export default function FeatureIdeasTriagePage() {
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState([]);
-  const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [triage, setTriage] = useState(null);
@@ -102,17 +105,26 @@ export default function FeatureIdeasTriagePage() {
   const [adminNote, setAdminNote] = useState('');
 
   async function load() {
+    setLoading(true);
     setError('');
-    const [ideasRes, catRes] = await Promise.all([fetch('/api/ip/ideas'), fetch('/api/ip/idea-categories')]);
-    const ideasData = await ideasRes.json();
-    const catData = await catRes.json().catch(() => ({}));
-    if (!ideasRes.ok) {
-      setError(ideasData.error || 'Failed to load');
-      return;
+    try {
+      const [ideasRes, catRes] = await Promise.all([fetch('/api/ip/ideas'), fetch('/api/ip/idea-categories')]);
+      const ideasData = await ideasRes.json();
+      const catData = await catRes.json().catch(() => ({}));
+      if (!ideasRes.ok) {
+        setError(ideasData.error || 'Failed to load');
+        setItems([]);
+        return;
+      }
+      setItems(ideasData.items || []);
+      setCategories(catData.items || []);
+      setSelected([]);
+    } catch (e) {
+      setError(e.message || 'Failed to load');
+      setItems([]);
+    } finally {
+      setLoading(false);
     }
-    setItems(ideasData.items || []);
-    setCategories(catData.items || []);
-    setSelected([]);
   }
 
   useEffect(() => {
@@ -160,6 +172,15 @@ export default function FeatureIdeasTriagePage() {
     return rows;
   }, [items, tab, categoryFilter, priorityFilter, search]);
 
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(
+    filtered,
+    SA_PAGE_SIZE,
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [tab, categoryFilter, priorityFilter, search, setPage]);
+
   const tabCounts = useMemo(() => {
     const map = { all: items.length };
     for (const t of STATUS_TABS) {
@@ -168,13 +189,6 @@ export default function FeatureIdeasTriagePage() {
     }
     return map;
   }, [items]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  useEffect(() => {
-    if (page > totalPages) setPage(1);
-  }, [page, totalPages]);
 
   async function patch(ids, body) {
     if (!ids.length) return;
@@ -309,7 +323,6 @@ export default function FeatureIdeasTriagePage() {
                 className={`ip-saq-tab${tab === t.id ? ' ip-saq-tab--on' : ''}`}
                 onClick={() => {
                   setTab(t.id);
-                  setPage(1);
                 }}
               >
                 {t.label}
@@ -323,7 +336,6 @@ export default function FeatureIdeasTriagePage() {
               value={categoryFilter}
               onChange={(e) => {
                 setCategoryFilter(e.target.value);
-                setPage(1);
               }}
               aria-label="Category"
             >
@@ -340,7 +352,6 @@ export default function FeatureIdeasTriagePage() {
               value={priorityFilter}
               onChange={(e) => {
                 setPriorityFilter(e.target.value);
-                setPage(1);
               }}
               aria-label="Priority"
             >
@@ -358,7 +369,6 @@ export default function FeatureIdeasTriagePage() {
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
-                  setPage(1);
                 }}
               />
             </div>
@@ -379,12 +389,14 @@ export default function FeatureIdeasTriagePage() {
           </div>
         ) : null}
 
-        {!filtered.length ? (
-          <div className="ip-saq-empty">
-            <Lightbulb size={28} aria-hidden />
-            <h4>No feature ideas in this view</h4>
-            <p>Candidate and employer suggestions will appear here for roadmap triage.</p>
-          </div>
+        {loading ? (
+          <IpListLoading label="Loading Feature Ideas…" />
+        ) : !filtered.length ? (
+          <IpListEmpty
+            icon={Lightbulb}
+            title="No Feature Ideas In This View"
+            hint="Candidate And Employer Suggestions Will Appear Here For Roadmap Triage."
+          />
         ) : (
           <>
             <div className="ip-saq-table-wrap">
@@ -394,9 +406,9 @@ export default function FeatureIdeasTriagePage() {
                     <th>
                       <input
                         type="checkbox"
-                        checked={pageItems.length > 0 && pageItems.every((i) => selected.includes(i.id))}
-                        onChange={(e) => setSelected(e.target.checked ? pageItems.map((i) => i.id) : [])}
-                        aria-label="Select page"
+                        checked={filtered.length > 0 && filtered.every((i) => selected.includes(i.id))}
+                        onChange={(e) => setSelected(e.target.checked ? filtered.map((i) => i.id) : [])}
+                        aria-label="Select all"
                       />
                     </th>
                     <th>Feature Request Title</th>
@@ -465,36 +477,15 @@ export default function FeatureIdeasTriagePage() {
                 </tbody>
               </table>
             </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginTop: '0.75rem',
-                fontSize: '0.75rem',
-                color: '#64748b',
-              }}
-            >
-              <span>
-                Showing {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}{' '}
-                feature ideas
-              </span>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button type="button" className="ip-saq-btn ip-saq-btn--sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                  Previous
-                </button>
-                <span>
-                  Page {page}/{totalPages}
-                </span>
-                <button
-                  type="button"
-                  className="ip-saq-btn ip-saq-btn--sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Next
-                </button>
-              </div>
+            <div className="ip-saq-pager">
+              <IpListPager
+                page={page}
+                totalPages={totalPages}
+                total={total}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                buttonClassName="ip-saq-btn ip-saq-btn--sm"
+              />
             </div>
           </>
         )}

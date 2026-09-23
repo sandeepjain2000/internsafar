@@ -111,28 +111,31 @@ export default function EmployerCandidateProfilePage() {
   }
 
   async function goMessage() {
-    const candidateName = data?.candidate?.name || '';
-    const appId = data?.application?.id;
+    const otherUserId = data?.candidate?.user_id;
+    const intId = data?.application?.internship_id || internshipId || null;
+    if (!otherUserId) {
+      window.alert('Cannot open chat — candidate account is missing.');
+      return;
+    }
     setMsgBusy(true);
     try {
-      const res = await fetch('/api/ip/messages/threads');
+      const res = await fetch('/api/ip/messages/threads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          otherUserId,
+          internshipId: intId || null,
+        }),
+      });
       const json = await res.json().catch(() => ({}));
-      const items = json.items || [];
-      const match = items.find((t) => (
-        (appId && t.application_id === appId)
-        || (candidateName
-          && String(t.candidate_name || '').toLowerCase() === candidateName.toLowerCase())
-      ));
-      if (match?.id) {
-        router.push(`/employer/messages?thread=${encodeURIComponent(match.id)}`);
-        return;
-      }
-    } catch {
-      /* fall through to inbox */
+      if (!res.ok) throw new Error(json.error || 'Could not open chat');
+      if (!json.threadId) throw new Error('Chat channel was not created');
+      router.push(`/employer/messages?thread=${encodeURIComponent(json.threadId)}`);
+    } catch (err) {
+      window.alert(err.message || 'Could not open chat');
     } finally {
       setMsgBusy(false);
     }
-    router.push('/employer/messages');
   }
 
   function openOffer() {
@@ -192,6 +195,21 @@ export default function EmployerCandidateProfilePage() {
       <Button type="button" variant="outline" size="sm" disabled={msgBusy || !c} onClick={goMessage}>
         {msgBusy ? 'Opening…' : 'Message'}
       </Button>
+      {a ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          render={
+            <a
+              href={`/api/ip/employer/candidates/${encodeURIComponent(id)}/download?applicationId=${encodeURIComponent(a.id)}`}
+            />
+          }
+          nativeButton={false}
+        >
+          Download Excel + CV
+        </Button>
+      ) : null}
       <Button
         type="button"
         size="sm"

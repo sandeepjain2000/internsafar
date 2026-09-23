@@ -68,10 +68,11 @@ export async function POST(request) {
       );
       await notifyUser({
         userId: share.user_id,
-        title: 'Viral LinkedIn share verified',
-        body: `+${LINKEDIN_PROMO_POINTS} points.`,
+        title: 'Viral LinkedIn Share Verified',
+        body: `+${LINKEDIN_PROMO_POINTS} Points.`,
         link: '/employer/viral',
         category: 'system',
+        forceEmail: true,
       });
       results.push({ id: share.id, status: 'rewarded' });
     } else {

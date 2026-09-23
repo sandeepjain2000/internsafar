@@ -21,7 +21,7 @@ InternSafar automated QA, regression, manual test-case creation, and results wor
 
 - Google on **register** OAuth hop = verification-only (intent → `?gv=`; **no** portal session during consent/return).
 - After a successful **Google-path create** (`register-candidate`), the API may return `sessionEstablished: true` and the UI opens the role home immediately (seen on TC-IS-03-019 / 001). Temp password email still sent; email/password on `/` remains valid.
-- Google on **home**: portal session only when `ip_google_identities` is linked; else `/?error=GoogleAccountNotLinked`.
+- Google on **home**: disabled (`/?error=GoogleLoginDisabled`). Login is email + password.
 - Local and Vercel share the **same** DB — resets on local affect Vercel. Production AWS DB is separate.
 - Referral on Google register: `/api/ip/auth/google-intent` stores `referralCode` in httpOnly `ip_google_ref`.
 - Each host under test needs matching `NEXTAUTH_URL` + Google OAuth callback for that origin.
@@ -49,8 +49,11 @@ Defined for local `.env.local` only (also documented in `.env.example`). **Never
 | `IP_QA_2FA_BYPASS_FOR_TESTING` | `true` enables bypass in scripted flows |
 | `IP_QA_2FA_BYPASS_CODE` | Bypass code when bypass enabled |
 | `IP_QA_2FA_WRONG_CODE` | Negative OTP tests |
+| `IP_QA_EMPLOYER_EMAIL_VERIFY_TOKEN_IN_RESPONSE` | `1` → employer register JSON includes `qaVerifyUrl` + `qaOutboundMails` (always off when `VERCEL_ENV=production`) |
 
 CI: skip OTP success assertions when codes unset, or use bypass. Core accounts: `qa/helpers/accounts.js`.
+
+Employer register E2E (no inbox): `npm run qa:employer-reg-e2e` and deep smoke `npm run qa:register-approve-post-apply`. Both must assert **real credentials login** at gates (fail before verify; succeed pending+verified; SA login; approved login; candidate login+apply). Do not pass on register-only. Flow doc: `docs/qa-employer-register-e2e.md`.
 
 ### 5) `qa:e2e` default scope
 
@@ -102,4 +105,4 @@ Playbook: `qa/docs/internsafar-runner-playbook.md`.
 
 ## Inspect before modifying
 
-`InternSafar-Test-Cases.xlsx`, runners, `qa/tests/*`, related `scripts/lib/ipQa*.mjs`, `.env.example`.
+`InternSafar-Test-Cases.xlsx`, runners, `qa/tests/*`, related `scripts/lib/ipQa*.mjs`, `docs/qa-employer-register-e2e.md`, `.env.example`.

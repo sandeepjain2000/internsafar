@@ -46,10 +46,10 @@ export function validateOptionalPhone(phone, phoneCountryCode) {
   return { ok: true, e164: parsed.format('E.164') };
 }
 
-/** Required phone (employer contact). */
+/** Required phone. */
 export function validateRequiredPhone(phone, phoneCountryCode) {
   if (!String(phone || '').trim()) {
-    return { ok: false, error: 'Contact phone is required' };
+    return { ok: false, error: 'Mobile phone is required' };
   }
   const check = validateOptionalPhone(phone, phoneCountryCode);
   if (!check.ok) {

@@ -3,43 +3,27 @@ import bcrypt from 'bcryptjs';
 import { query } from '@/lib/db';
 import { newId, randomPassword, referralCodeFrom } from '@/lib/ids';
 import { sendMail, tempPasswordEmailHtml } from '@/lib/mail';
-import { notifyRole, notifyUser } from '@/lib/ipNotify';
+import { notifyUser } from '@/lib/ipNotify';
 import { referrerRewardsForRole } from '@/lib/pointsEconomy';
 import { isGmailAddress, normalizeEmail } from '@/lib/authRegisterRules';
-import { verifyLoginCaptcha } from '@/lib/simpleCaptcha';
 import {
   consumeGoogleVerification,
-  findLinkedUserForGoogleLogin,
   GOOGLE_INTENTS,
   isGoogleVerificationBypassed,
   recordGoogleIdentity,
 } from '@/lib/ipGoogleAuth';
-import { attachPortalSessionCookie } from '@/lib/ipEstablishPortalSession';
-import { ROLE_HOME } from '@/lib/roleHome';
 import { ensureIpFormRegistrationSchema } from '@/lib/ensureIpFormRegistrationSchema';
 import {
   ensureIpReferralExtraSchema,
-  insertPendingReferral,
   recordInvalidReferralAttempt,
 } from '@/lib/ipReferralCredit';
 
 /**
- * Candidate registration.
- * - path=google (default): real Google OAuth verification (single-use token issued by
- *   the NextAuth signIn callback) + Gmail-only, system temp password emailed,
- *   active immediately. Stored as registration_source='google' — the only path allowed
- *   to claim that. After the verified Google identity is linked, a normal portal session
- *   is established server-side (same JWT + ip_auth_sessions path as login) and the client
- *   is told to open ROLE_HOME.candidate — no second Google sign-in.
- * - path=form: Gmail-only + user password + college + graduationYear + captcha;
- *   account stays inactive until SuperAdmin approves (form_approval_status=pending).
+ * Candidate registration (Google-verified Gmail only).
+ * Real Google OAuth verification token + system temp password emailed, active immediately.
+ * Login is email + password only (no Google sign-in on home).
  */
 
-/**
- * Build the Google-path success response. When the Google identity is linked and the
- * account is eligible, attach a normal NextAuth session cookie; otherwise leave the
- * user unauthenticated and ask them to sign in (never claim /candidate without a session).
- */
 async function googlePathSuccessResponse({
   userId,
   email,
@@ -57,51 +41,32 @@ async function googlePathSuccessResponse({
     referredByName: referrerName || null,
     startingPoints: 50,
     referralApplied: Boolean(referredBy && referredBy !== userId),
-    message,
-    ...extra,
-  };
-  if (warning) base.warning = warning;
-
-  const canTrySession = Boolean(googleIdentity?.googleSub);
-  if (canTrySession) {
-    const linked = await findLinkedUserForGoogleLogin({
-      googleSub: googleIdentity.googleSub,
-      email: googleIdentity.email || email,
-    });
-    if (linked?.id === userId && linked.active !== false) {
-      const redirectTo = ROLE_HOME.candidate;
-      const res = NextResponse.json({
-        ...base,
-        sessionEstablished: true,
-        redirectTo,
-        message: message || 'Account created. Opening your candidate dashboard…',
-      });
-      const attached = await attachPortalSessionCookie(res, {
-        userId,
-        rememberMe: true,
-        authMethod: 'Google OAuth',
-      });
-      if (attached.ok) {
-        return res;
-      }
-      console.error('[register-candidate] session attach failed', attached.error);
-    }
-  }
-
-  return NextResponse.json({
-    ...base,
     sessionEstablished: false,
     message:
       message ||
-      'Account created. Sign in with Google on the login page, or use the temporary password if one was emailed.',
-  });
+      'Account created. Check your email for a temporary password, then sign in with email and password.',
+    ...extra,
+  };
+  if (warning) base.warning = warning;
+  void googleIdentity;
+  void email;
+  return NextResponse.json(base);
 }
+
 export async function POST(request) {
   try {
     await ensureIpFormRegistrationSchema();
     await ensureIpReferralExtraSchema();
     const body = await request.json();
-    const path = String(body.path || 'google').toLowerCase() === 'form' ? 'form' : 'google';
+    if (String(body.path || '').toLowerCase() === 'form') {
+      return NextResponse.json(
+        {
+          error:
+            'Form registration is no longer available. Continue with Google on the candidate register page.',
+        },
+        { status: 410 },
+      );
+    }
     const email = normalizeEmail(body.email);
     const name = String(body.name || '').trim() || email.split('@')[0];
     const referralCode = String(body.referralCode || '').trim() || null;
@@ -109,7 +74,6 @@ export async function POST(request) {
     const graduationYear = body.graduationYear != null && body.graduationYear !== ''
       ? Number(body.graduationYear)
       : null;
-    const passwordPlain = String(body.password || '');
 
     if (!email || !email.includes('@')) {
       return NextResponse.json({ error: 'A valid email is required' }, { status: 400 });
@@ -124,30 +88,10 @@ export async function POST(request) {
       );
     }
 
-    if (path === 'form') {
-      if (!college) {
-        return NextResponse.json({ error: 'University / Institute is required' }, { status: 400 });
-      }
-      if (!graduationYear || Number.isNaN(graduationYear)) {
-        return NextResponse.json({ error: 'Graduation year is required' }, { status: 400 });
-      }
-      if (passwordPlain.length < 8) {
-        return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
-      }
-    }
-
-    // Captcha guards the form path, where nothing else proves a human is present. The
-    // Google path completes a real OAuth consent flow instead, which is the stronger check
-    // of the two, so it does not also ask a security question. Order matters: the Google
-    // token is verified below before anything is written.
-    if (path === 'form' && !verifyLoginCaptcha(body.captchaToken, body.captchaAnswer)) {
-      return NextResponse.json({ error: 'Captcha verification failed' }, { status: 400 });
-    }
-
     // Google path requires a real verification token issued by the NextAuth signIn
     // callback, so the address comes from Google rather than from this request body.
     let googleIdentity = null;
-    if (path !== 'form' && !isGoogleVerificationBypassed()) {
+    if (!isGoogleVerificationBypassed()) {
       const verified = await consumeGoogleVerification(
         String(body.googleVerificationToken || ''),
         GOOGLE_INTENTS.candidateRegister.cookieValue,
@@ -197,25 +141,22 @@ export async function POST(request) {
       }
     }
 
-    const password = path === 'form' ? passwordPlain : randomPassword(12);
+    const password = randomPassword(12);
     const passwordHash = await bcrypt.hash(password, 10);
     const userId = newId('ip_user');
     const candidateId = newId('ip_cand');
     const myReferral = referralCodeFrom(name);
-    const active = path !== 'form';
-    const formApproval = path === 'form' ? 'pending' : null;
-    // 'google' only when OAuth really happened. Under the QA/dev bypass no token is
-    // consumed, so those seeded accounts stay honest as 'gmail_domain'.
-    const registrationSource = path === 'form' ? 'form' : googleIdentity ? 'google' : 'gmail_domain';
+    const active = true;
+    const registrationSource = googleIdentity ? 'google' : 'gmail_domain';
 
     await query('BEGIN');
     try {
       await query(
         `INSERT INTO ip_users (
            id, email, password_hash, role, name, points, application_allowance, referral_code, referred_by,
-           active, registration_source, form_approval_status
-         ) VALUES ($1,$2,$3,'candidate',$4,50,10,$5,$6,$7,$8,$9)`,
-        [userId, email, passwordHash, name, myReferral, referredBy, active, registrationSource, formApproval],
+           active, registration_source
+         ) VALUES ($1,$2,$3,'candidate',$4,50,10,$5,$6,$7,$8)`,
+        [userId, email, passwordHash, name, myReferral, referredBy, active, registrationSource],
       );
       await query(
         `INSERT INTO ip_candidates (id, user_id, name, email, college, graduation_year, profile_picture_url)
@@ -228,48 +169,33 @@ export async function POST(request) {
         [newId('ip_pts'), userId, JSON.stringify({ source: registrationSource })],
       );
       if (referredBy && referrerRole && referredBy !== userId) {
-        if (path === 'form') {
-          await insertPendingReferral({
-            referrerUserId: referredBy,
-            referredUserId: userId,
-            referralCode,
-          });
-          referralNotify = {
-            userId: referredBy,
-            title: 'New referral signup',
-            body: 'A candidate registered using your invite link. Points credit after SuperAdmin approval.',
-            link: referrerRole === 'employer' ? '/employer/referral' : '/candidate/referral',
-            category: 'referral',
-          };
-        } else {
-          const rewards = referrerRewardsForRole(referrerRole);
-          await query(
-            `UPDATE ip_users
-             SET points = points + $2,
-                 free_post_credits = free_post_credits + $3,
-                 application_allowance = application_allowance + $4,
-                 updated_at = now()
-             WHERE id = $1`,
-            [referredBy, rewards.points, rewards.freePostCredits, rewards.applicationAllowance],
-          );
-          await query(
-            `INSERT INTO ip_points_ledger (id, user_id, delta, reason, meta)
-             VALUES ($1,$2,$3,'referral_bonus',$4::jsonb)`,
-            [newId('ip_pts'), referredBy, rewards.points, JSON.stringify({ referredUserId: userId, referrerName })],
-          );
-          await query(
-            `INSERT INTO ip_referrals (id, referrer_user_id, referred_user_id, referral_code, status, points_awarded)
-             VALUES ($1,$2,$3,$4,'completed',$5)`,
-            [newId('ip_ref'), referredBy, userId, referralCode, rewards.points],
-          );
-          referralNotify = {
-            userId: referredBy,
-            title: 'Referral bonus earned',
-            body: `${name} completed registration using your link. You earned +${rewards.points} points.`,
-            link: referrerRole === 'employer' ? '/employer/referral' : '/candidate/referral',
-            category: 'referral',
-          };
-        }
+        const rewards = referrerRewardsForRole(referrerRole);
+        await query(
+          `UPDATE ip_users
+           SET points = points + $2,
+               free_post_credits = free_post_credits + $3,
+               application_allowance = application_allowance + $4,
+               updated_at = now()
+           WHERE id = $1`,
+          [referredBy, rewards.points, rewards.freePostCredits, rewards.applicationAllowance],
+        );
+        await query(
+          `INSERT INTO ip_points_ledger (id, user_id, delta, reason, meta)
+           VALUES ($1,$2,$3,'referral_bonus',$4::jsonb)`,
+          [newId('ip_pts'), referredBy, rewards.points, JSON.stringify({ referredUserId: userId, referrerName })],
+        );
+        await query(
+          `INSERT INTO ip_referrals (id, referrer_user_id, referred_user_id, referral_code, status, points_awarded)
+           VALUES ($1,$2,$3,$4,'completed',$5)`,
+          [newId('ip_ref'), referredBy, userId, referralCode, rewards.points],
+        );
+        referralNotify = {
+          userId: referredBy,
+          title: 'Referral bonus earned',
+          body: `${name} completed registration using your link. You earned +${rewards.points} points.`,
+          link: referrerRole === 'employer' ? '/employer/referral' : '/candidate/referral',
+          category: 'referral',
+        };
       }
       await query('COMMIT');
     } catch (e) {
@@ -297,24 +223,6 @@ export async function POST(request) {
       await notifyUser(referralNotify).catch(() => {});
     }
 
-    if (path === 'form') {
-      await notifyRole({
-        role: 'superadmin',
-        title: 'Candidate form registration',
-        body: `${name} — ${email} (pending approval)`,
-        link: '/superadmin/form-registrations',
-        category: 'system',
-      }).catch(() => {});
-
-      return NextResponse.json({
-        ok: true,
-        mode: 'form_pending',
-        userId,
-        message:
-          'Registration submitted. A SuperAdmin must approve your account before you can sign in. You will use the password you chose after approval.',
-      });
-    }
-
     const common = {
       userId,
       email,
@@ -334,7 +242,7 @@ export async function POST(request) {
         return googlePathSuccessResponse({
           ...common,
           message:
-            'Account created. Opening your candidate dashboard… A temporary password email was also sent (or redirected for QA).',
+            'Account created. Check your email for a temporary password, then sign in with email and password (Forgot password if you lose it). You can change the password after sign-in.',
           extra: {
             mailOverride: true,
             mailSentTo: mailResult.sentTo,
@@ -346,9 +254,8 @@ export async function POST(request) {
         return googlePathSuccessResponse({
           ...common,
           message:
-            'Account created. Opening your candidate dashboard… A password copy may also have been sent to an alternate delivery address.',
-          warning:
-            'Primary inbox delivery may have failed. You are signed in; contact support if you need a password reset later.',
+            'Account created. A temporary password email may have been sent to an alternate delivery address. Sign in with email and password — not Google.',
+          warning: `Primary inbox may have failed for ${email}. Use Forgot password if you did not receive the email.`,
           extra: {
             mailFallback: true,
             mailSentTo: mailResult.fallbackTo,
@@ -360,9 +267,8 @@ export async function POST(request) {
       return googlePathSuccessResponse({
         ...common,
         message:
-          'Account created. Opening your candidate dashboard… No temporary password email was sent.',
-        warning:
-          'Password email could not be sent. You are signed in with your Google-linked account.',
+          'Account created, but the temporary password email could not be sent. Use Forgot password on the sign-in page with your Gmail address.',
+        warning: 'Password email failed. Use Forgot password to set a password, then sign in with email and password.',
         extra: { emailError: mailErr.message },
       });
     }
@@ -370,7 +276,7 @@ export async function POST(request) {
     return googlePathSuccessResponse({
       ...common,
       message:
-        'Account created. Opening your candidate dashboard… A temporary password was also emailed to your Gmail.',
+        'Account created. Check your Gmail for a temporary password, then sign in with email and password. You can change it after sign-in; use Forgot password if you lose it.',
     });
   } catch (error) {
     console.error('[register-candidate]', error);

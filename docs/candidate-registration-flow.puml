@@ -1,0 +1,122 @@
+@startuml InternSafar_Candidate_Registration
+title InternSafar — Candidate registration only\n(Gmail via Google verify → temp password → email/password sign-in)
+
+skinparam shadowing false
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #334155
+skinparam ActivityDiamondBackgroundColor #F8FAFC
+skinparam ActivityDiamondBorderColor #64748B
+skinparam ArrowColor #475569
+skinparam swimlaneWidth 200
+skinparam activityFontSize 12
+skinparam titleFontSize 14
+
+skinparam swimlane {
+  BorderColor #94A3B8
+  TitleFontSize 13
+  TitleFontStyle bold
+}
+
+|Candidate|
+start
+
+if (Has referral link\n/r/{code} ?) then (yes)
+  :Open /r/{code};
+  :Redirect to\n/register?ref={code};
+else (no)
+  :Open /register;
+endif
+
+|UI|
+:Show role chooser\n(Candidate / Employer);
+
+|Candidate|
+:Choose Register as Candidate;
+
+|UI|
+:Open /register/candidate\n(keep ?ref= if present);
+:Show Gmail-only notice\n+ Sign up with Google;
+note right
+  Live UI has no typed
+  email/password form.
+  Address must come from Google.
+end note
+
+|Candidate|
+:Click Sign up with Google;
+
+|API|
+:POST /api/ip/auth/google-intent\npurpose=candidate-register\n(+ optional referralCode);
+:Set httpOnly cookies\n(intent + optional ref)\nTTL ~15 minutes;
+
+|Candidate|
+:Complete Google consent\n(account picker);
+
+|Google / NextAuth|
+:See intent cookie;
+:Do NOT open portal session;
+:Mint single-use\nverification token;
+:Redirect to\n/register/candidate?gv={token}\n(+ ?ref= if any);
+
+|API|
+:GET google-verification\n?token=gv&purpose=candidate-register;
+:Peek token\n(email, name, picture);
+
+|UI|
+if (Email is @gmail.com\nor @googlemail.com ?) then (yes)
+  :Show verified email\nCreating your account…;
+
+  |API|
+  :POST /api/ip/auth/register-candidate\npath=google;
+  :Consume gv token\n(single-use);
+  :Require body email\n== Google email;
+
+  if (Email already\nin ip_users ?) then (yes)
+    :Return 409\nAlready exists — sign in;
+    |UI|
+    :Show error;
+    stop
+  else (no)
+  endif
+
+  |API|
+  :Resolve referral code\n(if present);
+  :Generate random\ntemp password (12 chars);
+  :BEGIN transaction;
+  :Insert ip_users\nrole=candidate, active=true\npoints=50, allowance=10\nregistration_source=google;
+  :Insert ip_candidates\n(+ Google picture if any);
+  :Insert points ledger +50;
+  if (Valid referral\nand not self ?) then (yes)
+    :Credit referrer\n+ notify referrer;
+  else (no)
+  endif
+  :COMMIT;
+  :Link Google identity\n(googleSub → user);
+  :Email temp password\nto Gmail;
+  :Return ok\nsessionEstablished=false;
+
+  |UI|
+  :Show Registration complete;
+  :CTA → Back to Sign In (/);
+
+  |Candidate|
+  :Open Gmail\nread temp password;
+  :Sign in at /\nemail + password only;
+  note right
+    Google login on home
+    is disabled.
+    Change password in Account
+    or use /forgot-password.
+  end note
+  stop
+
+else (no — not Gmail)
+  |UI|
+  :Show error\ninstitutional email rejected;
+  :Offer Use a different\nGoogle account;
+  |Candidate|
+  :Run Google again;
+  stop
+endif
+
+@enduml

@@ -15,6 +15,7 @@ import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useIsMobile } from '@/hooks/useViewMode';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import IpListPager from '@/components/ip/IpListPager';
+import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 import '@/components/ip/ip-employer-offers-gemini.css';
 import '@/components/ip/ip-list-pager.css';
 
@@ -112,6 +113,7 @@ function weekStartMs() {
 
 export default function EmployerOffersPage() {
   const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('All');
   const [q, setQ] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
@@ -137,9 +139,14 @@ export default function EmployerOffersPage() {
   });
 
   async function load() {
-    const res = await fetch('/api/ip/offers');
-    const data = await res.json();
-    setItems(data.items || []);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/ip/offers');
+      const data = await res.json();
+      setItems(data.items || []);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -493,16 +500,22 @@ export default function EmployerOffersPage() {
           <ListPresetsBar {...prefs} />
         </div>
 
+        {loading ? (
+          <IpListLoading label="Loading Offers…" />
+        ) : !filtered.length ? (
+          <IpListEmpty
+            title={items.length ? 'No Matching Offers' : 'No Offers Yet'}
+            hint={
+              items.length
+                ? 'No Offers Match The Selected Filter.'
+                : 'Send One From A Posting’s Applicant List Or Search Candidates.'
+            }
+          />
+        ) : (
+          <>
         {/* Mobile cards */}
         <div className="ip-eo-cards" aria-label="Offers cards">
-          {!filtered.length ? (
-            <p className="ip-eo-empty">
-              {items.length
-                ? 'No offers match the selected filter.'
-                : 'No offers yet — send one from a posting’s applicant list or Search Candidates.'}
-            </p>
-          ) : (
-            pageItems.map((o) => {
+          {pageItems.map((o) => {
               const st = displayStatus(o);
               return (
                 <article key={o.id} className="ip-eo-mcard">
@@ -533,8 +546,7 @@ export default function EmployerOffersPage() {
                   </div>
                 </article>
               );
-            })
-          )}
+            })}
         </div>
 
         <div className="ip-eo-table-wrap">
@@ -549,16 +561,7 @@ export default function EmployerOffersPage() {
               </tr>
             </thead>
             <tbody>
-              {!filtered.length ? (
-                <tr>
-                  <td colSpan={5} className="ip-eo-empty">
-                    {items.length
-                      ? 'No offers match the selected filter.'
-                      : 'No offers yet — send one from a posting’s applicant list or Search Candidates.'}
-                  </td>
-                </tr>
-              ) : (
-                pageItems.map((o) => (
+              {pageItems.map((o) => (
                   <tr key={o.id}>
                     <td>
                       <div className="ip-eo-cand">
@@ -586,13 +589,14 @@ export default function EmployerOffersPage() {
                     </td>
                     <td>{renderOfferActions(o)}</td>
                   </tr>
-                ))
-              )}
+                ))}
             </tbody>
           </table>
         </div>
+          </>
+        )}
 
-        {total > 0 ? (
+        {!loading && total > 0 ? (
           <IpListPager
             page={page}
             totalPages={totalPages}

@@ -20,14 +20,13 @@ import { normalizeEmail } from '@/lib/authRegisterRules';
 import {
   createGoogleVerification,
   ensureIpGoogleAuthSchema,
-  findLinkedUserForGoogleLogin,
   GOOGLE_INTENT_COOKIE,
   GOOGLE_REF_COOKIE,
   googleIntentFromCookieHeader,
   googleRefFromCookieHeader,
   googleVerificationReturnUrl,
-  recordGoogleIdentity,
 } from '@/lib/ipGoogleAuth';
+import { ensureIpEmployerEmailVerifySchema } from '@/lib/ipEmployerEmailVerify';
 
 /** Default session when "Remember this device" is unchecked. */
 const SESSION_SHORT_SEC = 60 * 60 * 12; // 12 hours
@@ -37,15 +36,26 @@ const SESSION_LONG_SEC = 60 * 60 * 24 * 30; // 30 days
 warnIfProductionAuthMisconfigured();
 
 /**
- * Internship Portal auth — Credentials login + Google for register verify / linked login.
+ * Internship Portal auth — Credentials login + Google for registration verify only.
  *
  * With a registration intent cookie: Google issues a single-use verification token and
  * returns to the register form (no portal session).
  *
- * Without an intent: Google may open a portal session only when ip_google_identities
- * already links that Google account to an active user (Sign up with Google completed).
- * Password-only accounts without a Google link cannot be opened via Google.
+ * Without an intent: Google login is disabled. Portal sessions are email + password
+ * (and forgot-password / change-password). Google is not a sign-in method on home/login.
  */
+
+/** Mark the JWT's tracked workspace session revoked (logout / soft-expiry / inactive). */
+async function endTrackedAuthSession(token) {
+  const sessionId = token?.sid || null;
+  const userId = token?.uid || token?.sub || null;
+  if (!sessionId || !userId) return;
+  try {
+    await revokeAuthSession({ sessionId, userId });
+  } catch (e) {
+    console.error('[ip auth] session revoke failed', e.message);
+  }
+}
 
 async function queryWithRetry(text, params, attempts = 3) {
   let lastError;
@@ -175,7 +185,7 @@ export const authOptions = {
             throw new Error('Simulated DB connection failure');
           }
           result = await queryWithRetry(
-            `SELECT id, email, password_hash, role, name, active, profile_complete, form_approval_status
+            `SELECT id, email, password_hash, role, name, active, profile_complete
              FROM ip_users
              WHERE lower(email) = $1
              LIMIT 1`,
@@ -199,12 +209,6 @@ export const authOptions = {
             success: false,
             failureReason: 'Inactive account',
           });
-          if (user.form_approval_status === 'pending') {
-            throw new Error('Your registration is pending SuperAdmin approval. You cannot sign in yet.');
-          }
-          if (user.form_approval_status === 'rejected') {
-            throw new Error('Your registration was rejected. Contact support if you believe this is a mistake.');
-          }
           throw new Error('Invalid email or password');
         }
 
@@ -218,6 +222,63 @@ export const authOptions = {
             failureReason: 'Bad Pass',
           });
           throw new Error('Invalid email or password');
+        }
+
+        if (user.role === 'employer') {
+          await ensureIpEmployerEmailVerifySchema();
+          const emp = await query(
+            `SELECT e.approval_status, u.email_verified_at, u.email_verify_required
+             FROM ip_employers e
+             JOIN ip_users u ON u.id = e.user_id
+             WHERE e.user_id = $1
+             LIMIT 1`,
+            [user.id],
+          );
+          const row = emp.rows[0];
+          const status = String(row?.approval_status || '').toLowerCase();
+          const verifyRequired = row?.email_verify_required !== false;
+          const emailVerified = Boolean(row?.email_verified_at) || !verifyRequired;
+
+          if (status === 'rejected') {
+            await recordLoginEvent({
+              userId: user.id,
+              email,
+              role: user.role,
+              success: false,
+              failureReason: 'Employer rejected',
+            });
+            throw new Error(
+              'Your employer registration was rejected. Contact support if you believe this is a mistake.',
+            );
+          }
+          if (status === 'suspended') {
+            await recordLoginEvent({
+              userId: user.id,
+              email,
+              role: user.role,
+              success: false,
+              failureReason: 'Employer suspended',
+            });
+            throw new Error('Your employer account is suspended. Contact support for help.');
+          }
+          // Pending (or missing status): allow login only after email verification so
+          // employers can upload documents before Final Employer Approval.
+          if (status === 'pending' || !status) {
+            if (!emailVerified) {
+              await recordLoginEvent({
+                userId: user.id,
+                email,
+                role: user.role,
+                success: false,
+                failureReason: 'Employer email not verified',
+              });
+              // Prefix parsed by login UI (same pattern as TWO_FACTOR_REQUIRED) to show Resend.
+              throw new Error(
+                'EMAIL_NOT_VERIFIED:Verify your email before signing in. Check your inbox, or resend the verification email below.',
+              );
+            }
+            // email verified + pending → session allowed; posting stays gated elsewhere
+          }
         }
 
         await ensureIpTwoFactorSchema();
@@ -325,73 +386,23 @@ export const authOptions = {
         return googleVerificationReturnUrl(intent.returnTo, { gv: token, ref: refCode });
       }
 
-      // No intent: allow login only for accounts already linked via Google registration.
-      const linked = await findLinkedUserForGoogleLogin({ googleSub, email });
-      if (!linked) {
-        await recordLoginEvent({
-          email,
-          success: false,
-          failureReason: 'Google account not linked — register with Google first',
-          authMethod: 'Google OAuth',
-        });
-        return '/?error=GoogleAccountNotLinked';
-      }
-      if (linked.active === false) {
-        await recordLoginEvent({
-          email,
-          userId: linked.id,
-          role: linked.role,
-          success: false,
-          failureReason: 'Account inactive',
-          authMethod: 'Google OAuth',
-        });
-        return '/?error=GoogleAccountInactive';
-      }
-      return true;
+      // No intent: Google is registration-verify only — never open a portal session.
+      await recordLoginEvent({
+        email,
+        success: false,
+        failureReason: 'Google sign-in disabled — use email and password',
+        authMethod: 'Google OAuth',
+      });
+      return '/?error=GoogleLoginDisabled';
     },
     async jwt({ token, user, account, profile, trigger, session }) {
       if (trigger === 'update' && session?.name) {
         token.name = session.name;
       }
       if (account?.provider === 'google') {
-        const email = normalizeEmail(profile?.email || user?.email);
-        const googleSub = profile?.sub || account?.providerAccountId || null;
-        const linked = await findLinkedUserForGoogleLogin({ googleSub, email });
-        if (!linked || linked.active === false) {
-          return { ...token, error: 'inactive' };
-        }
-        try {
-          await recordGoogleIdentity({
-            userId: linked.id,
-            googleSub,
-            email: linked.email || email,
-            name: profile?.name || user?.name || linked.name || '',
-            pictureUrl: profile?.picture || user?.image || '',
-          });
-        } catch (e) {
-          console.error('[ip auth] google identity refresh failed', e.message);
-        }
-        token.role = linked.role;
-        token.uid = linked.id;
-        token.profileComplete = linked.profile_complete;
-        token.rememberMe = true;
-        token.authTime = Math.floor(Date.now() / 1000);
-        if (linked.name) token.name = linked.name;
-        else if (profile?.name || user?.name) token.name = profile?.name || user?.name;
-        try {
-          const { ua, ip } = await requestMeta();
-          token.sid = await createAuthSession({ userId: linked.id, userAgent: ua, ip });
-        } catch (e) {
-          console.error('[ip auth] google session create failed', e.message);
-        }
-        await recordLoginEvent({
-          email: linked.email || email,
-          userId: linked.id,
-          role: linked.role,
-          success: true,
-          authMethod: 'Google OAuth',
-        });
-        return token;
+        // Login via Google is disabled; registration uses intent + verification token only.
+        // Do not mint a JWT from a bare Google account callback.
+        return { ...token, error: 'GoogleLoginDisabled' };
       }
 
       if (user?.role) {
@@ -416,6 +427,9 @@ export const authOptions = {
         if (authTime) {
           const limit = token.rememberMe ? SESSION_LONG_SEC : SESSION_SHORT_SEC;
           if (Math.floor(Date.now() / 1000) - authTime > limit) {
+            // Soft-expiry must terminate the tracked row; otherwise Active Sessions
+            // keeps showing devices that can no longer use this JWT.
+            await endTrackedAuthSession(token);
             return { ...token, error: 'expired', sid: null };
           }
         }
@@ -428,10 +442,11 @@ export const authOptions = {
             [token.uid],
           );
           if (!row.rows[0] || row.rows[0].active === false) {
-            return { ...token, error: 'inactive' };
+            await endTrackedAuthSession(token);
+            return { ...token, error: 'inactive', sid: null };
           }
           token.profileComplete = row.rows[0].profile_complete;
-          token.role = row.rows[0].role;
+          token.role = String(row.rows[0].role || '').trim() || token.role;
           if (row.rows[0].name) token.name = row.rows[0].name;
         } catch {
           /* keep existing token on transient error */
@@ -442,9 +457,15 @@ export const authOptions = {
             const { ua, ip } = await requestMeta();
             token.sid = await createAuthSession({ userId: token.uid, userAgent: ua, ip });
           } else {
-            const ok = await touchAuthSession(token.sid, token.uid);
-            if (!ok) {
+            const touch = await touchAuthSession(token.sid, token.uid);
+            if (touch === 'revoked') {
               return { ...token, error: 'revoked', sid: null };
+            }
+            // Row missing (e.g. core-sample reset wiped ip_auth_sessions) — mint a new
+            // sid instead of killing a still-valid JWT. Explicit revoke still signs out.
+            if (touch === 'missing') {
+              const { ua, ip } = await requestMeta();
+              token.sid = await createAuthSession({ userId: token.uid, userAgent: ua, ip });
             }
           }
         } catch (e) {
@@ -473,13 +494,9 @@ export const authOptions = {
   },
   events: {
     async signOut({ token }) {
-      if (token?.sid && token?.uid) {
-        try {
-          await revokeAuthSession({ sessionId: token.sid, userId: token.uid });
-        } catch (e) {
-          console.error('[ip auth] signOut session revoke failed', e.message);
-        }
-      }
+      // NextAuth JWT signOut passes decoded cookie claims. Must mark ip_auth_sessions
+      // revoked so /account Active Sessions no longer lists this device as Active.
+      await endTrackedAuthSession(token);
     },
   },
   secret: process.env.NEXTAUTH_SECRET,

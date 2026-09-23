@@ -21,6 +21,8 @@ internship-portal/
 │   ├── ai-context/              # THIS pack (gitignored)
 │   ├── ip-er-diagram-notes.md
 │   ├── ip-er-diagram.puml
+│   ├── employer-registration-flow.puml
+│   ├── qa-employer-register-e2e.md
 │   └── VALIDATION_SCORE.md
 ├── qa/                          # Playwright helpers, runners, tests
 ├── scripts/                     # DB/QA/AWS handoff builders (see SCRIPTS-README.md)

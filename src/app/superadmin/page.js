@@ -24,7 +24,6 @@ function domainFromEmployer(e) {
 
 function buildQueues(stats) {
   const pendingEmp = Number(stats?.pendingEmployers || 0);
-  const pendingReq = Number(stats?.pendingRequests || 0);
   const pendingIdeas = Number(stats?.pendingIdeas || 0);
   const pendingDocs = Number(stats?.pendingDocuments || 0);
   const pendingViral = Number(stats?.pendingViral || 0);
@@ -33,36 +32,17 @@ function buildQueues(stats) {
   const live = Number(stats?.internships?.live || 0);
   const offersAccepted = Number(stats?.offers?.accepted || 0);
   const offersTotal = Number(stats?.offers?.total || 0);
-  const formRegs = Number(stats?.pendingFormRegistrations || 0);
 
   return [
     {
       id: 'emp-app',
       area: 'Employer Approvals',
-      desc: 'Review and approve/reject employer registration accounts.',
+      desc: 'Review Domain and Free-email employer registrations before posting access.',
       href: '/superadmin/approvals',
       badge: pendingEmp > 0 ? 'Needs Triage' : 'Clear',
       badgeClass: pendingEmp > 0 ? 'ip-sad-pill--warn' : 'ip-sad-pill--ok',
       action: pendingEmp > 0 ? 'Review Pending' : 'Queue Clear',
       openModal: pendingEmp > 0,
-    },
-    {
-      id: 'form-reg',
-      area: 'Form Registrations',
-      desc: 'Approve or reject candidate accounts that signed up via public form.',
-      href: '/superadmin/form-registrations',
-      badge: formRegs > 0 ? `${formRegs} Pending` : 'Clear',
-      badgeClass: formRegs > 0 ? 'ip-sad-pill--warn' : 'ip-sad-pill--slate',
-      action: formRegs > 0 ? 'Review Forms' : 'View History',
-    },
-    {
-      id: 'man-req',
-      area: 'Manual Requests',
-      desc: 'Create employer accounts from domain-mismatch requests.',
-      href: '/superadmin/requests',
-      badge: pendingReq > 0 ? `${pendingReq} Pending` : 'Clear',
-      badgeClass: pendingReq > 0 ? 'ip-sad-pill--warn' : 'ip-sad-pill--slate',
-      action: pendingReq > 0 ? 'Review Requests' : 'View History',
     },
     {
       id: 'feat-id',

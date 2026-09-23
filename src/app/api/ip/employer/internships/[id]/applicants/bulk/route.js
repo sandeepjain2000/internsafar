@@ -264,7 +264,7 @@ export async function POST(request, { params }) {
           JSON.stringify({
             count: liveIds.length,
             skippedApplicationIds: skippedIds,
-            format: includeResumes ? 'zip' : 'csv',
+            format: includeResumes ? 'zip' : 'xlsx',
             resumeCount: pack.resumeCount,
           }),
         ],
@@ -273,9 +273,10 @@ export async function POST(request, { params }) {
     return jsonOk({
       ok: true,
       async: false,
-      format: includeResumes ? 'zip' : 'csv',
+      format: includeResumes ? 'zip' : 'xlsx',
       filename: pack.filename,
       csv: pack.csv,
+      xlsxBase64: pack.xlsxBase64 || null,
       zipBase64: pack.zipBase64,
       resumeCount: pack.resumeCount,
       skippedResumes: pack.skipped,
@@ -341,8 +342,9 @@ async function sendEmployerMessage({ session, internshipId, candidateUserId, bod
     userId: candidateUserId,
     title: 'New message',
     body: 'You have a new message from an employer',
-    link: '/candidate/messages',
+    link: `/candidate/messages/${encodeURIComponent(threadId)}`,
     category: 'message',
+    meta: { threadId },
   });
   return msgId;
 }

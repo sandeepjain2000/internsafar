@@ -14,8 +14,15 @@ import {
   X,
   Zap,
 } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import '@/components/ip/ip-superadmin-queue-gemini.css';
+import '@/components/ip/ip-list-pager.css';
+import IpListPager from '@/components/ip/IpListPager';
+import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import { useClientPagination } from '@/hooks/useClientPagination';
+import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
 import { employerDomainRisk, REJECT_PRESETS } from '@/lib/ipDomainRisk';
+import { registrationPathLabel } from '@/lib/ipRegistrationPathLabel';
 
 function initial(name) {
   return String(name || '?').trim().charAt(0).toUpperCase() || '?';
@@ -27,13 +34,14 @@ function formatHours(h) {
 }
 
 export default function SuperAdminApprovalsPage() {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [filter, setFilter] = useState('pending');
   const [items, setItems] = useState([]);
   const [meta, setMeta] = useState({ pending: 0, approvedThisWeek: 0, rejected: 0, avgTriageHours: null });
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [auditRow, setAuditRow] = useState(null);
@@ -42,20 +50,43 @@ export default function SuperAdminApprovalsPage() {
   const [rejectNote, setRejectNote] = useState('');
 
   async function load() {
-    const res = await fetch(`/api/ip/superadmin/employers?status=${filter}&meta=1`);
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error || 'Failed to load');
-      return;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/ip/superadmin/employers?status=${filter}&meta=1`, {
+        credentials: 'same-origin',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || `Failed To Load (${res.status})`);
+        setItems([]);
+        return;
+      }
+      setItems(Array.isArray(data.items) ? data.items : []);
+      if (data.meta) setMeta(data.meta);
+      setSelected([]);
+    } catch (e) {
+      setError(e.message || 'Failed To Load');
+      setItems([]);
+    } finally {
+      setLoading(false);
     }
-    setItems(data.items || []);
-    if (data.meta) setMeta(data.meta);
-    setSelected([]);
   }
 
   useEffect(() => {
-    if (session?.user?.role === 'superadmin') load();
-  }, [session, filter]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (sessionStatus === 'loading') return;
+    if (session?.user?.role === 'superadmin') {
+      load();
+      return;
+    }
+    setLoading(false);
+    if (sessionStatus === 'authenticated') {
+      setError(
+        `Forbidden — Approvals requires SuperAdmin. Your session role is “${session?.user?.role || 'unknown'}”. Sign out, then sign in at /superadmin/login as support@placementhub.online.`,
+      );
+      setItems([]);
+    }
+  }, [session, sessionStatus, filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -67,7 +98,12 @@ export default function SuperAdminApprovalsPage() {
     () =>
       items.map((e) => {
         const email = e.work_email || e.account_email || '';
-        const risk = employerDomainRisk({ email, website: e.website });
+        const risk = employerDomainRisk({
+          email,
+          website: e.website,
+          emailSoftFail: e.email_soft_fail,
+          emailClassificationSummary: e.email_classification_summary,
+        });
         return { ...e, email, risk };
       }),
     [items],
@@ -82,11 +118,20 @@ export default function SuperAdminApprovalsPage() {
     const q = search.trim().toLowerCase();
     if (!q) return enriched;
     return enriched.filter((e) =>
-      [e.company_name, e.email, e.website, e.contact_name, e.account_name]
+      [e.company_name, e.email, e.website, e.contact_name, e.account_name, e.registration_source, registrationPathLabel(e.registration_source)]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q)),
     );
   }, [enriched, search]);
+
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(
+    filtered,
+    SA_PAGE_SIZE,
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [filter, search, setPage]);
 
   async function patchStatus(ids, approvalStatus, rejectionReason) {
     if (!ids.length) return;
@@ -113,6 +158,28 @@ export default function SuperAdminApprovalsPage() {
         setRejectRow(null);
         setAuditRow(null);
         setRejectNote('');
+        await load();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteSelected(ids) {
+    if (!ids.length) return;
+    if (!window.confirm(`Delete ${ids.length} employer account(s)? This cannot be undone.`)) return;
+    setBusy(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/ip/superadmin/employers/${ids[0]}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json();
+      if (!res.ok) setError(data.error || 'Delete failed');
+      else {
+        setToast(`Deleted ${data.processed || ids.length} employer(s)`);
         await load();
       }
     } finally {
@@ -156,23 +223,60 @@ export default function SuperAdminApprovalsPage() {
       <div className="ip-saq-head">
         <div>
           <div className="ip-saq-head__title">
-            <h1>Employer Approvals Queue</h1>
+            <h1>Final Employer Approvals</h1>
             <span className="ip-saq-pill ip-saq-pill--warn">{pendingCount} Pending Review</span>
           </div>
-          <p>Verify recruiter credentials and organizational legitimacy before unlocking internship posting access.</p>
+          <p>
+            Employers can sign in after email verify to upload documents. Final approval here unlocks
+            posting. Approve verification documents in Documents first — then complete final employer
+            approval here.
+          </p>
         </div>
-        <button
-          type="button"
-          className="ip-saq-btn ip-saq-btn--emerald"
-          disabled={!selected.length || busy || filter !== 'pending'}
-          onClick={() => patchStatus(selected, 'approved')}
-        >
-          <CheckCheck size={15} aria-hidden />
-          Approve Selected ({selected.length})
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="ip-saq-btn ip-saq-btn--emerald"
+            disabled={!selected.length || busy || filter !== 'pending'}
+            onClick={() => patchStatus(selected, 'approved')}
+          >
+            <CheckCheck size={15} aria-hidden />
+            Approve Selected ({selected.length})
+          </button>
+          <button
+            type="button"
+            className="ip-saq-btn ip-saq-btn--rose"
+            disabled={!selected.length || busy || filter !== 'pending'}
+            onClick={() => patchStatus(selected, 'rejected', 'Bulk rejected by SuperAdmin')}
+          >
+            <X size={15} aria-hidden />
+            Reject Selected ({selected.length})
+          </button>
+          <button
+            type="button"
+            className="ip-saq-btn"
+            disabled={!selected.length || busy}
+            onClick={() => deleteSelected(selected)}
+          >
+            Delete Selected ({selected.length})
+          </button>
+        </div>
       </div>
 
-      {error ? <div className="ip-saq-error">{error}</div> : null}
+      {error ? (
+        <Alert variant="destructive" className="mb-4" role="alert">
+          <AlertTriangle className="size-4" aria-hidden />
+          <AlertTitle>
+            {/forbidden|unauthorized|role|sign in|sign out/i.test(error)
+              ? 'Could not load Approvals'
+              : /has not uploaded any verification documents/i.test(error)
+                ? 'Employer must upload documents first'
+                : /Documents tab/i.test(error)
+                  ? 'Approve documents in Documents first'
+                  : 'Cannot complete this approval'}
+          </AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
 
       <div className="ip-saq-metrics">
         <div className="ip-saq-metric">
@@ -250,8 +354,7 @@ export default function SuperAdminApprovalsPage() {
                 {t.id === 'rejected' ? <X size={14} aria-hidden /> : null}
                 <span>
                   {t.label}
-                  {t.count != null && filter === 'pending' ? ` (${t.count})` : ''}
-                  {t.id === 'rejected' && meta.rejected != null ? ` (${meta.rejected})` : ''}
+                  {t.count != null ? ` (${t.count})` : ''}
                 </span>
               </button>
             ))}
@@ -268,13 +371,20 @@ export default function SuperAdminApprovalsPage() {
           </div>
         </div>
 
-        {!filtered.length ? (
-          <div className="ip-saq-empty">
-            <ShieldCheck size={28} aria-hidden />
-            <h4>No {filter} employers</h4>
-            <p>Queue is clear for this filter. New signups will appear here for triage.</p>
-          </div>
+        {loading || sessionStatus === 'loading' ? (
+          <IpListLoading label="Loading Employer Approvals…" />
+        ) : !filtered.length ? (
+          <IpListEmpty
+            icon={ShieldCheck}
+            title={search.trim() ? 'No Matching Employers' : `No ${filter} Employers`}
+            hint={
+              search.trim()
+                ? 'Try A Different Search.'
+                : 'Queue Is Clear For This Filter. New Signups Will Appear Here For Triage.'
+            }
+          />
         ) : (
+          <>
           <div className="ip-saq-table-wrap">
             <table className="ip-ph-list ip-saq-table">
               <thead>
@@ -295,6 +405,7 @@ export default function SuperAdminApprovalsPage() {
                     ) : null}
                   </th>
                   <th>Company</th>
+                  <th>Path</th>
                   <th>Work Contact</th>
                   <th>Website</th>
                   <th>Domain / Risk Tag</th>
@@ -302,7 +413,7 @@ export default function SuperAdminApprovalsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((e) => (
+                {pageItems.map((e) => (
                   <tr key={e.id}>
                     <td>
                       {e.approval_status === 'pending' ? (
@@ -322,6 +433,26 @@ export default function SuperAdminApprovalsPage() {
                           <span>{e.contact_designation || 'Organization'}</span>
                         </div>
                       </div>
+                    </td>
+                    <td>
+                      <span className="ip-saq-pill ip-saq-pill--brand">
+                        {registrationPathLabel(e.registration_source)}
+                      </span>
+                      {e.approval_status === 'pending' ? (
+                        <div style={{ marginTop: '0.35rem' }}>
+                          <span
+                            className={`ip-saq-pill ${
+                              e.docs_ready_for_final_approval
+                                ? 'ip-saq-pill--ok'
+                                : 'ip-saq-pill--warn'
+                            }`}
+                          >
+                            {e.docs_ready_for_final_approval
+                              ? 'Documents Ready'
+                              : 'Documents Required First'}
+                          </span>
+                        </div>
+                      ) : null}
                     </td>
                     <td>
                       <strong style={{ display: 'block', color: '#0f172a' }}>
@@ -393,6 +524,17 @@ export default function SuperAdminApprovalsPage() {
               </tbody>
             </table>
           </div>
+          <div className="ip-saq-pager">
+            <IpListPager
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              buttonClassName="ip-saq-btn ip-saq-btn--sm"
+            />
+          </div>
+          </>
         )}
       </div>
 
