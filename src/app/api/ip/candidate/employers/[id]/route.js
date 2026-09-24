@@ -14,9 +14,9 @@ export async function GET(_request, { params }) {
   if (!employerId) return jsonError('Not found', 404);
 
   const result = await query(
-    `SELECT id, company_name, industry, company_size, website,
+    `SELECT id, company_name, legal_name, brand_name, industry, company_size, website,
             hq_city, hq_state, hq_country, about, logo_url, linkedin_url,
-            approval_status
+            contact_name, contact_designation, approval_status
      FROM ip_employers
      WHERE id = $1`,
     [employerId],
@@ -33,6 +33,8 @@ export async function GET(_request, { params }) {
     employer: {
       id: row.id,
       company_name: row.company_name || '',
+      legal_name: row.legal_name || '',
+      brand_name: row.brand_name || '',
       industry: row.industry || '',
       company_size: row.company_size || '',
       website: row.website || '',
@@ -42,6 +44,8 @@ export async function GET(_request, { params }) {
       about: row.about || '',
       logo_url: row.logo_url || '',
       linkedin_url: row.linkedin_url || '',
+      contact_name: row.contact_name || '',
+      contact_designation: row.contact_designation || '',
     },
   });
 }

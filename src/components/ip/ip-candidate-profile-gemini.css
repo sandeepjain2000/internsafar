@@ -715,6 +715,13 @@
   color: #334155;
 }
 
+.ip-cand-profile .ip-cp-alert--draft {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+  font-weight: 500;
+}
+
 .ip-cand-profile .ip-cp-edu {
   border: 1px dashed #cbd5e1;
   border-radius: 0.75rem;
@@ -860,18 +867,26 @@
 }
 
 .ip-cand-profile .ip-cp-im__badge.is-wa {
-  background: #25d366;
-  box-shadow: 0 0 0 2px rgba(37, 211, 102, 0.2);
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(37, 211, 102, 0.25);
 }
 
+.ip-cand-profile .ip-cp-im__badge.is-wa img,
 .ip-cand-profile .ip-cp-im__badge.is-wa svg {
-  width: 1rem;
-  height: 1rem;
+  width: 1.1rem;
+  height: 1.1rem;
   display: block;
 }
 
 .ip-cand-profile .ip-cp-im__badge.is-tg {
-  background: #0ea5e9;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(38, 165, 228, 0.3);
+}
+
+.ip-cand-profile .ip-cp-im__badge.is-tg img {
+  width: 1.1rem;
+  height: 1.1rem;
+  display: block;
 }
 
 .ip-cand-profile .ip-cp-time-row {

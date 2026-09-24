@@ -7,7 +7,7 @@ import { publicApplicationVolumeLabel } from '@/lib/ipApplicationVolume';
 import { maskEmployerName } from '@/lib/ipEmployerIdentity';
 
 export async function GET(request, { params }) {
-  const { error } = await requireSession(['candidate']);
+  const { session, error } = await requireSession(['candidate']);
   if (error) return error;
   await ensureIpWorkbenchSchema();
   const { id } = await params;
@@ -56,6 +56,22 @@ export async function GET(request, { params }) {
     ? publicApplicationVolumeLabel(row.historical_application_count)
     : null;
 
+  let applied = false;
+  if (session?.user?.id) {
+    const cand = await query(`SELECT id FROM ip_candidates WHERE user_id = $1`, [session.user.id]);
+    const candidateId = cand.rows[0]?.id;
+    if (candidateId) {
+      const app = await query(
+        `SELECT 1 FROM ip_applications
+         WHERE candidate_id = $1 AND internship_id = $2
+           AND lower(coalesce(status,'')) NOT IN ('withdrawn')
+         LIMIT 1`,
+        [candidateId, id],
+      );
+      applied = Boolean(app.rows[0]);
+    }
+  }
+
   return jsonOk({
     internship: {
       ...row,
@@ -65,6 +81,7 @@ export async function GET(request, { params }) {
       validation_label: validation.validation_label,
       validation_breakdown: validation.validation_breakdown,
       preview_mode: preview || false,
+      applied,
     },
   });
 }

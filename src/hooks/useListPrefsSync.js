@@ -150,9 +150,10 @@ export function useListPrefsSync({ tableKey, snapshot, applySnapshot }) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       setPresetError(data.error || 'Could not delete preset');
-      return;
+      return { ok: false };
     }
     await loadPresets();
+    return { ok: true };
   }
 
   return {

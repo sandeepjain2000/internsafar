@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Briefcase,
@@ -28,9 +28,15 @@ import {
   parseExperienceEntries,
   serializeExperienceEntries,
 } from '@/lib/ipPostingBody';
+import {
+  clearProfileDraft,
+  PROFILE_DRAFT_RESTORE_MESSAGE,
+  profileDraftDiffersFromServer,
+  profileDraftFingerprint,
+  readProfileDraft,
+  writeProfileDraft,
+} from '@/lib/ipCandidateProfileDraft';
 import '@/components/ip/ip-candidate-profile-gemini.css';
-
-const PROFILE_DRAFT_KEY = 'ip_candidate_profile_draft_v1';
 
 const PROFILE_TABS = [
   { id: 'basics', label: '1. Basics & Contact', Icon: User, saveLabel: 'Save Basics & Contact', wizardStep: 1 },
@@ -163,6 +169,9 @@ export default function CandidateProfilePage() {
   /** Scroll target after quality-score action switches tab (section id). */
   const [pendingScrollId, setPendingScrollId] = useState('');
   const [draftReady, setDraftReady] = useState(false);
+  /** True when UI is showing local draft that is not yet on the account. */
+  const [draftNotOnAccount, setDraftNotOnAccount] = useState(false);
+  const serverFingerprintRef = useRef('');
   const { cityOptions, placeCityOptions, stateOptions, findCity, loading: citiesLoading } = useIpCityCatalog();
   const { countryOptions, loading: countriesLoading } = useIpCountryCatalog();
   const cityChoices = useMemo(() => {
@@ -191,16 +200,27 @@ export default function CandidateProfilePage() {
       }));
       if (!nextAcademics.length) nextAcademics = [emptyAcademicRow()];
       let nextExperiences = parseExperienceEntries(d.profile?.prior_experience);
-      try {
-        const draft = JSON.parse(localStorage.getItem(PROFILE_DRAFT_KEY) || 'null');
-        if (draft?.form && typeof draft.form === 'object') {
-          nextForm = { ...nextForm, ...draft.form };
-          if (Array.isArray(draft.academics) && draft.academics.length) nextAcademics = draft.academics;
-          if (Array.isArray(draft.experiences) && draft.experiences.length) nextExperiences = draft.experiences;
-          setMessage('Restored an unsaved draft from this device. Use Save to store it on your account, or Save draft & exit to keep editing later.');
-        }
-      } catch {
-        /* ignore */
+      serverFingerprintRef.current = profileDraftFingerprint(
+        d.profile,
+        nextAcademics,
+        nextExperiences,
+      );
+      const userId = d.profile?.user_id;
+      const draft = readProfileDraft(userId, d.profile?.account_email);
+      const hasUnsavedDraft = profileDraftDiffersFromServer(
+        draft,
+        d.profile,
+        nextAcademics,
+        nextExperiences,
+      );
+      if (hasUnsavedDraft && draft?.form) {
+        nextForm = { ...nextForm, ...draft.form };
+        if (Array.isArray(draft.academics) && draft.academics.length) nextAcademics = draft.academics;
+        if (Array.isArray(draft.experiences) && draft.experiences.length) nextExperiences = draft.experiences;
+        setDraftNotOnAccount(true);
+        setMessage(PROFILE_DRAFT_RESTORE_MESSAGE);
+      } else {
+        setDraftNotOnAccount(false);
       }
       setForm(nextForm);
       setResumeFileName(resumeDisplayName(nextForm?.resume_url));
@@ -219,17 +239,14 @@ export default function CandidateProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (!draftReady || !form) return undefined;
+    if (!draftReady || !form?.user_id) return undefined;
     const t = setTimeout(() => {
-      try {
-        localStorage.setItem(PROFILE_DRAFT_KEY, JSON.stringify({
-          savedAt: Date.now(),
-          form,
-          academics,
-          experiences,
-        }));
-      } catch {
-        /* ignore */
+      writeProfileDraft(form.user_id, { form, academics, experiences });
+      const dirty =
+        profileDraftFingerprint(form, academics, experiences) !== serverFingerprintRef.current;
+      if (dirty) {
+        setDraftNotOnAccount(true);
+        setMessage((prev) => (prev && prev !== PROFILE_DRAFT_RESTORE_MESSAGE ? prev : PROFILE_DRAFT_RESTORE_MESSAGE));
       }
     }, 500);
     return () => clearTimeout(t);
@@ -376,6 +393,7 @@ export default function CandidateProfilePage() {
     setShowMissing(true);
     try {
       let data = {};
+      let academicsForFingerprint = academics;
       if (profileTab === 'academic') {
         const res = await fetch('/api/ip/candidate/academics', {
           method: 'PUT',
@@ -388,6 +406,19 @@ export default function CandidateProfilePage() {
             data.error || "We couldn't save your education details just now. Please try again.",
           );
         }
+        if (Array.isArray(data.items) && data.items.length) {
+          academicsForFingerprint = data.items.map((a) => ({
+            id: a.id,
+            row_label: a.row_label || '',
+            college: a.college || '',
+            degree: a.degree || '',
+            specialization: a.specialization || '',
+            study_status: a.study_status || '',
+            graduation_year: a.graduation_year || '',
+            cgpa: a.cgpa || '',
+          }));
+          setAcademics(academicsForFingerprint);
+        }
         data = await saveProfileBody();
       } else {
         data = await saveProfileBody();
@@ -396,11 +427,9 @@ export default function CandidateProfilePage() {
       if (data.profileComplete) {
         setWizardUnlockedThru(WIZARD_ORDER.length - 1);
       }
-      try {
-        localStorage.removeItem(PROFILE_DRAFT_KEY);
-      } catch {
-        /* ignore */
-      }
+      clearProfileDraft(form?.user_id);
+      setDraftNotOnAccount(false);
+      serverFingerprintRef.current = profileDraftFingerprint(form, academicsForFingerprint, experiences);
       setMessage(
         data.profileComplete
           ? 'Profile saved — applications unlocked. All profile tabs stay open.'
@@ -653,7 +682,14 @@ export default function CandidateProfilePage() {
         </div>
       </div>
 
-      {message ? <div className="ip-cp-alert" role="status">{message}</div> : null}
+      {message ? (
+        <div
+          className={`ip-cp-alert${draftNotOnAccount || message === PROFILE_DRAFT_RESTORE_MESSAGE ? ' ip-cp-alert--draft' : ''}`}
+          role="status"
+        >
+          {message}
+        </div>
+      ) : null}
 
       <div className="ip-cp-unlock">
         <div className="ip-cp-unlock__head">
@@ -1357,10 +1393,8 @@ export default function CandidateProfilePage() {
                 <label className={`ip-cp-toggle-card is-wa${!waReady ? ' is-disabled' : ''}`}>
                   <span className="ip-cp-im">
                     <span className="ip-cp-im__badge is-wa" aria-hidden>
-                      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" role="img">
-                        <title>WhatsApp</title>
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                      </svg>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/brand/whatsapp.svg" alt="" width={18} height={18} />
                     </span>
                     <span>
                       <strong>WhatsApp Updates</strong>
@@ -1376,7 +1410,10 @@ export default function CandidateProfilePage() {
                 </label>
                 <label className={`ip-cp-toggle-card is-tg${!tgReady ? ' is-disabled' : ''}`}>
                   <span className="ip-cp-im">
-                    <span className="ip-cp-im__badge is-tg">TG</span>
+                    <span className="ip-cp-im__badge is-tg" aria-hidden>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/brand/telegram.svg" alt="" width={18} height={18} />
+                    </span>
                     <span>
                       <strong>Telegram Bot Notifications</strong>
                       <small>Optional secondary alert channel</small>
@@ -1447,18 +1484,14 @@ export default function CandidateProfilePage() {
                 type="button"
                 className="ip-cp-btn ip-cp-btn--outline"
                 onClick={() => {
-                  try {
-                    localStorage.setItem(PROFILE_DRAFT_KEY, JSON.stringify({
-                      savedAt: Date.now(),
-                      form,
-                      academics,
-                      experiences,
-                    }));
-                  } catch {
-                    /* ignore */
-                  }
-                  setMessage('Draft saved on this device. Returning to your dashboard — you can continue later.');
-                  router.push('/candidate');
+                  writeProfileDraft(form?.user_id, {
+                    form,
+                    academics,
+                    experiences,
+                    exitDraft: true,
+                  });
+                  setDraftNotOnAccount(true);
+                  router.push('/candidate?draft=1');
                 }}
               >
                 Save draft &amp; exit

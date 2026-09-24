@@ -80,6 +80,9 @@ export default function CandidateNotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
+  const [selected, setSelected] = useState(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [presetResetKey, setPresetResetKey] = useState(0);
 
   const snapshot = useMemo(() => ({ filters: { filter, search }, sort: '' }), [filter, search]);
   const prefs = useListPrefsSync({
@@ -165,7 +168,7 @@ export default function CandidateNotificationsPage() {
     });
   }, [items, filter, search]);
 
-  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(filtered, PAGE_SIZE);
+  const { page, setPage, totalPages, total, pageItems, pageSize, serialOffset } = useClientPagination(filtered, PAGE_SIZE);
   useEffect(() => {
     setPage(1);
   }, [filter, search, setPage]);
@@ -173,6 +176,50 @@ export default function CandidateNotificationsPage() {
   function resetFilters() {
     setFilter('all');
     setSearch('');
+    setPresetResetKey((k) => k + 1);
+  }
+
+  function toggleSelect(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAllPage() {
+    const ids = pageItems.map((n) => n.id);
+    const allOn = ids.length > 0 && ids.every((id) => selected.has(id));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allOn) ids.forEach((id) => next.delete(id));
+      else ids.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+
+  async function deleteSelected() {
+    const ids = [...selected];
+    if (!ids.length) return;
+    setBulkBusy(true);
+    try {
+      const res = await fetch('/api/ip/notifications', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data.error || 'Could not delete notifications');
+        return;
+      }
+      setSelected(new Set());
+      await load();
+      showToast(`Deleted ${data.deleted ?? ids.length} notification(s).`);
+    } finally {
+      setBulkBusy(false);
+    }
   }
 
   function toggleExpand(n) {
@@ -271,7 +318,7 @@ export default function CandidateNotificationsPage() {
             );
           })}
         </div>
-        <ListPresetsBar {...prefs} />
+        <ListPresetsBar {...prefs} selectionResetKey={presetResetKey} />
       </div>
 
       {filtersOpen ? (
@@ -331,84 +378,115 @@ export default function CandidateNotificationsPage() {
           <p>Loading notifications…</p>
         </div>
       ) : filtered.length ? (
-        <ul className="ip-cn-list ip-cn-list--compact">
-          {pageItems.map((n) => {
-            const unread = n.isUnread || !n.read_at;
-            const Icon = iconFor(n.bucket);
-            const open = expandedId === n.id;
-            return (
-              <li key={n.id} className={`ip-cn-row${unread ? ' is-unread' : ''}${open ? ' is-open' : ''}`}>
-                <button
-                  type="button"
-                  className="ip-cn-row__main"
-                  onClick={() => toggleExpand(n)}
-                  aria-expanded={open}
-                >
-                  <div className={`ip-cn-icon ip-cn-icon--${n.bucket || 'system'}`}>
-                    <Icon size={18} aria-hidden />
+        <>
+          <div className="ip-cn-bulk">
+            <label className="ip-cn-bulk__all">
+              <input
+                type="checkbox"
+                checked={pageItems.length > 0 && pageItems.every((n) => selected.has(n.id))}
+                onChange={toggleSelectAllPage}
+                aria-label="Select all on this page"
+              />
+              Select all
+            </label>
+            <button
+              type="button"
+              className="ip-cn-btn ip-cn-btn--danger"
+              disabled={!selected.size || bulkBusy}
+              onClick={deleteSelected}
+            >
+              {bulkBusy ? 'Deleting…' : `Delete selected (${selected.size})`}
+            </button>
+          </div>
+          <ul className="ip-cn-list ip-cn-list--compact">
+            {pageItems.map((n, idx) => {
+              const unread = n.isUnread || !n.read_at;
+              const Icon = iconFor(n.bucket);
+              const open = expandedId === n.id;
+              const sr = serialOffset + idx + 1;
+              return (
+                <li key={n.id} className={`ip-cn-row${unread ? ' is-unread' : ''}${open ? ' is-open' : ''}`}>
+                  <div className="ip-cn-row__select">
+                    <span className="ip-cn-sr" aria-hidden>{sr}</span>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(n.id)}
+                      onChange={() => toggleSelect(n.id)}
+                      aria-label={`Select notification ${sr}`}
+                    />
                   </div>
-                  <div className="ip-cn-row__text">
-                    <div className="ip-cn-row__title">
-                      <h3>{n.title}</h3>
-                      {n.priority === 'urgent' ? (
-                        <span className="ip-cn-badge ip-cn-badge--urgent">Time-sensitive</span>
-                      ) : null}
-                      {n.priority === 'action_required' ? (
-                        <span className="ip-cn-badge ip-cn-badge--action">Action required</span>
-                      ) : null}
-                      {n.company ? <span className="ip-cn-company">• {n.company}</span> : null}
+                  <button
+                    type="button"
+                    className="ip-cn-row__main"
+                    onClick={() => toggleExpand(n)}
+                    aria-expanded={open}
+                  >
+                    <div className={`ip-cn-icon ip-cn-icon--${n.bucket || 'system'}`}>
+                      <Icon size={18} aria-hidden />
                     </div>
-                    <div className="ip-cn-row__meta">
-                      {n.deadlineText ? (
-                        <span className="ip-cn-deadline">
-                          <Clock size={12} aria-hidden />
-                          {n.deadlineText}
-                        </span>
-                      ) : null}
-                      <span className="ip-cn-time">{relativeTime(n.created_at)}</span>
-                      {unread ? (
-                        <span className="ip-cn-unread-dot" title="Unread" />
-                      ) : (
-                        <span className="ip-cn-read">Read</span>
-                      )}
+                    <div className="ip-cn-row__text">
+                      <div className="ip-cn-row__title">
+                        <h3>{n.title}</h3>
+                        {n.priority === 'urgent' ? (
+                          <span className="ip-cn-badge ip-cn-badge--urgent">Time-sensitive</span>
+                        ) : null}
+                        {n.priority === 'action_required' ? (
+                          <span className="ip-cn-badge ip-cn-badge--action">Action required</span>
+                        ) : null}
+                        {n.company ? <span className="ip-cn-company">• {n.company}</span> : null}
+                      </div>
+                      <div className="ip-cn-row__meta">
+                        {n.deadlineText ? (
+                          <span className="ip-cn-deadline">
+                            <Clock size={12} aria-hidden />
+                            {n.deadlineText}
+                          </span>
+                        ) : null}
+                        <span className="ip-cn-time">{relativeTime(n.created_at)}</span>
+                        {unread ? (
+                          <span className="ip-cn-unread-dot" title="Unread" />
+                        ) : (
+                          <span className="ip-cn-read">Read</span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <ChevronDown className="ip-cn-row__chev" aria-hidden />
-                </button>
-                {open ? (
-                  <div className="ip-cn-row__detail">
-                    {n.body ? <p className="ip-cn-desc">{n.body}</p> : null}
-                    {n.resourceUnavailable ? (
-                      <p className="ip-cn-desc">{n.resourceUnavailableMessage}</p>
-                    ) : null}
-                    <div className="ip-cn-actions">
-                      {n.actionHref ? (
-                        <Link
-                          href={n.actionHref}
-                          className="ip-cn-btn ip-cn-btn--primary"
-                          onClick={() => {
-                            if (unread) markRead(n.id);
-                          }}
-                        >
-                          {n.actionLabel || 'View details'}
-                          <ArrowRight size={14} aria-hidden />
-                        </Link>
-                      ) : (
-                        <span />
-                      )}
-                      {unread ? (
-                        <button type="button" className="ip-cn-mark" onClick={() => markRead(n.id)}>
-                          <Check size={14} aria-hidden />
-                          Mark as read
-                        </button>
+                    <ChevronDown className="ip-cn-row__chev" aria-hidden />
+                  </button>
+                  {open ? (
+                    <div className="ip-cn-row__detail">
+                      {n.body ? <p className="ip-cn-desc">{n.body}</p> : null}
+                      {n.resourceUnavailable ? (
+                        <p className="ip-cn-desc">{n.resourceUnavailableMessage}</p>
                       ) : null}
+                      <div className="ip-cn-actions">
+                        {n.actionHref ? (
+                          <Link
+                            href={n.actionHref}
+                            className="ip-cn-btn ip-cn-btn--primary"
+                            onClick={() => {
+                              if (unread) markRead(n.id);
+                            }}
+                          >
+                            {n.actionLabel || 'View details'}
+                            <ArrowRight size={14} aria-hidden />
+                          </Link>
+                        ) : (
+                          <span />
+                        )}
+                        {unread ? (
+                          <button type="button" className="ip-cn-mark" onClick={() => markRead(n.id)}>
+                            <Check size={14} aria-hidden />
+                            Mark as read
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </>
       ) : (
         <div className="ip-cn-empty">
           <div className="ip-cn-empty__icon">

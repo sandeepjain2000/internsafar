@@ -11,19 +11,31 @@
   min-height: 1.5rem;
 }
 .ip-sms-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   border: 1px solid #c7d2fe;
   background: #eef2ff;
   color: #312e81;
   border-radius: 999px;
-  padding: 0.15rem 0.55rem;
+  padding: 0.15rem 0.35rem 0.15rem 0.55rem;
   font-size: 0.75rem;
-  cursor: pointer;
+  cursor: default;
 }
-/* Inner blue × on multi-select chips (ours) */
-.ip-sms-chip span {
+/* Only the × removes the chip — clicking the label does nothing */
+.ip-sms-chip__x {
+  border: 0;
+  background: transparent;
   color: #4f46e5;
-  font-weight: 600;
-  margin-left: 0.15rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0 0.2rem;
+  cursor: pointer;
+  border-radius: 999px;
+}
+.ip-sms-chip__x:hover {
+  background: #c7d2fe;
 }
 .ip-sms-empty {
   font-size: 0.75rem;

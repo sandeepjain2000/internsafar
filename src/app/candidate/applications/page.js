@@ -8,7 +8,8 @@ import { useClientPagination } from '@/hooks/useClientPagination';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import {
   IpDateRangeFilter,
-  IpMultiCheckFilter,
+  IpFiniteMultiFilter,
+  IpSearchableMultiFilter,
   IpTableFiltersShell,
 } from '@/components/ip/IpTableFiltersShell';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
@@ -126,6 +127,7 @@ export default function MyApplicationsPage() {
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
   const [highlightConsumed, setHighlightConsumed] = useState('');
+  const [presetResetKey, setPresetResetKey] = useState(0);
 
   const snapshot = useMemo(
     () => ({ filters: { q, tab, cols }, sort }),
@@ -388,36 +390,43 @@ export default function MyApplicationsPage() {
             </select>
           </label>
         </div>
-        <ListPresetsBar {...prefs} />
+        <ListPresetsBar {...prefs} selectionResetKey={presetResetKey} />
         <IpTableFiltersShell
           open={filtersOpen}
           onToggle={() => setFiltersOpen((v) => !v)}
           activeCount={colsActive}
-          onClear={() => setCols(EMPTY_COLS)}
+          onClear={() => {
+            setCols(EMPTY_COLS);
+            setPresetResetKey((k) => k + 1);
+          }}
         >
-          <IpMultiCheckFilter
+          <IpSearchableMultiFilter
             label="Role"
             options={optionLists.roles}
             values={cols.roles}
             onChange={(roles) => setCols((c) => ({ ...c, roles }))}
+            placeholder="Search roles…"
           />
-          <IpMultiCheckFilter
+          <IpSearchableMultiFilter
             label="Employer"
             options={optionLists.employers}
             values={cols.employers}
             onChange={(employers) => setCols((c) => ({ ...c, employers }))}
+            placeholder="Search employers…"
           />
-          <IpMultiCheckFilter
+          <IpSearchableMultiFilter
             label="Stipend"
             options={optionLists.stipends}
             values={cols.stipends}
             onChange={(stipends) => setCols((c) => ({ ...c, stipends }))}
+            placeholder="Search stipends…"
           />
-          <IpMultiCheckFilter
+          <IpSearchableMultiFilter
             label="Location"
             options={optionLists.locations}
             values={cols.locations}
             onChange={(locations) => setCols((c) => ({ ...c, locations }))}
+            placeholder="Search locations…"
           />
           <IpDateRangeFilter
             label="Applied"
@@ -426,17 +435,18 @@ export default function MyApplicationsPage() {
             onFrom={(dateFrom) => setCols((c) => ({ ...c, dateFrom }))}
             onTo={(dateTo) => setCols((c) => ({ ...c, dateTo }))}
           />
-          <IpMultiCheckFilter
+          <IpFiniteMultiFilter
             label="Status"
             options={optionLists.statuses}
             values={cols.statuses}
             onChange={(statuses) => setCols((c) => ({ ...c, statuses }))}
           />
-          <IpMultiCheckFilter
+          <IpSearchableMultiFilter
             label="Next"
             options={optionLists.nextSteps}
             values={cols.nextSteps}
             onChange={(nextSteps) => setCols((c) => ({ ...c, nextSteps }))}
+            placeholder="Search next steps…"
           />
         </IpTableFiltersShell>
         <div className="ip-ap-tabs">

@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 /**
  * Compact preset controls — no stacked “Saved views / Save current as” labels
  * that squash above dense tables.
+ *
+ * `selectionResetKey` — bump from parent (e.g. Reset All Filters) to clear the
+ * Preset… dropdown so the same preset can be re-selected.
  */
 export default function ListPresetsBar({
   ready,
@@ -14,10 +17,22 @@ export default function ListPresetsBar({
   applyPreset,
   toggleDefault,
   deletePreset,
+  selectionResetKey = 0,
 }) {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [selectedId, setSelectedId] = useState('');
+  const [feedback, setFeedback] = useState('');
+
+  useEffect(() => {
+    setSelectedId('');
+  }, [selectionResetKey]);
+
+  useEffect(() => {
+    if (!feedback) return undefined;
+    const t = window.setTimeout(() => setFeedback(''), 2500);
+    return () => window.clearTimeout(t);
+  }, [feedback]);
 
   if (!ready) return null;
 
@@ -32,6 +47,18 @@ export default function ListPresetsBar({
     if (ok) {
       setName('');
       if (newId) setSelectedId(newId);
+      setFeedback(asDefault ? 'Preset saved as default.' : 'Preset saved.');
+    }
+  }
+
+  async function onDelete() {
+    if (!selected) return;
+    setBusy(true);
+    const result = await deletePreset(selected);
+    setBusy(false);
+    if (result?.ok) {
+      setSelectedId('');
+      setFeedback('Preset deleted.');
     }
   }
 
@@ -88,22 +115,29 @@ export default function ListPresetsBar({
           <button
             type="button"
             className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600"
+            disabled={busy}
             onClick={() => toggleDefault(selected)}
           >
             {selected.is_default ? 'Unset default' : 'Make default'}
           </button>
           <button
             type="button"
-            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600"
-            onClick={() => deletePreset(selected)}
+            className="h-9 rounded-md border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700 disabled:opacity-50 active:scale-[0.98]"
+            disabled={busy}
+            onClick={onDelete}
           >
-            Delete
+            {busy ? 'Deleting…' : 'Delete'}
           </button>
         </>
       ) : null}
       {presets.length === 0 ? (
         <span className="text-[11px] font-medium text-slate-500">
           Save filters as a preset to reuse them later.
+        </span>
+      ) : null}
+      {feedback ? (
+        <span className="text-xs font-semibold text-emerald-700" role="status">
+          {feedback}
         </span>
       ) : null}
       {presetError ? (

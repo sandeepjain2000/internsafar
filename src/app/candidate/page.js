@@ -16,6 +16,12 @@ import {
 import RatingsReceivedCard from '@/components/ip/RatingsReceivedCard';
 import { POINTS_PER_APPLICATION } from '@/lib/pointsEconomy';
 import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
+import {
+  PROFILE_DRAFT_DASH_MESSAGE,
+  profileDraftDiffersFromServer,
+  readProfileDraft,
+} from '@/lib/ipCandidateProfileDraft';
+import { parseExperienceEntries } from '@/lib/ipPostingBody';
 import '@/components/ip/ip-candidate-dashboard-gemini.css';
 
 const FEATURES = [
@@ -142,6 +148,7 @@ export default function CandidateDashboard() {
   const [busySave, setBusySave] = useState('');
   const [dashReady, setDashReady] = useState(false);
   const [listsReady, setListsReady] = useState(false);
+  const [draftBanner, setDraftBanner] = useState('');
 
   const reloadLists = useCallback(async () => {
     const [rec, sav] = await Promise.all([
@@ -156,7 +163,37 @@ export default function CandidateDashboard() {
   useEffect(() => {
     fetch('/api/ip/candidate/profile')
       .then((r) => r.json())
-      .then((d) => setProfile(d.profile))
+      .then(async (d) => {
+        setProfile(d.profile);
+        const userId = d.profile?.user_id;
+        if (!userId) return;
+        let serverAcademics = [];
+        try {
+          const acad = await fetch('/api/ip/candidate/academics').then((r) => r.json());
+          serverAcademics = (acad.items || []).map((a) => ({
+            id: a.id,
+            row_label: a.row_label || '',
+            college: a.college || '',
+            degree: a.degree || '',
+            specialization: a.specialization || '',
+            study_status: a.study_status || '',
+            graduation_year: a.graduation_year || '',
+            cgpa: a.cgpa || '',
+          }));
+        } catch {
+          serverAcademics = [];
+        }
+        const serverExperiences = parseExperienceEntries(d.profile?.prior_experience);
+        const draft = readProfileDraft(userId, d.profile?.account_email);
+        const fromExit = typeof window !== 'undefined'
+          && new URLSearchParams(window.location.search).get('draft') === '1';
+        if (
+          (fromExit && draft?.form)
+          || profileDraftDiffersFromServer(draft, d.profile, serverAcademics, serverExperiences)
+        ) {
+          setDraftBanner(PROFILE_DRAFT_DASH_MESSAGE);
+        }
+      })
       .catch(() => {});
     Promise.all([
       fetch('/api/ip/candidate/applications?pageSize=200', { cache: 'no-store', credentials: 'include' }).then((r) => r.json()).catch(() => ({})),
@@ -243,6 +280,15 @@ export default function CandidateDashboard() {
           Browse Internships
         </Link>
       </div>
+
+      {draftBanner ? (
+        <div className="ip-cd-draft-alert" role="status">
+          <p>{draftBanner}</p>
+          <Link href="/candidate/profile" className="ip-cd-draft-alert__cta">
+            Open profile
+          </Link>
+        </div>
+      ) : null}
 
       <section className="ip-cd-pending" aria-label="Pending actions">
         <div className="ip-cd-pending__head">

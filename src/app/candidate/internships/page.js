@@ -116,6 +116,7 @@ export default function BrowseInternshipsPage() {
   const [loading, setLoading] = useState(true);
   const [points, setPoints] = useState(null);
   const [viewMode, setViewMode] = useViewMode('ip_browse_view', 'cards');
+  const [presetResetKey, setPresetResetKey] = useState(0);
   const reqRef = useRef(0);
   const { page, setPage, totalPages, total, pageItems, pageSize, serialOffset } = useClientPagination(items, PAGE_SIZE);
 
@@ -233,6 +234,7 @@ export default function BrowseInternshipsPage() {
     setTab('all');
     setChip('unapplied');
     setFiltersOpen(false);
+    setPresetResetKey((k) => k + 1);
   }
 
   const filtersActiveCount = useMemo(() => {
@@ -327,7 +329,7 @@ export default function BrowseInternshipsPage() {
           </div>
         </div>
         <div className="mt-3">
-          <ListPresetsBar {...prefs} />
+          <ListPresetsBar {...prefs} selectionResetKey={presetResetKey} />
         </div>
 
         {filtersOpen ? (

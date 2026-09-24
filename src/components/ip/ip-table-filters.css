@@ -91,6 +91,22 @@
   color: #94a3b8;
 }
 
+.ip-tf__select {
+  width: 100%;
+  min-height: 2.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.55rem;
+  background: #fff;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.8rem;
+  color: #0f172a;
+}
+
+.ip-tf__hint {
+  font-size: 0.65rem;
+  color: #94a3b8;
+}
+
 .ip-tf__checks {
   display: grid;
   gap: 0.25rem;

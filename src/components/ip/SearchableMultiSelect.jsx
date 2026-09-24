@@ -145,9 +145,21 @@ export default function SearchableMultiSelect({
       <div className="ip-sms-chips">
         {selected.length ? (
           selected.map((s) => (
-            <button key={s} type="button" className="ip-sms-chip" onClick={() => toggle(s)}>
-              {s} <span aria-hidden>×</span>
-            </button>
+            <span key={s} className="ip-sms-chip">
+              {s}
+              <button
+                type="button"
+                className="ip-sms-chip__x"
+                aria-label={`Remove ${s}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggle(s);
+                }}
+              >
+                ×
+              </button>
+            </span>
           ))
         ) : (
           <span className="ip-sms-empty">None selected</span>

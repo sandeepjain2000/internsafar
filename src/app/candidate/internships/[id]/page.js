@@ -44,6 +44,7 @@ export default function InternshipDetailPage() {
   const [reportMsg, setReportMsg] = useState('');
   const [reporting, setReporting] = useState(false);
   const [draftHint, setDraftHint] = useState('');
+  const [alreadyApplied, setAlreadyApplied] = useState(false);
 
   useEffect(() => {
     fetch(`/api/ip/candidate/internships/${id}`).then((r) => r.json()).then((d) => {
@@ -52,6 +53,7 @@ export default function InternshipDetailPage() {
         return;
       }
       setInternship(d.internship);
+      setAlreadyApplied(Boolean(d.internship.applied));
       const qs = Array.isArray(d.internship?.questions) ? d.internship.questions : [];
       const init = {};
       qs.forEach((q, idx) => { init[q.id || `q${idx}`] = ''; });
@@ -158,6 +160,7 @@ export default function InternshipDetailPage() {
         /* ignore */
       }
       setDraftHint('');
+      setAlreadyApplied(true);
       setMessage(`Applied successfully! Spent ${data.payment?.cost ?? POINTS_PER_APPLICATION} points.`);
       setTimeout(() => router.push('/candidate/applications'), 1000);
     } catch (err) {
@@ -167,12 +170,19 @@ export default function InternshipDetailPage() {
     }
   }
 
-  const applyLabel = applying ? 'Applying…' : message ? 'Applied' : 'Apply now';
-  const applyDisabled = applying || Boolean(message);
+  const applyLabel = applying
+    ? 'Applying…'
+    : alreadyApplied || message
+      ? 'Already applied'
+      : 'Apply now';
+  const applyDisabled = applying || alreadyApplied || Boolean(message);
 
   if (missing) {
     return (
-      <div className="p-8">
+      <div className="p-8 space-y-4">
+        <Button type="button" variant="outline" size="sm" render={<Link href="/candidate/internships" />} nativeButton={false}>
+          ← Back to internships
+        </Button>
         <Alert>
           <AlertTitle>Unavailable</AlertTitle>
           <AlertDescription>This internship is no longer available.</AlertDescription>
@@ -185,6 +195,11 @@ export default function InternshipDetailPage() {
 
   return (
     <div className="ip-cand-intern-detail ip-mobile-bleed space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="outline" size="sm" render={<Link href="/candidate/internships" />} nativeButton={false}>
+          ← Back to internships
+        </Button>
+      </div>
       <Card>
         <CardHeader>
           <div className="ip-id-head flex justify-between gap-2">

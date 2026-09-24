@@ -1,6 +1,7 @@
 'use client';
 
 import { Filter, X } from 'lucide-react';
+import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 
 /**
  * Toolbar Filters button + expandable panel above a table (does not cover rows).
@@ -38,16 +39,24 @@ export function IpTableFiltersShell({
   );
 }
 
-/** Multi-select checklist for discrete column values. */
-export function IpMultiCheckFilter({ label, options, values, onChange }) {
-  const selected = Array.isArray(values) ? values : [];
-  const opts = Array.isArray(options) ? options.filter(Boolean) : [];
+function toOptions(options) {
+  return (Array.isArray(options) ? options : [])
+    .filter((o) => o != null && String(o).trim() !== '')
+    .map((o) => (typeof o === 'object' ? o : { value: String(o), label: String(o) }));
+}
 
-  function toggle(opt) {
-    const v = String(opt);
-    if (selected.includes(v)) onChange(selected.filter((x) => x !== v));
-    else onChange([...selected, v]);
-  }
+/**
+ * Searchable multi-select for table column filters (replaces checkbox lists).
+ */
+export function IpSearchableMultiFilter({
+  label,
+  options,
+  values,
+  onChange,
+  placeholder = 'Search & select…',
+}) {
+  const opts = toOptions(options);
+  const selected = Array.isArray(values) ? values.map(String) : [];
 
   if (!opts.length) {
     return (
@@ -61,25 +70,74 @@ export function IpMultiCheckFilter({ label, options, values, onChange }) {
   return (
     <div className="ip-tf__field">
       <span className="ip-tf__label">{label}</span>
-      <div className="ip-tf__checks" role="group" aria-label={label}>
-        {opts.map((opt) => {
-          const v = String(opt);
-          const id = `ip-tf-${label}-${v}`.replace(/\s+/g, '-');
-          return (
-            <label key={v} htmlFor={id} className="ip-tf__check">
-              <input
-                id={id}
-                type="checkbox"
-                checked={selected.includes(v)}
-                onChange={() => toggle(v)}
-              />
-              <span>{v}</span>
-            </label>
-          );
-        })}
-      </div>
+      <SearchableMultiSelect
+        options={opts}
+        value={selected}
+        onChange={onChange}
+        placeholder={placeholder}
+        ariaLabel={label}
+        emptyHint="No matching values"
+      />
     </div>
   );
+}
+
+/**
+ * Compact native multi-select for small finite sets (e.g. status).
+ */
+export function IpFiniteMultiFilter({ label, options, values, onChange }) {
+  const opts = toOptions(options);
+  const selected = Array.isArray(values) ? values.map(String) : [];
+
+  if (!opts.length) {
+    return (
+      <div className="ip-tf__field">
+        <span className="ip-tf__label">{label}</span>
+        <span className="ip-tf__empty">No values yet</span>
+      </div>
+    );
+  }
+
+  if (opts.length > 8) {
+    return (
+      <IpSearchableMultiFilter
+        label={label}
+        options={opts}
+        values={selected}
+        onChange={onChange}
+        placeholder={`Select ${String(label).toLowerCase()}…`}
+      />
+    );
+  }
+
+  return (
+    <div className="ip-tf__field">
+      <span className="ip-tf__label">{label}</span>
+      <select
+        className="ip-tf__select"
+        multiple
+        size={Math.min(opts.length, 5)}
+        value={selected}
+        aria-label={label}
+        onChange={(e) => {
+          const next = Array.from(e.target.selectedOptions).map((o) => o.value);
+          onChange(next);
+        }}
+      >
+        {opts.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label || o.value}
+          </option>
+        ))}
+      </select>
+      <span className="ip-tf__hint">Hold Ctrl/Cmd to select multiple</span>
+    </div>
+  );
+}
+
+/** Alias — old checkbox list now uses searchable multi-select. */
+export function IpMultiCheckFilter(props) {
+  return <IpSearchableMultiFilter {...props} />;
 }
 
 export function IpDateRangeFilter({ label, from, to, onFrom, onTo }) {

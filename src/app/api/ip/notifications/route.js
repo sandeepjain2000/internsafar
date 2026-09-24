@@ -78,3 +78,32 @@ export async function PATCH(request) {
   );
   return jsonOk({ ok: true, processed: result.rows.length });
 }
+
+export async function DELETE(request) {
+  const { session, error } = await requireSession(['candidate', 'employer', 'superadmin']);
+  if (error) return error;
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+  const { searchParams } = new URL(request.url);
+  const qid = String(searchParams.get('id') || '').trim();
+  const ids = Array.isArray(body.ids)
+    ? body.ids.map(String).filter(Boolean)
+    : body.id
+      ? [String(body.id)]
+      : qid
+        ? [qid]
+        : [];
+  if (!ids.length) return jsonError('id or ids required');
+
+  const result = await query(
+    `DELETE FROM ip_notifications
+     WHERE user_id = $1 AND id = ANY($2::text[])
+     RETURNING id`,
+    [session.user.id, ids],
+  );
+  return jsonOk({ ok: true, deleted: result.rows.length });
+}
