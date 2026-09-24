@@ -1,9 +1,10 @@
 /**
- * Employer posting readiness: SuperAdmin approval + email ownership.
+ * Employer posting readiness: SuperAdmin approval + email + profile + ethics.
  */
 import { query } from '@/lib/db';
 import { ensureIpEmployerEmailVerifySchema } from '@/lib/ipEmployerEmailVerify';
 import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
+import { allEthicsChecked } from '@/lib/employerEthics';
 
 /**
  * @returns {Promise<{
@@ -21,7 +22,7 @@ export async function getEmployerPostingGate(userId) {
   await ensureIpEmployerEmailVerifySchema();
   const row = await query(
     `SELECT u.id as user_id, u.email, u.profile_complete, u.email_verified_at, u.email_verify_required,
-            e.id as employer_id, e.approval_status, e.company_name
+            e.id as employer_id, e.approval_status, e.company_name, e.ethics_acks
      FROM ip_users u
      JOIN ip_employers e ON e.user_id = u.id
      WHERE u.id = $1
@@ -50,6 +51,28 @@ export async function getEmployerPostingGate(userId) {
     return {
       ok: false,
       error: 'Verify your email before posting. Check your inbox for the verification link.',
+      status: 403,
+      emailVerified,
+      approved,
+      employer: r,
+      user: r,
+    };
+  }
+  if (!r.profile_complete) {
+    return {
+      ok: false,
+      error: 'Complete your employer profile before posting.',
+      status: 403,
+      emailVerified,
+      approved,
+      employer: r,
+      user: r,
+    };
+  }
+  if (!allEthicsChecked(r.ethics_acks)) {
+    return {
+      ok: false,
+      error: 'Accept all Guidelines & Ethics acknowledgements before posting.',
       status: 403,
       emailVerified,
       approved,

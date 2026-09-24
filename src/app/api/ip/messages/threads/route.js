@@ -79,6 +79,7 @@ export async function POST(request) {
 
   // Candidates may open a channel only for an internship they applied to,
   // and only with that posting's employer (blocks arbitrary otherUserId).
+  // Employers must prove the same application ownership (IP-SEC-002).
   if (!isEmployer) {
     if (!internshipId) {
       return jsonError('internshipId is required to message an employer', 400);
@@ -97,6 +98,44 @@ export async function POST(request) {
     );
     if (!allowed.rows[0]) {
       return jsonError('You can only message the employer for an internship you applied to', 403);
+    }
+  } else {
+    if (internshipId) {
+      const allowed = await query(
+        `SELECT 1
+         FROM ip_applications a
+         JOIN ip_candidates c ON c.id = a.candidate_id
+         JOIN ip_internships i ON i.id = a.internship_id
+         JOIN ip_employers e ON e.id = i.employer_id
+         WHERE e.user_id = $1
+           AND a.internship_id = $2
+           AND c.user_id = $3
+         LIMIT 1`,
+        [employerUserId, internshipId, candidateUserId],
+      );
+      if (!allowed.rows[0]) {
+        return jsonError(
+          'You can only message candidates who applied to your internship',
+          403,
+        );
+      }
+    } else {
+      const allowed = await query(
+        `SELECT 1
+         FROM ip_applications a
+         JOIN ip_candidates c ON c.id = a.candidate_id
+         JOIN ip_internships i ON i.id = a.internship_id
+         JOIN ip_employers e ON e.id = i.employer_id
+         WHERE e.user_id = $1 AND c.user_id = $2
+         LIMIT 1`,
+        [employerUserId, candidateUserId],
+      );
+      if (!allowed.rows[0]) {
+        return jsonError(
+          'You can only message candidates who applied to one of your internships',
+          403,
+        );
+      }
     }
   }
 

@@ -8,9 +8,14 @@
  * Honest framing:
  * - Excel workbook holds Manual + Obsolete rows; Playwright does not automate all.
  * - After apply, prints coverage stats (mapped Automated vs remaining Manual).
+ *
+ * Important: use stdio inherit + list reporter so the run is not silent.
+ * JSON is written to a file via IP_PW_JSON_REPORT (see playwright.config.js).
+ * The old pattern (`--reporter=json` + spawnSync stdout capture) buffered all
+ * output until the end and looked permanently hung.
  */
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdirSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensurePlaywrightBrowsersPath, installPlaywrightBrowsersIfNeeded } from './lib/ensurePlaywrightBrowsers.mjs';
@@ -33,26 +38,23 @@ console.log(
 console.log(
   '[internsafar-qa] Still not full Excel coverage — Manual/Obsolete rows remain in InternSafar-Test-Cases.xlsx.',
 );
+console.log(`[internsafar-qa] Live list reporter on; JSON → ${report}`);
 
-const pw = spawnSync(
-  'npx',
-  ['playwright', 'test', ...SUITE_REGRESSION, '--reporter=json'],
-  {
-    cwd: root,
-    encoding: 'utf8',
-    shell: process.platform === 'win32',
-    env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: browsersPath },
-    maxBuffer: 20 * 1024 * 1024,
+const pw = spawnSync('npx', ['playwright', 'test', ...SUITE_REGRESSION], {
+  cwd: root,
+  shell: process.platform === 'win32',
+  stdio: 'inherit',
+  env: {
+    ...process.env,
+    PLAYWRIGHT_BROWSERS_PATH: browsersPath,
+    IP_PW_JSON_REPORT: report,
   },
-);
+});
 
-const jsonOut = (pw.stdout || '').trim();
-const start = jsonOut.indexOf('{');
-if (start >= 0) {
-  writeFileSync(report, jsonOut.slice(start));
-  console.log(`Wrote ${report}`);
-} else {
-  console.error('No JSON report from Playwright; stderr:', (pw.stderr || '').slice(0, 800));
+if (!existsSync(report)) {
+  console.error(
+    '[internsafar-qa] No JSON report written. Check IP_PW_JSON_REPORT / playwright.config.js reporters.',
+  );
 }
 
 const apply = spawnSync(process.execPath, ['scripts/apply-playwright-regression-xlsx.mjs', report], {
@@ -61,8 +63,6 @@ const apply = spawnSync(process.execPath, ['scripts/apply-playwright-regression-
   env: process.env,
 });
 
-// Honest coverage hint from last audit if present
-const auditHint = resolve(root, 'test-results/xlsx-coverage-hint.txt');
 try {
   const audit = spawnSync('python', ['scripts/audit-internsafar-test-cases-xlsx.py'], {
     cwd: root,
@@ -70,7 +70,7 @@ try {
     shell: process.platform === 'win32',
   });
   if (audit.stdout) {
-    writeFileSync(auditHint, audit.stdout);
+    writeFileSync(resolve(root, 'test-results/xlsx-coverage-hint.txt'), audit.stdout);
     const m = audit.stdout.match(/"byAutomation"\s*:\s*\{[\s\S]*?\n  \}/);
     console.log('[internsafar-qa] Excel Automation breakdown (post-apply):');
     console.log(m ? m[0] : audit.stdout.slice(0, 600));

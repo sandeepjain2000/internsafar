@@ -48,6 +48,8 @@
         "qa:e2e:full": "node qa/runners/run-internsafar.mjs --suite=full",
         "test:e2e": "node qa/runners/run-internsafar.mjs",
         "qa:e2e:regression": "node scripts/run-regression-and-apply-xlsx.mjs",
+        "qa:e2e:aws": "node qa/runners/run-internsafar-aws.mjs",
+        "qa:e2e:aws:smoke": "node qa/runners/run-internsafar-aws.mjs --suite=smoke",
         "playwright:install": "node scripts/lib/ensurePlaywrightBrowsers.mjs --install",
         "postinstall": "node scripts/lib/ensurePlaywrightBrowsers.mjs --install",
         "qa:patch-latest-cases": "python scripts/patch-internsafar-latest-cases.py",

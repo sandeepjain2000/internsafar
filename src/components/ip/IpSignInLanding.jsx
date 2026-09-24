@@ -87,10 +87,6 @@ export default function IpSignInLanding() {
   const [resendHint, setResendHint] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
 
-  useEffect(() => {
-    fetch('/api/ip/bootstrap', { method: 'POST' }).catch(() => {});
-  }, []);
-
   // Read ?error= from the URL without useSearchParams — that API forces a client-only
   // bailout (BAILOUT_TO_CLIENT_SIDE_RENDERING) so production SSR only shipped "Loading…"
   // until JS hydrated.

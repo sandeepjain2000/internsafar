@@ -217,7 +217,7 @@ prompts/
     └── … QA / regression prompt files
 ```
 
-Key npm scripts (from `package.json`): `dev`, `build`, `db:migrate:*`, `deploy:fresh-aws-db`, `db:check-migration-safety`, `qa:e2e`, `qa:e2e:regression`, `qa:checklist`, `qa:checklist:apply`, `test:email-unsubscribe`, `test:email-unsubscribe:live`.
+Key npm scripts (from `package.json`): `dev`, `build`, `db:migrate:*`, `deploy:fresh-aws-db`, `db:check-migration-safety`, `qa:e2e`, `qa:e2e:regression`, `qa:e2e:aws`, `qa:checklist`, `qa:checklist:apply`, `test:email-unsubscribe`, `test:email-unsubscribe:live`.
 
 ---
 

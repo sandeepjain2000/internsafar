@@ -101,3 +101,7 @@ prompts/
 
 .vercel
 .env*
+
+# Secrets live outside the app tree
+../.local-secrets/
+

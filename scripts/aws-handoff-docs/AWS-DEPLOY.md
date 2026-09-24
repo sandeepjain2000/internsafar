@@ -65,6 +65,27 @@ Then: `npm run build` && `pm2 restart internsafar --update-env`
 
 **Emergency bypass only:** set `CAPTCHA_BYPASS_FOR_TESTING = true` in `src/lib/captchaBypass.js` and Path B redeploy — login works without solving the math, but prefer fixing `NEXTAUTH_SECRET` instead.
 
+## QA on EC2 (Linux) vs local/Vercel
+
+Playwright specs match Vercel/local (`qa/tests`, journeys, regression). Defaults differ on AWS:
+
+| | Local / Vercel | EC2 (`npm run qa:e2e:aws`) |
+|--|----------------|----------------------------|
+| Base | localhost / preview | `https://internsafar.com` |
+| Browser | Windows system Chrome | Bundled Chromium |
+| webServer | may start `npm run dev` | off (PM2 already serves) |
+| Ops probes | run | skipped (no live alert spam) |
+
+```bash
+cd ~/internship-portal
+npm run playwright:install
+npm run qa:e2e:aws:smoke
+npm run qa:e2e:aws
+```
+
+Do **not** run `qa:e2e:full:release` / employer-reg deep scripts against live RDS unless intentional.
+See `qa/docs/AWS-QA-NOTES.txt` in the app tar.
+
 ## Migration fail-closed (read the banners)
 
 - `=== OK: … applied successfully (exit 0) ===` — that file succeeded

@@ -26,7 +26,8 @@ export async function canAccessIpObject(session, rawKey) {
   if (kind === 'candidates') {
     if (id === uid) return true;
     if (role !== 'employer') return false;
-    // Employers with an application or message thread may open resume (and photo).
+    // Employers may open resume/photo only via an owned application relationship.
+    // A message thread alone is never enough (IP-SEC-003).
     return employerLinkedToCandidate(uid, id);
   }
 
@@ -57,13 +58,5 @@ async function employerLinkedToCandidate(employerUserId, candidateUserId) {
      LIMIT 1`,
     [employerUserId, candidateUserId],
   );
-  if (result.rows[0]) return true;
-
-  const thread = await query(
-    `SELECT 1 FROM ip_message_threads
-     WHERE employer_user_id = $1 AND candidate_user_id = $2
-     LIMIT 1`,
-    [employerUserId, candidateUserId],
-  );
-  return Boolean(thread.rows[0]);
+  return Boolean(result.rows[0]);
 }

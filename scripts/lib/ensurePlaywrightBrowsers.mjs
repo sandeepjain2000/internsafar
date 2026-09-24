@@ -4,7 +4,7 @@
  *
  * Default: %LOCALAPPDATA%/ms-playwright (Windows) or ~/.cache/ms-playwright
  */
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 import { spawnSync } from 'child_process';
@@ -45,6 +45,14 @@ ensurePlaywrightBrowsersPath();
 
 function chromiumLooksInstalled(browsersPath) {
   // Headless launch needs chromium_headless_shell (Playwright 1.49+).
+  // Version folder names change with Playwright releases — accept any match.
+  try {
+    const names = readdirSync(browsersPath);
+    if (names.some((n) => String(n).startsWith('chromium_headless_shell-'))) return true;
+    if (names.some((n) => String(n).startsWith('chromium-'))) return true;
+  } catch {
+    /* missing dir */
+  }
   const markers = [
     join(browsersPath, 'chromium_headless_shell-1234'),
     join(browsersPath, 'chromium_headless_shell-1169'),

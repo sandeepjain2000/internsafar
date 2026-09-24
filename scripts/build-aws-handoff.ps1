@@ -13,8 +13,8 @@ $MigrationsSrc = Join-Path $ProjectRoot 'db\migrations'
 $ExcludeDirNames = @(
     'node_modules', '.next', '.vercel', '.git', 'test-results', 'tmp-screenshots',
     '.local-qa-2fa-bypass-backup', '.local', '.cursor', 'ai-context', 'prompts', 'coverage', 'playwright-report',
-    '.turbo', 'out', 'build', '.netlify', '.cache', 'aws-migration',
-    'nvidia_keys', 'nvidia keys', '_local-backups-internship-portal'
+    '.turbo', 'out', 'build', '.netlify', '.cache', 'aws-migration', '__pycache__',
+    'nvidia_keys', 'nvidia keys', '_local-backups-internship-portal', 'reviews'
 )
 
 $ExcludeFilePatterns = @(
@@ -80,10 +80,11 @@ InternSafar — DB scripts in the project tar (npm run from ~/internship-portal 
 
 Migrations (require explicit allow — Path B must NOT set this):
   IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db     Fresh / empty RDS ONLY (run on EC2)
-  IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:sql-only     SQL 001–039 when demo users exist
+  IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:sql-only     SQL per MIGRATION_MANIFEST when demo users exist
   IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:ip           001 base schema only (specialist)
   IP_ALLOW_DB_MIGRATE=1 npm run db:migrate:workbench    016–027 (specialist)
   npm run db:check-integrity                            Read-only (no allow needed)
+  npm run qa:e2e:aws / qa:e2e:aws:smoke                 Playwright vs https://internsafar.com (Linux)
 
 Without IP_ALLOW_DB_MIGRATE=1, migrate prints === BLOCKED === and exits 1.
 Why / how: PATH-B-NO-DB-MIGRATE.txt  |  Gate: scripts/assert-db-migrate-allowed.js

@@ -1,6 +1,7 @@
-# Internship Portal — IP migration manifest (001–040)
+# Internship Portal — IP migration manifest (001–044)
 # Fresh RDS: npm run deploy:fresh-aws-db
 # SQL only (demo users exist): npm run db:migrate:sql-only
+# Path B (live app update): do NOT run migrate — include files for Path C / sql-only only.
 
 001_ip_schema.sql
 002_ip_employer_ethics.sql
@@ -46,3 +47,4 @@
 041_ip_email_unsubscribe_requests.sql
 042_ip_country_region_fields.sql
 043_ip_ref_countries.sql
+044_ip_internship_stipend_range.sql

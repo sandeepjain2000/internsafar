@@ -40,7 +40,14 @@ If given a Google client secret JSON outside the zip: copy id/secret into .env o
 After .env changes: npm run build BEFORE pm2 restart --update-env
 (See README.txt and runbook Part O / Part R.)
 
-Migration count: 40 SQL files (001–039, two 008_*).
+Migration count: follow scripts/MIGRATION_MANIFEST.txt (currently 001–044, two 008_*).
+Path B still must NOT migrate — migrations/ is for Path C / sql-only only.
 Project deploy archive: .tar.gz only (no .zip for the app folder).
 App folder map: APP-TAR-FOLDER-STRUCTURE.txt (handoff) = APP-FOLDER-STRUCTURE.txt (inside tar).
 Handoff file tree: README.txt
+
+QA on EC2 (Linux — not the Windows local defaults):
+  cd ~/internship-portal && npm run playwright:install
+  npm run qa:e2e:aws:smoke
+  npm run qa:e2e:aws
+Details: qa/docs/AWS-QA-NOTES.txt inside the app tar.

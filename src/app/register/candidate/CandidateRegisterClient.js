@@ -67,10 +67,6 @@ export default function CandidateRegisterPage() {
   const [checkingGv, setCheckingGv] = useState(Boolean(gv));
   const [startingGoogle, setStartingGoogle] = useState(false);
 
-  useEffect(() => {
-    fetch('/api/ip/bootstrap', { method: 'POST' }).catch(() => {});
-  }, []);
-
   /**
    * Create the account straight from the Google verification. There is no form to submit:
    * Google supplies the address and the profile name, and the referral code (if any) was

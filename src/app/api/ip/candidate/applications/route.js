@@ -179,10 +179,19 @@ export async function POST(request) {
   let id;
   try {
     id = await withApplicationCapacityLock(internshipId, async (client) => {
-      await client.query(
-        `UPDATE ip_users SET points = points - $2, updated_at = now() WHERE id = $1`,
+      const debited = await client.query(
+        `UPDATE ip_users SET points = points - $2, updated_at = now()
+         WHERE id = $1 AND points >= $2
+         RETURNING points`,
         [session.user.id, POINTS_PER_APPLICATION],
       );
+      if (!debited.rows[0]) {
+        const err = new Error(
+          `Need ${POINTS_PER_APPLICATION} points to apply (insufficient balance). Earn points via referrals and sharing.`,
+        );
+        err.code = 'INSUFFICIENT_POINTS';
+        throw err;
+      }
       await client.query(
         `INSERT INTO ip_points_ledger (id, user_id, delta, reason, meta)
          VALUES ($1,$2,$3,'application_spend',$4::jsonb)`,
@@ -227,6 +236,7 @@ export async function POST(request) {
     });
   } catch (e) {
     if (e.code === 'CAPACITY') return jsonError(e.message, 409);
+    if (e.code === 'INSUFFICIENT_POINTS') return jsonError(e.message, 403);
     throw e;
   }
 

@@ -83,6 +83,18 @@ npm run qa:patch-latest-cases
 
 Config: `playwright.config.js` at the app root.
 
+### AWS / production Linux (EC2)
+
+Do **not** use the Windows local defaults against `internsafar.com`. Use:
+
+```bash
+npm run playwright:install
+npm run qa:e2e:aws:smoke
+npm run qa:e2e:aws
+```
+
+That sets `IP_BASE=https://internsafar.com`, bundled Chromium, no `webServer`, and skips ops-alert email probes. Details: `qa/docs/AWS-QA-NOTES.txt`.
+
 ---
 
 ## 4. Spec inventory

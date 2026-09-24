@@ -8,6 +8,8 @@ import { newId } from '@/lib/ids';
 import { MAX_ACTIVE_APPLICATIONS_PER_POSTING } from '@/lib/ipApplicationCapacity';
 import { ensureIpInternshipStipendRangeSchema } from '@/lib/ensureIpInternshipStipendRangeSchema';
 import { parseStipendRangeFields } from '@/lib/ipInternshipStipend';
+import { getEmployerPostingGate } from '@/lib/ipEmployerPostingGate';
+import { transaction } from '@/lib/transaction';
 
 const EDITABLE_FIELDS = [
   'title', 'description', 'location', 'work_mode', 'stipend_inr', 'stipend_inr_max', 'duration_months', 'start_date',
@@ -173,19 +175,38 @@ export async function PUT(request, { params }) {
     sets.push(`locations = $${values.length}::jsonb`);
   }
   if (sets.length) {
-    if (normalized.status === 'published' && existing.status !== 'published') {
-      const spendErr = await chargePublishPoints(session.user.id, {
-        action: 'republish',
-        internshipId: id,
-      });
-      if (spendErr) return jsonError(spendErr, 403);
+    const willPublish = normalized.status === 'published' && existing.status !== 'published';
+    if (willPublish) {
+      const gate = await getEmployerPostingGate(session.user.id);
+      if (!gate.ok) return jsonError(gate.error || 'Cannot post', gate.status || 403);
+      try {
+        await transaction(async (client) => {
+          const spendErr = await chargePublishPoints(
+            session.user.id,
+            { action: 'republish', internshipId: id },
+            client,
+          );
+          if (spendErr) {
+            const err = new Error(spendErr);
+            err.code = 'INSUFFICIENT_POINTS';
+            throw err;
+          }
+          await client.query(
+            `UPDATE ip_internships SET ${sets.join(', ')}, updated_at = now() WHERE id = $1`,
+            values,
+          );
+        });
+      } catch (e) {
+        if (e.code === 'INSUFFICIENT_POINTS') return jsonError(e.message, 403);
+        throw e;
+      }
+    } else {
+      if (normalized.status === 'closed' && !normalized.closed_reason) {
+        values.push('closed');
+        sets.push(`closed_reason = $${values.length}`);
+      }
+      await query(`UPDATE ip_internships SET ${sets.join(', ')}, updated_at = now() WHERE id = $1`, values);
     }
-    if (normalized.status === 'closed' && !normalized.closed_reason) {
-      values.push('closed');
-      sets.push(`closed_reason = $${values.length}`);
-    }
-    // Auto-mark expired when apply_ends_at in past and still published
-    await query(`UPDATE ip_internships SET ${sets.join(', ')}, updated_at = now() WHERE id = $1`, values);
   }
   return jsonOk({ ok: true });
 }

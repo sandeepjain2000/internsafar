@@ -178,7 +178,7 @@ async function main() {
   console.log('deploy:fresh-aws-db');
   console.log(`  Migrations before seed: ${beforeSeed.length} (001–034)`);
   console.log(`  Core seed: IP_Reset_Core_Sample.js`);
-  console.log(`  Migrations after seed:  ${fromSeed.length} (035–039)`);
+  console.log(`  Migrations after seed:  ${fromSeed.length} (035–end of manifest)`);
   if (DRY_RUN) console.log('  Mode: DRY RUN (no DB writes)\n');
 
   await verifyDatabaseUrl();
@@ -188,7 +188,7 @@ async function main() {
 
   runCoreSeed();
 
-  console.log('\n=== Phase 3: data migrations 035–039 ===');
+  console.log('\n=== Phase 3: data migrations 035–end of manifest ===');
   fromSeed.forEach((file, i) => runMigration(file, i + 1, fromSeed.length, 'data'));
 
   await printVerification();

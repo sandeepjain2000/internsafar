@@ -1,72 +1,16 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
+import { jsonError, jsonOk } from '@/lib/apiAuth';
 import { runDailyProgressReport } from '@/lib/ipDailyProgressReport';
+import { authorizeIpCron } from '@/lib/ipCronAuth';
 
 /**
- * Compact daily progress report → Zepto → placementhubsupport@gmail.com
- *
- * Auth (any one):
- *   - x-ip-cron-secret === IP_CRON_SECRET (process env OR .env on disk for AWS)
- *   - Authorization: Bearer <IP_CRON_SECRET|CRON_SECRET>
- *   - else superadmin session (when no secrets configured)
- *
- * Query/body: force=1, dryRun=1
- * Subject/body time = real IST wall-clock at send (not a fake scheduled stamp).
+ * Compact daily progress report → Zepto
+ * Requires IP_CRON_SECRET / CRON_SECRET (fail closed — IP-SEC-004).
+ * Also accepts secrets from on-disk .env for AWS hosts (readEnvFile).
  */
-function secretsFromEnvFile() {
-  if (process.env.VERCEL) return { ip: '', cron: '' };
-  try {
-    const raw = readFileSync(join(process.cwd(), '.env'), 'utf8');
-    const out = { ip: '', cron: '' };
-    for (const line of raw.split(/\r?\n/)) {
-      const s = line.trim();
-      if (!s || s.startsWith('#') || !s.includes('=')) continue;
-      const i = s.indexOf('=');
-      const k = s.slice(0, i).trim();
-      const v = s.slice(i + 1).trim().replace(/^["']|["']$/g, '');
-      if (k === 'IP_CRON_SECRET') out.ip = v;
-      if (k === 'CRON_SECRET') out.cron = v;
-    }
-    return out;
-  } catch {
-    return { ip: '', cron: '' };
-  }
-}
-
-function authorizeCron(request) {
-  const file = secretsFromEnvFile();
-  const ipSecret = String(process.env.IP_CRON_SECRET || file.ip || '').trim();
-  const vercelSecret = String(process.env.CRON_SECRET || file.cron || '').trim();
-  const ipAlts = new Set(
-    [process.env.IP_CRON_SECRET, file.ip].map((s) => String(s || '').trim()).filter(Boolean),
-  );
-  const cronAlts = new Set(
-    [process.env.CRON_SECRET, file.cron].map((s) => String(s || '').trim()).filter(Boolean),
-  );
-  const headerSecret = request.headers.get('x-ip-cron-secret') || '';
-  const auth = request.headers.get('authorization') || '';
-  const bearer = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
-
-  if (ipAlts.size || cronAlts.size || ipSecret || vercelSecret) {
-    if (headerSecret && ipAlts.has(headerSecret)) return { ok: true };
-    if (bearer && (ipAlts.has(bearer) || cronAlts.has(bearer))) return { ok: true };
-    if (ipSecret && headerSecret === ipSecret) return { ok: true };
-    if (ipSecret && bearer === ipSecret) return { ok: true };
-    if (vercelSecret && bearer === vercelSecret) return { ok: true };
-    return { ok: false };
-  }
-  return { ok: null };
-}
-
 async function handle(request) {
-  const authz = authorizeCron(request);
-  if (authz.ok === false) {
+  const authz = authorizeIpCron(request, { readEnvFile: true });
+  if (!authz.ok) {
     return jsonError('Unauthorized cron', 401);
-  }
-  if (authz.ok === null) {
-    const { error } = await requireSession(['superadmin']);
-    if (error) return error;
   }
 
   const url = new URL(request.url);

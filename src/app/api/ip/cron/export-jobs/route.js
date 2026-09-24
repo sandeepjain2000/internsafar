@@ -1,23 +1,18 @@
-import { query } from '@/lib/db';
-import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
+import { jsonError, jsonOk } from '@/lib/apiAuth';
 import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
 import { processExportJob } from '@/lib/ipApplicantExport';
+import { query } from '@/lib/db';
+import { authorizeIpCron } from '@/lib/ipCronAuth';
 
 /**
  * Drain pending/processing applicant export jobs.
- * Optional header x-ip-cron-secret must match IP_CRON_SECRET when set.
+ * Requires IP_CRON_SECRET / CRON_SECRET (fail closed — IP-SEC-004).
  */
 export async function POST(request) {
   await ensureIpWorkbenchSchema();
-  const cronSecret = process.env.IP_CRON_SECRET;
-  const headerSecret = request.headers.get('x-ip-cron-secret') || '';
-  if (cronSecret) {
-    if (headerSecret !== cronSecret) {
-      return jsonError('Unauthorized cron', 401);
-    }
-  } else {
-    const { error } = await requireSession(['employer', 'superadmin']);
-    if (error) return error;
+  const authz = authorizeIpCron(request);
+  if (!authz.ok) {
+    return jsonError('Unauthorized cron', 401);
   }
 
   const pending = await query(

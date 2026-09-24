@@ -6,7 +6,13 @@ import path from 'path';
  * (nvidia_chat + discover_nvidia_key_files + key rotation).
  *
  * HTTP: OpenAI-compatible Chat Completions on integrate.api.nvidia.com
- * Keys: local nvidia_keys/key-*.json { api_key } and/or env NVIDIA_API_KEY
+ * Keys: env NVIDIA_API_KEY / NVIDIA_API_KEYS, and/or local JSON files outside the app tree.
+ *
+ * Local key dirs (never commit secrets into internship-portal/):
+ *   1) NVIDIA_KEYS_DIR env
+ *   2) ../.local-secrets/nvidia_keys (workspace sibling of the app)
+ *   3) ../nvidia keys (legacy workspace folder)
+ * In-app `nvidia_keys/` is intentionally not used — keep credentials off the deploy tree.
  *
  * Rate limit: placementhubsupport NVIDIA keys are ~40 rpm. This module
  * throttles outbound NIM calls (best-effort per Node process / serverless instance).
@@ -31,10 +37,13 @@ const MIN_GAP_MS = Math.max(
 );
 
 function keysDirCandidates() {
-  return [
-    path.join(process.cwd(), 'nvidia_keys'),
-    path.join(process.cwd(), 'nvidia keys'),
-  ];
+  const dirs = [];
+  const fromEnv = String(process.env.NVIDIA_KEYS_DIR || '').trim();
+  if (fromEnv) dirs.push(path.resolve(fromEnv));
+  // Prefer secrets outside the app folder (sibling of internship-portal cwd).
+  dirs.push(path.resolve(process.cwd(), '..', '.local-secrets', 'nvidia_keys'));
+  dirs.push(path.resolve(process.cwd(), '..', 'nvidia keys'));
+  return dirs;
 }
 
 /** Discover local key JSON files (filename only is safe to log). */
@@ -244,7 +253,7 @@ export async function nvidiaChat(userPrompt, systemPrompt = null, options = {}) 
       details: { env: Boolean(process.env.NVIDIA_API_KEY), vercel: Boolean(process.env.VERCEL) },
     });
     throw new Error(
-      'No NVIDIA credentials configured. Set NVIDIA_API_KEY (Vercel/env) or add nvidia_keys/key-*.json locally.',
+      'No NVIDIA credentials configured. Set NVIDIA_API_KEY (Vercel/env) or NVIDIA_KEYS_DIR / ../.local-secrets/nvidia_keys locally.',
     );
   }
 

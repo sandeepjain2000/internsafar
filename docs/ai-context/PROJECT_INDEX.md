@@ -1,7 +1,7 @@
 # InternSafar — Project Context Index (Level 1)
 
 Compact map for AI agents. **Not** a full README of the product.  
-**Inspected from live sibling app:** 2026-09-24.
+**Inspected from live sibling app:** 2026-09-24 (AWS handoff + `qa:e2e:aws` refresh).
 
 After this file: open `FOLDER_STRUCTURE.md` to locate paths, then **one** `domains/*.md`, then live source.
 
@@ -45,12 +45,12 @@ If a task says “Internship Portal / InternSafar / IP”, it means the **siblin
 | App | Next.js `^16.3.0` (`src/app`), React `19.2.4`, **JavaScript** (not TypeScript app code) |
 | UI | Tailwind 4, shadcn / Base UI (`components.json`, `src/components/ui`) |
 | Auth | NextAuth (`src/lib/auth.js`). **No** `middleware.js`. APIs enforce auth. |
-| DB | Postgres via `pg` (`src/lib/db.js`). Migrations: `db/migrations/` (48 SQL files as of this inspect; prefer `*ip*`; latest numbered `044_ip_internship_stipend_range.sql`) |
+| DB | Postgres via `pg` (`src/lib/db.js`). Migrations: `db/migrations/` (prefer `*ip*`; latest numbered `044_ip_internship_stipend_range.sql`; apply order in `scripts/MIGRATION_MANIFEST.txt`) |
 | Files | AWS S3 (`src/lib/s3.js`), object prefix `internship-portal/…`; download authz helper `src/lib/ipFileAccess.js` |
 | Mail | ZeptoMail / SMTP (`src/lib/mail.js`, `zeptomail.js`); outbound footers can append unsubscribe via `src/lib/ipEmailUnsubscribe.js` |
 | Help chat LLM | NVIDIA NIM helpers (`src/lib/nvidiaLlm.js`, `/api/ip/help-chat`) |
 | Deploy | Vercel from sibling; AWS EC2 via workspace handoff packs |
-| QA | Playwright under `qa/` (smoke / regression with journeys / full:release) + Excel workbook `test-cases/InternSafar-Test-Cases.xlsx` |
+| QA | Playwright under `qa/` (smoke / regression with journeys / full:release / `qa:e2e:aws` for EC2) + Excel workbook `test-cases/InternSafar-Test-Cases.xlsx` |
 
 ### Environments ↔ database (confirmed)
 

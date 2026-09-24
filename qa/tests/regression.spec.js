@@ -12,6 +12,15 @@ const { openWithSession, signOut, apiLogin } = require('../helpers/login');
  */
 const ROOT = path.resolve(__dirname, '../..');
 
+/** Skip ops-alert email probes on live AWS (or when explicitly requested). */
+function skipOpsProbes() {
+  if (process.env.IP_QA_SKIP_OPS_PROBES === '1' || process.env.IP_QA_SKIP_OPS_PROBES === 'true') {
+    return true;
+  }
+  const base = process.env.IP_BASE || process.env.PLAYWRIGHT_BASE_URL || '';
+  return /internsafar\.com/i.test(base);
+}
+
 async function apiWithSession(request, email, method, url, options = {}) {
   const base = process.env.IP_BASE || process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
   const logged = await apiLogin(base, email);
@@ -113,6 +122,7 @@ test.describe('InternSafar regression', () => {
   });
 
   test('IS-018 / IS-020 ops report-error validation + accept', async ({ request }) => {
+    test.skip(skipOpsProbes(), 'Skip ops email probes on AWS production / IP_QA_SKIP_OPS_PROBES');
     const bad = await request.post('/api/ip/ops/report-error', { data: {} });
     expect(bad.status()).toBe(400);
 
@@ -129,6 +139,7 @@ test.describe('InternSafar regression', () => {
   });
 
   test('IS-019 ops report-error ignores ResizeObserver noise', async ({ request }) => {
+    test.skip(skipOpsProbes(), 'Skip ops email probes on AWS production / IP_QA_SKIP_OPS_PROBES');
     const res = await request.post('/api/ip/ops/report-error', {
       data: { message: 'ResizeObserver loop limit exceeded', kind: 'UNEXPECTED_CLIENT' },
     });
@@ -138,6 +149,7 @@ test.describe('InternSafar regression', () => {
   });
 
   test('IS-040 ops report-error cooldown on duplicate', async ({ request }) => {
+    test.skip(skipOpsProbes(), 'Skip ops email probes on AWS production / IP_QA_SKIP_OPS_PROBES');
     const payload = {
       message: 'QA cooldown synthetic unexpected error',
       kind: 'QA_PROBE',

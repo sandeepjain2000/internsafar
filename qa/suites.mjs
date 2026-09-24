@@ -45,10 +45,18 @@ export const SUITE_FULL = [
   'qa/tests/mobile-candidate-internships.spec.js',
 ];
 
+/**
+ * AWS production Linux — same files as regression.
+ * Runner `qa:e2e:aws` sets IP_BASE / bundled Chromium / skip ops probes.
+ * Prefer this over full:release against live RDS.
+ */
+export const SUITE_AWS_REGRESSION = [...SUITE_REGRESSION];
+
 export const SUITE_BY_NAME = {
   smoke: SUITE_SMOKE,
   'smoke-latest': SUITE_SMOKE_LATEST,
   regression: SUITE_REGRESSION,
+  'aws-regression': SUITE_AWS_REGRESSION,
   full: SUITE_FULL,
 };
 

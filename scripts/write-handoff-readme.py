@@ -59,7 +59,7 @@ Path B (live EC2, RDS unchanged) — full pastable blocks:
 
 Path C (fresh/empty RDS):
   → From extracted app: IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db
-  → (001–034 → core demo seed → 035–039)
+  → (001–034 → core demo seed → 035–044)
   → Without IP_ALLOW_DB_MIGRATE=1 the command is BLOCKED in code (exit 1)
 
 SQL only when demo users already exist:
@@ -73,20 +73,42 @@ Migration success check:
   Every SQL file must print === OK: … applied successfully ===
   If you see === FAIL: … === or === BLOCKED: … === the run FAILED (exit 1) — do not continue.
 
-CAPTCHA bypass (why + how to enable real captcha later)
--------------------------------------------------------
-This build has CAPTCHA_BYPASS_FOR_TESTING = true (src/lib/captchaBypass.js).
-Why: AWS captcha API failed when NEXTAUTH_SECRET was missing (HTTP 500).
-Bypass keeps login working; it is temporary.
+CAPTCHA (real challenge — this pack)
+------------------------------------
+This build has CAPTCHA_BYPASS_FOR_TESTING = false (src/lib/captchaBypass.js).
+Real numbered Security Verification; “New Code” rotates the challenge.
 
-Still required in EC2 .env (bypass does not replace these):
+Required in EC2 .env (signing uses the same secret as NextAuth):
   NEXTAUTH_URL=https://internsafar.com
   NEXTAUTH_SECRET=<openssl rand -base64 32>
 
-To enable real numbered captcha later:
-  1. curl -i http://127.0.0.1:3000/api/auth/captcha  → must be HTTP 200
-  2. Set CAPTCHA_BYPASS_FOR_TESTING = false
-  3. Path B redeploy (npm run build && pm2 restart internsafar --update-env)
+Confirm after deploy:
+  curl -i http://127.0.0.1:3000/api/auth/captcha  → must be HTTP 200
+
+Emergency only: set CAPTCHA_BYPASS_FOR_TESTING = true and Path B redeploy.
+Prefer fixing NEXTAUTH_SECRET instead.
+
+QA on EC2 (Linux) vs local/Vercel
+---------------------------------
+Same Playwright specs as Vercel/local, but run the AWS entry so defaults fit production Linux:
+  cd ~/internship-portal
+  npm run playwright:install
+  npm run qa:e2e:aws:smoke      # auth + Google UX
+  npm run qa:e2e:aws            # regression (journeys + screens + mobile)
+
+AWS runner defaults (override with env if needed):
+  IP_BASE=https://internsafar.com
+  PW_NO_WEBSERVER=1             # PM2 already serves — do not spawn npm run dev
+  PW_USE_BUNDLED_CHROMIUM=1     # no system Google Chrome on EC2
+  IP_QA_SKIP_OPS_PROBES=1       # do not fire ops-alert email probes on live
+
+Do NOT run qa:e2e:full:release / employer-reg deep scripts against live RDS
+unless you intentionally want new users on production.
+
+Core accounts: qa/helpers/accounts.js must exist on AWS RDS.
+If cores use login OTP, set IP_QA_2FA_* in ~/internship-portal/.env (never commit).
+
+Details: qa/docs/AWS-QA-NOTES.txt (inside the app tar).
 
 Cursor agents: read AGENTS.md (inside the app tar) “AWS / RDS database scripts” before any migrate.
 App tar folder map: APP-FOLDER-STRUCTURE.txt (inside tar) or APP-TAR-FOLDER-STRUCTURE.txt (this folder).
@@ -135,12 +157,13 @@ Notes
 -----
 - App code lives inside internship-portal-aws-deploy-*.tar.gz (extract to ~/internship-portal-new).
 - After extract, open APP-FOLDER-STRUCTURE.txt for the app’s appropriate folder map (not every source file).
-- migrations/: {len(mig)} SQL files (001–039; two files named 008_*).
+- migrations/: {len(mig)} SQL files (001–044; two files named 008_*). Path B still must not migrate.
 - runner/: {len(runner)} files — use db_migrate_sql_only_ip.mjs only when demo users already exist.
 - Path B: no DB migrate (code gate: assert-db-migrate-allowed.js / PATH-B-NO-DB-MIGRATE.txt).
 - Path C: IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db.
 - Fail-closed: === OK === / === FAIL === / === BLOCKED ===.
-- CAPTCHA bypass is ON; set NEXTAUTH_SECRET before turning bypass off (see CAPTCHA section above).
+- CAPTCHA: real challenge (bypass OFF). NEXTAUTH_SECRET required for captcha API.
+- QA on EC2: npm run qa:e2e:aws (not the Windows Chrome + webServer local defaults).
 """
 
 

@@ -86,6 +86,7 @@ Product hygiene (edit/obsolete/add cases vs live `src/`): `npm run qa:sync-xlsx-
 | Role | Command | Entry |
 |------|---------|-------|
 | Playwright e2e | `npm run qa:e2e` | `qa/runners/run-internsafar.mjs` |
+| AWS Linux / prod e2e | `npm run qa:e2e:aws` | `qa/runners/run-internsafar-aws.mjs` (bundled Chromium, `IP_BASE=https://internsafar.com`, skip ops probes) |
 | Regression + Excel apply | `npm run qa:e2e:regression` | `scripts/run-regression-and-apply-xlsx.mjs` |
 | Full / release gate | `npm run qa:e2e:full:release` | `scripts/run-full-release-qa.mjs` |
 | Excel product hygiene | `npm run qa:sync-xlsx-hygiene` | `scripts/sync-internsafar-xlsx-product-hygiene.py` |
@@ -96,7 +97,7 @@ Product hygiene (edit/obsolete/add cases vs live `src/`): `npm run qa:sync-xlsx-
 
 Specs under `qa/tests/`: `auth.spec.js`, `google-auth.spec.js`, `regression.spec.js`, `journeys-candidate.spec.js`, `journeys-employer.spec.js`, `journeys-superadmin.spec.js`, `screens.spec.js`, `mobile-candidate-internships.spec.js`.
 
-Playbook: `qa/docs/internsafar-runner-playbook.md`.
+AWS vs local: `qa/docs/AWS-QA-NOTES.txt`. Playbook: `qa/docs/internsafar-runner-playbook.md`.
 
 ## Prompts pack
 

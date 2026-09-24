@@ -1,0 +1,38 @@
+InternSafar — AWS / production Linux QA notes
+============================================
+
+Same Playwright specs as local + Vercel (`qa/tests/*`, `qa/suites.mjs`).
+Defaults differ because EC2 is Linux, the app is already under PM2, and the
+database is production RDS (not the shared Neon used by local/Vercel).
+
+| Item | Local / Vercel | AWS (use `npm run qa:e2e:aws`) |
+|------|----------------|--------------------------------|
+| Base URL | `http://localhost:3000` (or Vercel preview) | `https://internsafar.com` |
+| Browser | System Chrome (`channel: 'chrome'`) on Windows | Playwright bundled Chromium |
+| webServer | May start `npm run dev` | Off (`PW_NO_WEBSERVER=1`) — PM2 serves |
+| Ops email probes (IS-018/019/040) | Run (prove mail pipe) | Skipped (`IP_QA_SKIP_OPS_PROBES=1`) |
+| Deep register/approve scripts | OK on shared Neon | Do **not** run on live RDS unless intentional |
+| Database | Shared Neon | Separate production Postgres |
+
+Commands on EC2 (after Path B extract + `npm install`):
+
+  npm run playwright:install
+  npm run qa:e2e:aws:smoke
+  npm run qa:e2e:aws
+
+Optional overrides:
+
+  IP_BASE=http://127.0.0.1:3000 npm run qa:e2e:aws:smoke   # hit PM2 locally
+  IP_QA_SKIP_OPS_PROBES=0 npm run qa:e2e:aws               # allow ops probes (emails)
+
+Prerequisites:
+
+- Core demo accounts present on AWS RDS (`qa/helpers/accounts.js`)
+- `NEXTAUTH_URL=https://internsafar.com` and working captcha (`/api/auth/captcha`)
+- If cores require login OTP: `IP_QA_2FA_LOGIN_CODE` (and related) in `~/internship-portal/.env`
+
+Config entry points:
+
+- `playwright.config.js` — auto-detects remote vs local; Linux skips system Chrome
+- `qa/runners/run-internsafar-aws.mjs` — AWS defaults wrapper
+- `qa/runners/run-internsafar.mjs` — shared suite runner (`--suite=…`)

@@ -31,6 +31,7 @@ for (const a of rawArgs) {
   else if (a === '--smoke' || a === '--suite=smoke') suiteName = 'smoke';
   else if (a === '--full' || a === '--suite=full') suiteName = 'full';
   else if (a === '--suite=smoke-latest') suiteName = 'smoke-latest';
+  else if (a === '--suite=aws-regression') suiteName = 'aws-regression';
   else if (a.startsWith('--suite=')) {
     suiteName = a.slice('--suite='.length);
   } else {
