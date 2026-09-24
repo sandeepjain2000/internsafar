@@ -55,12 +55,19 @@ CI: skip OTP success assertions when codes unset, or use bypass. Core accounts: 
 
 Employer register E2E (no inbox): `npm run qa:employer-reg-e2e` and deep smoke `npm run qa:register-approve-post-apply`. Both must assert **real credentials login** at gates (fail before verify; succeed pending+verified; SA login; approved login; candidate login+apply). Do not pass on register-only. Flow doc: `docs/qa-employer-register-e2e.md`.
 
-### 5) `qa:e2e` default scope
+### 5) Industry QA tiers (`qa:e2e*`)
 
-| Command | Scope |
-|---------|--------|
-| `npm run qa:e2e` / `test:e2e` | General Playwright entry — **does not** force google-auth + regression |
-| `npm run qa:e2e:regression` or `qa:e2e -- --suite=regression` | `auth` + `google-auth` + `regression` (+ Excel apply on regression npm script) |
+| Tier | When | Command | Scope |
+|------|------|---------|--------|
+| **Smoke** | Every change / PR | `npm run qa:e2e:smoke` | Auth + Google (minutes) |
+| Compat | Legacy alias | `npm run qa:e2e:smoke-latest` | Former ~47 pack (auth + google + `regression.spec.js`) — **not** the nightly gate |
+| **Regression** | On demand / nightly | `npm run qa:e2e:regression` | smoke-latest + **journey specs** + screens + mobile, then Excel apply |
+| Playwright full | All specs | `npm run qa:e2e:full` | Every `qa/tests/*.spec.js` |
+| **Full / release** | Pre-release | `npm run qa:e2e:full:release` | All Playwright + Excel apply + `qa:employer-reg-e2e` + `qa:register-approve-post-apply`; remaining **Manual** Excel is human |
+
+Suite file lists live in `qa/suites.mjs`. Excel `InternSafar-Test-Cases.xlsx` is the case SoT with Automation = `Automated` | `Manual` | `Obsolete`. Playwright pass count ≠ whole workbook.
+
+Product hygiene (edit/obsolete/add cases vs live `src/`): `npm run qa:sync-xlsx-hygiene` then `npm run qa:audit-xlsx`. Audit notes: `reviews/excel-qa-tier-audit-2026-09-24.md`.
 
 ### 6) Email unsubscribe manual / scripted checks
 
@@ -80,12 +87,14 @@ Employer register E2E (no inbox): `npm run qa:employer-reg-e2e` and deep smoke `
 |------|---------|-------|
 | Playwright e2e | `npm run qa:e2e` | `qa/runners/run-internsafar.mjs` |
 | Regression + Excel apply | `npm run qa:e2e:regression` | `scripts/run-regression-and-apply-xlsx.mjs` |
+| Full / release gate | `npm run qa:e2e:full:release` | `scripts/run-full-release-qa.mjs` |
+| Excel product hygiene | `npm run qa:sync-xlsx-hygiene` | `scripts/sync-internsafar-xlsx-product-hygiene.py` |
 | Checklist QA | `npm run qa:checklist` / `qa:checklist:apply` | `scripts/run-ip-checklist-qa.mjs` |
 | Migrate Excel cols | `npm run qa:migrate-xlsx-cols` | `scripts/migrate-internsafar-xlsx-boarders-cols.py` |
 | Patch latest TC-IS rows | `npm run qa:patch-latest-cases` | `scripts/patch-internsafar-latest-cases.py` |
 | Install Playwright browsers | `npm run playwright:install` | Persistent `%LOCALAPPDATA%/ms-playwright` |
 
-Specs under `qa/tests/`: `auth.spec.js`, `google-auth.spec.js`, `regression.spec.js`, `screens.spec.js`, `mobile-candidate-internships.spec.js`.
+Specs under `qa/tests/`: `auth.spec.js`, `google-auth.spec.js`, `regression.spec.js`, `journeys-candidate.spec.js`, `journeys-employer.spec.js`, `journeys-superadmin.spec.js`, `screens.spec.js`, `mobile-candidate-internships.spec.js`.
 
 Playbook: `qa/docs/internsafar-runner-playbook.md`.
 

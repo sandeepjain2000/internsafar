@@ -1,0 +1,4 @@
+{
+  "count": 384,
+  "reason": "Complete line-by-line review of all 469 in-scope files was not completed in one pass. Prioritized Security, Authz, Business Logic, high-traffic Frontend/A11y, and tooling. Remaining src/api routes, CSS, scripts, and migrations marked deferred."
+}

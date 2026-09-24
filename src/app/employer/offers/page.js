@@ -16,12 +16,61 @@ import { useIsMobile } from '@/hooks/useViewMode';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import IpListPager from '@/components/ip/IpListPager';
 import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import {
+  IpDateRangeFilter,
+  IpSearchableMultiFilter,
+  IpSingleSelectFilter,
+  IpTableFiltersShell,
+  IP_RECEIVED_WINDOW_OPTIONS,
+  inReceivedWindow,
+} from '@/components/ip/IpTableFiltersShell';
 import '@/components/ip/ip-employer-offers-gemini.css';
+import '@/components/ip/ip-table-filters.css';
 import '@/components/ip/ip-list-pager.css';
 
 const PAGE_SIZE = 10;
 const TABS = ['All', 'Pending', 'Accepted', 'Declined'];
 const REMIND_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+const EMPTY_COLS = {
+  candidates: [],
+  roles: [],
+  when: '',
+  dateFrom: '',
+  dateTo: '',
+};
+
+function dayKey(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0, 10);
+}
+
+function inDateRange(value, from, to) {
+  const key = dayKey(value);
+  if (!key) return !(from || to);
+  if (from && key < from) return false;
+  if (to && key > to) return false;
+  return true;
+}
+
+function uniqSorted(values) {
+  return [...new Set(values.filter((v) => v != null && String(v).trim() !== ''))]
+    .map(String)
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function countActiveCols(cols) {
+  let n = 0;
+  for (const [k, v] of Object.entries(cols || {})) {
+    const base = EMPTY_COLS[k];
+    if (Array.isArray(base)) {
+      if (Array.isArray(v) && v.length) n += 1;
+    } else if (v) n += 1;
+  }
+  return n;
+}
 
 function initials(name) {
   const parts = String(name || '')
@@ -125,9 +174,11 @@ export default function EmployerOffersPage() {
   const [rateFor, setRateFor] = useState(null);
   const [stars, setStars] = useState(5);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [cols, setCols] = useState(EMPTY_COLS);
+  const [colFiltersOpen, setColFiltersOpen] = useState(false);
   const isMobile = useIsMobile();
 
-  const snapshot = useMemo(() => ({ filters: { tab, q }, sort: '' }), [tab, q]);
+  const snapshot = useMemo(() => ({ filters: { tab, q, cols }, sort: '' }), [tab, q, cols]);
   const prefs = useListPrefsSync({
     tableKey: 'employer.offers',
     snapshot,
@@ -135,8 +186,18 @@ export default function EmployerOffersPage() {
       const f = s.filters || {};
       if (f.tab) setTab(f.tab);
       if (f.q != null) setQ(f.q);
+      if (f.cols) setCols({ ...EMPTY_COLS, ...f.cols });
     },
   });
+
+  const colsActive = countActiveCols(cols);
+  const filterActive = Boolean(q.trim()) || tab !== 'All' || colsActive > 0;
+
+  function resetFilters() {
+    setQ('');
+    setTab('All');
+    setCols(EMPTY_COLS);
+  }
 
   async function load() {
     setLoading(true);
@@ -162,13 +223,6 @@ export default function EmployerOffersPage() {
     document.body.classList.add('ip-scroll-locked');
     return () => document.body.classList.remove('ip-scroll-locked');
   }, [filtersOpen]);
-
-  const filterActive = Boolean(q.trim()) || tab !== 'All';
-
-  function resetFilters() {
-    setQ('');
-    setTab('All');
-  }
 
   const metrics = useMemo(() => {
     const total = items.length;
@@ -210,16 +264,30 @@ export default function EmployerOffersPage() {
       if (tab === 'Pending' && st !== 'pending') return false;
       if (tab === 'Accepted' && st !== 'accepted') return false;
       if (tab === 'Declined' && st !== 'declined') return false;
+      const candidate = String(o.candidate_name || '—');
+      const role = String(o.role_title || o.title || 'Internship');
+      if (cols.candidates.length && !cols.candidates.includes(candidate)) return false;
+      if (cols.roles.length && !cols.roles.includes(role)) return false;
+      if (cols.when && !inReceivedWindow(o.created_at, cols.when)) return false;
+      if (!inDateRange(o.created_at, cols.dateFrom, cols.dateTo)) return false;
       if (!needle) return true;
       const hay = `${o.candidate_name || ''} ${o.role_title || ''} ${o.title || ''} ${o.candidate_college || ''}`.toLowerCase();
       return hay.includes(needle);
     });
-  }, [items, tab, q]);
+  }, [items, tab, q, cols]);
+
+  const optionLists = useMemo(
+    () => ({
+      candidates: uniqSorted(items.map((o) => o.candidate_name || '—')),
+      roles: uniqSorted(items.map((o) => o.role_title || o.title || 'Internship')),
+    }),
+    [items],
+  );
 
   const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(filtered, PAGE_SIZE);
   useEffect(() => {
     setPage(1);
-  }, [tab, q, setPage]);
+  }, [tab, q, cols, setPage]);
 
   async function remind(o) {
     const blocked = remindBlockedReason(o);
@@ -498,6 +566,41 @@ export default function EmployerOffersPage() {
         </div>
         <div className="ip-eo-presets-desk px-4 pb-3">
           <ListPresetsBar {...prefs} />
+          <IpTableFiltersShell
+            open={colFiltersOpen}
+            onToggle={() => setColFiltersOpen((v) => !v)}
+            activeCount={colsActive}
+            onClear={() => setCols(EMPTY_COLS)}
+          >
+            <IpSearchableMultiFilter
+              label="Candidate"
+              options={optionLists.candidates}
+              values={cols.candidates}
+              onChange={(candidates) => setCols((c) => ({ ...c, candidates }))}
+              placeholder="Search candidates…"
+            />
+            <IpSearchableMultiFilter
+              label="Role"
+              options={optionLists.roles}
+              values={cols.roles}
+              onChange={(roles) => setCols((c) => ({ ...c, roles }))}
+              placeholder="Search roles…"
+            />
+            <IpSingleSelectFilter
+              label="Sent"
+              options={IP_RECEIVED_WINDOW_OPTIONS}
+              value={cols.when}
+              onChange={(when) => setCols((c) => ({ ...c, when }))}
+              emptyLabel="Any time"
+            />
+            <IpDateRangeFilter
+              label="Custom date range"
+              from={cols.dateFrom}
+              to={cols.dateTo}
+              onFrom={(dateFrom) => setCols((c) => ({ ...c, dateFrom }))}
+              onTo={(dateTo) => setCols((c) => ({ ...c, dateTo }))}
+            />
+          </IpTableFiltersShell>
         </div>
 
         {loading ? (
@@ -635,6 +738,36 @@ export default function EmployerOffersPage() {
                   {t}
                 </button>
               ))}
+              <div className="ip-eo-sheet-cols">
+                <IpSearchableMultiFilter
+                  label="Candidate"
+                  options={optionLists.candidates}
+                  values={cols.candidates}
+                  onChange={(candidates) => setCols((c) => ({ ...c, candidates }))}
+                  placeholder="Search candidates…"
+                />
+                <IpSearchableMultiFilter
+                  label="Role"
+                  options={optionLists.roles}
+                  values={cols.roles}
+                  onChange={(roles) => setCols((c) => ({ ...c, roles }))}
+                  placeholder="Search roles…"
+                />
+                <IpSingleSelectFilter
+                  label="Sent"
+                  options={IP_RECEIVED_WINDOW_OPTIONS}
+                  value={cols.when}
+                  onChange={(when) => setCols((c) => ({ ...c, when }))}
+                  emptyLabel="Any time"
+                />
+                <IpDateRangeFilter
+                  label="Custom date range"
+                  from={cols.dateFrom}
+                  to={cols.dateTo}
+                  onFrom={(dateFrom) => setCols((c) => ({ ...c, dateFrom }))}
+                  onTo={(dateTo) => setCols((c) => ({ ...c, dateTo }))}
+                />
+              </div>
               <div className="ip-eo-sheet-presets">
                 <ListPresetsBar {...prefs} />
               </div>

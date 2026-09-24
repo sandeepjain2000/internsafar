@@ -128,7 +128,10 @@ export default function SuperAdminPostingsPage() {
       const data = await res.json();
       if (!res.ok) setError(data.error || 'Update failed');
       else {
-        setToast(`Updated ${data.processed || ids.length} posting(s) → ${status}`);
+        const changed = Number(data.changed ?? data.processed ?? ids.length);
+        const skipped = Number(data.skipped || 0);
+        const base = `Updated ${changed} posting(s) → ${status}`;
+        setToast(skipped > 0 ? `${base} (${skipped} already ${status}, skipped)` : base);
         setInspect(null);
         setTakedown(null);
         setReason('');

@@ -1,0 +1,21 @@
+{
+  "phases": [
+    "setup",
+    "scope",
+    "file_review_prioritized",
+    "testing_lint_build",
+    "architecture_security",
+    "synthesis",
+    "consistency_audit",
+    "report_generation"
+  ],
+  "verified_finding_count": 17,
+  "invented_evidence": false,
+  "template_used": "C:\\Users\\place\\Work\\UIUX Migration\\internship-portal\\.agents\\skills\\code-review\\templates\\report.html",
+  "limitations": [
+    "SKILL.md upstream truncates after Phase 10 list; followed references + principles.",
+    "Not every in-scope file was opened; deferred accounting recorded.",
+    "E2E Playwright suite not executed.",
+    "Secret values redacted in reports."
+  ]
+}

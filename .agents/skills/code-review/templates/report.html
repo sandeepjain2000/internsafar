@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Review Report - Code Review Test Driver (1.py)</title>
+  <style>
+    :root {
+      --bg: #0b1329;
+      --card-bg: #151f38;
+      --card-border: #233256;
+      --text: #f8fafc;
+      --text-muted: #8fa0be;
+      --primary: #38bdf8;
+      --primary-hover: #0284c7;
+      --critical: #ef4444;
+      --high: #f97316;
+      --medium: #eab308;
+      --low: #10b981;
+      --code-bg: #f8fafc;
+      --code-border: #cbd5e1;
+      --code-text: #b91c1c;
+      --table-stripe: rgba(255, 255, 255, 0.02);
+      --toc-bg: #0f1830;
+      --toc-card-bg: #152244;
+      --toc-hover: #1e305e;
+    }
+    body.light-theme {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --card-border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --primary: #0284c7;
+      --primary-hover: #0369a1;
+      --critical: #dc2626;
+      --high: #ea580c;
+      --medium: #d97706;
+      --low: #059669;
+      --code-bg: #f1f5f9;
+      --code-border: #cbd5e1;
+      --code-text: #b91c1c;
+      --table-stripe: rgba(0, 0, 0, 0.02);
+      --toc-bg: #f8fafc;
+      --toc-card-bg: #ffffff;
+      --toc-hover: #e2e8f0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 1.75rem 1rem;
+      transition: background-color 0.2s ease, color 0.2s ease;
+      font-size: 0.92rem;
+    }
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+    header {
+      border-bottom: 2px solid var(--card-border);
+      padding-bottom: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    h1 { font-size: 1.85rem; color: var(--text); font-weight: 800; letter-spacing: -0.025em; }
+    .theme-toggle-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: all 0.15s ease;
+    }
+    .theme-toggle-btn:hover {
+      background: var(--toc-hover);
+      border-color: var(--primary);
+    }
+    .meta-bar {
+      margin-top: 0.5rem;
+      display: flex;
+      gap: 1.25rem;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      flex-wrap: wrap;
+    }
+
+    /* Table of Contents / Quick Navigation Index */
+    .toc-section {
+      background: var(--toc-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.75rem;
+    }
+    .toc-header {
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .toc-header h3 {
+      font-size: 0.92rem;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 700;
+    }
+    .toc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 0.5rem;
+    }
+    .toc-card {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: var(--toc-card-bg);
+      border: 1px solid var(--card-border);
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      text-decoration: none;
+      color: var(--text);
+      transition: all 0.15s ease;
+    }
+    .toc-card:hover {
+      border-color: var(--primary);
+      background: var(--toc-hover);
+      transform: translateY(-1px);
+    }
+    .toc-num {
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 0.8rem;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .toc-info { display: flex; flex-direction: column; }
+    .toc-title { font-weight: 600; font-size: 0.86rem; }
+    .toc-sub { font-size: 0.72rem; color: var(--text-muted); }
+
+    .report-section {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.75rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+      transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .section-header h2 { font-size: 1.25rem; color: var(--primary); font-weight: 700; letter-spacing: -0.01em; }
+    .section-count {
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      padding: 0.25rem 0.65rem;
+      border-radius: 4px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    
+    /* Executive Summary Cards & Severity Table */
+    .exec-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    @media (max-width: 800px) {
+      .exec-stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .stat-card {
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      padding: 0.85rem 0.5rem;
+      border-radius: 6px;
+      text-align: center;
+    }
+    .stat-val { font-size: 1.8rem; font-weight: 800; line-height: 1; }
+    .stat-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-top: 0.35rem; font-weight: 600; letter-spacing: 0.04em; }
+    .stat-critical { color: var(--critical); font-weight: 700; }
+    .stat-high { color: var(--high); font-weight: 700; }
+    .stat-medium { color: var(--medium); font-weight: 700; }
+    .stat-low { color: var(--low); font-weight: 700; }
+    .stat-total { color: var(--primary); font-weight: 700; }
+
+    .area-table-wrapper {
+      margin-bottom: 1.25rem;
+    }
+    .area-table-title {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.5rem;
+    }
+
+    .obs-list {
+      margin-top: 0.75rem;
+      padding-left: 1.25rem;
+    }
+    .obs-list li { margin-bottom: 0.4rem; color: var(--text); font-size: 0.88rem; }
+
+    .categories-list { display: flex; flex-direction: column; gap: 1.25rem; }
+    .category-block {
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+    }
+    .category-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .category-title-wrap { display: flex; align-items: center; gap: 0.4rem; }
+    .category-num { color: var(--primary); font-weight: 700; font-size: 0.95rem; }
+    .category-header h3 { font-size: 1rem; color: var(--text); font-weight: 700; }
+    .cat-badge {
+      font-size: 0.75rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-weight: 700;
+    }
+    .has-findings { background: var(--high); color: #fff; }
+    .zero-findings { background: var(--card-border); color: var(--text-muted); }
+    .empty-category-notice { color: var(--text-muted); font-size: 0.85rem; padding: 0.25rem 0; font-style: italic; }
+
+    .finding-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      margin-top: 0.75rem;
+      padding: 1rem 1.15rem;
+    }
+    .finding-card.critical { border-left: 4px solid var(--critical); }
+    .finding-card.high { border-left: 4px solid var(--high); }
+    .finding-card.medium { border-left: 4px solid var(--medium); }
+    .finding-card.low { border-left: 4px solid var(--low); }
+
+    .finding-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .finding-title-group { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; width: 100%; }
+    .finding-id { font-weight: 800; font-size: 0.88rem; color: var(--primary); letter-spacing: 0.02em; }
+    .finding-title { font-size: 1.02rem; font-weight: 700; color: var(--text); width: 100%; margin-top: 0.2rem; }
+    .finding-meta-tags { display: flex; gap: 0.85rem; margin-top: 0.2rem; font-size: 0.8rem; color: var(--text-muted); flex-wrap: wrap; }
+    .meta-tag strong { color: var(--text); }
+
+    .location-bar {
+      background: rgba(0, 0, 0, 0.15);
+      border: 1px solid var(--card-border);
+      padding: 0.35rem 0.65rem;
+      border-radius: 4px;
+      margin-bottom: 0.75rem;
+      font-size: 0.8rem;
+    }
+    body.light-theme .location-bar {
+      background: #e2e8f0;
+    }
+    .location-bar code { color: var(--primary); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-weight: 600; }
+
+    .badge {
+      font-size: 0.68rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge-critical { background: var(--critical); color: #fff; }
+    .badge-high { background: var(--high); color: #fff; }
+    .badge-medium { background: var(--medium); color: #000; }
+    .badge-low { background: var(--low); color: #fff; }
+
+    .finding-body { display: flex; flex-direction: column; gap: 0.65rem; font-size: 0.88rem; }
+    .field-block { display: flex; flex-direction: column; gap: 0.2rem; }
+    .field-label { color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em; }
+    .field-content { color: var(--text); line-height: 1.45; }
+    
+    /* Light readable background for code evidence */
+    .evidence-block {
+      background: #f1f5f9;
+      border: 1px solid var(--code-border);
+      padding: 0.65rem 0.85rem;
+      border-radius: 4px;
+    }
+    .evidence-code {
+      color: #991b1b;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.82rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      background: transparent;
+      font-weight: 500;
+    }
+    .rec-block {
+      background: rgba(16, 185, 129, 0.08);
+      border-left: 3px solid var(--low);
+      padding: 0.65rem 0.85rem;
+      border-radius: 0 4px 4px 0;
+    }
+    .rec-block .field-content { color: var(--text); }
+
+    .findings-summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.81rem;
+      table-layout: fixed;
+    }
+    .findings-summary-table th, .findings-summary-table td {
+      border: 1px solid var(--card-border);
+      padding: 0.45rem 0.5rem;
+      text-align: left;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    .findings-summary-table th {
+      background: var(--bg);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 0.70rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    .findings-summary-table tr:nth-child(even) { background: var(--table-stripe); }
+    .findings-summary-table td code {
+      background: rgba(56, 189, 248, 0.1);
+      padding: 0.1rem 0.25rem;
+      border-radius: 3px;
+      font-size: 0.76rem;
+      color: var(--primary);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    th, td {
+      border: 1px solid var(--card-border);
+      padding: 0.55rem 0.7rem;
+      text-align: left;
+    }
+    th { background: var(--bg); color: var(--text-muted); text-transform: uppercase; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; }
+    tr:nth-child(even) { background: var(--table-stripe); }
+    td code { background: rgba(56, 189, 248, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.78rem; color: var(--primary); }
+
+    .evidence-grid { display: flex; flex-direction: column; gap: 0.75rem; }
+    .cmd-row {
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      padding: 0.75rem;
+      border-radius: 4px;
+    }
+    .cmd-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; }
+    .cmd-code { color: var(--primary); font-family: monospace; font-size: 0.85rem; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-top">
+        <h1>CODE REVIEW REPORT</h1>
+        <div class="header-actions">
+          <button id="theme-toggle" class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle Light/Dark Theme">
+            <span id="theme-icon">🌙</span> <span id="theme-text">Dark Theme</span>
+          </button>
+          <span class="badge" style="background: #0284c7; color: #fff; font-size: 0.85rem; padding: 0.3rem 0.75rem;">STATUS: COMPLETED</span>
+        </div>
+      </div>
+      <div class="meta-bar">
+        <span><strong>Project:</strong> Code Review Test Driver (1.py)</span>
+        <span><strong>Target Path:</strong> C:\Users\Hrishikesh Kali\UniqueSchools\Code Review Test Driver\1.py</span>
+        <span><strong>Date:</strong> 2026-09-24</span>
+        <span><strong>Total Files Scoped:</strong> 1</span>
+        <span><strong>Files with Findings:</strong> 1</span>
+        <span><strong>Overall Score:</strong> 68/100</span>
+      </div>
+    </header>
+
+    <!-- TABLE OF CONTENTS / QUICK NAVIGATION INDEX -->
+    <nav class="report-section toc-section" id="table-of-contents" aria-label="Table of Contents">
+      <div class="toc-header">
+        <h3>TABLE OF CONTENTS &amp; QUICK NAVIGATION</h3>
+      </div>
+      <div class="toc-grid">
+        <a href="#section-executive-summary" class="toc-card">
+          <span class="toc-num">1</span>
+          <div class="toc-info">
+            <span class="toc-title">Executive Summary</span>
+            <span class="toc-sub">Severity by Area &amp; Overview</span>
+          </div>
+        </a>
+        <a href="#section-frontend" class="toc-card">
+          <span class="toc-num">2</span>
+          <div class="toc-info">
+            <span class="toc-title">Frontend Review</span>
+            <span class="toc-sub">0 Categories • 0 Findings</span>
+          </div>
+        </a>
+        <a href="#section-backend" class="toc-card">
+          <span class="toc-num">3</span>
+          <div class="toc-info">
+            <span class="toc-title">Backend Review</span>
+            <span class="toc-sub">6 Categories • 6 Findings</span>
+          </div>
+        </a>
+        <a href="#section-architecture" class="toc-card">
+          <span class="toc-num">4</span>
+          <div class="toc-info">
+            <span class="toc-title">Architecture &amp; Systemic</span>
+            <span class="toc-sub">4 Systemic Patterns</span>
+          </div>
+        </a>
+        <a href="#section-accessibility" class="toc-card">
+          <span class="toc-num">5</span>
+          <div class="toc-info">
+            <span class="toc-title">Accessibility (a11y)</span>
+            <span class="toc-sub">Score: 100/100 (N/A)</span>
+          </div>
+        </a>
+        <a href="#section-master-table" class="toc-card">
+          <span class="toc-num">6</span>
+          <div class="toc-info">
+            <span class="toc-title">Master Findings Table</span>
+            <span class="toc-sub">6 Total Findings</span>
+          </div>
+        </a>
+        <a href="#section-verification-evidence" class="toc-card">
+          <span class="toc-num">7</span>
+          <div class="toc-info">
+            <span class="toc-title">Verification Evidence</span>
+            <span class="toc-sub">Testing &amp; Static Analysis</span>
+          </div>
+        </a>
+        <a href="#section-previous-review-tracking" class="toc-card">
+          <span class="toc-num">8</span>
+          <div class="toc-info">
+            <span class="toc-title">Previous Tracking</span>
+            <span class="toc-sub">Baseline Comparison</span>
+          </div>
+        </a>
+      </div>
+    </nav>
+
+    <!-- 1. EXECUTIVE SUMMARY -->
+    <section class="report-section" id="section-executive-summary">
+      <div class="section-header">
+        <h2>1. EXECUTIVE SUMMARY</h2>
+        <span class="section-count">Overall Score: 68/100</span>
+      </div>
+      <div class="exec-stats-grid">
+        <div class="stat-card">
+          <div class="stat-val stat-critical">0</div>
+          <div class="stat-label">Critical</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val stat-high">2</div>
+          <div class="stat-label">High</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val stat-medium">2</div>
+          <div class="stat-label">Medium</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val stat-low">2</div>
+          <div class="stat-label">Low</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val stat-total">6</div>
+          <div class="stat-label">Total Findings</div>
+        </div>
+      </div>
+
+      <div class="area-table-wrapper">
+        <div class="area-table-title">Severity Breakdown by Review Area</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Area</th>
+              <th>Critical</th>
+              <th>High</th>
+              <th>Medium</th>
+              <th>Low</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>FRONTEND</strong></td>
+              <td>0</td>
+              <td>0</td>
+              <td>0</td>
+              <td>0</td>
+              <td><strong>0</strong></td>
+            </tr>
+            <tr>
+              <td><strong>BACKEND / LOGIC</strong></td>
+              <td>0</td>
+              <td>2</td>
+              <td>2</td>
+              <td>2</td>
+              <td><strong>6</strong></td>
+            </tr>
+            <tr>
+              <td><strong>ARCHITECTURE &amp; CROSS-CUTTING</strong></td>
+              <td>0</td>
+              <td>1</td>
+              <td>1</td>
+              <td>0</td>
+              <td><strong>2</strong> (Shared)</td>
+            </tr>
+            <tr>
+              <td><strong>ACCESSIBILITY</strong></td>
+              <td>0</td>
+              <td>0</td>
+              <td>0</td>
+              <td>0</td>
+              <td><strong>0</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 1.25rem;">
+        <h4 style="font-size: 0.95rem; color: var(--primary); margin-bottom: 0.5rem; text-transform: uppercase;">Key Observations &amp; Synthesis</h4>
+        <ul class="obs-list">
+          <li><strong>Non-Atomic File Patching &amp; Truncation Risk:</strong> The script directly opens Python source files with write mode (<code>"w"</code>) without atomic staging, creating high risk of permanent code corruption if interrupted.</li>
+          <li><strong>Brittle String Replacement Architecture:</strong> Codebase paths are modified via direct in-place string matching that is sensitive to quotation styles and formatting, rather than utilizing centralized configuration or AST refactoring tools.</li>
+          <li><strong>Absence of Transactional Error Handling:</strong> Directory creation and file moves lack <code>try...except</code> boundaries, leaving file migrations in inconsistent states upon failure.</li>
+          <li><strong>Plaintext Credentials Exposure:</strong> Sensitive API keys in <code>keys.json</code> are relocated into <code>config/</code> without permission restriction or verified version control exclusion.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 2. FRONTEND REVIEW -->
+    <section class="report-section" id="section-frontend">
+      <div class="section-header">
+        <h2>2. FRONTEND REVIEW</h2>
+        <span class="section-count">0 Categories • 0 Findings</span>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.88rem; font-style: italic;">No frontend components, UI templates, or client-side assets are present in the scoped Python target.</p>
+    </section>
+
+    <!-- 3. BACKEND REVIEW -->
+    <section class="report-section" id="section-backend">
+      <div class="section-header">
+        <h2>3. BACKEND &amp; IMPLEMENTATION REVIEW</h2>
+        <span class="section-count">6 Findings Across 6 Categories</span>
+      </div>
+
+      <div class="categories-list">
+        
+        <!-- Category: Correctness -->
+        <div class="category-block">
+          <div class="category-header">
+            <div class="category-title-wrap">
+              <span class="category-num">3.1</span>
+              <h3>Correctness &amp; Reliability</h3>
+            </div>
+            <span class="cat-badge has-findings">1 Finding</span>
+          </div>
+
+          <div class="finding-card high" id="BE-COR-001">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">BE-COR-001</span>
+                <span class="badge badge-high">HIGH</span>
+                <div class="finding-title">Non-Atomic File Rewrites &amp; False Success Reporting in File Patching</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>SYS-PAT-001</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>High</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>1.py:58-103</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">The file patching mechanism opens target Python source files with write mode (<code>"w"</code>) and immediately writes back string-replaced contents without atomic replacement, temporary files, or backups. If an exception or crash occurs mid-write, source files are truncated and corrupted. Furthermore, the script emits <code>"Patched ..."</code> success logs unconditionally, even when target strings are not present or were already patched on previous runs.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Immediate truncation via <code>open(c, "w")</code> before write completion risks permanent data loss during unexpected termination. The absence of string presence checks creates false positive operational logs.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">c = os.path.join(ROOT, "Zlinkedin_config.py")
+if os.path.exists(c):
+    with open(c, "r", encoding="utf-8") as f: content = f.read()
+    content = content.replace('os.path.join(SCRIPT_DIR, "comments_limits.json")', 'os.path.join(SCRIPT_DIR, "config", "comments_limits.json")')
+    with open(c, "w", encoding="utf-8") as f: f.write(content)
+    print("Patched Zlinkedin_config.py")</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Verify that the replacement target exists in <code>content</code> and that changes were made. Write output to a temporary file (e.g. via <code>tempfile.NamedTemporaryFile</code>) and perform an atomic filesystem replace using <code>os.replace(temp_path, target_path)</code>. Only emit confirmation logs when changes actually occur.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Category: Architecture -->
+        <div class="category-block">
+          <div class="category-header">
+            <div class="category-title-wrap">
+              <span class="category-num">3.2</span>
+              <h3>Architecture &amp; Migration Coupling</h3>
+            </div>
+            <span class="cat-badge has-findings">1 Finding</span>
+          </div>
+
+          <div class="finding-card high" id="BE-COR-002">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">BE-COR-002</span>
+                <span class="badge badge-high">HIGH</span>
+                <div class="finding-title">Brittle Direct In-Place Source Code Patching Without Syntax Validation or AST Transformation</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>SYS-PAT-002</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>High</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>1.py:55-103</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">The codebase migration relies on brittle literal string matching across multiple source files with inconsistent string quoting (single vs double quotes), inconsistent directory variable naming (<code>SCRIPT_DIR</code> vs <code>script_dir</code> vs <code>os.path.dirname(os.path.abspath(__file__))</code>), and no AST transformation or post-write syntax compilation validation.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Any minor code formatting changes (e.g. running Black, Ruff, or standardizing quote styles) will cause silent string match failures, leaving target files with broken import paths. Patched files are not checked for syntax validity before the script completes.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">content = content.replace('os.path.join(SCRIPT_DIR, "comments_limits.json")', 'os.path.join(SCRIPT_DIR, "config", "comments_limits.json")')
+...
+content = content.replace('os.path.join(os.path.dirname(os.path.abspath(__file__)), "linkedin_limits.json")', 'os.path.join(os.path.dirname(os.path.abspath(__file__)), "config", "linkedin_limits.json")')
+...
+content = content.replace("os.path.join(SCRIPT_DIR, 'task_run_history.jsonl')", "os.path.join(SCRIPT_DIR, 'data', 'task_run_history.jsonl')")</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Refactor the target application to utilize a centralized path configuration module (e.g. <code>config.py</code> or <code>pathlib.Path</code>) or perform migrations using an AST-aware refactoring tool (e.g. LibCST / <code>libcst.codemod</code>). Run <code>py_compile.compile</code> on patched files before concluding migration.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Category: Error Handling -->
+        <div class="category-block">
+          <div class="category-header">
+            <div class="category-title-wrap">
+              <span class="category-num">3.3</span>
+              <h3>Error Handling &amp; Fault Tolerance</h3>
+            </div>
+            <span class="cat-badge has-findings">1 Finding</span>
+          </div>
+
+          <div class="finding-card medium" id="BE-ERR-001">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">BE-ERR-001</span>
+                <span class="badge badge-medium">MEDIUM</span>
+                <div class="finding-title">Lack of Exception Handling, Transactional Safety, and Rollback on File Moves and Directory Creation</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>SYS-PAT-003</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>Medium</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>1.py:9-53</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">None of the filesystem restructuring operations (<code>os.makedirs</code>, <code>shutil.move</code>, file open/read/write) contain exception handling or transactional safeguards. A single locked file, permission error, or missing <code>E:</code> drive halts the script midway.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Uncaught exceptions leave the directory tree in a partially moved state where certain files have moved while others remain at the root, making state recovery difficult and breaking application imports.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">for f in configs:
+    src = os.path.join(ROOT, f)
+    if os.path.exists(src):
+        shutil.move(src, os.path.join(CONFIG_DIR, f))
+        print(f"Moved <_io.TextIOWrapper name='c:\\Users\\Hrishikesh Kali\\Code Review Skill\\templates\\report.html' mode='r' encoding='utf-8'> to config/")</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Wrap filesystem operations in structured <code>try...except</code> blocks. Implement a staging or rollback mechanism (or create an archive backup of the root prior to migration) to guarantee atomic multi-file operations.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Category: Security -->
+        <div class="category-block">
+          <div class="category-header">
+            <div class="category-title-wrap">
+              <span class="category-num">3.4</span>
+              <h3>Security &amp; Secrets Management</h3>
+            </div>
+            <span class="cat-badge has-findings">1 Finding</span>
+          </div>
+
+          <div class="finding-card medium" id="SEC-CFG-001">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">SEC-CFG-001</span>
+                <span class="badge badge-medium">MEDIUM</span>
+                <div class="finding-title">Unrestricted File Relocation of Plaintext Sensitive API Credentials ('keys.json')</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>SYS-PAT-004</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>Medium</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>1.py:19-26</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">The migration moves <code>keys.json</code> (containing sensitive API keys and secrets) into the <code>config/</code> directory alongside public configurations without checking or setting restrictive file system permissions (e.g. <code>chmod 0600</code>) or verifying <code>.gitignore</code> exclusions.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Secrets moved to subdirectories risk exposure if the <code>config/</code> directory is tracked in git or permissions are overly permissive across shared user environments.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">configs = [
+    "comments_limits.json",
+    "comment_rules.json",
+    "linkedin_limits.json",
+    "school_directory_config.json",
+    "keys.json",
+    "keys.json.example"
+]
+for f in configs:
+    src = os.path.join(ROOT, f)
+    if os.path.exists(src):
+        shutil.move(src, os.path.join(CONFIG_DIR, f))</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Ensure <code>keys.json</code> has restrictive access control permissions upon creation/relocation. Validate that <code>config/keys.json</code> is strictly ignored in <code>.gitignore</code>, and recommend moving secrets to environment variables or secret vaults.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Category: Configuration -->
+        <div class="category-block">
+          <div class="category-header">
+            <div class="category-title-wrap">
+              <span class="category-num">3.5</span>
+              <h3>Configuration &amp; Portability</h3>
+            </div>
+            <span class="cat-badge has-findings">1 Finding</span>
+          </div>
+
+          <div class="finding-card low" id="BE-CFG-001">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">BE-CFG-001</span>
+                <span class="badge badge-low">LOW</span>
+                <div class="finding-title">Hardcoded Machine-Specific Absolute Root Directory Path</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>Low</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>1.py:4</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">The script hardcodes an absolute Windows path (<code>E:\Claudes\Script_to_run_all_LinkedIn_Instagram_scripts</code>) for <code>ROOT</code>, preventing execution across different machines, operating systems, or repository clones.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">ROOT = r"E:\Claudes\Script_to_run_all_LinkedIn_Instagram_scripts"</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Use dynamic path resolution based on script location (e.g., <code>pathlib.Path(__file__).resolve().parent</code>) or accept the root path as a command-line argument via <code>argparse</code>.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Category: Best Practices -->
+        <div class="category-block">
+          <div class="category-header">
+            <div class="category-title-wrap">
+              <span class="category-num">3.6</span>
+              <h3>Best Practices &amp; Code Structure</h3>
+            </div>
+            <span class="cat-badge has-findings">1 Finding</span>
+          </div>
+
+          <div class="finding-card low" id="BE-BST-001">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">BE-BST-001</span>
+                <span class="badge badge-low">LOW</span>
+                <div class="finding-title">Absence of Main Entry Point Guard and Modular Functions</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>Low</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>1.py:1-105</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">All migration and patching logic is written at the global module level rather than encapsulated inside modular functions and protected by an <code>if __name__ == '__main__':</code> entrypoint guard.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">import os
+import shutil
+
+ROOT = r"E:\Claudes\Script_to_run_all_LinkedIn_Instagram_scripts"
+CONFIG_DIR = os.path.join(ROOT, "config")</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Encapsulate procedural code into functions (e.g., <code>reorganize_directories()</code>, <code>patch_source_files()</code>, <code>main()</code>) and invoke <code>main()</code> under <code>if __name__ == '__main__':</code>.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 4. ARCHITECTURE & SYSTEMIC PATTERNS -->
+    <section class="report-section" id="section-architecture">
+      <div class="section-header">
+        <h2>4. ARCHITECTURE &amp; SYSTEMIC PATTERNS</h2>
+        <span class="section-count">4 Systemic Patterns</span>
+      </div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>Pattern ID</th>
+            <th>Name</th>
+            <th>Primary Severity</th>
+            <th>Affected Locations</th>
+            <th>Systemic Root Cause</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>SYS-PAT-001</strong></td>
+            <td>Non-Atomic File Patching</td>
+            <td><span class="badge badge-high">HIGH</span></td>
+            <td><code>1.py:58-62, 66-70, 74-78, 82-86, 90-95, 99-103</code> (6 blocks)</td>
+            <td>Target files are immediately truncated with <code>open(c, 'w')</code> without atomic temporary staging or verification of modified contents.</td>
+          </tr>
+          <tr>
+            <td><strong>SYS-PAT-002</strong></td>
+            <td>Brittle In-Place Patching</td>
+            <td><span class="badge badge-high">HIGH</span></td>
+            <td><code>1.py:55-103</code></td>
+            <td>Migrating code dependencies via exact string substitution rather than AST refactoring or centralized configuration modules.</td>
+          </tr>
+          <tr>
+            <td><strong>SYS-PAT-003</strong></td>
+            <td>Unchecked Filesystem Operations</td>
+            <td><span class="badge badge-medium">MEDIUM</span></td>
+            <td><code>1.py:9-11, 22-26, 36-40, 49-53</code></td>
+            <td>Absence of structured try/except blocks and rollback safeguards across directory and file move routines.</td>
+          </tr>
+          <tr>
+            <td><strong>SYS-PAT-004</strong></td>
+            <td>Plaintext Secrets Handling</td>
+            <td><span class="badge badge-medium">MEDIUM</span></td>
+            <td><code>1.py:19-26</code></td>
+            <td>Relocating credential files (<code>keys.json</code>) into generic configuration directories without permission verification or secret segregation.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 5. ACCESSIBILITY -->
+    <section class="report-section" id="section-accessibility">
+      <div class="section-header">
+        <h2>5. ACCESSIBILITY REVIEW (a11y)</h2>
+        <span class="section-count">Score: 100/100 (N/A)</span>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.88rem;">The target repository contains backend automation and migration scripts only. No HTML, JSX, web interfaces, or user-facing UI controls exist. Accessibility evaluation is compliant with no applicable UI defects.</p>
+    </section>
+
+    <!-- 6. MASTER FINDINGS TABLE -->
+    <section class="report-section" id="section-master-table">
+      <div class="section-header">
+        <h2>6. MASTER FINDINGS TABLE</h2>
+        <span class="section-count">6 Findings</span>
+      </div>
+      
+      <table class="findings-summary-table">
+        <thead>
+          <tr>
+            <th style="width: 100px;">ID</th>
+            <th style="width: 90px;">Area</th>
+            <th style="width: 140px;">Category</th>
+            <th style="width: 80px;">Severity</th>
+            <th style="width: 90px;">Confidence</th>
+            <th style="width: 80px;">File</th>
+            <th style="width: 70px;">Lines</th>
+            <th>Title</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a href="#BE-COR-001" style="color: var(--primary); font-weight: 700; text-decoration: none;">BE-COR-001</a></td>
+            <td>BACKEND</td>
+            <td>Correctness</td>
+            <td><span class="badge badge-high">HIGH</span></td>
+            <td>High</td>
+            <td><code>1.py</code></td>
+            <td>58-103</td>
+            <td>Non-Atomic File Rewrites &amp; False Success Reporting in File Patching</td>
+          </tr>
+          <tr>
+            <td><a href="#BE-COR-002" style="color: var(--primary); font-weight: 700; text-decoration: none;">BE-COR-002</a></td>
+            <td>BACKEND</td>
+            <td>Architecture</td>
+            <td><span class="badge badge-high">HIGH</span></td>
+            <td>High</td>
+            <td><code>1.py</code></td>
+            <td>55-103</td>
+            <td>Brittle Direct In-Place Source Code Patching Without Syntax Validation or AST Transformation</td>
+          </tr>
+          <tr>
+            <td><a href="#BE-ERR-001" style="color: var(--primary); font-weight: 700; text-decoration: none;">BE-ERR-001</a></td>
+            <td>BACKEND</td>
+            <td>Error Handling</td>
+            <td><span class="badge badge-medium">MEDIUM</span></td>
+            <td>High</td>
+            <td><code>1.py</code></td>
+            <td>9-53</td>
+            <td>Lack of Exception Handling, Transactional Safety, and Rollback on File Moves and Directory Creation</td>
+          </tr>
+          <tr>
+            <td><a href="#SEC-CFG-001" style="color: var(--primary); font-weight: 700; text-decoration: none;">SEC-CFG-001</a></td>
+            <td>BACKEND</td>
+            <td>Security</td>
+            <td><span class="badge badge-medium">MEDIUM</span></td>
+            <td>High</td>
+            <td><code>1.py</code></td>
+            <td>19-26</td>
+            <td>Unrestricted File Relocation of Plaintext Sensitive API Credentials ('keys.json')</td>
+          </tr>
+          <tr>
+            <td><a href="#BE-CFG-001" style="color: var(--primary); font-weight: 700; text-decoration: none;">BE-CFG-001</a></td>
+            <td>BACKEND</td>
+            <td>Configuration</td>
+            <td><span class="badge badge-low">LOW</span></td>
+            <td>High</td>
+            <td><code>1.py</code></td>
+            <td>4</td>
+            <td>Hardcoded Machine-Specific Absolute Root Directory Path</td>
+          </tr>
+          <tr>
+            <td><a href="#BE-BST-001" style="color: var(--primary); font-weight: 700; text-decoration: none;">BE-BST-001</a></td>
+            <td>BACKEND</td>
+            <td>Best Practices</td>
+            <td><span class="badge badge-low">LOW</span></td>
+            <td>High</td>
+            <td><code>1.py</code></td>
+            <td>1-105</td>
+            <td>Absence of Main Entry Point Guard and Modular Functions</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 7. VERIFICATION EVIDENCE -->
+    <section class="report-section" id="section-verification-evidence">
+      <div class="section-header">
+        <h2>7. VERIFICATION EVIDENCE</h2>
+      </div>
+      <div class="evidence-grid">
+        <div class="cmd-row">
+          <div class="cmd-header">
+            <span class="cmd-code">$ python -m py_compile "1.py"</span>
+            <span class="badge badge-low">PASSED (Exit Code: 0)</span>
+          </div>
+          <p style="font-size: 0.84rem; color: var(--text-muted);">Python bytecode compilation completed successfully with 0 syntax or parser errors.</p>
+        </div>
+        <div class="cmd-row">
+          <div class="cmd-header">
+            <span class="cmd-code">$ python -c "import ast; ast.parse(...)"</span>
+            <span class="badge badge-low">PASSED (Exit Code: 0)</span>
+          </div>
+          <p style="font-size: 0.84rem; color: var(--text-muted);">Abstract syntax tree successfully constructed across 105 lines of source code.</p>
+        </div>
+        <div class="cmd-row">
+          <div class="cmd-header">
+            <span class="cmd-code">$ python -m flake8 "1.py"</span>
+            <span class="badge badge-medium">NOT CONFIGURED (Exit Code: 1)</span>
+          </div>
+          <p style="font-size: 0.84rem; color: var(--text-muted);">No flake8 module installed in the global execution environment.</p>
+        </div>
+        <div class="cmd-row">
+          <div class="cmd-header">
+            <span class="cmd-code">$ pytest / unittest</span>
+            <span class="badge badge-medium">NOT CONFIGURED</span>
+          </div>
+          <p style="font-size: 0.84rem; color: var(--text-muted);">No automated unit or integration test suites configured in repository.</p>
+        </div>
+      </div>
+      <div style="margin-top: 1.25rem; font-size: 0.88rem; line-height: 1.5;">
+        <p><strong>Compilation Results:</strong> Bytecode compilation and AST parser validated cleanly with zero syntax errors.</p>
+        <p style="margin-top: 0.4rem;"><strong>Test Results:</strong> Automated testing not configured in the target directory.</p>
+        <p style="margin-top: 0.4rem;"><strong>Static Analysis:</strong> Code inspection identified non-atomic writes, brittle string replacement, uncaught exceptions, and plaintext credentials handling.</p>
+      </div>
+    </section>
+
+    <!-- 8. PREVIOUS REVIEW TRACKING -->
+    <section class="report-section" id="section-previous-review-tracking">
+      <div class="section-header">
+        <h2>8. PREVIOUS REVIEW TRACKING</h2>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.88rem;">Initial review baseline for this target. No previous review history exists.</p>
+    </section>
+  </div>
+
+  <script>
+    
+    function toggleTheme() {
+      const isLight = document.body.classList.toggle('light-theme');
+      const icon = document.getElementById('theme-icon');
+      const text = document.getElementById('theme-text');
+      if (isLight) {
+        if (icon) icon.textContent = '☀️';
+        if (text) text.textContent = 'Light Theme';
+        try { localStorage.setItem('review_report_theme', 'light'); } catch(e) {}
+      } else {
+        if (icon) icon.textContent = '🌙';
+        if (text) text.textContent = 'Dark Theme';
+        try { localStorage.setItem('review_report_theme', 'dark'); } catch(e) {}
+      }
+    }
+
+    (function() {
+      try {
+        if (localStorage.getItem('review_report_theme') === 'light') {
+          document.body.classList.add('light-theme');
+          const icon = document.getElementById('theme-icon');
+          const text = document.getElementById('theme-text');
+          if (icon) icon.textContent = '☀️';
+          if (text) text.textContent = 'Light Theme';
+        }
+      } catch(e) {}
+    })();
+  
+  </script>
+</body>
+</html>

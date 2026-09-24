@@ -1,0 +1,30 @@
+<script>
+    
+    function toggleTheme() {
+      const isLight = document.body.classList.toggle('light-theme');
+      const icon = document.getElementById('theme-icon');
+      const text = document.getElementById('theme-text');
+      if (isLight) {
+        if (icon) icon.textContent = '☀️';
+        if (text) text.textContent = 'Light Theme';
+        try { localStorage.setItem('review_report_theme', 'light'); } catch(e) {}
+      } else {
+        if (icon) icon.textContent = '🌙';
+        if (text) text.textContent = 'Dark Theme';
+        try { localStorage.setItem('review_report_theme', 'dark'); } catch(e) {}
+      }
+    }
+
+    (function() {
+      try {
+        if (localStorage.getItem('review_report_theme') === 'light') {
+          document.body.classList.add('light-theme');
+          const icon = document.getElementById('theme-icon');
+          const text = document.getElementById('theme-text');
+          if (icon) icon.textContent = '☀️';
+          if (text) text.textContent = 'Light Theme';
+        }
+      } catch(e) {}
+    })();
+  
+  </script>

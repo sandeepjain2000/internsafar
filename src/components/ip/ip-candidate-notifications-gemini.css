@@ -6,14 +6,25 @@
 .ip-cand-nf {
   --ip-indigo: #4f46e5;
   --ip-indigo-700: #4338ca;
+  /* Clear global help FAB (bottom-right) so last rows stay usable */
+  --ip-cn-fab-clearance: 5.5rem;
   max-width: 80rem;
   margin-left: auto;
   margin-right: auto;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  padding-bottom: var(--ip-cn-fab-clearance);
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   color: #0f172a;
+}
+
+/* Locked: Mark all as read sits in the page header row (title left, action right) — mock PUB-13 */
+.ip-cand-nf .ip-cn-header {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
 }
 
 .ip-cand-nf .ip-cn-header__actions {
@@ -21,6 +32,19 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .ip-cand-nf .ip-cn-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .ip-cand-nf .ip-cn-header__actions {
+    flex-shrink: 0;
+    padding-top: 0;
+  }
 }
 
 .ip-cand-nf .ip-cn-table-wrap {
@@ -52,6 +76,19 @@
   white-space: pre-wrap;
 }
 
+.ip-cand-nf .ip-cn-table-expand {
+  margin-top: 0.5rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.ip-cand-nf .ip-cn-table-expand__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .ip-cand-nf .ip-cn-table-link {
   font-size: 0.8125rem;
   font-weight: 600;
@@ -72,14 +109,6 @@
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   border: 0;
-}
-
-@media (min-width: 640px) {
-  .ip-cand-nf .ip-cn-header {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
 }
 
 .ip-cand-nf .ip-cn-title {
@@ -137,9 +166,20 @@
   background: #f8fafc;
 }
 
-.ip-cand-nf .ip-cn-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+/* Locked placement: header row only — do not move into search toolbar */
+.ip-cand-nf .ip-cn-btn--mark-all {
+  pointer-events: auto;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ip-cand-nf .ip-cn-btn--mark-all.is-muted {
+  opacity: 0.55;
+}
+
+.ip-cand-nf .ip-cn-btn--mark-all:disabled {
+  opacity: 0.55;
+  cursor: wait;
 }
 
 .ip-cand-nf .ip-cn-btn svg {
@@ -182,8 +222,18 @@
 @media (min-width: 768px) {
   .ip-cand-nf .ip-cn-search-row {
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .ip-cand-nf .ip-cn-btn--mark-all {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .ip-cand-nf .ip-cn-showing {
+    margin-left: auto;
   }
 }
 
@@ -886,9 +936,10 @@
 
 .ip-cand-nf .ip-cn-toast {
   position: fixed;
-  bottom: 1.25rem;
+  /* Sit above the help FAB, not under it */
+  bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
   right: 1.25rem;
-  z-index: 60;
+  z-index: 10000;
   background: #4f46e5;
   color: #fff;
   padding: 0.75rem 1rem;
@@ -896,6 +947,7 @@
   font-size: 0.75rem;
   font-weight: 600;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+  max-width: min(22rem, calc(100vw - 5.5rem));
 }
 
 /* Desktop: mobile sheet/scrim only — Filters button stays available */
@@ -929,7 +981,7 @@
     font-size: 0.8125rem;
   }
 
-  .ip-cand-nf .ip-cn-btn {
+  .ip-cand-nf .ip-cn-btn--mark-all {
     width: 100%;
     min-height: 2.75rem;
     border-radius: 0.65rem;
@@ -1011,7 +1063,7 @@
   }
 
   .ip-cand-nf .ip-ph-list-wrap {
-    display: none !important;
+    overflow-x: auto;
   }
 
   .ip-cand-nf .ip-cn-list {

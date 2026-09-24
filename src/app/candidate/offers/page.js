@@ -20,12 +20,61 @@ import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import IpListPager from '@/components/ip/IpListPager';
 import { IpListLoading } from '@/components/ip/IpListStatus';
+import {
+  IpDateRangeFilter,
+  IpSearchableMultiFilter,
+  IpSingleSelectFilter,
+  IpTableFiltersShell,
+  IP_RECEIVED_WINDOW_OPTIONS,
+  inReceivedWindow,
+} from '@/components/ip/IpTableFiltersShell';
 import '@/components/ip/ip-offers-gemini.css';
+import '@/components/ip/ip-table-filters.css';
 import '@/components/ip/ip-list-pager.css';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 
 const PAGE_SIZE = 10;
+
+const EMPTY_COLS = {
+  employers: [],
+  roles: [],
+  when: '',
+  dateFrom: '',
+  dateTo: '',
+};
+
+function dayKey(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0, 10);
+}
+
+function inDateRange(value, from, to) {
+  const key = dayKey(value);
+  if (!key) return !(from || to);
+  if (from && key < from) return false;
+  if (to && key > to) return false;
+  return true;
+}
+
+function uniqSorted(values) {
+  return [...new Set(values.filter((v) => v != null && String(v).trim() !== ''))]
+    .map(String)
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function countActiveCols(cols) {
+  let n = 0;
+  for (const [k, v] of Object.entries(cols || {})) {
+    const base = EMPTY_COLS[k];
+    if (Array.isArray(base)) {
+      if (Array.isArray(v) && v.length) n += 1;
+    } else if (v) n += 1;
+  }
+  return n;
+}
 
 function initials(name) {
   const parts = String(name || '')
@@ -65,12 +114,17 @@ export default function CandidateOffersPage() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [cols, setCols] = useState(EMPTY_COLS);
+  const [colFiltersOpen, setColFiltersOpen] = useState(false);
   const [displayMode, setViewMode, { stored: viewMode, isMobile }] = useViewMode(
     'ip_offers_view',
     'cards',
   );
 
-  const snapshot = useMemo(() => ({ filters: { q, tab }, sort: '' }), [q, tab]);
+  const snapshot = useMemo(
+    () => ({ filters: { q, tab, cols }, sort: '' }),
+    [q, tab, cols],
+  );
   const prefs = useListPrefsSync({
     tableKey: 'candidate.offers',
     snapshot,
@@ -78,10 +132,12 @@ export default function CandidateOffersPage() {
       const f = s.filters || {};
       if (f.q != null) setQ(f.q);
       if (f.tab) setTab(f.tab);
+      if (f.cols) setCols({ ...EMPTY_COLS, ...f.cols });
     },
   });
 
-  const filterActive = Boolean(q.trim()) || tab !== 'all';
+  const colsActive = countActiveCols(cols);
+  const filterActive = Boolean(q.trim()) || tab !== 'all' || colsActive > 0;
 
   function showToast(msg) {
     setToast(msg);
@@ -91,6 +147,7 @@ export default function CandidateOffersPage() {
   function resetFilters() {
     setQ('');
     setTab('all');
+    setCols(EMPTY_COLS);
   }
 
   async function load() {
@@ -131,6 +188,12 @@ export default function CandidateOffersPage() {
     const needle = q.trim().toLowerCase();
     return items.filter((o) => {
       if (tab !== 'all' && o.display_tab !== tab) return false;
+      const role = String(o.role_title || o.title || '');
+      const employer = String(o.company_name || '');
+      if (cols.employers.length && !cols.employers.includes(employer || '—')) return false;
+      if (cols.roles.length && !cols.roles.includes(role || 'Internship')) return false;
+      if (cols.when && !inReceivedWindow(o.created_at || o.offered_at, cols.when)) return false;
+      if (!inDateRange(o.created_at || o.offered_at, cols.dateFrom, cols.dateTo)) return false;
       if (!needle) return true;
       const hay = [
         o.role_title,
@@ -145,12 +208,20 @@ export default function CandidateOffersPage() {
         .toLowerCase();
       return hay.includes(needle);
     });
-  }, [items, q, tab]);
+  }, [items, q, tab, cols]);
+
+  const optionLists = useMemo(
+    () => ({
+      employers: uniqSorted(items.map((o) => o.company_name || '—')),
+      roles: uniqSorted(items.map((o) => o.role_title || o.title || 'Internship')),
+    }),
+    [items],
+  );
 
   const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(filtered, PAGE_SIZE);
   useEffect(() => {
     setPage(1);
-  }, [q, tab, setPage]);
+  }, [q, tab, cols, setPage]);
 
   async function respond(id, status) {
     setBusyId(id);
@@ -278,6 +349,41 @@ export default function CandidateOffersPage() {
 
       <div className="ip-of-presets-desk">
         <ListPresetsBar {...prefs} />
+        <IpTableFiltersShell
+          open={colFiltersOpen}
+          onToggle={() => setColFiltersOpen((v) => !v)}
+          activeCount={colsActive}
+          onClear={() => setCols(EMPTY_COLS)}
+        >
+          <IpSearchableMultiFilter
+            label="Employer"
+            options={optionLists.employers}
+            values={cols.employers}
+            onChange={(employers) => setCols((c) => ({ ...c, employers }))}
+            placeholder="Search employers…"
+          />
+          <IpSearchableMultiFilter
+            label="Role"
+            options={optionLists.roles}
+            values={cols.roles}
+            onChange={(roles) => setCols((c) => ({ ...c, roles }))}
+            placeholder="Search roles…"
+          />
+          <IpSingleSelectFilter
+            label="Received"
+            options={IP_RECEIVED_WINDOW_OPTIONS}
+            value={cols.when}
+            onChange={(when) => setCols((c) => ({ ...c, when }))}
+            emptyLabel="Any time"
+          />
+          <IpDateRangeFilter
+            label="Custom date range"
+            from={cols.dateFrom}
+            to={cols.dateTo}
+            onFrom={(dateFrom) => setCols((c) => ({ ...c, dateFrom }))}
+            onTo={(dateTo) => setCols((c) => ({ ...c, dateTo }))}
+          />
+        </IpTableFiltersShell>
       </div>
 
       <div className="ip-of-tabs ip-of-tabs--desk">
@@ -326,6 +432,36 @@ export default function CandidateOffersPage() {
                   <span className="ip-of-count">{counts[t.id] || 0}</span>
                 </button>
               ))}
+              <div className="ip-of-sheet__cols">
+                <IpSearchableMultiFilter
+                  label="Employer"
+                  options={optionLists.employers}
+                  values={cols.employers}
+                  onChange={(employers) => setCols((c) => ({ ...c, employers }))}
+                  placeholder="Search employers…"
+                />
+                <IpSearchableMultiFilter
+                  label="Role"
+                  options={optionLists.roles}
+                  values={cols.roles}
+                  onChange={(roles) => setCols((c) => ({ ...c, roles }))}
+                  placeholder="Search roles…"
+                />
+                <IpSingleSelectFilter
+                  label="Received"
+                  options={IP_RECEIVED_WINDOW_OPTIONS}
+                  value={cols.when}
+                  onChange={(when) => setCols((c) => ({ ...c, when }))}
+                  emptyLabel="Any time"
+                />
+                <IpDateRangeFilter
+                  label="Custom date range"
+                  from={cols.dateFrom}
+                  to={cols.dateTo}
+                  onFrom={(dateFrom) => setCols((c) => ({ ...c, dateFrom }))}
+                  onTo={(dateTo) => setCols((c) => ({ ...c, dateTo }))}
+                />
+              </div>
               <div className="ip-of-sheet__presets">
                 <ListPresetsBar {...prefs} />
               </div>

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "code-review": {
+      "source": "DotHrishi/unified-code-review",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "e85a23b274350b2d9c9985488d200cace15432f15f50396ede327821f91883a7"
+    }
+  }
+}

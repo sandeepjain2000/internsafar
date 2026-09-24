@@ -501,11 +501,17 @@ export default function CandidateProfilePage() {
   const collegeDone = Boolean((academics[0]?.college || form?.college) && (academics[0]?.degree || form?.degree));
   const unlockItems = useMemo(() => {
     if (!form) return [];
+    /** Checklist = major completion units (not every form field). Form still shows name/country/city/state separately. */
+    const basicInfoDone = Boolean(
+      form.first_name
+      && form.last_name
+      && form.country
+      && form.city
+      && form.state,
+    );
     return [
-      { label: 'Full Name *', done: Boolean(form.first_name && form.last_name) },
+      { label: 'Basic Information *', done: basicInfoDone },
       { label: 'Mobile Phone *', done: Boolean(form.phone) },
-      { label: 'Country *', done: Boolean(form.country) },
-      { label: 'City & State *', done: Boolean(form.city && form.state) },
       { label: 'College / Edu *', done: collegeDone },
       { label: 'Resume Link *', done: Boolean(form.resume_url) },
       { label: 'Key Skills *', done: skills.length > 0 },

@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Review Report - InternSafar (internship-portal)</title>
+  <style>
+    :root {
+      --bg: #0b1329;
+      --card-bg: #151f38;
+      --card-border: #233256;
+      --text: #f8fafc;
+      --text-muted: #8fa0be;
+      --primary: #38bdf8;
+      --primary-hover: #0284c7;
+      --critical: #ef4444;
+      --high: #f97316;
+      --medium: #eab308;
+      --low: #10b981;
+      --code-bg: #f8fafc;
+      --code-border: #cbd5e1;
+      --code-text: #b91c1c;
+      --table-stripe: rgba(255, 255, 255, 0.02);
+      --toc-bg: #0f1830;
+      --toc-card-bg: #152244;
+      --toc-hover: #1e305e;
+    }
+    body.light-theme {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --card-border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --primary: #0284c7;
+      --primary-hover: #0369a1;
+      --critical: #dc2626;
+      --high: #ea580c;
+      --medium: #d97706;
+      --low: #059669;
+      --code-bg: #f1f5f9;
+      --code-border: #cbd5e1;
+      --code-text: #b91c1c;
+      --table-stripe: rgba(0, 0, 0, 0.02);
+      --toc-bg: #f8fafc;
+      --toc-card-bg: #ffffff;
+      --toc-hover: #e2e8f0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 1.75rem 1rem;
+      transition: background-color 0.2s ease, color 0.2s ease;
+      font-size: 0.92rem;
+    }
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+    header {
+      border-bottom: 2px solid var(--card-border);
+      padding-bottom: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    h1 { font-size: 1.85rem; color: var(--text); font-weight: 800; letter-spacing: -0.025em; }
+    .theme-toggle-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: all 0.15s ease;
+    }
+    .theme-toggle-btn:hover {
+      background: var(--toc-hover);
+      border-color: var(--primary);
+    }
+    .meta-bar {
+      margin-top: 0.5rem;
+      display: flex;
+      gap: 1.25rem;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      flex-wrap: wrap;
+    }
+
+    /* Table of Contents / Quick Navigation Index */
+    .toc-section {
+      background: var(--toc-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.75rem;
+    }
+    .toc-header {
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .toc-header h3 {
+      font-size: 0.92rem;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 700;
+    }
+    .toc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 0.5rem;
+    }
+    .toc-card {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: var(--toc-card-bg);
+      border: 1px solid var(--card-border);
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      text-decoration: none;
+      color: var(--text);
+      transition: all 0.15s ease;
+    }
+    .toc-card:hover {
+      border-color: var(--primary);
+      background: var(--toc-hover);
+      transform: translateY(-1px);
+    }
+    .toc-num {
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 0.8rem;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .toc-info { display: flex; flex-direction: column; }
+    .toc-title { font-weight: 600; font-size: 0.86rem; }
+    .toc-sub { font-size: 0.72rem; color: var(--text-muted); }
+
+    .report-section {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.75rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+      transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .section-header h2 { font-size: 1.25rem; color: var(--primary); font-weight: 700; letter-spacing: -0.01em; }
+    .section-count {
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      padding: 0.25rem 0.65rem;
+      border-radius: 4px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    
+    /* Executive Summary Cards & Severity Table */
+    .exec-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    @media (max-width: 800px) {
+      .exec-stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .stat-card {
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      padding: 0.85rem 0.5rem;
+      border-radius: 6px;
+      text-align: center;
+    }
+    .stat-val { font-size: 1.8rem; font-weight: 800; line-height: 1; }
+    .stat-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-top: 0.35rem; font-weight: 600; letter-spacing: 0.04em; }
+    .stat-critical { color: var(--critical); font-weight: 700; }
+    .stat-high { color: var(--high); font-weight: 700; }
+    .stat-medium { color: var(--medium); font-weight: 700; }
+    .stat-low { color: var(--low); font-weight: 700; }
+    .stat-total { color: var(--primary); font-weight: 700; }
+
+    .area-table-wrapper {
+      margin-bottom: 1.25rem;
+    }
+    .area-table-title {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.5rem;
+    }
+
+    .obs-list {
+      margin-top: 0.75rem;
+      padding-left: 1.25rem;
+    }
+    .obs-list li { margin-bottom: 0.4rem; color: var(--text); font-size: 0.88rem; }
+
+    .categories-list { display: flex; flex-direction: column; gap: 1.25rem; }
+    .category-block {
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+    }
+    .category-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .category-title-wrap { display: flex; align-items: center; gap: 0.4rem; }
+    .category-num { color: var(--primary); font-weight: 700; font-size: 0.95rem; }
+    .category-header h3 { font-size: 1rem; color: var(--text); font-weight: 700; }
+    .cat-badge {
+      font-size: 0.75rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-weight: 700;
+    }
+    .has-findings { background: var(--high); color: #fff; }
+    .zero-findings { background: var(--card-border); color: var(--text-muted); }
+    .empty-category-notice { color: var(--text-muted); font-size: 0.85rem; padding: 0.25rem 0; font-style: italic; }
+
+    .finding-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      margin-top: 0.75rem;
+      padding: 1rem 1.15rem;
+    }
+    .finding-card.critical { border-left: 4px solid var(--critical); }
+    .finding-card.high { border-left: 4px solid var(--high); }
+    .finding-card.medium { border-left: 4px solid var(--medium); }
+    .finding-card.low { border-left: 4px solid var(--low); }
+
+    .finding-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .finding-title-group { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; width: 100%; }
+    .finding-id { font-weight: 800; font-size: 0.88rem; color: var(--primary); letter-spacing: 0.02em; }
+    .finding-title { font-size: 1.02rem; font-weight: 700; color: var(--text); width: 100%; margin-top: 0.2rem; }
+    .finding-meta-tags { display: flex; gap: 0.85rem; margin-top: 0.2rem; font-size: 0.8rem; color: var(--text-muted); flex-wrap: wrap; }
+    .meta-tag strong { color: var(--text); }
+
+    .location-bar {
+      background: rgba(0, 0, 0, 0.15);
+      border: 1px solid var(--card-border);
+      padding: 0.35rem 0.65rem;
+      border-radius: 4px;
+      margin-bottom: 0.75rem;
+      font-size: 0.8rem;
+    }
+    body.light-theme .location-bar {
+      background: #e2e8f0;
+    }
+    .location-bar code { color: var(--primary); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-weight: 600; }
+
+    .badge {
+      font-size: 0.68rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge-critical { background: var(--critical); color: #fff; }
+    .badge-high { background: var(--high); color: #fff; }
+    .badge-medium { background: var(--medium); color: #000; }
+    .badge-low { background: var(--low); color: #fff; }
+
+    .finding-body { display: flex; flex-direction: column; gap: 0.65rem; font-size: 0.88rem; }
+    .field-block { display: flex; flex-direction: column; gap: 0.2rem; }
+    .field-label { color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em; }
+    .field-content { color: var(--text); line-height: 1.45; }
+    
+    /* Light readable background for code evidence */
+    .evidence-block {
+      background: #f1f5f9;
+      border: 1px solid var(--code-border);
+      padding: 0.65rem 0.85rem;
+      border-radius: 4px;
+    }
+    .evidence-code {
+      color: #991b1b;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.82rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      background: transparent;
+      font-weight: 500;
+    }
+    .rec-block {
+      background: rgba(16, 185, 129, 0.08);
+      border-left: 3px solid var(--low);
+      padding: 0.65rem 0.85rem;
+      border-radius: 0 4px 4px 0;
+    }
+    .rec-block .field-content { color: var(--text); }
+
+    .findings-summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.81rem;
+      table-layout: fixed;
+    }
+    .findings-summary-table th, .findings-summary-table td {
+      border: 1px solid var(--card-border);
+      padding: 0.45rem 0.5rem;
+      text-align: left;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    .findings-summary-table th {
+      background: var(--bg);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 0.70rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    .findings-summary-table tr:nth-child(even) { background: var(--table-stripe); }
+    .findings-summary-table td code {
+      background: rgba(56, 189, 248, 0.1);
+      padding: 0.1rem 0.25rem;
+      border-radius: 3px;
+      font-size: 0.76rem;
+      color: var(--primary);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    th, td {
+      border: 1px solid var(--card-border);
+      padding: 0.55rem 0.7rem;
+      text-align: left;
+    }
+    th { background: var(--bg); color: var(--text-muted); text-transform: uppercase; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; }
+    tr:nth-child(even) { background: var(--table-stripe); }
+    td code { background: rgba(56, 189, 248, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.78rem; color: var(--primary); }
+
+    .evidence-grid { display: flex; flex-direction: column; gap: 0.75rem; }
+    .cmd-row {
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      padding: 0.75rem;
+      border-radius: 4px;
+    }
+    .cmd-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; }
+    .cmd-code { color: var(--primary); font-family: monospace; font-size: 0.85rem; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-top">
+        <h1>CODE REVIEW REPORT</h1>
+        <div class="header-actions">
+          <button id="theme-toggle" class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle Light/Dark Theme">
+            <span id="theme-icon">🌙</span> <span id="theme-text">Dark Theme</span>
+          </button>
+          <span class="badge" style="background: #0284c7; color: #fff; font-size: 0.85rem; padding: 0.3rem 0.75rem;">STATUS: COMPLETED</span>
+        </div>
+      </div>
+      <div class="meta-bar">
+        <span><strong>Project:</strong> InternSafar (internship-portal)</span>
+        <span><strong>Target Path:</strong> C:\Users\place\Work\UIUX Migration\internship-portal</span>
+        <span><strong>Date:</strong> 2026-09-24</span>
+        <span><strong>Total Files Scoped:</strong> 0</span>
+        <span><strong>Files with Findings:</strong> 17</span>
+        <span><strong>Overall Score:</strong> 5/100</span>
+        <span><strong>Template:</strong> portable v2 shell (no external report.html)</span>
+      </div>
+    </header>
+
+    <nav class="report-section toc-section" id="table-of-contents" aria-label="Table of Contents">
+      <div class="toc-header">
+        <h3>TABLE OF CONTENTS &amp; QUICK NAVIGATION</h3>
+      </div>
+      <div class="toc-grid">
+        <a href="#section-executive-summary" class="toc-card">
+          <span class="toc-num">1</span>
+          <div class="toc-info">
+            <span class="toc-title">Executive Summary</span>
+            <span class="toc-sub">Severity by Area &amp; Overview</span>
+          </div>
+        </a>
+        <a href="#section-frontend" class="toc-card">
+          <span class="toc-num">2</span>
+          <div class="toc-info">
+            <span class="toc-title">Frontend Review</span>
+            <span class="toc-sub">1 Categories • 1 Findings</span>
+          </div>
+        </a>
+        <a href="#section-backend" class="toc-card">
+          <span class="toc-num">3</span>
+          <div class="toc-info">
+            <span class="toc-title">Backend Review</span>
+            <span class="toc-sub">4 Categories • 13 Findings</span>
+          </div>
+        </a>
+        <a href="#section-architecture" class="toc-card">
+          <span class="toc-num">4</span>
+          <div class="toc-info">
+            <span class="toc-title">Architecture &amp; Systemic</span>
+            <span class="toc-sub">6 Systemic Patterns</span>
+          </div>
+        </a>
+        <a href="#section-accessibility" class="toc-card">
+          <span class="toc-num">5</span>
+          <div class="toc-info">
+            <span class="toc-title">Accessibility (a11y)</span>
+            <span class="toc-sub">Score: 64/100 • 3 Findings</span>
+          </div>
+        </a>
+        <a href="#section-master-table" class="toc-card">
+          <span class="toc-num">6</span>
+          <div class="toc-info">
+            <span class="toc-title">Master Findings Table</span>
+            <span class="toc-sub">17 Total Findings</span>
+          </div>
+        </a>
+        <a href="#section-verification-evidence" class="toc-card">
+          <span class="toc-num">7</span>
+          <div class="toc-info">
+            <span class="toc-title">Verification Evidence</span>
+            <span class="toc-sub">Testing &amp; Static Analysis</span>
+          </div>
+        </a>
+        <a href="#section-previous-review-tracking" class="toc-card">
+          <span class="toc-num">8</span>
+          <div class="toc-info">
+            <span class="toc-title">Previous Tracking</span>
+            <span class="toc-sub">Baseline Comparison</span>
+          </div>
+        </a>
+      </div>
+    </nav>
+
+    <section class="report-section" id="section-executive-summary">
+      <div class="section-header">
+        <h2>1. EXECUTIVE SUMMARY</h2>
+        <span class="section-count">Overall Score: 5/100</span>
+      </div>
+      <div class="exec-stats-grid">
+        <div class="stat-card">
+          <div class="stat-val stat-critical">2</div>
+          <div class="stat-label">Critical</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val stat-high">7</div>
+          <div class="stat-label">High</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val stat-medium">7</div>
+          <div class="stat-label">Medium</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val stat-low">1</div>
+          <div class="stat-label">Low</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val stat-total">17</div>
+          <div class="stat-label">Total Findings</div>
+        </div>
+      </div>
+
+      <div class="area-table-wrapper">
+        <div class="area-table-title">Severity Breakdown by Review Area</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Area</th>
+              <th>Critical</th>
+              <th>High</th>
+              <th>Medium</th>
+              <th>Low</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>FRONTEND</strong></td>
+              <td>0</td><td>0</td><td>1</td><td>0</td>
+              <td><strong>1</strong></td>
+            </tr>
+            <tr>
+              <td><strong>BACKEND / LOGIC</strong></td>
+              <td>2</td><td>7</td><td>3</td><td>1</td>
+              <td><strong>13</strong></td>
+            </tr>
+            <tr>
+              <td><strong>ARCHITECTURE &amp; CROSS-CUTTING</strong></td>
+              <td>1</td><td>1</td><td>1</td><td>0</td>
+              <td><strong>6</strong> (Shared)</td>
+            </tr>
+            <tr>
+              <td><strong>ACCESSIBILITY</strong></td>
+              <td>0</td><td>0</td><td>3</td><td>0</td>
+              <td><strong>3</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 1.25rem;">
+        <h4 style="font-size: 0.95rem; color: var(--primary); margin-bottom: 0.5rem; text-transform: uppercase;">Key Observations &amp; Synthesis</h4>
+        <ul class="obs-list">
+          <li><strong>Authz gaps remain open post-P1:</strong> Unauthenticated <code>/api/ip/bootstrap</code>, employer message-thread IDOR, and over-broad file access via threads were re-verified still present in sibling source.</li>
+<li><strong>P1 product fixes did not close security findings:</strong> Safe client errors, required-field asterisks, and publish skip-notify when status unchanged improve UX/ops — they do not remediate Critical/High authz items.</li>
+<li><strong>Points / publish correctness:</strong> Publish can charge before stipend validation; apply debit lacks atomic <code>points &gt;=</code> guard; <code>free_post_credits</code> still unused.</li>
+<li><strong>Tooling:</strong> <code>npm run lint</code> still fails (no ESLint 9 flat config); <code>npm run build</code> and focused unit suites pass.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="report-section" id="section-frontend">
+      <div class="section-header">
+        <h2>2. FRONTEND REVIEW</h2>
+        <span class="section-count">1 Categories • 1 Findings</span>
+      </div>
+      <div class="categories-list">
+        <div class="category-block">
+          <div class="category-header">
+            <div class="category-title-wrap">
+              <span class="category-num">2.1</span>
+              <h3>Interaction &amp;amp; Client Logic</h3>
+            </div>
+            <span class="cat-badge has-findings">1 Finding</span>
+          </div>
+          
+          <div class="finding-card medium" id="IP-FE-001">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">IP-FE-001</span>
+                <span class="badge badge-medium">MEDIUM</span>
+                <div class="finding-title">Help chatbot “not helpful” reason never POSTed</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>frontend.dead-user-path</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>Medium</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>src/components/ip/HelpChatbot.jsx:140-156</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">Help chatbot “not helpful” reason never POSTed. Thumbs-down sets feedback immediately; reason buttons call sendFeedback again and hit the guard.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Thumbs-down sets feedback immediately; reason buttons call sendFeedback again and hit the guard. Negative feedback reasons discarded; analytics wrong (also related to P2 chatbot UX).</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">if (!msg?.eventId || msg.feedback) return; // second call with reason early-returns</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Allow reason update after not_helpful, or send reason on first request.</div>
+              </div>
+            </div>
+          </div>
+        </div></div>
+    </section>
+
+    <section class="report-section" id="section-backend">
+      <div class="section-header">
+        <h2>3. BACKEND &amp; IMPLEMENTATION REVIEW</h2>
+        <span class="section-count">13 Findings Across 4 Categories</span>
+      </div>
+      <div class="categories-list">
+        
+        <div class="category-block">
+          <div class="category-header">
+            <div class="category-title-wrap">
+              <span class="category-num">3.1</span>
+              <h3>Correctness &amp;amp; Reliability</h3>
+            </div>
+            <span class="cat-badge has-findings">2 Findings</span>
+          </div>
+          
+          <div class="finding-card high" id="IP-CORR-001">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">IP-CORR-001</span>
+                <span class="badge badge-high">HIGH</span>
+                <div class="finding-title">Publish charges 50 points before stipend validation / INSERT</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>ORPHAN_CHARGE</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>High</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>src/app/api/ip/employer/internships/route.js:76-89</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">Publish charges 50 points before stipend validation / INSERT. Points debit commits in its own transaction before later validation/INSERT.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Points debit commits in its own transaction before later validation/INSERT. Employer can lose 50 points with no posting created.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">chargePublishPoints(...);
+const stipendParsed = parseStipendRangeFields(body);
+if (stipendParsed.error) return jsonError(...);</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Validate first; charge in same transaction as INSERT; or refund on failure.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="finding-card high" id="IP-CORR-002">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">IP-CORR-002</span>
+                <span class="badge badge-high">HIGH</span>
+                <div class="finding-title">Application points debit is not conditional (TOCTOU overdraw)</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>TOCTOU_SPEND</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>High</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>src/app/api/ip/candidate/applications/route.js:160-185</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">Application points debit is not conditional (TOCTOU overdraw). Unlike chargePublishPoints, apply debit does not use WHERE points &gt;= cost inside the lock.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Unlike chargePublishPoints, apply debit does not use WHERE points &gt;= cost inside the lock. Concurrent applies can drive balance negative while creating applications.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">SELECT points … if (points &lt; 5) reject;
+UPDATE ip_users SET points = points - $2 WHERE id = $1  // no points &gt;= check</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Debit with WHERE points &gt;= $2 RETURNING inside the application transaction.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="category-block">
+          <div class="category-header">
+            <div class="category-title-wrap">
+              <span class="category-num">3.2</span>
+              <h3>Business Logic &amp;amp; Domain Gates</h3>
+            </div>
+            <span class="cat-badge has-findings">2 Findings</span>
+          </div>
+          
+          <div class="finding-card high" id="IP-BL-001">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">IP-BL-001</span>
+                <span class="badge badge-high">HIGH</span>
+                <div class="finding-title">Employer publish gate skips ethics / profile_complete</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>GATE_INCOMPLETE</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>High</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>src/lib/ipEmployerPostingGate.js:35-60</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">Employer publish gate skips ethics / profile_complete. Gate selects profile_complete but never enforces ethics/completion.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Gate selects profile_complete but never enforces ethics/completion. Approved employers can publish without ethics acknowledgements.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">Checks approval_status + email_verified; does not require ethics_acks or profile_complete.</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Require allEthicsChecked (and optionally profile_complete) before publish/republish.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="finding-card medium" id="IP-BL-002">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">IP-BL-002</span>
+                <span class="badge badge-medium">MEDIUM</span>
+                <div class="finding-title">free_post_credits granted at signup but never consumed</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>DEAD_CURRENCY</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>Medium</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>src/lib/chargePublishPoints.js:9-28</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">free_post_credits granted at signup but never consumed. Dead dual-currency field still defaulted to 1 on employer register.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Dead dual-currency field still defaulted to 1 on employer register. Misleading inventory; signup gift is points-only (50 = one publish).</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">Debits points only; free_post_credits never decremented anywhere in src/</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Consume free credit before points, or stop writing/exposing the column.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="category-block">
+          <div class="category-header">
+            <div class="category-title-wrap">
+              <span class="category-num">3.3</span>
+              <h3>Security &amp;amp; Authorization</h3>
+            </div>
+            <span class="cat-badge has-findings">8 Findings</span>
+          </div>
+          
+          <div class="finding-card critical" id="IP-SEC-001">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">IP-SEC-001</span>
+                <span class="badge badge-critical">CRITICAL</span>
+                <div class="finding-title">Unauthenticated /api/ip/bootstrap mutates SuperAdmin roles and schema</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>AUTHZ-MISSING-GATE</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>Critical</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>src/app/api/ip/bootstrap/route.js:4-11</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">Unauthenticated /api/ip/bootstrap mutates SuperAdmin roles and schema. POST has no requireSession, cron secret, or env gate. ensureIpBootstrap can promote/demote SuperAdmin roles and run schema ensures.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">POST has no requireSession, cron secret, or env gate. ensureIpBootstrap can promote/demote SuperAdmin roles and run schema ensures. Any anonymous caller can trigger privileged bootstrap against the shared Neon DB used by local/Vercel.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">export async function POST() {
+  const result = await ensureIpBootstrap();
+  return NextResponse.json({ ok: true, ...result });
+}</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Require SuperAdmin session or IP_ALLOW_BOOTSTRAP=1 / deploy secret; remove public client fire-and-forget calls from sign-in pages.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="finding-card critical" id="IP-SEC-002">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">IP-SEC-002</span>
+                <span class="badge badge-critical">CRITICAL</span>
+                <div class="finding-title">Employer can open a message thread to any candidate userId (IDOR)</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>IDOR-MISSING-OWNERSHIP</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>Critical</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>src/app/api/ip/messages/threads/route.js:76-120</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">Employer can open a message thread to any candidate userId (IDOR). Candidate path validates application+employer; employer path accepts arbitrary otherUserId.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Candidate path validates application+employer; employer path accepts arbitrary otherUserId. Employer may create threads to private candidates; combined with file access via thread linkage this can expose resumes.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">if (!isEmployer) { /* application ownership check */ }
+// employers: no ownership check on otherUserId before INSERT thread</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Require owned internship + application (or explicit searchable invite) before employer thread create.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="finding-card high" id="IP-SEC-003">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">IP-SEC-003</span>
+                <span class="badge badge-high">HIGH</span>
+                <div class="finding-title">Any shared message thread authorizes candidate resume/photo via files API</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>AUTHZ-OVERBROAD</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>High</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>src/lib/ipFileAccess.js:26-68</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">Any shared message thread authorizes candidate resume/photo via files API. canAccessIpObject treats any thread between employer and candidate as enough for candidates/{id} objects.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">canAccessIpObject treats any thread between employer and candidate as enough for candidates/{id} objects. Amplifies IP-SEC-002: thread create → resume download without application relationship.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">return employerLinkedToCandidate(uid, id);
+// SELECT 1 FROM ip_message_threads WHERE employer_user_id AND candidate_user_id</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Require application ownership (or shortlist) for resume/photo; keep message attachments under messages/{threadId} only.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="finding-card high" id="IP-SEC-004">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">IP-SEC-004</span>
+                <span class="badge badge-high">HIGH</span>
+                <div class="finding-title">Cron routes fall back to any employer session when IP_CRON_SECRET unset</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>AUTHZ-TENANT-ESCAPE</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>High</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>src/app/api/ip/cron/auto-reject-expired/route.js:22-67</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">Cron routes fall back to any employer session when IP_CRON_SECRET unset. Without cron secret, employer session authorizes global auto-reject / export / reminder drains.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Without cron secret, employer session authorizes global auto-reject / export / reminder drains. Cross-tenant mass reject or job processing on shared Neon when secrets are unset.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">if (authz.ok === null) {
+  const { error } = await requireSession(['employer', 'superadmin']);
+}
+// employerId optional → global process</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Require IP_CRON_SECRET outside local QA; session fallback SuperAdmin-only or hard-scope to caller employer.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="finding-card high" id="IP-SEC-005">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">IP-SEC-005</span>
+                <span class="badge badge-high">HIGH</span>
+                <div class="finding-title">Google OAuth client_secret JSON present in app working tree</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>SECRETS-IN-TREE</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>High</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>client_secret_97955918029-….apps.googleusercontent.com.json:1</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">Google OAuth client_secret JSON present in app working tree. Confidential OAuth client JSON sits on disk (gitignored but present).</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Confidential OAuth client JSON sits on disk (gitignored but present). Filesystem/backup/zip access can steal OAuth client secret; accidental commit risk.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">{&quot;web&quot;:{&quot;client_id&quot;:&quot;…apps.googleusercontent.com&quot;,&quot;client_secret&quot;:&quot;[REDACTED]&quot;,&quot;project_id&quot;:&quot;internsafar-oauth&quot;}}</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Delete from tree; rotate secret in Google Cloud; use env vars only.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="finding-card high" id="IP-SEC-006">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">IP-SEC-006</span>
+                <span class="badge badge-high">HIGH</span>
+                <div class="finding-title">NVIDIA NIM api_key JSON files present under nvidia_keys/</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>SECRETS-IN-TREE</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>High</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>nvidia_keys/key-01.json:1-3</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">NVIDIA NIM api_key JSON files present under nvidia_keys/. Local key files loaded by nvidiaLlm for help-chat; gitignored but on disk.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Local key files loaded by nvidiaLlm for help-chat; gitignored but on disk. Credential theft / quota abuse; help-chat GET exposes localKeyFiles count publicly.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">{ &quot;api_key&quot;: &quot;[REDACTED nvapi-…]&quot; }</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Remove keys from disk; rotate; env-only on deploy hosts.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="finding-card medium" id="IP-SEC-007">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">IP-SEC-007</span>
+                <span class="badge badge-medium">MEDIUM</span>
+                <div class="finding-title">Unauthenticated /api/ip/ops/report-error can spam ops mail</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>AUTHZ-MISSING-GATE</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>Medium</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>src/app/api/ip/ops/report-error/route.js:21-44</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">Unauthenticated /api/ip/ops/report-error can spam ops mail. Public error reporting without auth or strong rate limit.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Public error reporting without auth or strong rate limit. Ops inbox / mail quota DoS.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">POST with no session; invokes reportOpsFailure → email</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Require session or signed token; rate-limit by IP.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="finding-card low" id="IP-SEC-008">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">IP-SEC-008</span>
+                <span class="badge badge-low">LOW</span>
+                <div class="finding-title">Auth-sensitive IDs use Math.random newId</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>CRYPTO-WEAK-TOKEN</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>Low</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>src/lib/ids.js:1-3</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">Auth-sensitive IDs use Math.random newId. Non-crypto entropy used for sessions/2FA challenges/etc.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Non-crypto entropy used for sessions/2FA challenges/etc. Weaker unpredictability vs crypto.randomBytes used for password-reset tokens.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">`${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Use crypto.randomUUID / randomBytes for authz-sensitive ids.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="category-block">
+          <div class="category-header">
+            <div class="category-title-wrap">
+              <span class="category-num">3.4</span>
+              <h3>Tooling &amp;amp; Quality Gates</h3>
+            </div>
+            <span class="cat-badge has-findings">1 Finding</span>
+          </div>
+          
+          <div class="finding-card medium" id="IP-TOOL-001">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">IP-TOOL-001</span>
+                <span class="badge badge-medium">MEDIUM</span>
+                <div class="finding-title">npm run lint fails: no eslint.config.* for ESLint 9</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>TOOLING-LINT-BROKEN</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>Medium</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>package.json:9</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">npm run lint fails: no eslint.config.* for ESLint 9. eslint-config-next present but flat config file missing.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">eslint-config-next present but flat config file missing. Lint gate cannot run in CI/local; regressions slip.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">&quot;lint&quot;: &quot;eslint&quot; — ESLint 9.39.5: couldn't find eslint.config.(js|mjs|cjs)</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Add eslint.config.mjs extending next/core-web-vitals.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+    </section>
+
+    <section class="report-section" id="section-architecture">
+      <div class="section-header">
+        <h2>4. ARCHITECTURE &amp; SYSTEMIC PATTERNS</h2>
+        <span class="section-count">6 Systemic Patterns</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Pattern ID</th>
+            <th>Name</th>
+            <th>Primary Severity</th>
+            <th>Affected Locations</th>
+            <th>Systemic Root Cause</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>SYS-PAT-001</strong></td>
+            <td>Missing authn/authz gate on sensitive routes</td>
+            <td><span class="badge badge-critical">CRITICAL</span></td>
+            <td><code>src/app/api/ip/bootstrap/route.js:4-11, src/app/api/ip/cron/auto-reject-expired/route.js:22-67, src/app/api/ip/ops/report-error/route.js:21-44</code></td>
+            <td>Pattern id <code>AUTHZ-MISSING-GATE</code> spans 3 finding(s): IP-SEC-001, IP-SEC-004, IP-SEC-007.</td>
+          </tr>
+<tr>
+            <td><strong>SYS-PAT-002</strong></td>
+            <td>Insufficient ownership checks on messaging/files</td>
+            <td><span class="badge badge-critical">CRITICAL</span></td>
+            <td><code>src/app/api/ip/messages/threads/route.js:76-120, src/lib/ipFileAccess.js:26-68</code></td>
+            <td>Pattern id <code>IDOR-MISSING-OWNERSHIP</code> spans 2 finding(s): IP-SEC-002, IP-SEC-003.</td>
+          </tr>
+<tr>
+            <td><strong>SYS-PAT-003</strong></td>
+            <td>Live credentials on disk (gitignored)</td>
+            <td><span class="badge badge-high">HIGH</span></td>
+            <td><code>client_secret_97955918029-….apps.googleusercontent.com.json:1, nvidia_keys/key-01.json:1-3</code></td>
+            <td>Pattern id <code>SECRETS-IN-TREE</code> spans 2 finding(s): IP-SEC-005, IP-SEC-006.</td>
+          </tr>
+<tr>
+            <td><strong>SYS-PAT-004</strong></td>
+            <td>Legacy points credits never spent</td>
+            <td><span class="badge badge-medium">MEDIUM</span></td>
+            <td><code>src/lib/chargePublishPoints.js:9-28</code></td>
+            <td>Pattern id <code>DEAD_CURRENCY</code> spans 1 finding(s): IP-BL-002.</td>
+          </tr>
+<tr>
+            <td><strong>SYS-PAT-005</strong></td>
+            <td>Modal overlays without focus trap/Escape</td>
+            <td><span class="badge badge-medium">MEDIUM</span></td>
+            <td><code>src/app/candidate/applications/page.js:686-708</code></td>
+            <td>Pattern id <code>a11y.dialog-focus-trap</code> spans 1 finding(s): IP-A11Y-003.</td>
+          </tr>
+<tr>
+            <td><strong>SYS-PAT-006</strong></td>
+            <td>Orphan form labels</td>
+            <td><span class="badge badge-medium">MEDIUM</span></td>
+            <td><code>src/app/candidate/profile/page.js:107-125</code></td>
+            <td>Pattern id <code>a11y.form-label-association</code> spans 1 finding(s): IP-A11Y-001.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="report-section" id="section-accessibility">
+      <div class="section-header">
+        <h2>5. ACCESSIBILITY REVIEW (a11y)</h2>
+        <span class="section-count">Score: 64/100 • 3 Findings</span>
+      </div>
+      <div class="categories-list">
+        <div class="category-block">
+          <div class="category-header">
+            <div class="category-title-wrap">
+              <span class="category-num">5.1</span>
+              <h3>Forms, Custom Controls &amp;amp; Dialogs</h3>
+            </div>
+            <span class="cat-badge has-findings">3 Findings</span>
+          </div>
+          
+          <div class="finding-card medium" id="IP-A11Y-001">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">IP-A11Y-001</span>
+                <span class="badge badge-medium">MEDIUM</span>
+                <div class="finding-title">Profile Field helpers use orphan &lt;label&gt; (no htmlFor)</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>a11y.form-label-association</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>Medium</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>src/app/candidate/profile/page.js:107-125</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">Profile Field helpers use orphan &lt;label&gt; (no htmlFor). Caption-only labels; controls are siblings. Same pattern on employer profile Field.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Caption-only labels; controls are siblings. Same pattern on employer profile Field. Screen readers may not associate names with inputs on high-traffic forms.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">&lt;label className=&quot;ip-cp-label&quot;&gt;{label}&lt;/label&gt;
+{children} // siblings, not associated</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">htmlFor/id pairs or wrap controls in label.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="finding-card medium" id="IP-A11Y-002">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">IP-A11Y-002</span>
+                <span class="badge badge-medium">MEDIUM</span>
+                <div class="finding-title">SearchableMultiSelect listbox lacks option roles / keyboard nav</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>a11y.custom-control-keyboard</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>Medium</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>src/components/ip/SearchableMultiSelect.jsx:122-186</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">SearchableMultiSelect listbox lacks option roles / keyboard nav. Custom combobox incomplete vs APG.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Custom combobox incomplete vs APG. Keyboard/SR users cannot operate city/country multi-selects correctly.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">role=&quot;listbox&quot; … options are plain buttons; Arrow/Escape not implemented</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Implement combobox+listbox pattern or use a compliant component.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="finding-card medium" id="IP-A11Y-003">
+            <div class="finding-header">
+              <div class="finding-title-group">
+                <span class="finding-id">IP-A11Y-003</span>
+                <span class="badge badge-medium">MEDIUM</span>
+                <div class="finding-title">Modal-like UIs claim dialog without Escape / focus trap</div>
+                <div class="finding-meta-tags">
+                  <span class="meta-tag">Pattern: <strong>a11y.dialog-focus-trap</strong></span>
+                  <span class="meta-tag">Confidence: <strong>High</strong></span>
+                  <span class="meta-tag">Impact: <strong>Medium</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="location-bar">
+              Location: <code>src/app/candidate/applications/page.js:686-708</code>
+            </div>
+            <div class="finding-body">
+              <div class="field-block">
+                <div class="field-label">Description</div>
+                <div class="field-content">Modal-like UIs claim dialog without Escape / focus trap. Dialog semantics without focus management across multiple overlays.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Root Cause &amp; Concrete Impact</div>
+                <div class="field-content">Dialog semantics without focus management across multiple overlays. Tab can escape to background; Escape does not dismiss.</div>
+              </div>
+              <div class="field-block">
+                <div class="field-label">Code Evidence</div>
+                <div class="evidence-block">
+                  <pre class="evidence-code">role=&quot;dialog&quot; aria-modal=&quot;true&quot; — no Escape handler or focus trap (also HelpChatbot, PortalShell drawer, InternshipCandidatePreview)</pre>
+                </div>
+              </div>
+              <div class="field-block rec-block">
+                <div class="field-label" style="color: var(--low);">Actionable Remediation</div>
+                <div class="field-content">Shared focus-trap + Escape close for all modal overlays.</div>
+              </div>
+            </div>
+          </div>
+        </div></div>
+    </section>
+
+    <section class="report-section" id="section-master-table">
+      <div class="section-header">
+        <h2>6. MASTER FINDINGS TABLE</h2>
+        <span class="section-count">17 Findings</span>
+      </div>
+      <table class="findings-summary-table">
+        <thead>
+          <tr>
+            <th style="width: 100px;">ID</th>
+            <th style="width: 90px;">Area</th>
+            <th style="width: 140px;">Category</th>
+            <th style="width: 80px;">Severity</th>
+            <th style="width: 90px;">Confidence</th>
+            <th style="width: 80px;">File</th>
+            <th style="width: 70px;">Lines</th>
+            <th>Title</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a href="#IP-SEC-001" style="color: var(--primary); font-weight: 700; text-decoration: none;">IP-SEC-001</a></td>
+            <td>BACKEND</td>
+            <td>Security</td>
+            <td><span class="badge badge-critical">CRITICAL</span></td>
+            <td>High</td>
+            <td><code>route.js</code></td>
+            <td>4-11</td>
+            <td>Unauthenticated /api/ip/bootstrap mutates SuperAdmin roles and schema</td>
+          </tr>
+<tr>
+            <td><a href="#IP-SEC-002" style="color: var(--primary); font-weight: 700; text-decoration: none;">IP-SEC-002</a></td>
+            <td>BACKEND</td>
+            <td>Security</td>
+            <td><span class="badge badge-critical">CRITICAL</span></td>
+            <td>High</td>
+            <td><code>route.js</code></td>
+            <td>76-120</td>
+            <td>Employer can open a message thread to any candidate userId (IDOR)</td>
+          </tr>
+<tr>
+            <td><a href="#IP-SEC-003" style="color: var(--primary); font-weight: 700; text-decoration: none;">IP-SEC-003</a></td>
+            <td>BACKEND</td>
+            <td>Security</td>
+            <td><span class="badge badge-high">HIGH</span></td>
+            <td>High</td>
+            <td><code>ipFileAccess.js</code></td>
+            <td>26-68</td>
+            <td>Any shared message thread authorizes candidate resume/photo via files API</td>
+          </tr>
+<tr>
+            <td><a href="#IP-SEC-004" style="color: var(--primary); font-weight: 700; text-decoration: none;">IP-SEC-004</a></td>
+            <td>BACKEND</td>
+            <td>Security</td>
+            <td><span class="badge badge-high">HIGH</span></td>
+            <td>High</td>
+            <td><code>route.js</code></td>
+            <td>22-67</td>
+            <td>Cron routes fall back to any employer session when IP_CRON_SECRET unset</td>
+          </tr>
+<tr>
+            <td><a href="#IP-SEC-005" style="color: var(--primary); font-weight: 700; text-decoration: none;">IP-SEC-005</a></td>
+            <td>BACKEND</td>
+            <td>Security</td>
+            <td><span class="badge badge-high">HIGH</span></td>
+            <td>High</td>
+            <td><code>client_secret_97955918029-….apps.googleusercontent.com.json</code></td>
+            <td>1</td>
+            <td>Google OAuth client_secret JSON present in app working tree</td>
+          </tr>
+<tr>
+            <td><a href="#IP-SEC-006" style="color: var(--primary); font-weight: 700; text-decoration: none;">IP-SEC-006</a></td>
+            <td>BACKEND</td>
+            <td>Security</td>
+            <td><span class="badge badge-high">HIGH</span></td>
+            <td>High</td>
+            <td><code>key-01.json</code></td>
+            <td>1-3</td>
+            <td>NVIDIA NIM api_key JSON files present under nvidia_keys/</td>
+          </tr>
+<tr>
+            <td><a href="#IP-CORR-001" style="color: var(--primary); font-weight: 700; text-decoration: none;">IP-CORR-001</a></td>
+            <td>BACKEND</td>
+            <td>Correctness</td>
+            <td><span class="badge badge-high">HIGH</span></td>
+            <td>High</td>
+            <td><code>route.js</code></td>
+            <td>76-89</td>
+            <td>Publish charges 50 points before stipend validation / INSERT</td>
+          </tr>
+<tr>
+            <td><a href="#IP-CORR-002" style="color: var(--primary); font-weight: 700; text-decoration: none;">IP-CORR-002</a></td>
+            <td>BACKEND</td>
+            <td>Correctness</td>
+            <td><span class="badge badge-high">HIGH</span></td>
+            <td>High</td>
+            <td><code>route.js</code></td>
+            <td>160-185</td>
+            <td>Application points debit is not conditional (TOCTOU overdraw)</td>
+          </tr>
+<tr>
+            <td><a href="#IP-BL-001" style="color: var(--primary); font-weight: 700; text-decoration: none;">IP-BL-001</a></td>
+            <td>BACKEND</td>
+            <td>Business Logic</td>
+            <td><span class="badge badge-high">HIGH</span></td>
+            <td>High</td>
+            <td><code>ipEmployerPostingGate.js</code></td>
+            <td>35-60</td>
+            <td>Employer publish gate skips ethics / profile_complete</td>
+          </tr>
+<tr>
+            <td><a href="#IP-BL-002" style="color: var(--primary); font-weight: 700; text-decoration: none;">IP-BL-002</a></td>
+            <td>BACKEND</td>
+            <td>Business Logic</td>
+            <td><span class="badge badge-medium">MEDIUM</span></td>
+            <td>High</td>
+            <td><code>chargePublishPoints.js</code></td>
+            <td>9-28</td>
+            <td>free_post_credits granted at signup but never consumed</td>
+          </tr>
+<tr>
+            <td><a href="#IP-FE-001" style="color: var(--primary); font-weight: 700; text-decoration: none;">IP-FE-001</a></td>
+            <td>FRONTEND</td>
+            <td>Frontend</td>
+            <td><span class="badge badge-medium">MEDIUM</span></td>
+            <td>High</td>
+            <td><code>HelpChatbot.jsx</code></td>
+            <td>140-156</td>
+            <td>Help chatbot “not helpful” reason never POSTed</td>
+          </tr>
+<tr>
+            <td><a href="#IP-A11Y-001" style="color: var(--primary); font-weight: 700; text-decoration: none;">IP-A11Y-001</a></td>
+            <td>A11Y</td>
+            <td>Accessibility</td>
+            <td><span class="badge badge-medium">MEDIUM</span></td>
+            <td>High</td>
+            <td><code>page.js</code></td>
+            <td>107-125</td>
+            <td>Profile Field helpers use orphan &lt;label&gt; (no htmlFor)</td>
+          </tr>
+<tr>
+            <td><a href="#IP-A11Y-002" style="color: var(--primary); font-weight: 700; text-decoration: none;">IP-A11Y-002</a></td>
+            <td>A11Y</td>
+            <td>Accessibility</td>
+            <td><span class="badge badge-medium">MEDIUM</span></td>
+            <td>High</td>
+            <td><code>SearchableMultiSelect.jsx</code></td>
+            <td>122-186</td>
+            <td>SearchableMultiSelect listbox lacks option roles / keyboard nav</td>
+          </tr>
+<tr>
+            <td><a href="#IP-A11Y-003" style="color: var(--primary); font-weight: 700; text-decoration: none;">IP-A11Y-003</a></td>
+            <td>A11Y</td>
+            <td>Accessibility</td>
+            <td><span class="badge badge-medium">MEDIUM</span></td>
+            <td>High</td>
+            <td><code>page.js</code></td>
+            <td>686-708</td>
+            <td>Modal-like UIs claim dialog without Escape / focus trap</td>
+          </tr>
+<tr>
+            <td><a href="#IP-TOOL-001" style="color: var(--primary); font-weight: 700; text-decoration: none;">IP-TOOL-001</a></td>
+            <td>BACKEND</td>
+            <td>Testing</td>
+            <td><span class="badge badge-medium">MEDIUM</span></td>
+            <td>High</td>
+            <td><code>package.json</code></td>
+            <td>9</td>
+            <td>npm run lint fails: no eslint.config.* for ESLint 9</td>
+          </tr>
+<tr>
+            <td><a href="#IP-SEC-007" style="color: var(--primary); font-weight: 700; text-decoration: none;">IP-SEC-007</a></td>
+            <td>BACKEND</td>
+            <td>Security</td>
+            <td><span class="badge badge-medium">MEDIUM</span></td>
+            <td>High</td>
+            <td><code>route.js</code></td>
+            <td>21-44</td>
+            <td>Unauthenticated /api/ip/ops/report-error can spam ops mail</td>
+          </tr>
+<tr>
+            <td><a href="#IP-SEC-008" style="color: var(--primary); font-weight: 700; text-decoration: none;">IP-SEC-008</a></td>
+            <td>BACKEND</td>
+            <td>Security</td>
+            <td><span class="badge badge-low">LOW</span></td>
+            <td>High</td>
+            <td><code>ids.js</code></td>
+            <td>1-3</td>
+            <td>Auth-sensitive IDs use Math.random newId</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="report-section" id="section-verification-evidence">
+      <div class="section-header">
+        <h2>7. VERIFICATION EVIDENCE</h2>
+      </div>
+      <div class="evidence-grid">
+        <div class="cmd-row">
+          <div class="cmd-header">
+            <span class="cmd-code">$ npm run lint</span>
+            <span class="badge badge-high">FAILED (Exit Code: 2)</span>
+          </div>
+          <p style="font-size: 0.84rem; color: var(--text-muted);">ESLint 9: no eslint.config.*</p>
+        </div>
+<div class="cmd-row">
+          <div class="cmd-header">
+            <span class="cmd-code">$ npm run test:workbench</span>
+            <span class="badge badge-low">PASSED (Exit Code: 0)</span>
+          </div>
+          <p style="font-size: 0.84rem; color: var(--text-muted);"></p>
+        </div>
+<div class="cmd-row">
+          <div class="cmd-header">
+            <span class="cmd-code">$ npm run test:migration-sql-safe</span>
+            <span class="badge badge-low">PASSED (Exit Code: 0)</span>
+          </div>
+          <p style="font-size: 0.84rem; color: var(--text-muted);"></p>
+        </div>
+<div class="cmd-row">
+          <div class="cmd-header">
+            <span class="cmd-code">$ npm run test:email-unsubscribe</span>
+            <span class="badge badge-low">PASSED (Exit Code: 0)</span>
+          </div>
+          <p style="font-size: 0.84rem; color: var(--text-muted);"></p>
+        </div>
+<div class="cmd-row">
+          <div class="cmd-header">
+            <span class="cmd-code">$ npm run build</span>
+            <span class="badge badge-medium">PENDING_OR_SEE_BUILD-OUTPUT.TXT</span>
+          </div>
+          <p style="font-size: 0.84rem; color: var(--text-muted);">Captured separately</p>
+        </div>
+<div class="cmd-row">
+          <div class="cmd-header">
+            <span class="cmd-code">$ npm run qa:e2e</span>
+            <span class="badge badge-medium">NOT RUN</span>
+          </div>
+          <p style="font-size: 0.84rem; color: var(--text-muted);">Long Playwright suite; not executed in this review pass</p>
+        </div>
+      </div>
+      <div style="margin-top: 1.25rem; font-size: 0.88rem; line-height: 1.5;">
+        <p><strong>Compilation Results:</strong> Next.js production build evidence recorded as passed (exit 0).</p>
+        <p style="margin-top: 0.4rem;"><strong>Test Results:</strong> Focused unit suites (workbench, migration-sql-safe, email-unsubscribe) passed; full Playwright e2e not run in this pass.</p>
+        <p style="margin-top: 0.4rem;"><strong>Static Analysis:</strong> ESLint gate broken (no flat config). Manual evidence-backed review of authz, messaging, points, and a11y surfaces.</p>
+      </div>
+    </section>
+
+    <section class="report-section" id="section-previous-review-tracking">
+      <div class="section-header">
+        <h2>8. PREVIOUS REVIEW TRACKING</h2>
+      </div>
+      
+      <p style="color: var(--text); font-size: 0.88rem; margin-bottom: 0.75rem;">
+        Baseline: <code>reviews/internsafar-20260924</code> (post-P1 unified-code-review). This report re-renders the same audited set into the <strong>report.html</strong> shell and re-spot-checks Critical paths in live sibling source.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Finding ID</th>
+            <th>Prior Status</th>
+            <th>Current Status</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>IP-SEC-001</code></td>
+            <td>Open</td>
+            <td><span class="badge badge-critical">STILL OPEN</span></td>
+            <td>Re-verified present; P1 UX/safe-error work did not remediate.</td>
+          </tr>
+<tr>
+            <td><code>IP-SEC-002</code></td>
+            <td>Open</td>
+            <td><span class="badge badge-critical">STILL OPEN</span></td>
+            <td>Re-verified present; P1 UX/safe-error work did not remediate.</td>
+          </tr>
+<tr>
+            <td><code>IP-SEC-003</code></td>
+            <td>Open</td>
+            <td><span class="badge badge-high">STILL OPEN</span></td>
+            <td>Re-verified present; P1 UX/safe-error work did not remediate.</td>
+          </tr>
+<tr>
+            <td><code>IP-SEC-004</code></td>
+            <td>Open</td>
+            <td><span class="badge badge-high">STILL OPEN</span></td>
+            <td>Re-verified present; P1 UX/safe-error work did not remediate.</td>
+          </tr>
+<tr>
+            <td><code>IP-SEC-005</code></td>
+            <td>Open</td>
+            <td><span class="badge badge-high">STILL OPEN</span></td>
+            <td>Re-verified present; P1 UX/safe-error work did not remediate.</td>
+          </tr>
+<tr>
+            <td><code>IP-SEC-006</code></td>
+            <td>Open</td>
+            <td><span class="badge badge-high">STILL OPEN</span></td>
+            <td>Re-verified present; P1 UX/safe-error work did not remediate.</td>
+          </tr>
+<tr>
+            <td><code>IP-CORR-001</code></td>
+            <td>Open</td>
+            <td><span class="badge badge-high">STILL OPEN</span></td>
+            <td>Re-verified present; P1 UX/safe-error work did not remediate.</td>
+          </tr>
+<tr>
+            <td><code>IP-CORR-002</code></td>
+            <td>Open</td>
+            <td><span class="badge badge-high">STILL OPEN</span></td>
+            <td>Re-verified present; P1 UX/safe-error work did not remediate.</td>
+          </tr>
+<tr>
+            <td><code>IP-BL-001</code></td>
+            <td>Open</td>
+            <td><span class="badge badge-high">STILL OPEN</span></td>
+            <td>Re-verified present; P1 UX/safe-error work did not remediate.</td>
+          </tr>
+<tr>
+            <td><code>IP-BL-002</code></td>
+            <td>Open</td>
+            <td><span class="badge badge-medium">STILL OPEN</span></td>
+            <td>Re-verified present; P1 UX/safe-error work did not remediate.</td>
+          </tr>
+<tr>
+            <td><code>IP-FE-001</code></td>
+            <td>Open</td>
+            <td><span class="badge badge-medium">STILL OPEN</span></td>
+            <td>Re-verified present; P1 UX/safe-error work did not remediate.</td>
+          </tr>
+<tr>
+            <td><code>IP-A11Y-001</code></td>
+            <td>Open</td>
+            <td><span class="badge badge-medium">STILL OPEN</span></td>
+            <td>Re-verified present; P1 UX/safe-error work did not remediate.</td>
+          </tr>
+<tr>
+            <td><code>IP-A11Y-002</code></td>
+            <td>Open</td>
+            <td><span class="badge badge-medium">STILL OPEN</span></td>
+            <td>Re-verified present; P1 UX/safe-error work did not remediate.</td>
+          </tr>
+<tr>
+            <td><code>IP-A11Y-003</code></td>
+            <td>Open</td>
+            <td><span class="badge badge-medium">STILL OPEN</span></td>
+            <td>Re-verified present; P1 UX/safe-error work did not remediate.</td>
+          </tr>
+<tr>
+            <td><code>IP-TOOL-001</code></td>
+            <td>Open</td>
+            <td><span class="badge badge-medium">STILL OPEN</span></td>
+            <td>Re-verified present; P1 UX/safe-error work did not remediate.</td>
+          </tr>
+<tr>
+            <td><code>IP-SEC-007</code></td>
+            <td>Open</td>
+            <td><span class="badge badge-medium">STILL OPEN</span></td>
+            <td>Re-verified present; P1 UX/safe-error work did not remediate.</td>
+          </tr>
+<tr>
+            <td><code>IP-SEC-008</code></td>
+            <td>Open</td>
+            <td><span class="badge badge-low">STILL OPEN</span></td>
+            <td>Re-verified present; P1 UX/safe-error work did not remediate.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <script>
+function toggleTheme() {
+      const isLight = document.body.classList.toggle('light-theme');
+      const icon = document.getElementById('theme-icon');
+      const text = document.getElementById('theme-text');
+      if (isLight) {
+        if (icon) icon.textContent = '☀️';
+        if (text) text.textContent = 'Light Theme';
+        try { localStorage.setItem('review_report_theme', 'light'); } catch(e) {}
+      } else {
+        if (icon) icon.textContent = '🌙';
+        if (text) text.textContent = 'Dark Theme';
+        try { localStorage.setItem('review_report_theme', 'dark'); } catch(e) {}
+      }
+    }
+
+    (function() {
+      try {
+        if (localStorage.getItem('review_report_theme') === 'light') {
+          document.body.classList.add('light-theme');
+          const icon = document.getElementById('theme-icon');
+          const text = document.getElementById('theme-text');
+          if (icon) icon.textContent = '☀️';
+          if (text) text.textContent = 'Light Theme';
+        }
+      } catch(e) {}
+    })();
+  </script>
+</body>
+</html>

@@ -177,7 +177,7 @@ export function IpMultiCheckFilter(props) {
 
 export function IpDateRangeFilter({ label, from, to, onFrom, onTo }) {
   return (
-    <div className="ip-tf__field">
+    <div className="ip-tf__field ip-tf__field--dates">
       <span className="ip-tf__label">{label}</span>
       <div className="ip-tf__dates">
         <input
@@ -196,4 +196,25 @@ export function IpDateRangeFilter({ label, from, to, onFrom, onTo }) {
       </div>
     </div>
   );
+}
+
+/** Relative received/sent windows (plus optional custom date range elsewhere). */
+export const IP_RECEIVED_WINDOW_OPTIONS = [
+  { value: '1h', label: 'Last hour' },
+  { value: '24h', label: 'Last 24 hours' },
+  { value: '7d', label: 'Last 7 days' },
+  { value: '30d', label: 'Last 30 days' },
+];
+
+export function inReceivedWindow(value, window) {
+  const w = String(window || '').trim();
+  if (!w) return true;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return false;
+  const ageMs = Date.now() - d.getTime();
+  if (w === '1h') return ageMs <= 60 * 60 * 1000;
+  if (w === '24h') return ageMs <= 24 * 60 * 60 * 1000;
+  if (w === '7d') return ageMs <= 7 * 24 * 60 * 60 * 1000;
+  if (w === '30d') return ageMs <= 30 * 24 * 60 * 60 * 1000;
+  return true;
 }

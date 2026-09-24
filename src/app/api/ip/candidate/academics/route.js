@@ -3,6 +3,22 @@ import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { ensureIpCandidateProfileSchema } from '@/lib/ensureIpCandidateProfileSchema';
 
+/** ip_candidates.cgpa is NUMERIC(4,2) — first academic row is synced there. */
+const MAX_PROFILE_CGPA = 99.99;
+
+function friendlyAcademicsError(err) {
+  if (err?.code === '22003') {
+    return 'CGPA / percentage on the first education row must be 99.99 or less (use e.g. 8.5 or 85, not 100+).';
+  }
+  if (err?.code === '22P02') {
+    return 'Graduation year or CGPA is not a valid number. Please check those fields and try again.';
+  }
+  if (err?.code === '23505') {
+    return "We couldn't save your education details because of a row conflict. Please try Save again.";
+  }
+  return "We couldn't save your education details. Please check the year and CGPA values and try again.";
+}
+
 /** Multi-row academic history (migration 007: ip_candidate_academics). */
 export async function GET() {
   const { session, error } = await requireSession(['candidate']);
@@ -33,6 +49,31 @@ export async function PUT(request) {
   if (!cand.rows[0]) return jsonError('Profile not found', 404);
   const candidateId = cand.rows[0].id;
 
+  // Pre-check primary CGPA so the candidate sees a clear message (not a generic catch-all).
+  const firstNonEmpty = items.find((row) => {
+    const r = row || {};
+    return Boolean(
+      String(r.college || '').trim()
+      || String(r.degree || '').trim()
+      || String(r.specialization || '').trim()
+      || String(r.study_status || '').trim()
+      || r.graduation_year
+      || (r.cgpa != null && r.cgpa !== ''),
+    );
+  });
+  if (firstNonEmpty?.cgpa != null && firstNonEmpty.cgpa !== '') {
+    const n = Number(firstNonEmpty.cgpa);
+    if (!Number.isFinite(n)) {
+      return jsonError('CGPA / percentage must be a number.', 400);
+    }
+    if (Math.abs(n) > MAX_PROFILE_CGPA) {
+      return jsonError(
+        'CGPA / percentage on the first education row must be 99.99 or less (use e.g. 8.5 or 85, not 100+).',
+        400,
+      );
+    }
+  }
+
   try {
     const saved = await withClient(async (client) => {
       await client.query('BEGIN');
@@ -51,7 +92,9 @@ export async function PUT(request) {
           const cgpa = Number.isFinite(cgpaNum) ? String(cgpaNum) : null;
           const rowLabel = String(row.row_label || '').trim() || null;
           if (!college && !degree && !specialization && !study_status && !graduation_year && !cgpa) continue;
-          const id = row.id && String(row.id).startsWith('ip_acad_') ? row.id : newId('ip_acad');
+          // Always mint a new id on full replace. Reusing client/draft ids from another
+          // account (e.g. lawsonlclintern+1 → +blank on the same browser) hits PK 23505.
+          const id = newId('ip_acad');
           const inserted = await client.query(
             `INSERT INTO ip_candidate_academics
                (id, candidate_id, college, degree, specialization, study_status, graduation_year, cgpa, row_label, sort_order, updated_at)
@@ -89,9 +132,6 @@ export async function PUT(request) {
     return jsonOk({ ok: true, items: saved });
   } catch (e) {
     console.error('[ip/candidate/academics] save failed', e);
-    return jsonError(
-      "We couldn't save your education details. Please check the year and CGPA values and try again.",
-      400,
-    );
+    return jsonError(friendlyAcademicsError(e), 400);
   }
 }

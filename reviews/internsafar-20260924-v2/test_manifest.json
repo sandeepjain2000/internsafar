@@ -1,0 +1,37 @@
+{
+  "commands": [
+    {
+      "name": "npm run lint",
+      "exit_code": 2,
+      "status": "failed",
+      "note": "ESLint 9: no eslint.config.*"
+    },
+    {
+      "name": "npm run test:workbench",
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "name": "npm run test:migration-sql-safe",
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "name": "npm run test:email-unsubscribe",
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "name": "npm run build",
+      "exit_code": null,
+      "status": "pending_or_see_build-output.txt",
+      "note": "Captured separately"
+    },
+    {
+      "name": "npm run qa:e2e",
+      "exit_code": null,
+      "status": "not_run",
+      "note": "Long Playwright suite; not executed in this review pass"
+    }
+  ]
+}

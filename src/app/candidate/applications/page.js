@@ -16,6 +16,10 @@ import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
+import {
+  APPLICATION_NEXT_STEP_OPTIONS,
+  applicationNextStepFilterMatch,
+} from '@/lib/ipApplicationPresentation';
 import '@/components/ip/ip-applications-gemini.css';
 import '@/components/ip/ip-table-filters.css';
 
@@ -37,7 +41,7 @@ const EMPTY_COLS = {
   stipends: [],
   locations: [],
   status: '',
-  nextSteps: [],
+  nextStep: '',
   dateFrom: '',
   dateTo: '',
 };
@@ -159,7 +163,16 @@ export default function MyApplicationsPage() {
         if (!incoming.status && Array.isArray(f.cols.statuses) && f.cols.statuses[0]) {
           incoming.status = String(f.cols.statuses[0]);
         }
+        if (!incoming.nextStep && Array.isArray(f.cols.nextSteps) && f.cols.nextSteps[0]) {
+          // Old presets stored display strings; map common phrases → status keys
+          const raw = String(f.cols.nextSteps[0]);
+          const hit = APPLICATION_NEXT_STEP_OPTIONS.find(
+            (o) => o.value && (o.label === raw || o.value === raw),
+          );
+          incoming.nextStep = hit?.value || '';
+        }
         delete incoming.statuses;
+        delete incoming.nextSteps;
         setCols(incoming);
       }
       // Legacy preset keys (never applied before) — ignore silently
@@ -192,7 +205,7 @@ export default function MyApplicationsPage() {
       if (cols.stipends.length && !cols.stipends.includes(stipendLabel(a))) return false;
       if (cols.locations.length && !cols.locations.includes(locationLabel(a))) return false;
       if (cols.status && String(a.display_status || 'Applied') !== cols.status) return false;
-      if (cols.nextSteps.length && !cols.nextSteps.includes(String(a.next_step || '—'))) return false;
+      if (cols.nextStep && !applicationNextStepFilterMatch(a, cols.nextStep)) return false;
       if (!inDateRange(a.created_at, cols.dateFrom, cols.dateTo)) return false;
       return true;
     });
@@ -213,7 +226,6 @@ export default function MyApplicationsPage() {
       employers: uniqSorted(items.map((a) => a.company_name || '—')),
       stipends: uniqSorted(items.map(stipendLabel)),
       locations: uniqSorted(items.map(locationLabel)),
-      nextSteps: uniqSorted(items.map((a) => a.next_step || '—')),
     }),
     [items],
   );
@@ -460,12 +472,12 @@ export default function MyApplicationsPage() {
             onChange={(status) => setCols((c) => ({ ...c, status }))}
             emptyLabel="Any status"
           />
-          <IpSearchableMultiFilter
+          <IpSingleSelectFilter
             label="Next step"
-            options={optionLists.nextSteps}
-            values={cols.nextSteps}
-            onChange={(nextSteps) => setCols((c) => ({ ...c, nextSteps }))}
-            placeholder="Search next steps…"
+            options={APPLICATION_NEXT_STEP_OPTIONS.filter((o) => o.value)}
+            value={cols.nextStep}
+            onChange={(nextStep) => setCols((c) => ({ ...c, nextStep }))}
+            emptyLabel="Any next step"
           />
         </IpTableFiltersShell>
         <div className="ip-ap-tabs">

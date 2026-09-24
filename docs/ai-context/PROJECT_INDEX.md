@@ -1,7 +1,7 @@
 # InternSafar — Project Context Index (Level 1)
 
 Compact map for AI agents. **Not** a full README of the product.  
-**Inspected from live sibling app:** 2026-09-23.
+**Inspected from live sibling app:** 2026-09-24.
 
 After this file: open `FOLDER_STRUCTURE.md` to locate paths, then **one** `domains/*.md`, then live source.
 
@@ -50,7 +50,7 @@ If a task says “Internship Portal / InternSafar / IP”, it means the **siblin
 | Mail | ZeptoMail / SMTP (`src/lib/mail.js`, `zeptomail.js`); outbound footers can append unsubscribe via `src/lib/ipEmailUnsubscribe.js` |
 | Help chat LLM | NVIDIA NIM helpers (`src/lib/nvidiaLlm.js`, `/api/ip/help-chat`) |
 | Deploy | Vercel from sibling; AWS EC2 via workspace handoff packs |
-| QA | Playwright under `qa/` + Excel workbook `test-cases/InternSafar-Test-Cases.xlsx` |
+| QA | Playwright under `qa/` (smoke / regression with journeys / full:release) + Excel workbook `test-cases/InternSafar-Test-Cases.xlsx` |
 
 ### Environments ↔ database (confirmed)
 
@@ -119,6 +119,7 @@ Full route/API inventory (large): `ISM_ROUTE_INVENTORY.md` — open only when yo
 | Workspace siblings (AWS, Gemini, prompts) | `RELATED_WORKSPACE.md` |
 | BRD | `InternSafar_Business_Requirements.txt` (in app) and workspace-root copy |
 | Plan / build / verify standing prompts | workspace `Development prompts for cursor to use/` (filenames are swapped vs contents — go by file content) |
+| Code review HTML report (self-contained prompt) | `CODE_REVIEW_REPORT_PROMPT.md` — includes full CSS/JS + HTML skeleton; no external `report.html` needed |
 | Skills discovery | `SKILLS_MAP.md` |
 | Stable decisions | `DECISIONS.md` |
 

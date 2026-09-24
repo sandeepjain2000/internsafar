@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 Patch InternSafar-Test-Cases.xlsx for current internship-portal:
-- Fix stale Google OAuth assumptions (home now has real Sign in with Google)
-- Add latest-update / regression TC-IS rows (help chat, ops alerts, migration safety)
+- Align Google OAuth cases with live rules (home = email/password only; Google on register)
+- Add/refresh latest-update / regression TC-IS rows (help chat, ops alerts, migration safety)
+
+Prefer product hygiene sync for Obsolete/Add: scripts/sync-internsafar-xlsx-product-hygiene.py
 
 Does not create a second workbook. Run:
   python scripts/patch-internsafar-latest-cases.py

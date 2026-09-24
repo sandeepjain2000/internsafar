@@ -1,0 +1,416 @@
+[
+  {
+    "r": 1,
+    "v": [
+      "InternSafar — Test Case Index (2026-09-24)",
+      null,
+      null
+    ]
+  },
+  {
+    "r": 2,
+    "v": [
+      "Product: InternSafar (workspace sibling internship-portal). Re-audited in place Aug 2026 against current routes/APIs. Column schema: TC ID … Executed At plus Legacy ID. Integrity cases (offer↔application, ratings, dead notifications, thread application_id) included. Row height normalized to 15 on all sheets.",
+      null,
+      null
+    ]
+  },
+  {
+    "r": 3,
+    "v": [
+      "Results as of 2026-09-24. Last apply (UTC): 2026-09-24T09:07:15.975Z. Dated export: InternSafar-Test-Cases-2026-09-24.xlsx (canonical copy remains InternSafar-Test-Cases.xlsx).",
+      null,
+      null
+    ]
+  },
+  {
+    "r": 4,
+    "v": [
+      "#",
+      "Module / Tab (click to open)",
+      "Case Count"
+    ]
+  },
+  {
+    "r": 5,
+    "v": [
+      "0",
+      "Coverage Matrix",
+      "0"
+    ]
+  },
+  {
+    "r": 6,
+    "v": [
+      "1",
+      "01 Public & Landing",
+      "9"
+    ]
+  },
+  {
+    "r": 7,
+    "v": [
+      "2",
+      "02 Auth & Access",
+      "23"
+    ]
+  },
+  {
+    "r": 8,
+    "v": [
+      "3",
+      "03 Registration",
+      "18"
+    ]
+  },
+  {
+    "r": 9,
+    "v": [
+      "4",
+      "04 Permissions & Role",
+      "9"
+    ]
+  },
+  {
+    "r": 10,
+    "v": [
+      "5",
+      "05 Account & Security",
+      "5"
+    ]
+  },
+  {
+    "r": 11,
+    "v": [
+      "6",
+      "06 Candidate Profile",
+      "9"
+    ]
+  },
+  {
+    "r": 12,
+    "v": [
+      "7",
+      "07 Browse Save Apply",
+      "21"
+    ]
+  },
+  {
+    "r": 13,
+    "v": [
+      "8",
+      "08 Candidate Pipeline UX",
+      "4"
+    ]
+  },
+  {
+    "r": 14,
+    "v": [
+      "9",
+      "09 Employer Postings Pipeline",
+      "14"
+    ]
+  },
+  {
+    "r": 15,
+    "v": [
+      "10",
+      "10 Employer Candidate Search",
+      "2"
+    ]
+  },
+  {
+    "r": 16,
+    "v": [
+      "11",
+      "11 Offers Ratings Completions",
+      "20"
+    ]
+  },
+  {
+    "r": 17,
+    "v": [
+      "12",
+      "12 Messages",
+      "10"
+    ]
+  },
+  {
+    "r": 18,
+    "v": [
+      "13",
+      "13 Points Referrals Viral",
+      "4"
+    ]
+  },
+  {
+    "r": 19,
+    "v": [
+      "14",
+      "14 SuperAdmin Ops",
+      "22"
+    ]
+  },
+  {
+    "r": 20,
+    "v": [
+      "15",
+      "15 Feature Ideas",
+      "6"
+    ]
+  },
+  {
+    "r": 21,
+    "v": [
+      "16",
+      "16 List Filters Sort Presets",
+      "7"
+    ]
+  },
+  {
+    "r": 22,
+    "v": [
+      "17",
+      "17 Files & Uploads",
+      "5"
+    ]
+  },
+  {
+    "r": 23,
+    "v": [
+      "18",
+      "18 Cross-cutting",
+      "38"
+    ]
+  },
+  {
+    "r": 24,
+    "v": [
+      null,
+      "TOTAL",
+      "219"
+    ]
+  },
+  {
+    "r": 26,
+    "v": [
+      "Demo logins",
+      "Candidate: lawsonlclintern+1@gmail.com / Admin@123 | Employer: shreekar.nyayapathi23+2@vit.edu / Admin@123 | SA: placementhubsupport@gmail.com / Admin@123",
+      null
+    ]
+  },
+  {
+    "r": 27,
+    "v": [
+      "Priority",
+      "P0 risk score ≥6 or auth/economy/security | P1 high workflows | P2+ polish",
+      null
+    ]
+  },
+  {
+    "r": 28,
+    "v": [
+      "Extra column",
+      "Legacy ID is an annotation requested for mapping; it is not a Reference B schema leftover (Doc Status/Phase/Dev comment omitted).",
+      null
+    ]
+  },
+  {
+    "r": 30,
+    "v": [
+      "Column schema: Boarders checklist names + Role(s)/Preconditions/Actual Result/Automation/Feature/Legacy ID.",
+      null,
+      null
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 1,
+    "v": [
+      "<< Back to Index",
+      null,
+      null,
+      null
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 2,
+    "v": [
+      "Role × capability (InternSafar current sibling)",
+      null,
+      null,
+      null
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 3,
+    "v": [
+      "Capability",
+      "Candidate",
+      "Employer",
+      "SuperAdmin"
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 4,
+    "v": [
+      "Sign-in on `/` + captcha + 2FA",
+      "Y",
+      "Y",
+      "Y (/superadmin/login)"
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 5,
+    "v": [
+      "Register (Gmail candidate / employer domain or request)",
+      "Y",
+      "Y",
+      "approve"
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 6,
+    "v": [
+      "Candidate profile five tabs",
+      "Y",
+      "—",
+      "—"
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 7,
+    "v": [
+      "Browse internships (Cards/List, filters, presets)",
+      "Y",
+      "—",
+      "—"
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 8,
+    "v": [
+      "Full-page employer candidate profile",
+      "—",
+      "Y",
+      "—"
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 9,
+    "v": [
+      "Browse / save / apply (5 pts)",
+      "Y",
+      "—",
+      "—"
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 10,
+    "v": [
+      "Postings + applicant pipeline + bulk/export",
+      "—",
+      "Y",
+      "oversee"
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 11,
+    "v": [
+      "List last-used prefs + presets (max 5)",
+      "Y",
+      "Y",
+      "API 403"
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 12,
+    "v": [
+      "Offers / ratings / completions + application_id integrity",
+      "Y",
+      "Y",
+      "—"
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 13,
+    "v": [
+      "Messages + attachments",
+      "Y",
+      "Y",
+      "oversight"
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 14,
+    "v": [
+      "Notifications UI",
+      "Y",
+      "Y",
+      "API only / no nav page"
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 15,
+    "v": [
+      "Points / referral /r/{code}",
+      "Y",
+      "Y",
+      "—"
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 16,
+    "v": [
+      "Points convert",
+      "NO route",
+      "NO route",
+      "—"
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 17,
+    "v": [
+      "Viral / LinkedIn promos",
+      "—",
+      "Y",
+      "Y"
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 18,
+    "v": [
+      "Feature ideas",
+      "Y",
+      "Y",
+      "moderate"
+    ]
+  },
+  {
+    "sheet": "CM",
+    "r": 19,
+    "v": [
+      "Account 2FA / sessions / contact change",
+      "Y",
+      "Y",
+      "Y"
+    ]
+  }
+]

@@ -4,30 +4,23 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowRight,
-  Award,
-  Calendar,
   Check,
   CheckCheck,
-  ChevronDown,
-  FileText,
   Inbox,
-  MessageSquare,
   RotateCcw,
   Search,
-  Share2,
-  Sparkles,
   X,
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import IpListPager from '@/components/ip/IpListPager';
-import ViewModeToggle from '@/components/ip/ViewModeToggle';
-import { useViewMode } from '@/hooks/useViewMode';
 import {
   IpDateRangeFilter,
   IpSingleSelectFilter,
   IpTableFiltersShell,
+  IP_RECEIVED_WINDOW_OPTIONS,
+  inReceivedWindow,
 } from '@/components/ip/IpTableFiltersShell';
 import '@/components/ip/ip-candidate-notifications-gemini.css';
 import '@/components/ip/ip-table-filters.css';
@@ -38,6 +31,7 @@ const PAGE_SIZE = 10;
 const EMPTY_COLS = {
   category: '',
   read: '',
+  when: '',
   dateFrom: '',
   dateTo: '',
   timedOnly: '',
@@ -86,9 +80,17 @@ function countActiveCols(cols) {
   let n = 0;
   if (cols.category) n += 1;
   if (cols.read) n += 1;
+  if (cols.when) n += 1;
   if (cols.dateFrom || cols.dateTo) n += 1;
   if (cols.timedOnly) n += 1;
   return n;
+}
+
+function isNotificationUnread(n) {
+  if (!n) return false;
+  if (n.isUnread === true) return true;
+  if (n.isUnread === false) return false;
+  return n.read_at == null || n.read_at === '';
 }
 
 function categoryLabel(bucket) {
@@ -117,15 +119,6 @@ function relativeTime(value) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function iconFor(bucket) {
-  if (bucket === 'offers') return Award;
-  if (bucket === 'interviews') return Calendar;
-  if (bucket === 'messages') return MessageSquare;
-  if (bucket === 'applications') return FileText;
-  if (bucket === 'referrals') return Share2;
-  return Sparkles;
-}
-
 export default function CandidateNotificationsPage() {
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState('');
@@ -136,24 +129,8 @@ export default function CandidateNotificationsPage() {
   const [expandedId, setExpandedId] = useState(null);
   const [selected, setSelected] = useState(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [markAllBusy, setMarkAllBusy] = useState(false);
   const [presetResetKey, setPresetResetKey] = useState(0);
-  const [viewMode, setViewMode] = useViewMode('ip_cand_notif_view', 'list');
-  const [isPhone, setIsPhone] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 767px)');
-    const sync = () => setIsPhone(mq.matches);
-    sync();
-    if (mq.addEventListener) {
-      mq.addEventListener('change', sync);
-      return () => mq.removeEventListener('change', sync);
-    }
-    mq.addListener(sync);
-    return () => mq.removeListener(sync);
-  }, []);
-
-  /** Phones always use cards; desktop keeps saved list/cards preference. */
-  const displayMode = isPhone ? 'cards' : viewMode;
 
   const snapshot = useMemo(
     () => ({ filters: { search, cols }, sort: '' }),
@@ -168,7 +145,6 @@ export default function CandidateNotificationsPage() {
       if (f.cols && typeof f.cols === 'object') {
         setCols({ ...EMPTY_COLS, ...f.cols });
       } else if (f.filter && f.filter !== 'all') {
-        // Migrate legacy tab-style presets
         const legacy = String(f.filter);
         if (legacy === 'unread' || legacy === 'read') {
           setCols((c) => ({ ...EMPTY_COLS, ...c, read: legacy === 'unread' ? 'unread' : 'read' }));
@@ -176,6 +152,10 @@ export default function CandidateNotificationsPage() {
           setCols((c) => ({ ...EMPTY_COLS, ...c, category: legacy }));
         } else if (legacy === 'timed') {
           setCols((c) => ({ ...EMPTY_COLS, ...c, timedOnly: '1' }));
+        } else if (legacy === '24h' || /last\s*24/i.test(legacy)) {
+          setCols((c) => ({ ...EMPTY_COLS, ...c, when: '24h' }));
+        } else if (legacy === '7d' || /last\s*7/i.test(legacy)) {
+          setCols((c) => ({ ...EMPTY_COLS, ...c, when: '7d' }));
         }
       }
     },
@@ -197,14 +177,32 @@ export default function CandidateNotificationsPage() {
     load();
   }, []);
 
+  const unreadCount = items.filter(isNotificationUnread).length;
+  const colsActive = countActiveCols(cols);
+
   async function markAllRead() {
-    await fetch('/api/ip/notifications', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ markAllRead: true }),
-    });
-    await load();
-    showToast('All notifications marked as read.');
+    if (markAllBusy) return;
+    if (!unreadCount) {
+      showToast('All notifications are already read.');
+      return;
+    }
+    setMarkAllBusy(true);
+    try {
+      const res = await fetch('/api/ip/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markAllRead: true }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || 'Could not mark notifications as read');
+        return;
+      }
+      await load();
+      showToast('All notifications marked as read.');
+    } finally {
+      setMarkAllBusy(false);
+    }
   }
 
   async function markRead(id) {
@@ -216,17 +214,15 @@ export default function CandidateNotificationsPage() {
     await load();
   }
 
-  const unreadCount = items.filter((n) => n.isUnread || !n.read_at).length;
-  const colsActive = countActiveCols(cols);
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter((n) => {
       if (cols.category && String(n.bucket || '') !== cols.category) return false;
-      const unread = n.isUnread || !n.read_at;
+      const unread = isNotificationUnread(n);
       if (cols.read === 'unread' && !unread) return false;
       if (cols.read === 'read' && unread) return false;
       if (cols.timedOnly === '1' && !isTimed(n)) return false;
+      if (cols.when && !inReceivedWindow(n.created_at, cols.when)) return false;
       if (!inDateRange(n.created_at, cols.dateFrom, cols.dateTo)) return false;
       if (!q) return true;
       return `${n.title || ''} ${n.body || ''} ${n.company || ''} ${n.bucket || ''}`.toLowerCase().includes(q);
@@ -290,7 +286,7 @@ export default function CandidateNotificationsPage() {
   function toggleExpand(n) {
     const next = expandedId === n.id ? null : n.id;
     setExpandedId(next);
-    if (next && (n.isUnread || !n.read_at)) {
+    if (next && isNotificationUnread(n)) {
       markRead(n.id);
     }
   }
@@ -319,12 +315,16 @@ export default function CandidateNotificationsPage() {
           <p>Stay updated with application status, interview schedules, offers, and recruiter messages.</p>
         </div>
         <div className="ip-cn-header__actions">
-          <div className="ip-cn-view-toggle">
-            <ViewModeToggle value={viewMode} onChange={setViewMode} />
-          </div>
-          <button type="button" className="ip-cn-btn" onClick={markAllRead} disabled={!unreadCount}>
+          <button
+            type="button"
+            className={`ip-cn-btn ip-cn-btn--mark-all${unreadCount ? '' : ' is-muted'}`}
+            onClick={markAllRead}
+            disabled={markAllBusy}
+            aria-disabled={unreadCount === 0 && !markAllBusy ? 'true' : undefined}
+            title={unreadCount ? `Mark ${unreadCount} unread as read` : 'Mark all as read'}
+          >
             <CheckCheck aria-hidden />
-            Mark all as read
+            {markAllBusy ? 'Marking…' : 'Mark all as read'}
           </button>
         </div>
       </div>
@@ -385,8 +385,15 @@ export default function CandidateNotificationsPage() {
             onChange={(timedOnly) => setCols((c) => ({ ...c, timedOnly }))}
             emptyLabel="Any"
           />
-          <IpDateRangeFilter
+          <IpSingleSelectFilter
             label="Received"
+            options={IP_RECEIVED_WINDOW_OPTIONS}
+            value={cols.when}
+            onChange={(when) => setCols((c) => ({ ...c, when }))}
+            emptyLabel="Any time"
+          />
+          <IpDateRangeFilter
+            label="Custom date range"
             from={cols.dateFrom}
             to={cols.dateTo}
             onFrom={(dateFrom) => setCols((c) => ({ ...c, dateFrom }))}
@@ -421,8 +428,7 @@ export default function CandidateNotificationsPage() {
             </button>
           </div>
 
-          {displayMode === 'list' ? (
-            <div className="ip-ph-list-wrap ip-cn-table-wrap">
+          <div className="ip-ph-list-wrap ip-cn-table-wrap">
               <table className="ip-ph-list">
                 <thead>
                   <tr>
@@ -440,8 +446,9 @@ export default function CandidateNotificationsPage() {
                 </thead>
                 <tbody>
                   {pageItems.map((n, idx) => {
-                    const unread = n.isUnread || !n.read_at;
+                    const unread = isNotificationUnread(n);
                     const sr = serialOffset + idx + 1;
+                    const open = expandedId === n.id;
                     return (
                       <tr key={n.id} className={unread ? 'is-unread' : undefined}>
                         <td>
@@ -457,8 +464,28 @@ export default function CandidateNotificationsPage() {
                           <button type="button" className="ip-cn-table-title" onClick={() => toggleExpand(n)}>
                             {n.title || '—'}
                           </button>
-                          {expandedId === n.id && n.body ? (
-                            <p className="ip-cn-table-body">{n.body}</p>
+                          {open ? (
+                            <div className="ip-cn-table-expand">
+                              {n.body ? <p className="ip-cn-table-body">{n.body}</p> : null}
+                              <div className="ip-cn-table-expand__actions">
+                                {n.actionHref && !n.resourceUnavailable ? (
+                                  <Link
+                                    href={n.actionHref}
+                                    className="ip-cn-btn ip-cn-btn--primary"
+                                    onClick={() => { if (unread) markRead(n.id); }}
+                                  >
+                                    {n.actionLabel || 'View details'}
+                                    <ArrowRight size={14} aria-hidden />
+                                  </Link>
+                                ) : null}
+                                {unread ? (
+                                  <button type="button" className="ip-cn-mark" onClick={() => markRead(n.id)}>
+                                    <Check size={14} aria-hidden />
+                                    Mark as read
+                                  </button>
+                                ) : null}
+                              </div>
+                            </div>
                           ) : null}
                         </td>
                         <td>{categoryLabel(n.bucket)}</td>
@@ -467,8 +494,12 @@ export default function CandidateNotificationsPage() {
                         <td>{unread ? 'Unread' : 'Read'}</td>
                         <td>
                           {n.actionHref && !n.resourceUnavailable ? (
-                            <Link href={n.actionHref} className="ip-cn-table-link" onClick={() => { if (unread) markRead(n.id); }}>
-                              Open
+                            <Link
+                              href={n.actionHref}
+                              className="ip-cn-table-link"
+                              onClick={() => { if (unread) markRead(n.id); }}
+                            >
+                              {n.actionLabel || 'Open'}
                             </Link>
                           ) : (
                             '—'
@@ -480,69 +511,6 @@ export default function CandidateNotificationsPage() {
                 </tbody>
               </table>
             </div>
-          ) : (
-            <ul className="ip-cn-list">
-              {pageItems.map((n, idx) => {
-                const unread = n.isUnread || !n.read_at;
-                const Icon = iconFor(n.bucket);
-                const open = expandedId === n.id;
-                const sr = serialOffset + idx + 1;
-                return (
-                  <li key={n.id} className={`ip-cn-row${unread ? ' is-unread' : ''}${open ? ' is-open' : ''}`}>
-                    <div className="ip-cn-row__select">
-                      <span className="ip-cn-sr" aria-hidden>{sr}</span>
-                      <input
-                        type="checkbox"
-                        checked={selected.has(n.id)}
-                        onChange={() => toggleSelect(n.id)}
-                        aria-label={`Select notification ${sr}`}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      className="ip-cn-row__main"
-                      onClick={() => toggleExpand(n)}
-                      aria-expanded={open}
-                    >
-                      <div className={`ip-cn-icon ip-cn-icon--${n.bucket || 'system'}`}>
-                        <Icon size={18} aria-hidden />
-                      </div>
-                      <div className="ip-cn-row__text">
-                        <div className="ip-cn-row__title">
-                          <h3>{n.title}</h3>
-                          {n.company ? <span className="ip-cn-company">• {n.company}</span> : null}
-                        </div>
-                        <div className="ip-cn-row__meta">
-                          <span className="ip-cn-time">{relativeTime(n.created_at)}</span>
-                          {unread ? <span className="ip-cn-unread-dot" title="Unread" /> : <span className="ip-cn-read">Read</span>}
-                        </div>
-                      </div>
-                      <ChevronDown className="ip-cn-row__chev" aria-hidden />
-                    </button>
-                    {open ? (
-                      <div className="ip-cn-row__detail">
-                        {n.body ? <p className="ip-cn-desc">{n.body}</p> : null}
-                        <div className="ip-cn-actions">
-                          {n.actionHref ? (
-                            <Link href={n.actionHref} className="ip-cn-btn ip-cn-btn--primary" onClick={() => { if (unread) markRead(n.id); }}>
-                              {n.actionLabel || 'View details'}
-                              <ArrowRight size={14} aria-hidden />
-                            </Link>
-                          ) : <span />}
-                          {unread ? (
-                            <button type="button" className="ip-cn-mark" onClick={() => markRead(n.id)}>
-                              <Check size={14} aria-hidden />
-                              Mark as read
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
         </>
       ) : (
         <div className="ip-cn-empty">

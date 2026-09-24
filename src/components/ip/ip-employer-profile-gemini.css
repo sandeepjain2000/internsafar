@@ -165,6 +165,11 @@
   color: #334155;
 }
 
+.ip-emp-profile .ip-ep-req {
+  color: #dc2626;
+  font-weight: 600;
+}
+
 .ip-emp-profile .ip-ep-hint {
   margin: 0;
   font-size: 0.75rem;

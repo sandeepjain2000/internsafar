@@ -8,8 +8,6 @@ import {
   Building2,
   Check,
   CheckCheck,
-  CheckCircle2,
-  ChevronDown,
   ChevronRight,
   Coins,
   FileText,
@@ -25,12 +23,12 @@ import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import IpListPager from '@/components/ip/IpListPager';
-import ViewModeToggle from '@/components/ip/ViewModeToggle';
-import { useViewMode } from '@/hooks/useViewMode';
 import {
   IpDateRangeFilter,
   IpSingleSelectFilter,
   IpTableFiltersShell,
+  IP_RECEIVED_WINDOW_OPTIONS,
+  inReceivedWindow,
 } from '@/components/ip/IpTableFiltersShell';
 import '@/components/ip/ip-employer-notifications-gemini.css';
 import '@/components/ip/ip-table-filters.css';
@@ -41,6 +39,7 @@ const PAGE_SIZE = 10;
 const EMPTY_COLS = {
   category: '',
   read: '',
+  when: '',
   dateFrom: '',
   dateTo: '',
   timedOnly: '',
@@ -79,6 +78,7 @@ function countActiveCols(cols) {
   let n = 0;
   if (cols.category) n += 1;
   if (cols.read) n += 1;
+  if (cols.when) n += 1;
   if (cols.dateFrom || cols.dateTo) n += 1;
   if (cols.timedOnly) n += 1;
   return n;
@@ -170,13 +170,6 @@ function actionFor(n, bucket) {
   return { label: 'View details', Icon: Sparkles };
 }
 
-function iconFor(bucket) {
-  if (bucket === 'applications') return { Icon: FileText, tone: 'applications' };
-  if (bucket === 'offers') return { Icon: CheckCircle2, tone: 'offers' };
-  if (bucket === 'rewards') return { Icon: Sparkles, tone: 'rewards' };
-  return { Icon: ShieldCheck, tone: 'system' };
-}
-
 export default function EmployerNotificationsPage() {
   const [items, setItems] = useState([]);
   const [points, setPoints] = useState(null);
@@ -187,22 +180,6 @@ export default function EmployerNotificationsPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [presetResetKey, setPresetResetKey] = useState(0);
-  const [viewMode, setViewMode] = useViewMode('ip_emp_notif_view', 'list');
-  const [isPhone, setIsPhone] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 767px)');
-    const sync = () => setIsPhone(mq.matches);
-    sync();
-    if (mq.addEventListener) {
-      mq.addEventListener('change', sync);
-      return () => mq.removeEventListener('change', sync);
-    }
-    mq.addListener(sync);
-    return () => mq.removeListener(sync);
-  }, []);
-
-  const displayMode = isPhone ? 'cards' : viewMode;
 
   const snapshot = useMemo(
     () => ({ filters: { search, cols }, sort: '' }),
@@ -223,15 +200,8 @@ export default function EmployerNotificationsPage() {
         else if (legacy === 'Offers') setCols((c) => ({ ...EMPTY_COLS, ...c, category: 'offers' }));
         else if (legacy === 'Rewards') setCols((c) => ({ ...EMPTY_COLS, ...c, category: 'rewards' }));
         else if (legacy === 'Time-limited') setCols((c) => ({ ...EMPTY_COLS, ...c, timedOnly: '1' }));
-        else if (legacy === 'Last 24h') {
-          const d = new Date();
-          d.setDate(d.getDate() - 1);
-          setCols((c) => ({ ...EMPTY_COLS, ...c, dateFrom: d.toISOString().slice(0, 10) }));
-        } else if (legacy === 'Last 7 days') {
-          const d = new Date();
-          d.setDate(d.getDate() - 7);
-          setCols((c) => ({ ...EMPTY_COLS, ...c, dateFrom: d.toISOString().slice(0, 10) }));
-        }
+        else if (legacy === 'Last 24h') setCols((c) => ({ ...EMPTY_COLS, ...c, when: '24h' }));
+        else if (legacy === 'Last 7 days') setCols((c) => ({ ...EMPTY_COLS, ...c, when: '7d' }));
       }
     },
   });
@@ -291,6 +261,7 @@ export default function EmployerNotificationsPage() {
       if (cols.read === 'unread' && !unread) return false;
       if (cols.read === 'read' && unread) return false;
       if (cols.timedOnly === '1' && !isTimed(n, bucket)) return false;
+      if (cols.when && !inReceivedWindow(n.created_at, cols.when)) return false;
       if (!inDateRange(n.created_at, cols.dateFrom, cols.dateTo)) return false;
       if (!q) return true;
       return `${n.title || ''} ${n.body || ''} ${bucket}`.toLowerCase().includes(q);
@@ -335,9 +306,6 @@ export default function EmployerNotificationsPage() {
           <strong>Notifications</strong>
         </div>
         <div className="ip-en-toolbar-actions">
-          <div className="ip-en-view-toggle">
-            <ViewModeToggle value={viewMode} onChange={setViewMode} />
-          </div>
           <Link className="ip-en-pts-pill" href="/employer/referral">
             <span className="ip-en-pts-pill__dot" aria-hidden>
               <Coins size={12} />
@@ -405,8 +373,15 @@ export default function EmployerNotificationsPage() {
             onChange={(timedOnly) => setCols((c) => ({ ...c, timedOnly }))}
             emptyLabel="Any"
           />
-          <IpDateRangeFilter
+          <IpSingleSelectFilter
             label="Received"
+            options={IP_RECEIVED_WINDOW_OPTIONS}
+            value={cols.when}
+            onChange={(when) => setCols((c) => ({ ...c, when }))}
+            emptyLabel="Any time"
+          />
+          <IpDateRangeFilter
+            label="Custom date range"
             from={cols.dateFrom}
             to={cols.dateTo}
             onFrom={(dateFrom) => setCols((c) => ({ ...c, dateFrom }))}
@@ -429,8 +404,7 @@ export default function EmployerNotificationsPage() {
         </div>
       ) : filtered.length ? (
         <>
-          {displayMode === 'list' ? (
-            <div className="ip-ph-list-wrap ip-en-table-wrap">
+          <div className="ip-ph-list-wrap ip-en-table-wrap">
               <table className="ip-ph-list">
                 <thead>
                   <tr>
@@ -449,6 +423,7 @@ export default function EmployerNotificationsPage() {
                     const action = actionFor(n, bucket);
                     const href = n.resourceUnavailable ? null : n.link && n.link !== '#' ? n.link : null;
                     const sr = serialOffset + idx + 1;
+                    const open = expandedId === n.id;
                     return (
                       <tr key={n.id} className={unread ? 'is-unread' : undefined}>
                         <td>{sr}</td>
@@ -456,8 +431,31 @@ export default function EmployerNotificationsPage() {
                           <button type="button" className="ip-en-table-title" onClick={() => toggleExpand(n)}>
                             {n.title || '—'}
                           </button>
-                          {expandedId === n.id && n.body ? (
-                            <p className="ip-en-table-body">{n.body}</p>
+                          {open ? (
+                            <div className="ip-en-table-expand">
+                              {n.body ? <p className="ip-en-table-body">{n.body}</p> : null}
+                              {n.resourceUnavailable ? (
+                                <p className="ip-en-table-body">{n.resourceUnavailableMessage}</p>
+                              ) : null}
+                              <div className="ip-en-table-expand__actions">
+                                {href ? (
+                                  <Link
+                                    href={href}
+                                    className="ip-en-cta"
+                                    onClick={() => {
+                                      if (unread) markRead(n.id);
+                                    }}
+                                  >
+                                    {action.label}
+                                  </Link>
+                                ) : null}
+                                {unread ? (
+                                  <button type="button" className="ip-en-icon-btn" title="Mark as read" onClick={() => markRead(n.id)}>
+                                    <Check size={16} aria-hidden />
+                                  </button>
+                                ) : null}
+                              </div>
+                            </div>
                           ) : null}
                         </td>
                         <td>{categoryLabel(bucket)}</td>
@@ -484,80 +482,6 @@ export default function EmployerNotificationsPage() {
                 </tbody>
               </table>
             </div>
-          ) : (
-            <ul className="ip-en-list ip-en-list--compact">
-              {pageItems.map((n, idx) => {
-                const unread = !n.read_at;
-                const bucket = resolveBucket(n);
-                const { Icon, tone } = iconFor(bucket);
-                const action = actionFor(n, bucket);
-                const href = n.resourceUnavailable ? null : n.link && n.link !== '#' ? n.link : null;
-                const ActionIcon = action.Icon;
-                const open = expandedId === n.id;
-                const sr = serialOffset + idx + 1;
-                return (
-                  <li key={n.id} className={`ip-en-row${unread ? ' is-unread' : ''}${open ? ' is-open' : ''}`}>
-                    <span className="ip-en-sr" aria-hidden>
-                      {sr}
-                    </span>
-                    <button
-                      type="button"
-                      className="ip-en-row__main"
-                      onClick={() => toggleExpand(n)}
-                      aria-expanded={open}
-                    >
-                      <div className={`ip-en-icon ip-en-icon--${tone}`}>
-                        <Icon size={18} aria-hidden />
-                      </div>
-                      <div className="ip-en-row__text">
-                        <div className="ip-en-row__title">
-                          <h3>{n.title}</h3>
-                        </div>
-                        <div className="ip-en-row__meta">
-                          <span className="ip-en-time">{relativeTime(n.created_at)}</span>
-                          {unread ? (
-                            <span className="ip-en-dot" title="Unread" />
-                          ) : (
-                            <span className="ip-en-read">Read</span>
-                          )}
-                        </div>
-                      </div>
-                      <ChevronDown className="ip-en-row__chev" aria-hidden />
-                    </button>
-                    {open ? (
-                      <div className="ip-en-row__detail">
-                        {n.body ? <p className="ip-en-desc">{n.body}</p> : null}
-                        {n.resourceUnavailable ? (
-                          <p className="ip-en-desc">{n.resourceUnavailableMessage}</p>
-                        ) : null}
-                        <div className="ip-en-row__actions">
-                          {href ? (
-                            <Link
-                              href={href}
-                              className="ip-en-cta"
-                              onClick={() => {
-                                if (unread) markRead(n.id);
-                              }}
-                            >
-                              <ActionIcon size={14} aria-hidden />
-                              <span>{action.label}</span>
-                            </Link>
-                          ) : (
-                            <span />
-                          )}
-                          {unread ? (
-                            <button type="button" className="ip-en-icon-btn" title="Mark as read" onClick={() => markRead(n.id)}>
-                              <Check size={16} aria-hidden />
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
           <div className="ip-en-footer">
             <span>
               Showing {total ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)}` : 0} of {items.length}{' '}

@@ -9,6 +9,7 @@ import useIpCountryCatalog from '@/hooks/useIpCountryCatalog';
 import { documentAcceptAttr, imageAcceptAttr } from '@/lib/ipFileUpload';
 import { BUSINESS_ENTITY_TYPES } from '@/lib/employerBusinessEntity';
 import { PHONE_DIAL_OPTIONS, validateRequiredPhone } from '@/lib/ipPhoneValidation';
+import { toSafeClientError } from '@/lib/ipSafeClientError';
 import '@/components/ip/ip-employer-profile-gemini.css';
 
 const DOC_TYPES = ['Shop Act', 'LLP registration', 'Business PAN', 'Other'];
@@ -36,10 +37,20 @@ const SIZE_OPTIONS = [
   { value: '1000+', label: '1000+ employees' },
 ];
 
-function Field({ label, children, span2, hint }) {
+function Field({ label, children, span2, hint, required }) {
   return (
     <div className={`ip-ep-field${span2 ? ' ip-ep-span-2' : ''}`}>
-      {label ? <label className="ip-ep-label">{label}</label> : null}
+      {label ? (
+        <label className="ip-ep-label">
+          {label}
+          {required ? (
+            <span className="ip-ep-req" aria-hidden="true">
+              {' '}
+              *
+            </span>
+          ) : null}
+        </label>
+      ) : null}
       {children}
       {hint ? <p className="ip-ep-hint">{hint}</p> : null}
     </div>
@@ -128,16 +139,24 @@ export default function EmployerProfilePage() {
   }, [placeCityOptions, form?.hq_state]);
 
   async function load() {
-    const res = await fetch('/api/ip/employer/profile');
-    const data = await res.json();
-    setForm({
-      ...data.profile,
-      ethics_acks: data.profile?.ethics_acks || {},
-      contact_phone_country_code: data.profile?.contact_phone_country_code || '+91',
-    });
-    setDocs(data.documents || []);
-    setEthicsItems(data.ethicsItems || []);
-    setEthicsVersion(data.ethicsVersion || '');
+    try {
+      const res = await fetch('/api/ip/employer/profile');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage(toSafeClientError(data.error || 'Failed to load profile'));
+        return;
+      }
+      setForm({
+        ...data.profile,
+        ethics_acks: data.profile?.ethics_acks || {},
+        contact_phone_country_code: data.profile?.contact_phone_country_code || '+91',
+      });
+      setDocs(data.documents || []);
+      setEthicsItems(data.ethicsItems || []);
+      setEthicsVersion(data.ethicsVersion || '');
+    } catch (err) {
+      setMessage(toSafeClientError(err));
+    }
   }
 
   useEffect(() => {
@@ -190,7 +209,7 @@ export default function EmployerProfilePage() {
       }
       await load();
     } catch (err) {
-      setMessage(err.message);
+      setMessage(toSafeClientError(err));
     } finally {
       setSavingCompany(false);
       setSavingEthics(false);
@@ -214,7 +233,7 @@ export default function EmployerProfilePage() {
         setMessage('Logo uploaded to cloud storage.');
       }
     } catch (err) {
-      setMessage(err.message || 'Logo upload failed');
+      setMessage(toSafeClientError(err, 'Logo upload failed'));
     } finally {
       setLogoBusy(false);
     }
@@ -233,7 +252,16 @@ export default function EmployerProfilePage() {
     await load();
   }
 
-  if (!form) return <div className="p-8 text-muted-foreground">Loading…</div>;
+  if (!form) {
+    if (message) {
+      return (
+        <div className="ip-emp-profile ip-mobile-bleed p-8">
+          <div className="ip-ep-alert" role="alert">{message}</div>
+        </div>
+      );
+    }
+    return <div className="p-8 text-muted-foreground">Loading…</div>;
+  }
 
   const industryValue = form.industry || '';
   const industryKnown = INDUSTRY_OPTIONS.includes(industryValue);
@@ -305,7 +333,7 @@ export default function EmployerProfilePage() {
           </div>
 
           <div className="ip-ep-grid">
-            <Field label="Company / legal name">
+            <Field label="Company / legal name" required>
               <input
                 className="ip-ep-input"
                 value={form.company_name || ''}
@@ -313,7 +341,7 @@ export default function EmployerProfilePage() {
                 required
               />
             </Field>
-            <Field label="Business entity type">
+            <Field label="Business entity type" required>
               <SelectInput
                 value={form.business_entity_type || ''}
                 onChange={(e) => set('business_entity_type', e.target.value)}
@@ -338,7 +366,7 @@ export default function EmployerProfilePage() {
                 onChange={(e) => set('brand_name', e.target.value)}
               />
             </Field>
-            <Field label="Website">
+            <Field label="Website" required>
               <input
                 className="ip-ep-input"
                 value={form.website || ''}
@@ -346,7 +374,7 @@ export default function EmployerProfilePage() {
                 required
               />
             </Field>
-            <Field label="Industry">
+            <Field label="Industry" required>
               <SelectInput
                 value={industrySelectValue}
                 onChange={(e) => {
@@ -398,7 +426,7 @@ export default function EmployerProfilePage() {
           <h2 className="ip-ep-card__title">Contact &amp; Location</h2>
         </div>
         <div className="ip-ep-grid">
-          <Field label="HQ City">
+          <Field label="HQ City" required>
             <SearchableSelect
               options={hqCityChoices}
               value={form.hq_city || ''}
@@ -450,7 +478,7 @@ export default function EmployerProfilePage() {
               ariaLabel="HQ state or province"
             />
           </Field>
-          <Field label="Primary Contact Person">
+          <Field label="Primary Contact Person" required>
             <input
               className="ip-ep-input"
               value={form.contact_name || ''}
@@ -466,7 +494,7 @@ export default function EmployerProfilePage() {
               placeholder="e.g. Placement Officer"
             />
           </Field>
-          <Field label="Contact Phone">
+          <Field label="Contact Phone" required>
             <div className="ip-ep-phone" role="group" aria-label="Contact phone with country code">
               <select
                 className="ip-ep-phone__dial"
@@ -500,7 +528,7 @@ export default function EmployerProfilePage() {
             </div>
             {phoneError ? <p className="ip-ep-error" role="alert">{phoneError}</p> : null}
           </Field>
-          <Field label="Work Email">
+          <Field label="Work Email" required>
             <input
               className="ip-ep-input"
               type="email"

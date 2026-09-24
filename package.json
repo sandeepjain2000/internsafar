@@ -43,6 +43,9 @@
         "qa:workbench": "node scripts/run-ip-workbench-qa.mjs",
         "qa:workbench:live": "node scripts/run-ip-workbench-qa.mjs --live",
         "qa:e2e": "node qa/runners/run-internsafar.mjs",
+        "qa:e2e:smoke": "node qa/runners/run-internsafar.mjs --suite=smoke",
+        "qa:e2e:smoke-latest": "node qa/runners/run-internsafar.mjs --suite=smoke-latest",
+        "qa:e2e:full": "node qa/runners/run-internsafar.mjs --suite=full",
         "test:e2e": "node qa/runners/run-internsafar.mjs",
         "qa:e2e:regression": "node scripts/run-regression-and-apply-xlsx.mjs",
         "playwright:install": "node scripts/lib/ensurePlaywrightBrowsers.mjs --install",
@@ -52,7 +55,9 @@
         "qa:manual:email-change": "node scripts/manual/run-tc-is-06-007-email-change.mjs",
         "qa:employer-reg-e2e": "node scripts/qa-employer-reg-verify-approve-login.mjs",
         "qa:register-approve-post-apply": "node scripts/qa-register-approve-post-apply-smoke.mjs",
-        "qa:audit-xlsx": "python scripts/audit-internsafar-test-cases-xlsx.py"
+        "qa:audit-xlsx": "python scripts/audit-internsafar-test-cases-xlsx.py",
+        "qa:sync-xlsx-hygiene": "python scripts/sync-internsafar-xlsx-product-hygiene.py",
+        "qa:e2e:full:release": "node scripts/run-full-release-qa.mjs"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.1105.0",

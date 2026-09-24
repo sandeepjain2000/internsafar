@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireSession } from '@/lib/apiAuth';
 import { query } from '@/lib/db';
+import { FRIENDLY_TEMP_UNAVAILABLE, isInfraDbError, toSafeClientError } from '@/lib/ipSafeClientError';
 import { describeStorageError, isS3Configured, uploadIpBuffer } from '@/lib/s3';
 import { validateUploadBuffer, validateUploadMeta } from '@/lib/ipFileUpload';
 
@@ -63,6 +64,9 @@ export async function POST(request) {
     });
   } catch (e) {
     console.error('[ip] logo upload', e);
-    return NextResponse.json({ error: describeStorageError(e) }, { status: 500 });
+    const error = isInfraDbError(e)
+      ? toSafeClientError(e, FRIENDLY_TEMP_UNAVAILABLE)
+      : describeStorageError(e);
+    return NextResponse.json({ error }, { status: 500 });
   }
 }

@@ -1,0 +1,126 @@
+{
+  "sheets": {
+    "Index": {
+      "rows": 30,
+      "cols": 7
+    },
+    "Coverage Matrix": {
+      "rows": 19,
+      "cols": 5
+    },
+    "01 Public & Landing": {
+      "rows": 11,
+      "cols": 22
+    },
+    "02 Auth & Access": {
+      "rows": 29,
+      "cols": 22
+    },
+    "03 Registration": {
+      "rows": 25,
+      "cols": 22
+    },
+    "04 Permissions & Role": {
+      "rows": 11,
+      "cols": 22
+    },
+    "05 Account & Security": {
+      "rows": 7,
+      "cols": 22
+    },
+    "06 Candidate Profile": {
+      "rows": 11,
+      "cols": 22
+    },
+    "07 Browse Save Apply": {
+      "rows": 23,
+      "cols": 22
+    },
+    "08 Candidate Pipeline UX": {
+      "rows": 6,
+      "cols": 22
+    },
+    "09 Employer Postings Pipeline": {
+      "rows": 16,
+      "cols": 22
+    },
+    "10 Employer Candidate Search": {
+      "rows": 4,
+      "cols": 22
+    },
+    "11 Offers Ratings Completions": {
+      "rows": 22,
+      "cols": 22
+    },
+    "12 Messages": {
+      "rows": 12,
+      "cols": 22
+    },
+    "13 Points Referrals Viral": {
+      "rows": 6,
+      "cols": 22
+    },
+    "14 SuperAdmin Ops": {
+      "rows": 24,
+      "cols": 22
+    },
+    "15 Feature Ideas": {
+      "rows": 8,
+      "cols": 22
+    },
+    "16 List Filters Sort Presets": {
+      "rows": 9,
+      "cols": 22
+    },
+    "17 Files & Uploads": {
+      "rows": 7,
+      "cols": 22
+    },
+    "18 Cross-cutting": {
+      "rows": 48,
+      "cols": 22
+    }
+  },
+  "id_counts": {
+    "01 Public & Landing": 9,
+    "02 Auth & Access": 27,
+    "03 Registration": 23,
+    "04 Permissions & Role": 9,
+    "05 Account & Security": 5,
+    "06 Candidate Profile": 9,
+    "07 Browse Save Apply": 21,
+    "08 Candidate Pipeline UX": 4,
+    "09 Employer Postings Pipeline": 14,
+    "10 Employer Candidate Search": 2,
+    "11 Offers Ratings Completions": 20,
+    "12 Messages": 10,
+    "13 Points Referrals Viral": 4,
+    "14 SuperAdmin Ops": 22,
+    "15 Feature Ideas": 6,
+    "16 List Filters Sort Presets": 7,
+    "17 Files & Uploads": 5,
+    "18 Cross-cutting": 46
+  },
+  "sheetnames": [
+    "Index",
+    "Coverage Matrix",
+    "01 Public & Landing",
+    "02 Auth & Access",
+    "03 Registration",
+    "04 Permissions & Role",
+    "05 Account & Security",
+    "06 Candidate Profile",
+    "07 Browse Save Apply",
+    "08 Candidate Pipeline UX",
+    "09 Employer Postings Pipeline",
+    "10 Employer Candidate Search",
+    "11 Offers Ratings Completions",
+    "12 Messages",
+    "13 Points Referrals Viral",
+    "14 SuperAdmin Ops",
+    "15 Feature Ideas",
+    "16 List Filters Sort Presets",
+    "17 Files & Uploads",
+    "18 Cross-cutting"
+  ]
+}

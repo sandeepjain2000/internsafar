@@ -5,10 +5,16 @@ import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSc
 
 async function setOne(id, status, reason, moderatorId) {
   const row = await query(
-    `SELECT i.title, e.user_id FROM ip_internships i JOIN ip_employers e ON e.id = i.employer_id WHERE i.id = $1`,
+    `SELECT i.title, i.status AS current_status, e.user_id
+     FROM ip_internships i JOIN ip_employers e ON e.id = i.employer_id WHERE i.id = $1`,
     [id],
   );
-  if (!row.rows[0]) return { ok: false };
+  if (!row.rows[0]) return { ok: false, changed: false };
+  const current = String(row.rows[0].current_status || '');
+  if (current === status) {
+    // Already at target — no email / in-app spam on Publish Selected re-clicks.
+    return { ok: true, changed: false, moderatedBy: moderatorId };
+  }
   await query(`UPDATE ip_internships SET status = $2, updated_at = now() WHERE id = $1`, [id, status]);
   await notifyUser({
     userId: row.rows[0].user_id,
@@ -18,7 +24,7 @@ async function setOne(id, status, reason, moderatorId) {
     category: 'system',
     forceEmail: true,
   });
-  return { ok: true, moderatedBy: moderatorId };
+  return { ok: true, changed: true, moderatedBy: moderatorId };
 }
 
 export async function GET(request) {
@@ -90,10 +96,22 @@ export async function PATCH(request) {
   if (!ids.length) return jsonError('id or ids required');
 
   let ok = 0;
+  let changed = 0;
+  let skipped = 0;
   for (const id of ids) {
     const res = await setOne(id, status, body.reason, session.user.id);
-    if (res.ok) ok += 1;
+    if (res.ok) {
+      ok += 1;
+      if (res.changed) changed += 1;
+      else skipped += 1;
+    }
   }
   if (!ok) return jsonError('Not found', 404);
-  return jsonOk({ ok: true, processed: ok, moderatedBy: session.user.id });
+  return jsonOk({
+    ok: true,
+    processed: ok,
+    changed,
+    skipped,
+    moderatedBy: session.user.id,
+  });
 }

@@ -1,0 +1,321 @@
+{
+  "app": "internship-portal (InternSafar)",
+  "review_date": "2026-09-24T08:58:52.980Z",
+  "skill": "DotHrishi/unified-code-review",
+  "findings": [
+    {
+      "id": "IP-SEC-001",
+      "title": "Unauthenticated /api/ip/bootstrap mutates SuperAdmin roles and schema",
+      "severity": "Critical",
+      "category": "Security",
+      "area": "API / Auth",
+      "file": "src/app/api/ip/bootstrap/route.js",
+      "lines": "4-11",
+      "snippet": "export async function POST() {\n  const result = await ensureIpBootstrap();\n  return NextResponse.json({ ok: true, ...result });\n}",
+      "root_cause": "POST has no requireSession, cron secret, or env gate. ensureIpBootstrap can promote/demote SuperAdmin roles and run schema ensures.",
+      "impact": "Any anonymous caller can trigger privileged bootstrap against the shared Neon DB used by local/Vercel.",
+      "remediation": "Require SuperAdmin session or IP_ALLOW_BOOTSTRAP=1 / deploy secret; remove public client fire-and-forget calls from sign-in pages.",
+      "pattern_id": "AUTHZ-MISSING-GATE",
+      "confidence": "High"
+    },
+    {
+      "id": "IP-SEC-002",
+      "title": "Employer can open a message thread to any candidate userId (IDOR)",
+      "severity": "Critical",
+      "category": "Security",
+      "area": "API / Messages",
+      "file": "src/app/api/ip/messages/threads/route.js",
+      "lines": "76-120",
+      "snippet": "if (!isEmployer) { /* application ownership check */ }\n// employers: no ownership check on otherUserId before INSERT thread",
+      "root_cause": "Candidate path validates application+employer; employer path accepts arbitrary otherUserId.",
+      "impact": "Employer may create threads to private candidates; combined with file access via thread linkage this can expose resumes.",
+      "remediation": "Require owned internship + application (or explicit searchable invite) before employer thread create.",
+      "pattern_id": "IDOR-MISSING-OWNERSHIP",
+      "confidence": "High"
+    },
+    {
+      "id": "IP-SEC-003",
+      "title": "Any shared message thread authorizes candidate resume/photo via files API",
+      "severity": "High",
+      "category": "Security",
+      "area": "API / Files",
+      "file": "src/lib/ipFileAccess.js",
+      "lines": "26-68",
+      "snippet": "return employerLinkedToCandidate(uid, id);\n// SELECT 1 FROM ip_message_threads WHERE employer_user_id AND candidate_user_id",
+      "root_cause": "canAccessIpObject treats any thread between employer and candidate as enough for candidates/{id} objects.",
+      "impact": "Amplifies IP-SEC-002: thread create → resume download without application relationship.",
+      "remediation": "Require application ownership (or shortlist) for resume/photo; keep message attachments under messages/{threadId} only.",
+      "pattern_id": "AUTHZ-OVERBROAD",
+      "confidence": "High"
+    },
+    {
+      "id": "IP-SEC-004",
+      "title": "Cron routes fall back to any employer session when IP_CRON_SECRET unset",
+      "severity": "High",
+      "category": "Security",
+      "area": "API / Cron",
+      "file": "src/app/api/ip/cron/auto-reject-expired/route.js",
+      "lines": "22-67",
+      "snippet": "if (authz.ok === null) {\n  const { error } = await requireSession(['employer', 'superadmin']);\n}\n// employerId optional → global process",
+      "root_cause": "Without cron secret, employer session authorizes global auto-reject / export / reminder drains.",
+      "impact": "Cross-tenant mass reject or job processing on shared Neon when secrets are unset.",
+      "remediation": "Require IP_CRON_SECRET outside local QA; session fallback SuperAdmin-only or hard-scope to caller employer.",
+      "pattern_id": "AUTHZ-TENANT-ESCAPE",
+      "confidence": "High"
+    },
+    {
+      "id": "IP-SEC-005",
+      "title": "Google OAuth client_secret JSON present in app working tree",
+      "severity": "High",
+      "category": "Security",
+      "area": "Secrets",
+      "file": "client_secret_97955918029-….apps.googleusercontent.com.json",
+      "lines": "1",
+      "snippet": "{\"web\":{\"client_id\":\"…apps.googleusercontent.com\",\"client_secret\":\"[REDACTED]\",\"project_id\":\"internsafar-oauth\"}}",
+      "root_cause": "Confidential OAuth client JSON sits on disk (gitignored but present).",
+      "impact": "Filesystem/backup/zip access can steal OAuth client secret; accidental commit risk.",
+      "remediation": "Delete from tree; rotate secret in Google Cloud; use env vars only.",
+      "pattern_id": "SECRETS-IN-TREE",
+      "confidence": "High"
+    },
+    {
+      "id": "IP-SEC-006",
+      "title": "NVIDIA NIM api_key JSON files present under nvidia_keys/",
+      "severity": "High",
+      "category": "Security",
+      "area": "Secrets",
+      "file": "nvidia_keys/key-01.json",
+      "lines": "1-3",
+      "snippet": "{ \"api_key\": \"[REDACTED nvapi-…]\" }",
+      "root_cause": "Local key files loaded by nvidiaLlm for help-chat; gitignored but on disk.",
+      "impact": "Credential theft / quota abuse; help-chat GET exposes localKeyFiles count publicly.",
+      "remediation": "Remove keys from disk; rotate; env-only on deploy hosts.",
+      "pattern_id": "SECRETS-IN-TREE",
+      "confidence": "High"
+    },
+    {
+      "id": "IP-CORR-001",
+      "title": "Publish charges 50 points before stipend validation / INSERT",
+      "severity": "High",
+      "category": "Correctness",
+      "area": "Business Logic",
+      "file": "src/app/api/ip/employer/internships/route.js",
+      "lines": "76-89",
+      "snippet": "chargePublishPoints(...);\nconst stipendParsed = parseStipendRangeFields(body);\nif (stipendParsed.error) return jsonError(...);",
+      "root_cause": "Points debit commits in its own transaction before later validation/INSERT.",
+      "impact": "Employer can lose 50 points with no posting created.",
+      "remediation": "Validate first; charge in same transaction as INSERT; or refund on failure.",
+      "pattern_id": "ORPHAN_CHARGE",
+      "confidence": "High"
+    },
+    {
+      "id": "IP-CORR-002",
+      "title": "Application points debit is not conditional (TOCTOU overdraw)",
+      "severity": "High",
+      "category": "Correctness",
+      "area": "Business Logic",
+      "file": "src/app/api/ip/candidate/applications/route.js",
+      "lines": "160-185",
+      "snippet": "SELECT points … if (points < 5) reject;\nUPDATE ip_users SET points = points - $2 WHERE id = $1  // no points >= check",
+      "root_cause": "Unlike chargePublishPoints, apply debit does not use WHERE points >= cost inside the lock.",
+      "impact": "Concurrent applies can drive balance negative while creating applications.",
+      "remediation": "Debit with WHERE points >= $2 RETURNING inside the application transaction.",
+      "pattern_id": "TOCTOU_SPEND",
+      "confidence": "High"
+    },
+    {
+      "id": "IP-BL-001",
+      "title": "Employer publish gate skips ethics / profile_complete",
+      "severity": "High",
+      "category": "Business Logic",
+      "area": "Business Logic",
+      "file": "src/lib/ipEmployerPostingGate.js",
+      "lines": "35-60",
+      "snippet": "Checks approval_status + email_verified; does not require ethics_acks or profile_complete.",
+      "root_cause": "Gate selects profile_complete but never enforces ethics/completion.",
+      "impact": "Approved employers can publish without ethics acknowledgements.",
+      "remediation": "Require allEthicsChecked (and optionally profile_complete) before publish/republish.",
+      "pattern_id": "GATE_INCOMPLETE",
+      "confidence": "High"
+    },
+    {
+      "id": "IP-BL-002",
+      "title": "free_post_credits granted at signup but never consumed",
+      "severity": "Medium",
+      "category": "Business Logic",
+      "area": "Business Logic",
+      "file": "src/lib/chargePublishPoints.js",
+      "lines": "9-28",
+      "snippet": "Debits points only; free_post_credits never decremented anywhere in src/",
+      "root_cause": "Dead dual-currency field still defaulted to 1 on employer register.",
+      "impact": "Misleading inventory; signup gift is points-only (50 = one publish).",
+      "remediation": "Consume free credit before points, or stop writing/exposing the column.",
+      "pattern_id": "DEAD_CURRENCY",
+      "confidence": "High"
+    },
+    {
+      "id": "IP-FE-001",
+      "title": "Help chatbot “not helpful” reason never POSTed",
+      "severity": "Medium",
+      "category": "Frontend",
+      "area": "Frontend",
+      "file": "src/components/ip/HelpChatbot.jsx",
+      "lines": "140-156",
+      "snippet": "if (!msg?.eventId || msg.feedback) return; // second call with reason early-returns",
+      "root_cause": "Thumbs-down sets feedback immediately; reason buttons call sendFeedback again and hit the guard.",
+      "impact": "Negative feedback reasons discarded; analytics wrong (also related to P2 chatbot UX).",
+      "remediation": "Allow reason update after not_helpful, or send reason on first request.",
+      "pattern_id": "frontend.dead-user-path",
+      "confidence": "High"
+    },
+    {
+      "id": "IP-A11Y-001",
+      "title": "Profile Field helpers use orphan <label> (no htmlFor)",
+      "severity": "Medium",
+      "category": "Accessibility",
+      "area": "Frontend",
+      "file": "src/app/candidate/profile/page.js",
+      "lines": "107-125",
+      "snippet": "<label className=\"ip-cp-label\">{label}</label>\n{children} // siblings, not associated",
+      "root_cause": "Caption-only labels; controls are siblings. Same pattern on employer profile Field.",
+      "impact": "Screen readers may not associate names with inputs on high-traffic forms.",
+      "remediation": "htmlFor/id pairs or wrap controls in label.",
+      "pattern_id": "a11y.form-label-association",
+      "confidence": "High"
+    },
+    {
+      "id": "IP-A11Y-002",
+      "title": "SearchableMultiSelect listbox lacks option roles / keyboard nav",
+      "severity": "Medium",
+      "category": "Accessibility",
+      "area": "Frontend",
+      "file": "src/components/ip/SearchableMultiSelect.jsx",
+      "lines": "122-186",
+      "snippet": "role=\"listbox\" … options are plain buttons; Arrow/Escape not implemented",
+      "root_cause": "Custom combobox incomplete vs APG.",
+      "impact": "Keyboard/SR users cannot operate city/country multi-selects correctly.",
+      "remediation": "Implement combobox+listbox pattern or use a compliant component.",
+      "pattern_id": "a11y.custom-control-keyboard",
+      "confidence": "High"
+    },
+    {
+      "id": "IP-A11Y-003",
+      "title": "Modal-like UIs claim dialog without Escape / focus trap",
+      "severity": "Medium",
+      "category": "Accessibility",
+      "area": "Frontend",
+      "file": "src/app/candidate/applications/page.js",
+      "lines": "686-708",
+      "snippet": "role=\"dialog\" aria-modal=\"true\" — no Escape handler or focus trap (also HelpChatbot, PortalShell drawer, InternshipCandidatePreview)",
+      "root_cause": "Dialog semantics without focus management across multiple overlays.",
+      "impact": "Tab can escape to background; Escape does not dismiss.",
+      "remediation": "Shared focus-trap + Escape close for all modal overlays.",
+      "pattern_id": "a11y.dialog-focus-trap",
+      "confidence": "High"
+    },
+    {
+      "id": "IP-TOOL-001",
+      "title": "npm run lint fails: no eslint.config.* for ESLint 9",
+      "severity": "Medium",
+      "category": "Testing",
+      "area": "Tooling",
+      "file": "package.json",
+      "lines": "9",
+      "snippet": "\"lint\": \"eslint\" — ESLint 9.39.5: couldn't find eslint.config.(js|mjs|cjs)",
+      "root_cause": "eslint-config-next present but flat config file missing.",
+      "impact": "Lint gate cannot run in CI/local; regressions slip.",
+      "remediation": "Add eslint.config.mjs extending next/core-web-vitals.",
+      "pattern_id": "TOOLING-LINT-BROKEN",
+      "confidence": "High"
+    },
+    {
+      "id": "IP-SEC-007",
+      "title": "Unauthenticated /api/ip/ops/report-error can spam ops mail",
+      "severity": "Medium",
+      "category": "Security",
+      "area": "API / Ops",
+      "file": "src/app/api/ip/ops/report-error/route.js",
+      "lines": "21-44",
+      "snippet": "POST with no session; invokes reportOpsFailure → email",
+      "root_cause": "Public error reporting without auth or strong rate limit.",
+      "impact": "Ops inbox / mail quota DoS.",
+      "remediation": "Require session or signed token; rate-limit by IP.",
+      "pattern_id": "AUTHZ-MISSING-GATE",
+      "confidence": "High"
+    },
+    {
+      "id": "IP-SEC-008",
+      "title": "Auth-sensitive IDs use Math.random newId",
+      "severity": "Low",
+      "category": "Security",
+      "area": "Crypto",
+      "file": "src/lib/ids.js",
+      "lines": "1-3",
+      "snippet": "`${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`",
+      "root_cause": "Non-crypto entropy used for sessions/2FA challenges/etc.",
+      "impact": "Weaker unpredictability vs crypto.randomBytes used for password-reset tokens.",
+      "remediation": "Use crypto.randomUUID / randomBytes for authz-sensitive ids.",
+      "pattern_id": "CRYPTO-WEAK-TOKEN",
+      "confidence": "High"
+    }
+  ],
+  "patterns": [
+    {
+      "id": "AUTHZ-MISSING-GATE",
+      "title": "Missing authn/authz gate on sensitive routes",
+      "finding_ids": [
+        "IP-SEC-001",
+        "IP-SEC-004",
+        "IP-SEC-007"
+      ]
+    },
+    {
+      "id": "IDOR-MISSING-OWNERSHIP",
+      "title": "Insufficient ownership checks on messaging/files",
+      "finding_ids": [
+        "IP-SEC-002",
+        "IP-SEC-003"
+      ]
+    },
+    {
+      "id": "SECRETS-IN-TREE",
+      "title": "Live credentials on disk (gitignored)",
+      "finding_ids": [
+        "IP-SEC-005",
+        "IP-SEC-006"
+      ]
+    },
+    {
+      "id": "DEAD_CURRENCY",
+      "title": "Legacy points credits never spent",
+      "finding_ids": [
+        "IP-BL-002"
+      ]
+    },
+    {
+      "id": "a11y.dialog-focus-trap",
+      "title": "Modal overlays without focus trap/Escape",
+      "finding_ids": [
+        "IP-A11Y-003"
+      ]
+    },
+    {
+      "id": "a11y.form-label-association",
+      "title": "Orphan form labels",
+      "finding_ids": [
+        "IP-A11Y-001"
+      ]
+    }
+  ],
+  "severity_counts": {
+    "Critical": 2,
+    "High": 7,
+    "Medium": 7,
+    "Low": 1
+  },
+  "scores": {
+    "overall": 5,
+    "accessibility": 64,
+    "security": 10
+  }
+}

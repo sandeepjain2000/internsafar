@@ -37,28 +37,49 @@ Do **not** refer to:
 
 ---
 
-## 3. How to run
+## 3. Industry tiers (how to run)
 
 From `internship-portal`:
 
 ```bash
-# Preferred (named InternSafar runner)
-npm run qa:e2e
+# Smoke — every change / PR (minutes): auth + Google register UX
+npm run qa:e2e:smoke
 
-# Latest-update regression pack (writes Pass/Fail into InternSafar-Test-Cases.xlsx)
+# Compat alias — old ~47 pack (auth + google + IS-* only); NOT the nightly gate
+npm run qa:e2e:smoke-latest
+
+# Regression — on demand / nightly: smoke + IS-* + candidate/employer/SA journeys
+# + role screen loads + mobile — then applies Pass/Fail into InternSafar-Test-Cases.xlsx
 npm run qa:e2e:regression
 
-# Combined InternSafar QA (legacy + TC-IS) → Excel with --apply
+# Full Playwright tree only (all qa/tests/*.spec.js)
+npm run qa:e2e:full
+
+# Full / release — all Playwright + Excel apply + deep node scripts
+# (employer-reg-e2e + register-approve-post-apply). Manual Excel rows still human.
+npm run qa:e2e:full:release
+
+# Combined checklist → Excel with --apply
 npm run qa:checklist -- --apply
 ```
 
-Regenerate/patch case definitions (not results):
+| Tier | When | Command | Scope |
+|------|------|---------|-------|
+| Smoke | Every change / PR | `qa:e2e:smoke` | Login + critical Google/home rules |
+| Regression | On demand / nightly | `qa:e2e:regression` | Broader product (journeys + loads) + Excel apply |
+| Full / release | Pre-release | `qa:e2e:full:release` | Everything automated + deep scripts; finish Manual Excel |
+
+**Honest coverage:** Automation column on Excel is `Automated` | `Manual` | `Obsolete`. A green regression run updates mapped Automated IDs — **not** the whole workbook.
+
+Suite file lists: `qa/suites.mjs`.
+
+Product hygiene (Obsolete/Edit/Add cases to match live `src/`):
 
 ```bash
+npm run qa:sync-xlsx-hygiene
+npm run qa:audit-xlsx
 npm run qa:patch-latest-cases
 ```
-
-The runner is a thin wrapper: it spawns `npx playwright test` with any extra args forwarded. `--suite=regression` injects the latest-update Playwright pack when no other spec paths are given.
 
 Config: `playwright.config.js` at the app root.
 
@@ -70,58 +91,30 @@ Config: `playwright.config.js` at the app root.
 |---|---|
 | `qa/tests/auth.spec.js` | InternSafar authentication (home login, roles, sign-out) |
 | `qa/tests/google-auth.spec.js` | Google register OAuth start + home has no Google login + disabled/unlinked error UX |
-| `qa/tests/regression.spec.js` | Latest-update regression smoke (IS-* → InternSafar-Test-Cases.xlsx) |
-| `qa/tests/screens.spec.js` | Role screen smoke after login |
+| `qa/tests/regression.spec.js` | Latest-update regression smoke (IS-* → Excel) |
+| `qa/tests/journeys-candidate.spec.js` | Candidate browse → detail → Report; profile draft; filters |
+| `qa/tests/journeys-employer.spec.js` | Employer profile required `*`; Action center; postings list |
+| `qa/tests/journeys-superadmin.spec.js` | SA postings + same-status publish skips notify |
+| `qa/tests/screens.spec.js` | Role/public **route-load** smoke (breadth, not deep UX) |
 | `qa/tests/mobile-candidate-internships.spec.js` | Candidate internships on mobile viewport |
 
-Manual / results workbook (Boarders column names + InternSafar extras):
+Manual / results workbook:
 
 `test-cases/InternSafar-Test-Cases.xlsx`  
-Format reference only: `prompts/Testing/boarders_latest_update_test_checklist.xlsx`  
-Apply: `npm run qa:checklist -- --apply` or `npm run qa:e2e:regression`
-
-Helpers:
-
-| Helper | Purpose |
-|---|---|
-| `qa/helpers/accounts.js` | Core candidate / employer / superadmin emails + password |
-| `qa/helpers/login.js` | Sign-in / captcha / sign-out helpers |
-| `qa/routes-by-role.js` | Route expectations by role |
+Audit: `reviews/excel-qa-tier-audit-2026-09-24.md`
 
 ---
 
-## 5. Demo accounts (core sample)
+## 5. Applying results
 
-Password for core accounts: see `qa/helpers/accounts.js` (`password` field).
+`npm run qa:e2e:regression` and `qa:e2e:full:release` write Playwright JSON then call
+`scripts/apply-playwright-regression-xlsx.mjs` → `scripts/apply-internsafar-qa-xlsx.py`.
 
-| Role | Home after login |
-|---|---|
-| Candidate | `/candidate` |
-| Employer | `/employer` |
-| Superadmin | `/superadmin` |
-
-Emails are the core-sample Gmail/+cast addresses in `accounts.js` — keep them in sync with seed/reset scripts.
+Obsolete / Manual-only TC-IS ids are not overwritten by automated Blocked/Not Run.
 
 ---
 
-## 6. Manual smoke (optional, no Playwright)
+## 6. Related docs
 
-When you only need a quick browser check after deploy:
-
-1. Open production or local home.
-2. Sign in as candidate → Profile / Browse / Applications / Offers / Messages / Notifications / Ideas.
-3. Sign in as employer → Profile / Candidates / Internships / Offers / Messages.
-4. Confirm status labels show **Offered** / **Action Required** (never raw `offered` / `action_required`).
-
-Candidate-facing batch checklist: `task-docs/InternSafar_Change_Batch_Showcase.md` (workspace root `task-docs/`).
-
----
-
-## 7. Reporting
-
-When filing results, title them:
-
-- **InternSafar e2e** — pass/fail by spec  
-- Runner: `qa/runners/run-internsafar.mjs` (or `npm run qa:e2e`)
-
-Do not mix with Placement Hub guided-runner reports.
+- `docs/ai-context/domains/testing.md`
+- `docs/qa-employer-register-e2e.md`

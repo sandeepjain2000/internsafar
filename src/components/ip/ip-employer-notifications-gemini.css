@@ -4,12 +4,14 @@
 .ip-emp-notif {
   --ip-indigo: #4f46e5;
   --ip-indigo-700: #4338ca;
+  --ip-en-fab-clearance: 5.5rem;
   max-width: 80rem;
   margin-left: auto;
   margin-right: auto;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  padding-bottom: var(--ip-en-fab-clearance);
   font-family: 'Plus Jakarta Sans', Inter, ui-sans-serif, system-ui, sans-serif;
   color: #0f172a;
 }
@@ -712,9 +714,9 @@
 
 .ip-emp-notif .ip-en-toast {
   position: fixed;
-  bottom: 1.5rem;
+  bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
   right: 1.5rem;
-  z-index: 60;
+  z-index: 10000;
   background: #0f172a;
   color: #fff;
   padding: 0.75rem 1rem;
@@ -725,6 +727,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  max-width: min(22rem, calc(100vw - 5.5rem));
 }
 
 .ip-emp-notif .ip-en-desk-toolbar {
@@ -766,6 +769,19 @@
   white-space: pre-wrap;
 }
 
+.ip-emp-notif .ip-en-table-expand {
+  margin-top: 0.5rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.ip-emp-notif .ip-en-table-expand__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .ip-emp-notif .ip-en-table-link {
   font-size: 0.8125rem;
   font-weight: 600;
@@ -789,10 +805,6 @@
 @media (max-width: 767px) {
   .ip-emp-notif .ip-en-view-toggle {
     display: none;
-  }
-
-  .ip-emp-notif .ip-en-table-wrap {
-    display: none !important;
   }
 }
 

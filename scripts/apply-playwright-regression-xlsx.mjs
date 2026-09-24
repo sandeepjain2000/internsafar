@@ -23,7 +23,7 @@ const reportPath = resolve(
 const TITLE_TO_TC = [
   [/IS-001/, ['TC-IS-01-001']],
   [/IS-002/, ['TC-IS-01-002']],
-  [/IS-003|no Google sign-in button/, ['TC-IS-18-030']],
+  [/IS-003|no Google sign-in button|home has email\/password login and no Google/, ['TC-IS-18-030']],
   [/IS-004b|GoogleLoginDisabled/, ['TC-IS-02-025']],
   [/IS-004\b|GoogleAccountNotLinked/, ['TC-IS-02-025']],
   [/IS-005|candidate register Google control/, ['TC-IS-03-005']],
@@ -48,8 +48,16 @@ const TITLE_TO_TC = [
   [/IS-039/, ['TC-IS-18-041']],
   [/IS-040/, ['TC-IS-18-044']],
   [/IS-041/, ['TC-IS-07-007']],
+  [/IS-055|unsubscribe page/, ['TC-IS-18-047']],
+  [/IS-061|JOURNEY-CAND-01|Report listing|Report control/, ['TC-IS-07-022']],
+  [/IS-062|Save draft/, ['TC-IS-06-010']],
+  [/IS-063|JOURNEY-EMP-01|Action center|required asterisks/, ['TC-IS-09-017', 'TC-IS-09-015']],
+  [/IS-064|start date|JOURNEY-CAND-02/, ['TC-IS-07-023']],
+  [/JOURNEY-EMP-02|postings list/, ['TC-IS-09-017']],
+  [/JOURNEY-SA-01|same-status publish|skips change/, ['TC-IS-14-023']],
   [/candidate register Google reaches Google OAuth|matching redirect_uri/, ['TC-IS-02-024', 'TC-IS-18-030']],
   [/candidate register Google/, ['TC-IS-03-005']],
+  [/Credentials login still works/, ['TC-IS-02-026']],
 ];
 
 /** openpyxl rejects control chars / ANSI from Playwright failure dumps */

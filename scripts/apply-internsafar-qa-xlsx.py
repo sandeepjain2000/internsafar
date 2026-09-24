@@ -34,6 +34,7 @@ XLSX = stable_xlsx_path(ROOT)
 RESULTS = ROOT / "test-cases" / "qa-results.json"
 SKIP = frozenset({"Index", "Coverage", "Coverage Matrix", "Notes", "How to use", "Meta"})
 # Manual Google / OTP results — do not overwrite with automated Blocked/Not Run.
+# Obsolete rows are also protected (product removed; keep Obsolete status).
 MANUAL_ONLY_TC_IDS = frozenset(
     {
         "TC-IS-06-007",
@@ -47,6 +48,7 @@ MANUAL_ONLY_TC_IDS = frozenset(
         "TC-IS-03-015",
         "TC-IS-03-019",
         "TC-IS-03-020",
+        "TC-IS-03-021",
         "TC-IS-03-022",
         "TC-IS-03-023",
     }
@@ -137,11 +139,18 @@ def main():
         tc = col_of(cols, ID_ALIASES)
         if not sc:
             continue
+        auto_col = cols.get("Automation")
         for r in range(hr + 1, ws.max_row + 1):
             tc_id = ws.cell(r, tc).value if tc else None
             legacy = (ws.cell(r, lc).value if lc else None) or ""
             legacy = str(legacy).strip()
             if tc_id and str(tc_id) in MANUAL_ONLY_TC_IDS:
+                continue
+            # Never overwrite Obsolete rows from Playwright apply
+            cur_status = str(ws.cell(r, sc).value or "").strip()
+            if cur_status == "Obsolete":
+                continue
+            if auto_col and str(ws.cell(r, auto_col).value or "").strip() == "Obsolete":
                 continue
             rec = None
             if tc_id and str(tc_id) in unified:
