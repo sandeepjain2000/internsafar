@@ -5,15 +5,24 @@
   gap: 0.4rem;
 }
 .ip-sms-chips {
-  display: flex;
+  /* Shrink-wrap to chips only — never fill the row (avoids phantom × hits) */
+  display: inline-flex;
   flex-wrap: wrap;
   gap: 0.35rem;
   min-height: 1.5rem;
+  width: fit-content;
+  max-width: 100%;
+  justify-content: flex-start;
+  align-items: flex-start;
+  pointer-events: none;
 }
 .ip-sms-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: 100%;
   border: 1px solid #c7d2fe;
   background: #eef2ff;
   color: #312e81;
@@ -21,18 +30,31 @@
   padding: 0.15rem 0.35rem 0.15rem 0.55rem;
   font-size: 0.75rem;
   cursor: default;
+  /* Chip body is not clickable; only × below is */
+  pointer-events: none;
 }
-/* Only the × removes the chip — clicking the label does nothing */
+/* Only the × removes the chip — fixed hit box, never stretches */
 .ip-sms-chip__x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 1.25rem;
+  height: 1.25rem;
+  min-width: 1.25rem;
+  max-width: 1.25rem;
+  margin: 0;
   border: 0;
   background: transparent;
   color: #4f46e5;
   font-weight: 700;
   font-size: 0.9rem;
   line-height: 1;
-  padding: 0 0.2rem;
+  padding: 0;
   cursor: pointer;
   border-radius: 999px;
+  flex: 0 0 auto;
+  pointer-events: auto;
 }
 .ip-sms-chip__x:hover {
   background: #c7d2fe;

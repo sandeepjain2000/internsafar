@@ -102,9 +102,9 @@
   color: #0f172a;
 }
 
-.ip-tf__hint {
-  font-size: 0.65rem;
-  color: #94a3b8;
+.ip-tf__select--single {
+  min-height: 2.25rem;
+  height: 2.25rem;
 }
 
 .ip-tf__checks {

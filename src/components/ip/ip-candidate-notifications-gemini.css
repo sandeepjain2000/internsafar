@@ -16,10 +16,62 @@
   color: #0f172a;
 }
 
-.ip-cand-nf .ip-cn-header {
+.ip-cand-nf .ip-cn-header__actions {
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ip-cand-nf .ip-cn-table-wrap {
+  overflow-x: auto;
+}
+
+.ip-cand-nf .ip-cn-table-title {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: 600;
+  color: #1e293b;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ip-cand-nf .ip-cn-table-title:hover {
+  color: #4f46e5;
+  text-decoration: underline;
+}
+
+.ip-cand-nf .ip-cn-table-body {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+  white-space: pre-wrap;
+}
+
+.ip-cand-nf .ip-cn-table-link {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #4f46e5;
+  text-decoration: none;
+}
+
+.ip-cand-nf .ip-ph-list tr.is-unread td {
+  background: #eef2ff;
+}
+
+.ip-cand-nf .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 
 @media (min-width: 640px) {

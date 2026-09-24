@@ -804,6 +804,9 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.875rem;
+  min-height: 3.5rem;
+  height: 100%;
+  box-sizing: border-box;
   border-radius: 0.5rem;
   border: 1px solid #e2e8f0;
   background: #f8fafc;

@@ -8,8 +8,8 @@ import { useClientPagination } from '@/hooks/useClientPagination';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import {
   IpDateRangeFilter,
-  IpFiniteMultiFilter,
   IpSearchableMultiFilter,
+  IpSingleSelectFilter,
   IpTableFiltersShell,
 } from '@/components/ip/IpTableFiltersShell';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
@@ -36,11 +36,24 @@ const EMPTY_COLS = {
   employers: [],
   stipends: [],
   locations: [],
-  statuses: [],
+  status: '',
   nextSteps: [],
   dateFrom: '',
   dateTo: '',
 };
+
+/** Prefefined application display statuses (single-select — one status per row). */
+const STATUS_FILTER_OPTIONS = [
+  'Applied',
+  'Under Review',
+  'Interview Scheduled',
+  'Offer Received',
+  'Rejected',
+  'Rejected By You',
+  'Withdrawn',
+  'Hired',
+  'Completed',
+];
 
 function stipendLabel(a) {
   return formatInternshipStipend(a, { unpaidLabel: '—' }) || '—';
@@ -140,7 +153,15 @@ export default function MyApplicationsPage() {
       const f = s.filters || {};
       if (f.q != null) setQ(f.q);
       if (f.tab) setTab(f.tab);
-      if (f.cols) setCols({ ...EMPTY_COLS, ...f.cols });
+      if (f.cols) {
+        const incoming = { ...EMPTY_COLS, ...f.cols };
+        // Migrate legacy multi status[] → single status
+        if (!incoming.status && Array.isArray(f.cols.statuses) && f.cols.statuses[0]) {
+          incoming.status = String(f.cols.statuses[0]);
+        }
+        delete incoming.statuses;
+        setCols(incoming);
+      }
       // Legacy preset keys (never applied before) — ignore silently
       if (s.sort) setSort(s.sort);
     },
@@ -170,9 +191,7 @@ export default function MyApplicationsPage() {
       if (cols.employers.length && !cols.employers.includes(String(a.company_name || '—'))) return false;
       if (cols.stipends.length && !cols.stipends.includes(stipendLabel(a))) return false;
       if (cols.locations.length && !cols.locations.includes(locationLabel(a))) return false;
-      if (cols.statuses.length && !cols.statuses.includes(String(a.display_status || 'Applied'))) {
-        return false;
-      }
+      if (cols.status && String(a.display_status || 'Applied') !== cols.status) return false;
       if (cols.nextSteps.length && !cols.nextSteps.includes(String(a.next_step || '—'))) return false;
       if (!inDateRange(a.created_at, cols.dateFrom, cols.dateTo)) return false;
       return true;
@@ -194,7 +213,6 @@ export default function MyApplicationsPage() {
       employers: uniqSorted(items.map((a) => a.company_name || '—')),
       stipends: uniqSorted(items.map(stipendLabel)),
       locations: uniqSorted(items.map(locationLabel)),
-      statuses: uniqSorted(items.map((a) => a.display_status || 'Applied')),
       nextSteps: uniqSorted(items.map((a) => a.next_step || '—')),
     }),
     [items],
@@ -435,14 +453,15 @@ export default function MyApplicationsPage() {
             onFrom={(dateFrom) => setCols((c) => ({ ...c, dateFrom }))}
             onTo={(dateTo) => setCols((c) => ({ ...c, dateTo }))}
           />
-          <IpFiniteMultiFilter
+          <IpSingleSelectFilter
             label="Status"
-            options={optionLists.statuses}
-            values={cols.statuses}
-            onChange={(statuses) => setCols((c) => ({ ...c, statuses }))}
+            options={STATUS_FILTER_OPTIONS}
+            value={cols.status}
+            onChange={(status) => setCols((c) => ({ ...c, status }))}
+            emptyLabel="Any status"
           />
           <IpSearchableMultiFilter
-            label="Next"
+            label="Next step"
             options={optionLists.nextSteps}
             values={cols.nextSteps}
             onChange={(nextSteps) => setCols((c) => ({ ...c, nextSteps }))}

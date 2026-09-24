@@ -35,7 +35,8 @@ import {
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import {
   IpDateRangeFilter,
-  IpMultiCheckFilter,
+  IpSearchableMultiFilter,
+  IpSingleSelectFilter,
   IpTableFiltersShell,
 } from '@/components/ip/IpTableFiltersShell';
 import { IpListLoading } from '@/components/ip/IpListStatus';
@@ -53,7 +54,7 @@ const FILTERS = [
 
 const EMPTY_REF_COLS = {
   candidates: [],
-  statusLabels: [],
+  statusLabel: '',
   details: [],
   points: [],
   dateFrom: '',
@@ -62,7 +63,7 @@ const EMPTY_REF_COLS = {
 
 const EMPTY_LEDGER_COLS = {
   reasons: [],
-  categories: [],
+  category: '',
   impacts: [],
   balances: [],
   dateFrom: '',
@@ -169,8 +170,22 @@ export default function CandidateReferralPage() {
     applySnapshot: (s) => {
       const f = s.filters || {};
       if (f.filter) setFilter(f.filter);
-      if (f.refCols) setRefCols({ ...EMPTY_REF_COLS, ...f.refCols });
-      if (f.ledgerCols) setLedgerCols({ ...EMPTY_LEDGER_COLS, ...f.ledgerCols });
+      if (f.refCols) {
+        const incoming = { ...EMPTY_REF_COLS, ...f.refCols };
+        if (!incoming.statusLabel && Array.isArray(f.refCols.statusLabels) && f.refCols.statusLabels[0]) {
+          incoming.statusLabel = String(f.refCols.statusLabels[0]);
+        }
+        delete incoming.statusLabels;
+        setRefCols(incoming);
+      }
+      if (f.ledgerCols) {
+        const incoming = { ...EMPTY_LEDGER_COLS, ...f.ledgerCols };
+        if (!incoming.category && Array.isArray(f.ledgerCols.categories) && f.ledgerCols.categories[0]) {
+          incoming.category = String(f.ledgerCols.categories[0]);
+        }
+        delete incoming.categories;
+        setLedgerCols(incoming);
+      }
     },
   });
 
@@ -230,7 +245,7 @@ export default function CandidateReferralPage() {
       if (refCols.candidates.length && !refCols.candidates.includes(String(r.display_label || ''))) {
         return false;
       }
-      if (refCols.statusLabels.length && !refCols.statusLabels.includes(String(r.status_label || ''))) {
+      if (refCols.statusLabel && String(r.status_label || '') !== refCols.statusLabel) {
         return false;
       }
       if (refCols.details.length && !refCols.details.includes(String(r.status_detail || ''))) {
@@ -276,8 +291,8 @@ export default function CandidateReferralPage() {
         return false;
       }
       if (
-        ledgerCols.categories.length &&
-        !ledgerCols.categories.includes(String(row.category || ''))
+        ledgerCols.category &&
+        String(row.category || '') !== ledgerCols.category
       ) {
         return false;
       }
@@ -603,11 +618,12 @@ export default function CandidateReferralPage() {
           activeCount={refActive}
           onClear={() => setRefCols(EMPTY_REF_COLS)}
         >
-          <IpMultiCheckFilter
+          <IpSearchableMultiFilter
             label="Referred Candidate"
             options={refOptionLists.candidates}
             values={refCols.candidates}
             onChange={(candidates) => setRefCols((c) => ({ ...c, candidates }))}
+            placeholder="Search candidates…"
           />
           <IpDateRangeFilter
             label="Invite Date"
@@ -616,23 +632,27 @@ export default function CandidateReferralPage() {
             onFrom={(dateFrom) => setRefCols((c) => ({ ...c, dateFrom }))}
             onTo={(dateTo) => setRefCols((c) => ({ ...c, dateTo }))}
           />
-          <IpMultiCheckFilter
-            label="Referral Status"
+          {/* Status pipeline is the tabs above (exclusive). Column status_label is a finer single pick. */}
+          <IpSingleSelectFilter
+            label="Status detail"
             options={refOptionLists.statusLabels}
-            values={refCols.statusLabels}
-            onChange={(statusLabels) => setRefCols((c) => ({ ...c, statusLabels }))}
+            value={refCols.statusLabel}
+            onChange={(statusLabel) => setRefCols((c) => ({ ...c, statusLabel }))}
+            emptyLabel="Any status label"
           />
-          <IpMultiCheckFilter
+          <IpSearchableMultiFilter
             label="Status Details / Reason"
             options={refOptionLists.details}
             values={refCols.details}
             onChange={(details) => setRefCols((c) => ({ ...c, details }))}
+            placeholder="Search reasons…"
           />
-          <IpMultiCheckFilter
+          <IpSearchableMultiFilter
             label="Points Reward"
             options={refOptionLists.pointsOpts}
             values={refCols.points}
             onChange={(points) => setRefCols((c) => ({ ...c, points }))}
+            placeholder="Search points…"
           />
         </IpTableFiltersShell>
 
@@ -764,29 +784,33 @@ export default function CandidateReferralPage() {
             onFrom={(dateFrom) => setLedgerCols((c) => ({ ...c, dateFrom }))}
             onTo={(dateTo) => setLedgerCols((c) => ({ ...c, dateTo }))}
           />
-          <IpMultiCheckFilter
+          <IpSearchableMultiFilter
             label="Transaction Details / Reason"
             options={ledgerOptionLists.reasons}
             values={ledgerCols.reasons}
             onChange={(reasons) => setLedgerCols((c) => ({ ...c, reasons }))}
+            placeholder="Search reasons…"
           />
-          <IpMultiCheckFilter
+          <IpSingleSelectFilter
             label="Category"
             options={ledgerOptionLists.categories}
-            values={ledgerCols.categories}
-            onChange={(categories) => setLedgerCols((c) => ({ ...c, categories }))}
+            value={ledgerCols.category || ''}
+            onChange={(category) => setLedgerCols((c) => ({ ...c, category, categories: [] }))}
+            emptyLabel="Any category"
           />
-          <IpMultiCheckFilter
+          <IpSearchableMultiFilter
             label="Points Impact"
             options={ledgerOptionLists.impacts}
             values={ledgerCols.impacts}
             onChange={(impacts) => setLedgerCols((c) => ({ ...c, impacts }))}
+            placeholder="Search impact…"
           />
-          <IpMultiCheckFilter
+          <IpSearchableMultiFilter
             label="Balance After"
             options={ledgerOptionLists.balances}
             values={ledgerCols.balances}
             onChange={(balances) => setLedgerCols((c) => ({ ...c, balances }))}
+            placeholder="Search balance…"
           />
         </IpTableFiltersShell>
 

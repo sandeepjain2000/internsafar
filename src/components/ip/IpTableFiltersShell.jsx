@@ -83,7 +83,42 @@ export function IpSearchableMultiFilter({
 }
 
 /**
- * Compact native multi-select for small finite sets (e.g. status).
+ * Single-value select for mutually exclusive / finite filter dimensions
+ * (status, read/unread, category). Not multi-select.
+ */
+export function IpSingleSelectFilter({
+  label,
+  options,
+  value,
+  onChange,
+  emptyLabel = 'Any',
+}) {
+  const opts = toOptions(options);
+  const current = value == null ? '' : String(value);
+
+  return (
+    <div className="ip-tf__field">
+      <span className="ip-tf__label">{label}</span>
+      <select
+        className="ip-tf__select ip-tf__select--single"
+        value={current}
+        aria-label={label}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">{emptyLabel}</option>
+        {opts.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label || o.value}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/**
+ * Compact native multi-select for small finite sets where OR across values is valid
+ * (e.g. several stipend labels). Prefer IpSingleSelectFilter when values are exclusive modes.
  */
 export function IpFiniteMultiFilter({ label, options, values, onChange }) {
   const opts = toOptions(options);

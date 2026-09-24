@@ -25,7 +25,7 @@ import { useClientPagination } from '@/hooks/useClientPagination';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import {
   IpDateRangeFilter,
-  IpMultiCheckFilter,
+  IpSearchableMultiFilter,
   IpTableFiltersShell,
 } from '@/components/ip/IpTableFiltersShell';
 import { IpListLoading } from '@/components/ip/IpListStatus';
@@ -40,7 +40,6 @@ const FILTERS = ['All', 'Verified', 'Pending'];
 const EMPTY_COLS = {
   orgs: [],
   domains: [],
-  statuses: [],
   points: [],
   dateFrom: '',
   dateTo: '',
@@ -98,10 +97,6 @@ function pointsLabel(r) {
   return `+${REFERRAL_POINTS} Pts (Pending)`;
 }
 
-function statusLabel(r) {
-  return isVerified(r) ? 'Verified' : r.status || 'Pending';
-}
-
 function countActiveCols(cols) {
   let n = 0;
   for (const [k, v] of Object.entries(cols || {})) {
@@ -133,7 +128,11 @@ export default function EmployerReferralPage() {
       const f = s.filters || {};
       if (f.q != null) setQ(f.q);
       if (f.filter) setFilter(f.filter);
-      if (f.cols) setCols({ ...EMPTY_COLS, ...f.cols });
+      if (f.cols) {
+        const incoming = { ...EMPTY_COLS, ...f.cols };
+        delete incoming.statuses;
+        setCols(incoming);
+      }
     },
   });
 
@@ -170,7 +169,6 @@ export default function EmployerReferralPage() {
       }
       if (cols.orgs.length && !cols.orgs.includes(orgLabel(r))) return false;
       if (cols.domains.length && !cols.domains.includes(domainLabel(r))) return false;
-      if (cols.statuses.length && !cols.statuses.includes(statusLabel(r))) return false;
       if (cols.points.length && !cols.points.includes(pointsLabel(r))) return false;
       if (!inDateRange(r.created_at, cols.dateFrom, cols.dateTo)) return false;
       return true;
@@ -181,7 +179,6 @@ export default function EmployerReferralPage() {
     () => ({
       orgs: uniqSorted(referrals.map(orgLabel)),
       domains: uniqSorted(referrals.map(domainLabel)),
-      statuses: uniqSorted(referrals.map(statusLabel)),
       points: uniqSorted(referrals.map(pointsLabel)),
     }),
     [referrals],
@@ -459,17 +456,19 @@ export default function EmployerReferralPage() {
             activeCount={colsActive}
             onClear={() => setCols(EMPTY_COLS)}
           >
-            <IpMultiCheckFilter
+            <IpSearchableMultiFilter
               label="Organization Name"
               options={optionLists.orgs}
               values={cols.orgs}
               onChange={(orgs) => setCols((c) => ({ ...c, orgs }))}
+              placeholder="Search organizations…"
             />
-            <IpMultiCheckFilter
+            <IpSearchableMultiFilter
               label="Domain"
               options={optionLists.domains}
               values={cols.domains}
               onChange={(domains) => setCols((c) => ({ ...c, domains }))}
+              placeholder="Search domains…"
             />
             <IpDateRangeFilter
               label="Date Joined"
@@ -478,17 +477,12 @@ export default function EmployerReferralPage() {
               onFrom={(dateFrom) => setCols((c) => ({ ...c, dateFrom }))}
               onTo={(dateTo) => setCols((c) => ({ ...c, dateTo }))}
             />
-            <IpMultiCheckFilter
-              label="Status"
-              options={optionLists.statuses}
-              values={cols.statuses}
-              onChange={(statuses) => setCols((c) => ({ ...c, statuses }))}
-            />
-            <IpMultiCheckFilter
+            <IpSearchableMultiFilter
               label="Points Rewarded"
               options={optionLists.points}
               values={cols.points}
               onChange={(points) => setCols((c) => ({ ...c, points }))}
+              placeholder="Search points…"
             />
           </IpTableFiltersShell>
           </>

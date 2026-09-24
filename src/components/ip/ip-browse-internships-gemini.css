@@ -683,6 +683,25 @@
   flex-direction: column;
   gap: 0.35rem;
   grid-column: 1 / -1;
+  align-items: flex-start;
+}
+.ip-browse .ip-br-city-filter .ip-sms {
+  width: 100%;
+}
+.ip-browse .ip-br-city-filter .ip-sms-chips {
+  width: fit-content;
+  max-width: 100%;
+}
+.ip-browse .ip-br-city-filter .ip-sms-chip {
+  pointer-events: none;
+}
+.ip-browse .ip-br-city-filter .ip-sms-chip__x {
+  pointer-events: auto;
+}
+.ip-browse .ip-br-city-filter__label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #0f172a;
 }
 .ip-browse .ip-br-city-hint {
   font-size: 0.75rem;

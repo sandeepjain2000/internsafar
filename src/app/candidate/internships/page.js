@@ -365,8 +365,8 @@ export default function BrowseInternshipsPage() {
                 {START_DATE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </label>
-            <label className="ip-br-city-filter">
-              Region
+            <div className="ip-br-city-filter">
+              <span className="ip-br-city-filter__label">Region</span>
               <span className="ip-br-city-hint">Filter internships by employer region.</span>
               <SearchableMultiSelect
                 options={countryOptions}
@@ -377,9 +377,9 @@ export default function BrowseInternshipsPage() {
                 emptyHint="No regions"
                 loading={countriesLoading && !(countryOptions || []).length}
               />
-            </label>
-            <label className="ip-br-city-filter">
-              Work location (city)
+            </div>
+            <div className="ip-br-city-filter">
+              <span className="ip-br-city-filter__label">Work location (city)</span>
               <span className="ip-br-city-hint">Searchable multi-select of work cities (separate from screening questions).</span>
               <SearchableMultiSelect
                 options={browseCityOptions}
@@ -389,7 +389,7 @@ export default function BrowseInternshipsPage() {
                 placeholder="Type to search cities…"
                 ariaLabel="Work location cities"
               />
-            </label>
+            </div>
             <label>
               Candidate Match %
               <select value={minMatch} onChange={(e) => setMinMatch(e.target.value)}>

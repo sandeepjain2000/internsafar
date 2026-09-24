@@ -17,7 +17,7 @@ import {
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import {
   IpDateRangeFilter,
-  IpMultiCheckFilter,
+  IpSearchableMultiFilter,
   IpTableFiltersShell,
 } from '@/components/ip/IpTableFiltersShell';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
@@ -34,7 +34,6 @@ const EMPTY_COLS = {
   titles: [],
   stipends: [],
   applicants: [],
-  statuses: [],
   dateFrom: '',
   dateTo: '',
 };
@@ -143,7 +142,11 @@ export default function EmployerInternshipsPage() {
       const f = s.filters || {};
       if (f.searchQuery != null) setSearchQuery(f.searchQuery);
       if (f.statusFilter) setStatusFilter(f.statusFilter);
-      if (f.cols) setCols({ ...EMPTY_COLS, ...f.cols });
+      if (f.cols) {
+        const incoming = { ...EMPTY_COLS, ...f.cols };
+        delete incoming.statuses;
+        setCols(incoming);
+      }
     },
   });
 
@@ -177,7 +180,6 @@ export default function EmployerInternshipsPage() {
       if (cols.titles.length && !cols.titles.includes(String(i.title || ''))) return false;
       if (cols.stipends.length && !cols.stipends.includes(stipendLabel(i))) return false;
       if (cols.applicants.length && !cols.applicants.includes(applicantsLabel(i))) return false;
-      if (cols.statuses.length && !cols.statuses.includes(statusBadgeText(bucket))) return false;
       if (!inDateRange(i.created_at || i.published_at, cols.dateFrom, cols.dateTo)) return false;
       return true;
     });
@@ -188,9 +190,6 @@ export default function EmployerInternshipsPage() {
       titles: uniqSorted(items.map((i) => i.title)),
       stipends: uniqSorted(items.map(stipendLabel)),
       applicants: uniqSorted(items.map(applicantsLabel)),
-      statuses: uniqSorted(
-        items.map((i) => statusBadgeText(statusBucket(i.status, i.lifecycle_label))),
-      ),
     };
   }, [items]);
 
@@ -451,29 +450,26 @@ export default function EmployerInternshipsPage() {
             activeCount={colsActive}
             onClear={() => setCols(EMPTY_COLS)}
           >
-            <IpMultiCheckFilter
+            <IpSearchableMultiFilter
               label="Title"
               options={optionLists.titles}
               values={cols.titles}
               onChange={(titles) => setCols((c) => ({ ...c, titles }))}
+              placeholder="Search titles…"
             />
-            <IpMultiCheckFilter
+            <IpSearchableMultiFilter
               label="Stipend"
               options={optionLists.stipends}
               values={cols.stipends}
               onChange={(stipends) => setCols((c) => ({ ...c, stipends }))}
+              placeholder="Search stipends…"
             />
-            <IpMultiCheckFilter
+            <IpSearchableMultiFilter
               label="Applicants"
               options={optionLists.applicants}
               values={cols.applicants}
               onChange={(applicants) => setCols((c) => ({ ...c, applicants }))}
-            />
-            <IpMultiCheckFilter
-              label="Status"
-              options={optionLists.statuses}
-              values={cols.statuses}
-              onChange={(statuses) => setCols((c) => ({ ...c, statuses }))}
+              placeholder="Search applicant counts…"
             />
             <IpDateRangeFilter
               label="Posted date"
