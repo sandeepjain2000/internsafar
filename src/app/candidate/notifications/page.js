@@ -276,14 +276,50 @@ export default function CandidateNotificationsPage() {
               </button>
             ) : null}
           </div>
-          <button
-            type="button"
-            className={`ip-cn-filters-btn${filtersOpen || filter !== 'all' ? ' is-on' : ''}`}
-            onClick={() => setFiltersOpen(true)}
-          >
-            Filters
-            {filter !== 'all' ? <span className="ip-cn-filters-chip">1</span> : null}
-          </button>
+          <div className="ip-cn-filters-wrap">
+            <button
+              type="button"
+              className={`ip-cn-filters-btn${filtersOpen || filter !== 'all' ? ' is-on' : ''}`}
+              aria-expanded={filtersOpen}
+              aria-controls="ip-cn-filters-panel"
+              onClick={() => setFiltersOpen((v) => !v)}
+            >
+              Filters
+              {filter !== 'all' ? (
+                <span className="ip-cn-filters-chip">
+                  {FILTERS.find((f) => f.id === filter)?.label || '1'}
+                </span>
+              ) : null}
+            </button>
+            {filtersOpen ? (
+              <div id="ip-cn-filters-panel" className="ip-cn-filters-panel" role="listbox" aria-label="Notification filters">
+                {FILTERS.map((f) => {
+                  const Icon = f.Icon;
+                  const count = counts[f.id] ?? 0;
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      role="option"
+                      aria-selected={filter === f.id}
+                      className={filter === f.id ? 'is-on' : undefined}
+                      onClick={() => {
+                        setFilter(f.id);
+                        setFiltersOpen(false);
+                      }}
+                    >
+                      {f.unreadDot ? <span className="ip-cn-dot" aria-hidden /> : null}
+                      {Icon ? <Icon size={14} aria-hidden /> : null}
+                      <span>{f.label}</span>
+                      {f.id === 'all' || f.id === 'unread' || count > 0 ? (
+                        <span className="ip-cn-tab-count">{count}</span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
           <div className="ip-cn-showing">
             Showing:{' '}
             <strong style={{ color: '#0f172a' }}>
@@ -321,6 +357,7 @@ export default function CandidateNotificationsPage() {
         <ListPresetsBar {...prefs} selectionResetKey={presetResetKey} />
       </div>
 
+      {/* Mobile bottom sheet — CSS shows it only ≤767px; desktop uses the Filters dropdown */}
       {filtersOpen ? (
         <>
           <button

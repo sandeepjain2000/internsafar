@@ -846,8 +846,7 @@
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
 }
 
-/* Desktop: hide mobile-only chrome */
-.ip-cand-nf .ip-cn-filters-btn,
+/* Desktop: mobile sheet/scrim only — Filters button stays available */
 .ip-cand-nf .ip-cn-sheet-scrim,
 .ip-cand-nf .ip-cn-sheet {
   display: none;
@@ -948,6 +947,10 @@
   }
 
   .ip-cand-nf .ip-cn-tabs--desk {
+    display: none;
+  }
+
+  .ip-cand-nf .ip-cn-filters-panel {
     display: none;
   }
 

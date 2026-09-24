@@ -357,9 +357,9 @@ export default function MessagesSplitPane({ role = 'employer' }) {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [inboxMeta, setInboxMeta] = useState({ unread: 0, action: 0 });
-  // Advanced filters — one per inbox table column. Saved views carry these for both roles.
+  // Column filters — one per inbox table column. Saved views carry these for both roles.
   const [cols, setCols] = useState(EMPTY_COLS);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   const snapshot = useMemo(
     () => ({ filters: { tab, search, cols }, sort }),
@@ -379,6 +379,29 @@ export default function MessagesSplitPane({ role = 'employer' }) {
   });
 
   const colsActive = Object.entries(cols).some(([k, v]) => v !== EMPTY_COLS[k]);
+
+  const statusOptions = useMemo(() => {
+    const known = [
+      'New',
+      'Open',
+      'applied',
+      'pending',
+      'shortlisted',
+      'interviewing',
+      'offered',
+      'rejected',
+      'withdrawn',
+      'hired',
+      'completed',
+      'declined_offer',
+    ];
+    const fromThreads = threads.map(
+      (t) => t.application_status || (Number(t.message_count) ? 'Open' : 'New'),
+    );
+    return [...new Set([...known, ...fromThreads].map(String).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b),
+    );
+  }, [threads]);
 
   function showToast(msg) {
     setToast(msg);
@@ -430,7 +453,12 @@ export default function MessagesSplitPane({ role = 'employer' }) {
       if (!has(counterpartName(t, role), cols.party)) return false;
       if (!has(roleLine(t), cols.internship)) return false;
       if (!has(t.last_message || t.subject, cols.preview)) return false;
-      if (!has(t.application_status || (Number(t.message_count) ? 'Open' : 'New'), cols.status)) return false;
+      {
+        const statusLabel = t.application_status || (Number(t.message_count) ? 'Open' : 'New');
+        if (cols.status && String(statusLabel).toLowerCase() !== String(cols.status).toLowerCase()) {
+          return false;
+        }
+      }
       if (!withinWhen(t.last_message_at || t.updated_at, cols.when)) return false;
       if (!q) return true;
       const hay = `${counterpartName(t, role)} ${t.internship_title || ''} ${t.subject || ''} ${t.last_message || ''} ${t.candidate_college || ''} ${t.employer_name || ''} ${t.company_name || ''}`.toLowerCase();
@@ -653,11 +681,11 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                 <button
                   type="button"
                   className="ip-cm-adv-toggle"
-                  aria-expanded={showAdvanced}
-                  onClick={() => setShowAdvanced((v) => !v)}
+                  aria-expanded={showFilters}
+                  onClick={() => setShowFilters((v) => !v)}
                 >
                   <SlidersHorizontal className="size-3.5" aria-hidden />
-                  Advanced filters
+                  Filters
                   {colsActive ? <span className="ip-cm-adv-dot" aria-label="Filters active" /> : null}
                 </button>
                 {colsActive ? (
@@ -666,7 +694,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                   </button>
                 ) : null}
               </div>
-              {showAdvanced ? (
+              {showFilters ? (
                 <div className="ip-cm-adv-grid">
                   {[
                     ['party', 'From'],
@@ -696,12 +724,16 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                   </label>
                   <label>
                     <span>Status</span>
-                    <input
-                      type="search"
+                    <select
                       value={cols.status}
                       onChange={(e) => setCols((c) => ({ ...c, status: e.target.value }))}
-                      placeholder="Filter by status"
-                    />
+                      aria-label="Filter by status"
+                    >
+                      <option value="">Any status</option>
+                      {statusOptions.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
                   </label>
                 </div>
               ) : null}
@@ -1082,11 +1114,11 @@ export default function MessagesSplitPane({ role = 'employer' }) {
               <button
                 type="button"
                 className="ip-cm-adv-toggle"
-                aria-expanded={showAdvanced}
-                onClick={() => setShowAdvanced((v) => !v)}
+                aria-expanded={showFilters}
+                onClick={() => setShowFilters((v) => !v)}
               >
                 <SlidersHorizontal className="size-3.5" aria-hidden />
-                Advanced filters
+                Filters
                 {colsActive ? <span className="ip-cm-adv-dot" aria-label="Filters active" /> : null}
               </button>
               {colsActive ? (
@@ -1096,7 +1128,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
               ) : null}
             </div>
 
-            {showAdvanced ? (
+            {showFilters ? (
               <div className="ip-cm-adv-grid">
                 {[
                   ['party', 'Candidate'],
@@ -1126,12 +1158,16 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                 </label>
                 <label>
                   <span>Status</span>
-                  <input
-                    type="search"
+                  <select
                     value={cols.status}
                     onChange={(e) => setCols((c) => ({ ...c, status: e.target.value }))}
-                    placeholder="Filter by status"
-                  />
+                    aria-label="Filter by status"
+                  >
+                    <option value="">Any status</option>
+                    {statusOptions.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
                 </label>
               </div>
             ) : null}
