@@ -1,6 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { candidate } = require('../helpers/accounts');
 const { openWithSession, apiLogin } = require('../helpers/login');
+const { openTableFilters } = require('../helpers/ipTableFilters');
 
 /**
  * Candidate product journeys (behavior, not route-load only).
@@ -49,8 +50,8 @@ test.describe('InternSafar journeys — candidate', () => {
 
     await page.goto('/candidate/internships', { waitUntil: 'domcontentloaded' });
     await expect(page).toHaveURL(/\/candidate\/internships/, { timeout: 25_000 });
-    await page.locator('button.ip-br-btn').filter({ hasText: /Filter/i }).first().click();
-    await expect(page.locator('.ip-br-drawer')).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('.ip-br-drawer label').filter({ hasText: /Start date/i })).toBeVisible();
+    const { panel } = await openTableFilters(page);
+    await expect(panel).toBeVisible({ timeout: 10_000 });
+    await expect(panel.locator('label').filter({ hasText: /Start date/i })).toBeVisible();
   });
 });

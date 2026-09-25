@@ -1,7 +1,7 @@
 # InternSafar — Project Context Index (Level 1)
 
 Compact map for AI agents. **Not** a full README of the product.  
-**Inspected from live sibling app:** 2026-09-24 (AWS handoff + `qa:e2e:aws` refresh).
+**Inspected from live sibling app:** 2026-09-25 (QA hang guards + IpTableFiltersShell locator helper).
 
 After this file: open `FOLDER_STRUCTURE.md` to locate paths, then **one** `domains/*.md`, then live source.
 

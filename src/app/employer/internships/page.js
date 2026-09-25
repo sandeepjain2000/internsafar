@@ -4,14 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  MessageCircle,
   Pause,
   Pencil,
   Play,
   Plus,
   Search,
   Share2,
-  TrendingUp,
   Users,
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
@@ -21,7 +19,7 @@ import {
   IpTableFiltersShell,
 } from '@/components/ip/IpTableFiltersShell';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
-import UrlClaimDialog from '@/components/ip/UrlClaimDialog';
+import SharePostingDialog from '@/components/ip/SharePostingDialog';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 import '@/components/ip/ip-employer-postings-gemini.css';
@@ -127,9 +125,11 @@ export default function EmployerInternshipsPage() {
   const [busyId, setBusyId] = useState('');
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
-  const [promoteFor, setPromoteFor] = useState(null);
-  const [claimOpen, setClaimOpen] = useState(false);
+  const [shareFor, setShareFor] = useState(null);
+  const [shareOpen, setShareOpen] = useState(false);
   const [pendingPromotion, setPendingPromotion] = useState(null);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareError, setShareError] = useState('');
 
   const snapshot = useMemo(
     () => ({ filters: { searchQuery, statusFilter, cols }, sort: '' }),
@@ -225,62 +225,72 @@ export default function EmployerInternshipsPage() {
     }
   }
 
-  async function startPromote(i) {
-    setBusyId(i.id);
-    setError('');
+  async function startLinkedInPromo() {
+    if (!shareFor?.id) throw new Error('No Posting Selected');
+    setShareBusy(true);
+    setShareError('');
     setMsg('');
     try {
       const res = await fetch('/api/ip/promotions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ internshipId: i.id }),
+        body: JSON.stringify({ internshipId: shareFor.id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(data.error || 'Could Not Open LinkedIn Share');
       window.open(
         `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(data.shareUrl)}`,
-        '_blank'
+        '_blank',
+        'noreferrer',
       );
       setPendingPromotion(data);
-      setPromoteFor(i);
-      setClaimOpen(true);
-      setMsg(`Promotion created. Include token ${data.token} in your post.`);
+      setMsg(`LinkedIn Share Opened. Include Share Code ${data.token} In Your Post.`);
+      return data;
     } catch (e) {
-      setError(e.message);
+      setShareError(e.message || 'Could Not Open LinkedIn Share');
+      throw e;
     } finally {
-      setBusyId('');
+      setShareBusy(false);
     }
   }
 
   async function submitClaimUrl(postUrl) {
     if (!pendingPromotion?.id) return;
-    setError('');
+    setShareBusy(true);
+    setShareError('');
     try {
-      await fetch(`/api/ip/promotions/${pendingPromotion.id}`, {
+      const res = await fetch(`/api/ip/promotions/${pendingPromotion.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ claimedPostUrl: postUrl }),
       });
-      setMsg('Submitted for SuperAdmin fast-track verification.');
-    } catch (e) {
-      setError(e.message || 'Failed to submit URL');
-    } finally {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed To Submit URL');
+      setMsg('Submitted For SuperAdmin Fast-Track Verification.');
       setPendingPromotion(null);
-      setPromoteFor(null);
+      setShareFor(null);
+      setShareOpen(false);
+    } catch (e) {
+      setShareError(e.message || 'Failed To Submit URL');
+    } finally {
+      setShareBusy(false);
     }
   }
 
-  function share(i) {
+  function whatsappShareUrl(i) {
     const url = `${window.location.origin}/candidate/internships/${i.id}`;
     const text = encodeURIComponent(`We're hiring: ${i.title}`);
-    return {
-      whatsapp: `https://wa.me/?text=${text}%20${encodeURIComponent(url)}`,
-      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
-    };
+    return `https://wa.me/?text=${text}%20${encodeURIComponent(url)}`;
+  }
+
+  function openShare(i) {
+    setShareError('');
+    setPendingPromotion(null);
+    setShareFor(i);
+    setShareOpen(true);
   }
 
   function renderRowActions(i) {
-    const links = share(i);
     return (
       <div className="ip-epo-row-actions">
         <button
@@ -346,28 +356,9 @@ export default function EmployerInternshipsPage() {
         <button
           type="button"
           className="ip-epo-btn ip-epo-btn--icon"
-          title="Promote + verify"
-          aria-label="Promote + verify"
-          disabled={busyId === i.id}
-          onClick={() => startPromote(i)}
-        >
-          <TrendingUp className="size-4" />
-        </button>
-        <button
-          type="button"
-          className="ip-epo-btn ip-epo-btn--icon"
-          title="Share on WhatsApp"
-          aria-label="Share on WhatsApp"
-          onClick={() => window.open(links.whatsapp, '_blank', 'noreferrer')}
-        >
-          <MessageCircle className="size-4" />
-        </button>
-        <button
-          type="button"
-          className="ip-epo-btn ip-epo-btn--icon"
-          title="Share on LinkedIn"
-          aria-label="Share on LinkedIn"
-          onClick={() => window.open(links.linkedin, '_blank', 'noreferrer')}
+          title="Share Posting"
+          aria-label="Share Posting"
+          onClick={() => openShare(i)}
         >
           <Share2 className="size-4" />
         </button>
@@ -415,7 +406,7 @@ export default function EmployerInternshipsPage() {
         <div className="ip-epo-toolbar">
           <div>
             <h2>Manage Postings</h2>
-            <p>Publish, pause, promote, or edit active listings.</p>
+            <p>Publish, pause, share, or edit active listings.</p>
           </div>
           <div className="ip-epo-filters">
             <div className="ip-epo-search">
@@ -611,19 +602,27 @@ export default function EmployerInternshipsPage() {
         ) : null}
       </section>
 
-      <UrlClaimDialog
-        open={claimOpen}
+      <SharePostingDialog
+        open={shareOpen}
         onOpenChange={(open) => {
-          setClaimOpen(open);
+          setShareOpen(open);
           if (!open) {
+            setShareFor(null);
             setPendingPromotion(null);
-            setPromoteFor(null);
+            setShareError('');
           }
         }}
-        title={promoteFor ? `Fast-track: ${promoteFor.title}` : 'Paste LinkedIn post URL'}
-        description="Optional. Paste the public LinkedIn post URL after sharing, or cancel to skip fast-track."
-        confirmLabel="Submit for verification"
-        onConfirm={submitClaimUrl}
+        postingTitle={shareFor?.title || ''}
+        busy={shareBusy}
+        error={shareError}
+        onWhatsApp={() => {
+          if (!shareFor) return;
+          window.open(whatsappShareUrl(shareFor), '_blank', 'noreferrer');
+          setShareOpen(false);
+          setShareFor(null);
+        }}
+        onStartLinkedInPromo={startLinkedInPromo}
+        onSubmitClaim={submitClaimUrl}
       />
     </div>
   );

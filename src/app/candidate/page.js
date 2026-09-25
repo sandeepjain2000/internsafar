@@ -212,7 +212,18 @@ export default function CandidateDashboard() {
   const readiness = useMemo(() => profileReadiness(profile), [profile]);
 
   const pendingOffers = useMemo(
-    () => offers.filter((o) => String(o.status).toLowerCase() === 'pending').slice(0, 2),
+    () =>
+      offers
+        .filter((o) => {
+          if (String(o.status).toLowerCase() !== 'pending') return false;
+          // Exclude past-deadline offers from actionable pending (Offers page still lists them as Expired)
+          if (o.valid_until) {
+            const end = new Date(o.valid_until).getTime();
+            if (!Number.isNaN(end) && end < Date.now()) return false;
+          }
+          return true;
+        })
+        .slice(0, 2),
     [offers],
   );
 

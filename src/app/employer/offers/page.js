@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
-import { useIsMobile } from '@/hooks/useViewMode';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import IpListPager from '@/components/ip/IpListPager';
 import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
@@ -173,10 +172,8 @@ export default function EmployerOffersPage() {
   const [endorseForm, setEndorseForm] = useState({ periodLabel: '', skillsEndorsed: '' });
   const [rateFor, setRateFor] = useState(null);
   const [stars, setStars] = useState(5);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [cols, setCols] = useState(EMPTY_COLS);
   const [colFiltersOpen, setColFiltersOpen] = useState(false);
-  const isMobile = useIsMobile();
 
   const snapshot = useMemo(() => ({ filters: { tab, q, cols }, sort: '' }), [tab, q, cols]);
   const prefs = useListPrefsSync({
@@ -191,13 +188,6 @@ export default function EmployerOffersPage() {
   });
 
   const colsActive = countActiveCols(cols);
-  const filterActive = Boolean(q.trim()) || tab !== 'All' || colsActive > 0;
-
-  function resetFilters() {
-    setQ('');
-    setTab('All');
-    setCols(EMPTY_COLS);
-  }
 
   async function load() {
     setLoading(true);
@@ -213,16 +203,6 @@ export default function EmployerOffersPage() {
   useEffect(() => {
     load();
   }, []);
-
-  useEffect(() => {
-    if (!isMobile) setFiltersOpen(false);
-  }, [isMobile]);
-
-  useEffect(() => {
-    if (!filtersOpen) return undefined;
-    document.body.classList.add('ip-scroll-locked');
-    return () => document.body.classList.remove('ip-scroll-locked');
-  }, [filtersOpen]);
 
   const metrics = useMemo(() => {
     const total = items.length;
@@ -499,46 +479,7 @@ export default function EmployerOffersPage() {
       </div>
 
       <div className="ip-eo-panel">
-        {/* Mobile toolbar */}
-        <div className="ip-eo-m-toolbar">
-          <div className="ip-eo-search">
-            <Search size={16} aria-hidden />
-            <input
-              type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search…"
-              aria-label="Search candidate or role"
-            />
-          </div>
-          <button
-            type="button"
-            className={`ip-eo-filters-btn${filterActive || filtersOpen ? ' is-on' : ''}`}
-            aria-expanded={filtersOpen}
-            onClick={() => setFiltersOpen(true)}
-          >
-            Filters
-            {filterActive ? <span className="ip-eo-filters-dot" aria-hidden /> : null}
-          </button>
-        </div>
-
-        <div className="ip-eo-tabstrip ip-m-tabstrip" role="tablist" aria-label="Offer status">
-          {TABS.map((t) => (
-            <button
-              key={`m-${t}`}
-              type="button"
-              role="tab"
-              aria-selected={tab === t}
-              className={`ip-eo-tab${tab === t ? ' ip-eo-tab--on' : ''}`}
-              onClick={() => setTab(t)}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-
-        {/* Desktop toolbar */}
-        <div className="ip-eo-toolbar ip-eo-toolbar--desk">
+        <div className="ip-eo-toolbar">
           <div className="ip-eo-tabs" role="tablist" aria-label="Offer status">
             {TABS.map((t) => (
               <button
@@ -564,7 +505,7 @@ export default function EmployerOffersPage() {
             />
           </div>
         </div>
-        <div className="ip-eo-presets-desk px-4 pb-3">
+        <div className="ip-eo-presets px-4 pb-3">
           <ListPresetsBar {...prefs} />
           <IpTableFiltersShell
             open={colFiltersOpen}
@@ -709,80 +650,6 @@ export default function EmployerOffersPage() {
           />
         ) : null}
       </div>
-
-      {filtersOpen ? (
-        <div className="ip-sheet is-open">
-          <button
-            type="button"
-            className="ip-sheet-scrim"
-            aria-label="Close filters"
-            onClick={() => setFiltersOpen(false)}
-          />
-          <div className="ip-sheet__panel" role="dialog" aria-label="Filter offers">
-            <div className="ip-sheet__handle" aria-hidden />
-            <div className="ip-sheet__head">
-              <h3 className="ip-sheet__title">Filters</h3>
-              <button type="button" className="ip-sheet__x" onClick={() => setFiltersOpen(false)} aria-label="Close">
-                ×
-              </button>
-            </div>
-            <div className="ip-sheet__body ip-eo-sheet-body">
-              <p className="ip-eo-sheet-hint">Status</p>
-              {TABS.map((t) => (
-                <button
-                  key={`sheet-${t}`}
-                  type="button"
-                  className={`ip-eo-sheet-opt${tab === t ? ' is-on' : ''}`}
-                  onClick={() => setTab(t)}
-                >
-                  {t}
-                </button>
-              ))}
-              <div className="ip-eo-sheet-cols">
-                <IpSearchableMultiFilter
-                  label="Candidate"
-                  options={optionLists.candidates}
-                  values={cols.candidates}
-                  onChange={(candidates) => setCols((c) => ({ ...c, candidates }))}
-                  placeholder="Search candidates…"
-                />
-                <IpSearchableMultiFilter
-                  label="Role"
-                  options={optionLists.roles}
-                  values={cols.roles}
-                  onChange={(roles) => setCols((c) => ({ ...c, roles }))}
-                  placeholder="Search roles…"
-                />
-                <IpSingleSelectFilter
-                  label="Sent"
-                  options={IP_RECEIVED_WINDOW_OPTIONS}
-                  value={cols.when}
-                  onChange={(when) => setCols((c) => ({ ...c, when }))}
-                  emptyLabel="Any time"
-                />
-                <IpDateRangeFilter
-                  label="Custom date range"
-                  from={cols.dateFrom}
-                  to={cols.dateTo}
-                  onFrom={(dateFrom) => setCols((c) => ({ ...c, dateFrom }))}
-                  onTo={(dateTo) => setCols((c) => ({ ...c, dateTo }))}
-                />
-              </div>
-              <div className="ip-eo-sheet-presets">
-                <ListPresetsBar {...prefs} />
-              </div>
-            </div>
-            <div className="ip-sheet__actions">
-              <button type="button" className="ip-eo-btn-ghost" onClick={resetFilters}>
-                Reset
-              </button>
-              <button type="button" className="ip-eo-btn-primary" onClick={() => setFiltersOpen(false)}>
-                Show {filtered.length}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {letterOffer ? (
         <div className="ip-eo-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-eo-letter-title">

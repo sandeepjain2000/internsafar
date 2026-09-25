@@ -57,10 +57,18 @@ if (suiteName && onlyFlags) {
   console.log('[internsafar-qa] suite=default (all qa/tests/*.spec.js)');
 }
 
-const child = spawn('npx', ['playwright', 'test', ...finalArgs], {
+const child = spawn(process.execPath, [
+  resolve(root, 'node_modules/@playwright/test/cli.js'),
+  'test',
+  ...finalArgs,
+], {
   cwd: root,
   stdio: 'inherit',
-  shell: process.platform === 'win32',
-  env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: browsersPath },
+  shell: false,
+  env: {
+    ...process.env,
+    PLAYWRIGHT_BROWSERS_PATH: browsersPath,
+    // Allow callers to set IP_PW_JSON_REPORT; list reporter always on via playwright.config.js
+  },
 });
 child.on('exit', (code) => process.exit(code ?? 1));

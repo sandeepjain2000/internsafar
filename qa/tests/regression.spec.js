@@ -3,6 +3,7 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const { candidate, employer, superadmin } = require('../helpers/accounts');
 const { openWithSession, signOut, apiLogin } = require('../helpers/login');
+const { openTableFilters } = require('../helpers/ipTableFilters');
 
 /**
  * InternSafar regression smoke (IS-* ids) applied into
@@ -313,9 +314,9 @@ test.describe('InternSafar regression', () => {
   test('IS-064 browse filters include start date', async ({ page }) => {
     await openWithSession(page, candidate.email, '/candidate/internships');
     await expect(page).toHaveURL(/\/candidate\/internships/, { timeout: 25_000 });
-    await page.locator('button.ip-br-btn').filter({ hasText: /Filter/i }).first().click();
-    await expect(page.locator('.ip-br-drawer')).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('.ip-br-drawer label').filter({ hasText: /Start date/i })).toBeVisible();
-    await expect(page.locator('.ip-br-drawer option', { hasText: 'Starts within 30 days' })).toBeAttached();
+    const { panel } = await openTableFilters(page);
+    await expect(panel).toBeVisible({ timeout: 10_000 });
+    await expect(panel.locator('label').filter({ hasText: /Start date/i })).toBeVisible();
+    await expect(panel.locator('option', { hasText: 'Starts within 30 days' })).toBeAttached();
   });
 });

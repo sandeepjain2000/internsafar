@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bookmark, Search, SlidersHorizontal, Star } from 'lucide-react';
+import { Bookmark, Search, Star } from 'lucide-react';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
@@ -14,7 +14,9 @@ import useIpCountryCatalog from '@/hooks/useIpCountryCatalog';
 import { POINTS_PER_APPLICATION } from '@/lib/pointsEconomy';
 import ValidationScoreButton from '@/components/ip/ValidationScoreButton';
 import IpListPager from '@/components/ip/IpListPager';
+import { IpTableFiltersShell } from '@/components/ip/IpTableFiltersShell';
 import '@/components/ip/ip-browse-internships-gemini.css';
+import '@/components/ip/ip-table-filters.css';
 import '@/components/ip/ip-list-pager.css';
 import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
 
@@ -308,16 +310,6 @@ export default function BrowseInternshipsPage() {
             ) : null}
           </div>
           <div className="ip-br-toolbar__actions">
-            <button
-              type="button"
-              className={`ip-br-btn ip-br-btn--ghost${filtersOpen ? ' is-on' : ''}`}
-              onClick={() => setFiltersOpen((v) => !v)}
-            >
-              <SlidersHorizontal />
-              <span className="ip-br-filter-desk">Filter Options</span>
-              <span className="ip-br-filter-mob">Filters</span>
-              {filtersActiveCount > 0 ? <span className="ip-br-dot">{filtersActiveCount}</span> : null}
-            </button>
             <label className="ip-br-sort">
               <span>Sort:</span>
               <select value={sort} onChange={(e) => setSort(e.target.value)}>
@@ -328,19 +320,14 @@ export default function BrowseInternshipsPage() {
             </label>
           </div>
         </div>
-        <div className="mt-3">
-          <ListPresetsBar {...prefs} selectionResetKey={presetResetKey} />
-        </div>
 
-        {filtersOpen ? (
-          <>
-          <button type="button" className="ip-br-sheet-scrim" aria-label="Close filters" onClick={() => setFiltersOpen(false)} />
-          <div className="ip-br-drawer" role="dialog" aria-label="Filter internships">
-            <div className="ip-br-sheet-handle" aria-hidden />
-            <div className="ip-br-sheet-head">
-              <h3>Filter Internships</h3>
-              <button type="button" className="ip-br-sheet-x" onClick={() => setFiltersOpen(false)} aria-label="Close filters">×</button>
-            </div>
+        <IpTableFiltersShell
+          open={filtersOpen}
+          onToggle={() => setFiltersOpen((v) => !v)}
+          activeCount={filtersActiveCount}
+          onClear={resetFilters}
+        >
+          <div className="ip-br-filter-grid">
             <label>
               Work Mode / internship type
               <select value={workMode} onChange={(e) => setWorkMode(e.target.value)}>
@@ -407,13 +394,12 @@ export default function BrowseInternshipsPage() {
                 placeholder="Any"
               />
             </label>
-            <div className="ip-br-sheet-actions">
-              <button type="button" className="ip-br-btn ip-br-btn--ghost" onClick={resetFilters}>Clear All</button>
-              <button type="button" className="ip-br-btn ip-br-btn--primary" onClick={() => setFiltersOpen(false)}>Apply Filters</button>
-            </div>
           </div>
-          </>
-        ) : null}
+        </IpTableFiltersShell>
+
+        <div className="mt-3">
+          <ListPresetsBar {...prefs} selectionResetKey={presetResetKey} />
+        </div>
 
         <div className="ip-br-tabs">
           <div className="ip-br-tabs__list">
@@ -472,6 +458,7 @@ export default function BrowseInternshipsPage() {
                   <th>Duration</th>
                   <th>Stipend</th>
                   <th>Match</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -482,12 +469,9 @@ export default function BrowseInternshipsPage() {
                   <tr key={i.id}>
                     <td className="ip-br-num">{serialOffset + idx + 1}</td>
                     <td>
-                      <div className="ip-br-cell-stack">
-                        <button type="button" className="ip-ph-role" onClick={() => router.push(`/candidate/internships/${i.id}`)}>
-                          {i.title}
-                        </button>
-                        {i.applied ? <span className="ip-br-applied">Applied</span> : null}
-                      </div>
+                      <button type="button" className="ip-ph-role" onClick={() => router.push(`/candidate/internships/${i.id}`)}>
+                        {i.title}
+                      </button>
                     </td>
                     <td>
                       {canLinkEmployer ? (
@@ -507,6 +491,13 @@ export default function BrowseInternshipsPage() {
                     <td>{durationLabel(i)}</td>
                     <td>{stipendLabel(i)}</td>
                     <td>{i.match_score != null ? `${Math.round(Number(i.match_score))}%` : '—'}</td>
+                    <td>
+                      {i.applied ? (
+                        <span className="ip-br-applied ip-br-applied--list">Applied</span>
+                      ) : (
+                        <span className="ip-br-status-empty">—</span>
+                      )}
+                    </td>
                   </tr>
                   );
                 })}

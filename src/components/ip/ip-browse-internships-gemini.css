@@ -160,8 +160,10 @@
 }
 
 .ip-browse .ip-br-search input,
-.ip-browse .ip-br-drawer select,
-.ip-browse .ip-br-drawer input,
+.ip-browse .ip-br-filter-grid select,
+.ip-browse .ip-br-filter-grid input,
+.ip-browse .ip-tf__panel select,
+.ip-browse .ip-tf__panel input,
 .ip-browse .ip-br-sort select {
   width: 100%;
   border: 1px solid #e2e8f0;
@@ -179,8 +181,10 @@
 }
 
 .ip-browse .ip-br-search input:focus,
-.ip-browse .ip-br-drawer select:focus,
-.ip-browse .ip-br-drawer input:focus,
+.ip-browse .ip-br-filter-grid select:focus,
+.ip-browse .ip-br-filter-grid input:focus,
+.ip-browse .ip-tf__panel select:focus,
+.ip-browse .ip-tf__panel input:focus,
 .ip-browse .ip-br-sort select:focus {
   border-color: #6366f1;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
@@ -271,33 +275,36 @@
   box-shadow: none;
 }
 
-.ip-browse .ip-br-drawer {
+.ip-browse .ip-br-filter-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #f1f5f9;
+  grid-column: 1 / -1;
 }
 
 @media (min-width: 640px) {
-  .ip-browse .ip-br-drawer {
+  .ip-browse .ip-br-filter-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (min-width: 768px) {
-  .ip-browse .ip-br-drawer {
+  .ip-browse .ip-br-filter-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
-.ip-browse .ip-br-drawer label {
+.ip-browse .ip-br-filter-grid label {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   font-size: 0.75rem;
   font-weight: 600;
   color: #334155;
+}
+
+.ip-browse .ip-tf {
+  margin-top: 0.75rem;
 }
 
 .ip-browse .ip-br-tabs {
@@ -603,6 +610,58 @@
   background: #ecfdf5;
   border: 1px solid #a7f3d0;
   border-radius: 0.5rem;
+}
+
+.ip-browse .ip-br-applied--list {
+  white-space: nowrap;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.6875rem;
+}
+
+.ip-browse .ip-br-status-empty {
+  color: #94a3b8;
+  font-size: 0.8125rem;
+}
+
+/* Keep Status visible without forcing page-level horizontal scroll */
+.ip-browse .ip-ph-list-wrap {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+.ip-browse .ip-ph-list {
+  min-width: 0 !important;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.ip-browse .ip-ph-list th,
+.ip-browse .ip-ph-list td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  padding: 0.65rem 0.55rem;
+}
+
+.ip-browse .ip-ph-list th:first-child,
+.ip-browse .ip-ph-list td:first-child {
+  width: 2.25rem;
+  white-space: nowrap;
+}
+
+.ip-browse .ip-ph-list th:last-child,
+.ip-browse .ip-ph-list td:last-child {
+  width: 5.25rem;
+  white-space: nowrap;
+}
+
+.ip-browse .ip-ph-list .ip-ph-role {
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+  height: auto;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.5rem;
 }
 
 .ip-browse .ip-br-empty {
@@ -986,82 +1045,15 @@
     font-size: 0.65rem;
   }
 
-  .ip-browse .ip-br-sheet-scrim {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 40;
-    background: rgba(15, 23, 42, 0.5);
-    border: none;
-    padding: 0;
-    cursor: pointer;
+  .ip-browse .ip-tf {
+    padding: 0 1rem;
   }
 
-  .ip-browse .ip-br-drawer {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 50;
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-    max-height: 85vh;
-    overflow: auto;
-    padding: 0.75rem 1.15rem 1.25rem;
-    background: #fff;
-    border: none;
-    border-radius: 1.5rem 1.5rem 0 0;
-    box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.12);
-  }
-
-  .ip-browse .ip-br-sheet-handle {
-    display: block;
-    width: 2.5rem;
-    height: 0.25rem;
-    margin: 0.15rem auto 0.25rem;
-    border-radius: 999px;
-    background: #cbd5e1;
-  }
-
-  .ip-browse .ip-br-sheet-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid #f1f5f9;
-  }
-
-  .ip-browse .ip-br-sheet-head h3 {
-    font-size: 1rem;
-    font-weight: 700;
-    color: #0f172a;
-  }
-
-  .ip-browse .ip-br-sheet-x {
-    border: none;
-    background: transparent;
-    color: #94a3b8;
-    font-size: 1.35rem;
-    line-height: 1;
-    cursor: pointer;
-  }
-
-  .ip-browse .ip-br-sheet-actions {
-    display: flex;
-    gap: 0.75rem;
-    padding-top: 0.35rem;
-  }
-
-  .ip-browse .ip-br-sheet-actions .ip-br-btn {
-    flex: 1;
+  .ip-browse .ip-tf__btn {
+    width: 100%;
     min-height: 2.75rem;
-  }
-
-  .ip-browse .ip-br-sheet-actions .ip-br-btn--ghost {
-    background: #fff;
-    color: #475569;
-    border: 1px solid #e2e8f0;
+    justify-content: center;
+    height: auto;
   }
 
   .ip-browse .ip-br-mcount {

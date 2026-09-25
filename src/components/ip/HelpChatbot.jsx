@@ -41,6 +41,7 @@ export default function HelpChatbot() {
     newMsg({ role: 'assistant', content: welcome }),
   ]);
   const [feedbackFor, setFeedbackFor] = useState(null);
+  const [lastFailedQuestion, setLastFailedQuestion] = useState('');
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const welcomeRoleRef = useRef(role);
@@ -72,8 +73,34 @@ export default function HelpChatbot() {
     setShowStarters(true);
     setFollowUps([]);
     setFeedbackFor(null);
+    setLastFailedQuestion('');
     setInput('');
     setMessages([newMsg({ role: 'assistant', content: welcome })]);
+  }
+
+  async function postHelp(q, historyMessages) {
+    const res = await fetch('/api/ip/help-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: q,
+        history: historyMessages
+          .filter((m) => m.role === 'user' || m.role === 'assistant')
+          .map((m) => ({ role: m.role, content: m.content })),
+        page: { pathname },
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { res, data };
+  }
+
+  function isTransientHelpFailure(res, data, err) {
+    if (err) return true;
+    if (res?.status === 429 || res?.status >= 500) return true;
+    const fallback = String(data?.fallbackState || '');
+    if (fallback === 'service_unavailable') return true;
+    const msg = String(data?.error || data?.answer || data?.reply || '').toLowerCase();
+    return /temporarily unavailable|rate limit|try again|busy/.test(msg);
   }
 
   async function ask(question) {
@@ -81,6 +108,7 @@ export default function HelpChatbot() {
     if (!q || busy || inFlightRef.current) return;
     inFlightRef.current = true;
     setError('');
+    setLastFailedQuestion('');
     setShowStarters(false);
     setFollowUps([]);
     setFeedbackFor(null);
@@ -88,24 +116,21 @@ export default function HelpChatbot() {
     const nextMessages = [...messages, newMsg({ role: 'user', content: q })];
     setMessages(nextMessages);
     setInput('');
+    const historyForApi = nextMessages.slice(0, -1);
     try {
-      const res = await fetch('/api/ip/help-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: q,
-          history: nextMessages
-            .slice(0, -1)
-            .filter((m) => m.role === 'user' || m.role === 'assistant')
-            .map((m) => ({ role: m.role, content: m.content })),
-          page: { pathname },
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
+      let { res, data } = await postHelp(q, historyForApi);
+      // One automatic retry for flaky provider / timeout / 429 / service_unavailable
+      if (isTransientHelpFailure(res, data, null) && (!res.ok || data.fallbackState === 'service_unavailable')) {
+        await new Promise((r) => setTimeout(r, 900));
+        ({ res, data } = await postHelp(q, historyForApi));
+      }
       if (!res.ok && !data.answer && !data.reply) {
         throw new Error(data.error || 'Help request failed');
       }
       const answer = String(data.answer || data.reply || data.error || '').trim() || 'No reply returned.';
+      const stillDown = isTransientHelpFailure(res, data, null) && (
+        data.fallbackState === 'service_unavailable' || !res.ok
+      );
       setMessages((prev) => [
         ...prev,
         newMsg({
@@ -127,9 +152,13 @@ export default function HelpChatbot() {
           ),
         );
       }
-      if (!res.ok) setError(data.error || answer);
+      if (stillDown) {
+        setError(data.error || answer);
+        setLastFailedQuestion(q);
+      }
     } catch (err) {
       setError(err.message || 'Help chatbot unavailable');
+      setLastFailedQuestion(q);
       setFollowUps(helpFollowUps({ role, topic: 'troubleshooting', pathname }));
     } finally {
       setBusy(false);
@@ -310,6 +339,19 @@ export default function HelpChatbot() {
                     <br />
                     <br />
                     <span className="ip-helpbot__error-detail">{error}</span>
+                  </>
+                ) : null}
+                {lastFailedQuestion ? (
+                  <>
+                    <br />
+                    <br />
+                    <button
+                      type="button"
+                      className="ip-helpbot__retry-btn"
+                      onClick={() => void ask(lastFailedQuestion)}
+                    >
+                      Try Again
+                    </button>
                   </>
                 ) : null}
               </div>

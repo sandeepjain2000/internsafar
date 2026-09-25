@@ -856,12 +856,17 @@
   font-size: 0.75rem;
 }
 
-/* Mobile-only chrome — hidden on desktop */
+/* Legacy mobile sheet chrome removed — filters use IpTableFiltersShell */
 .ip-offers .ip-of-filters-btn,
 .ip-offers .ip-of-tabstrip,
 .ip-offers .ip-of-sheet-scrim,
 .ip-offers .ip-of-sheet {
   display: none;
+}
+
+.ip-offers .ip-of-presets {
+  display: grid;
+  gap: 0.35rem;
 }
 
 .ip-offers .ip-of-view-toggle {
@@ -913,54 +918,11 @@
     display: none;
   }
 
-  .ip-offers .ip-of-filters-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    width: 100%;
-    min-height: 2.75rem;
-    margin: 0;
+  .ip-offers .ip-of-presets {
     padding: 0 1rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.65rem;
-    background: #fff;
-    color: #1e293b;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    font-family: inherit;
-    cursor: pointer;
   }
 
-  .ip-offers .ip-of-filters-btn.is-on {
-    border-color: #c7d2fe;
-    background: #eef2ff;
-    color: #4338ca;
-  }
-
-  .ip-offers .ip-of-filters-chip {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 1.15rem;
-    height: 1.15rem;
-    padding: 0 0.3rem;
-    border-radius: 999px;
-    background: #4f46e5;
-    color: #fff;
-    font-size: 0.65rem;
-    font-weight: 700;
-  }
-
-  .ip-offers .ip-of-presets-desk {
-    display: none;
-  }
-
-  .ip-offers .ip-of-tabs--desk {
-    display: none;
-  }
-
-  .ip-offers .ip-of-tabstrip {
+  .ip-offers .ip-of-tabs {
     display: flex;
     gap: 0.4rem;
     overflow-x: auto;
@@ -969,13 +931,14 @@
     -webkit-overflow-scrolling: touch;
     background: #fff;
     border-bottom: 1px solid #e2e8f0;
+    flex-wrap: nowrap;
   }
 
-  .ip-offers .ip-of-tabstrip::-webkit-scrollbar {
+  .ip-offers .ip-of-tabs::-webkit-scrollbar {
     display: none;
   }
 
-  .ip-offers .ip-of-tabstrip .ip-of-tab {
+  .ip-offers .ip-of-tabs .ip-of-tab {
     flex: 0 0 auto;
     min-height: 2.25rem;
     padding: 0.35rem 0.85rem;
@@ -986,15 +949,19 @@
     font-size: 0.75rem;
   }
 
-  .ip-offers .ip-of-tabstrip .ip-of-tab--on {
+  .ip-offers .ip-of-tabs .ip-of-tab--on {
     background: #0f172a;
     border-color: #0f172a;
     color: #fff;
   }
 
-  .ip-offers .ip-of-tabstrip .ip-of-tab--on .ip-of-count {
+  .ip-offers .ip-of-tabs .ip-of-tab--on .ip-of-count {
     background: rgba(255, 255, 255, 0.2);
     color: #fff;
+  }
+
+  .ip-offers .ip-of-view-toggle {
+    display: none;
   }
 
   .ip-offers .ip-ph-list-wrap {
@@ -1072,127 +1039,6 @@
     width: 100%;
     min-height: 2.75rem;
     justify-content: center;
-  }
-
-  .ip-offers .ip-of-sheet-scrim {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 40;
-    background: rgba(15, 23, 42, 0.5);
-    border: none;
-    padding: 0;
-    cursor: pointer;
-  }
-
-  .ip-offers .ip-of-sheet {
-    display: flex;
-    flex-direction: column;
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 50;
-    max-height: 85vh;
-    overflow: auto;
-    background: #fff;
-    border-radius: 1.25rem 1.25rem 0 0;
-    box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.12);
-    padding: 0.5rem 0 calc(0.75rem + env(safe-area-inset-bottom, 0px));
-  }
-
-  .ip-offers .ip-of-sheet__handle {
-    width: 2.25rem;
-    height: 0.25rem;
-    margin: 0.4rem auto;
-    border-radius: 999px;
-    background: #94a3b8;
-  }
-
-  .ip-offers .ip-of-sheet__head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.5rem 1rem;
-    border-bottom: 1px solid #e2e8f0;
-  }
-
-  .ip-offers .ip-of-sheet__head h3 {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 700;
-  }
-
-  .ip-offers .ip-of-sheet__x {
-    border: none;
-    background: transparent;
-    color: #64748b;
-    font-size: 1.35rem;
-    line-height: 1;
-    cursor: pointer;
-    width: 2.75rem;
-    height: 2.75rem;
-  }
-
-  .ip-offers .ip-of-sheet__hint {
-    margin: 0 0 0.35rem;
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #94a3b8;
-  }
-
-  .ip-offers .ip-of-sheet__body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    padding: 0.65rem 1rem;
-  }
-
-  .ip-offers .ip-of-sheet__body > button {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    width: 100%;
-    min-height: 2.75rem;
-    margin: 0;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.65rem;
-    background: #fff;
-    color: #334155;
-    font: inherit;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    cursor: pointer;
-    text-align: left;
-  }
-
-  .ip-offers .ip-of-sheet__body > button.is-on {
-    border-color: #4f46e5;
-    background: #eef2ff;
-    color: #4338ca;
-  }
-
-  .ip-offers .ip-of-sheet__body > button .ip-of-count {
-    margin-left: auto;
-  }
-
-  .ip-offers .ip-of-sheet__presets {
-    margin-top: 0.75rem;
-  }
-
-  .ip-offers .ip-of-sheet__actions {
-    display: flex;
-    gap: 0.5rem;
-    padding: 0.65rem 1rem 0;
-    border-top: 1px solid #e2e8f0;
-  }
-
-  .ip-offers .ip-of-sheet__actions .ip-of-btn {
-    flex: 1;
-    min-height: 2.75rem;
   }
 
   .ip-offers .ip-of-overlay {

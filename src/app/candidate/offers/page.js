@@ -12,7 +12,6 @@ import {
   RotateCcw,
   Search,
   Share2,
-  SlidersHorizontal,
   X,
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
@@ -113,10 +112,9 @@ export default function CandidateOffersPage() {
   const [shareFor, setShareFor] = useState(null);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [cols, setCols] = useState(EMPTY_COLS);
   const [colFiltersOpen, setColFiltersOpen] = useState(false);
-  const [displayMode, setViewMode, { stored: viewMode, isMobile }] = useViewMode(
+  const [displayMode, setViewMode, { stored: viewMode }] = useViewMode(
     'ip_offers_view',
     'cards',
   );
@@ -137,7 +135,6 @@ export default function CandidateOffersPage() {
   });
 
   const colsActive = countActiveCols(cols);
-  const filterActive = Boolean(q.trim()) || tab !== 'all' || colsActive > 0;
 
   function showToast(msg) {
     setToast(msg);
@@ -164,16 +161,6 @@ export default function CandidateOffersPage() {
   useEffect(() => {
     load();
   }, []);
-
-  useEffect(() => {
-    if (!isMobile) setFiltersOpen(false);
-  }, [isMobile]);
-
-  useEffect(() => {
-    if (!filtersOpen) return undefined;
-    document.body.classList.add('ip-scroll-locked');
-    return () => document.body.classList.remove('ip-scroll-locked');
-  }, [filtersOpen]);
 
   const counts = useMemo(() => {
     const c = { all: items.length, action_required: 0, accepted: 0, declined: 0, expired: 0 };
@@ -330,16 +317,6 @@ export default function CandidateOffersPage() {
               aria-label="Search offers"
             />
           </div>
-          <button
-            type="button"
-            className={`ip-of-filters-btn${filtersOpen || filterActive ? ' is-on' : ''}`}
-            aria-expanded={filtersOpen}
-            onClick={() => setFiltersOpen(true)}
-          >
-            <SlidersHorizontal className="size-3.5" aria-hidden />
-            Filters
-            {filterActive ? <span className="ip-of-filters-chip">1</span> : null}
-          </button>
           <button type="button" className="ip-of-reset" onClick={resetFilters}>
             <RotateCcw className="size-3.5" aria-hidden />
             Reset
@@ -347,7 +324,7 @@ export default function CandidateOffersPage() {
         </div>
       </div>
 
-      <div className="ip-of-presets-desk">
+      <div className="ip-of-presets">
         <ListPresetsBar {...prefs} />
         <IpTableFiltersShell
           open={colFiltersOpen}
@@ -386,101 +363,12 @@ export default function CandidateOffersPage() {
         </IpTableFiltersShell>
       </div>
 
-      <div className="ip-of-tabs ip-of-tabs--desk">
+      <div className="ip-of-tabs" role="tablist" aria-label="Offer status">
         {TABS.map(renderTabButton)}
         <div className="ip-of-view-toggle">
           <ViewModeToggle value={viewMode} onChange={setViewMode} />
         </div>
       </div>
-
-      <div className="ip-of-tabstrip" role="tablist" aria-label="Offer status">
-        {TABS.map(renderTabButton)}
-      </div>
-
-      {filtersOpen ? (
-        <>
-          <button
-            type="button"
-            className="ip-of-sheet-scrim"
-            aria-label="Close filters"
-            onClick={() => setFiltersOpen(false)}
-          />
-          <div className="ip-of-sheet" role="dialog" aria-label="Filter offers">
-            <div className="ip-of-sheet__handle" aria-hidden />
-            <div className="ip-of-sheet__head">
-              <h3>Filters</h3>
-              <button
-                type="button"
-                className="ip-of-sheet__x"
-                onClick={() => setFiltersOpen(false)}
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-            <div className="ip-of-sheet__body">
-              <p className="ip-of-sheet__hint">Status</p>
-              {TABS.map((t) => (
-                <button
-                  key={`sheet-${t.id}`}
-                  type="button"
-                  className={tab === t.id ? 'is-on' : ''}
-                  onClick={() => setTab(t.id)}
-                >
-                  {t.dot ? <span className={`ip-of-dot ip-of-dot--${t.dot}`} aria-hidden /> : null}
-                  <span>{t.label}</span>
-                  <span className="ip-of-count">{counts[t.id] || 0}</span>
-                </button>
-              ))}
-              <div className="ip-of-sheet__cols">
-                <IpSearchableMultiFilter
-                  label="Employer"
-                  options={optionLists.employers}
-                  values={cols.employers}
-                  onChange={(employers) => setCols((c) => ({ ...c, employers }))}
-                  placeholder="Search employers…"
-                />
-                <IpSearchableMultiFilter
-                  label="Role"
-                  options={optionLists.roles}
-                  values={cols.roles}
-                  onChange={(roles) => setCols((c) => ({ ...c, roles }))}
-                  placeholder="Search roles…"
-                />
-                <IpSingleSelectFilter
-                  label="Received"
-                  options={IP_RECEIVED_WINDOW_OPTIONS}
-                  value={cols.when}
-                  onChange={(when) => setCols((c) => ({ ...c, when }))}
-                  emptyLabel="Any time"
-                />
-                <IpDateRangeFilter
-                  label="Custom date range"
-                  from={cols.dateFrom}
-                  to={cols.dateTo}
-                  onFrom={(dateFrom) => setCols((c) => ({ ...c, dateFrom }))}
-                  onTo={(dateTo) => setCols((c) => ({ ...c, dateTo }))}
-                />
-              </div>
-              <div className="ip-of-sheet__presets">
-                <ListPresetsBar {...prefs} />
-              </div>
-            </div>
-            <div className="ip-of-sheet__actions">
-              <button type="button" className="ip-of-btn ip-of-btn--outline" onClick={resetFilters}>
-                Reset
-              </button>
-              <button
-                type="button"
-                className="ip-of-btn ip-of-btn--primary"
-                onClick={() => setFiltersOpen(false)}
-              >
-                Show {filtered.length}
-              </button>
-            </div>
-          </div>
-        </>
-      ) : null}
 
       {error ? <div className="ip-of-alert ip-mobile-inset">{error}</div> : null}
 

@@ -7,9 +7,13 @@
  * Manual Excel remaining cases are still human-executed; this prints audit totals.
  *
  *   npm run qa:e2e:full:release
+ *
+ * Important: use stdio inherit + list reporter; JSON via IP_PW_JSON_REPORT.
+ * Do NOT use `--reporter=json` with spawnSync stdout capture — that buffers
+ * until the end and looks permanently hung (same class as regression hang).
  */
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensurePlaywrightBrowsersPath, installPlaywrightBrowsersIfNeeded } from './lib/ensurePlaywrightBrowsers.mjs';
@@ -25,17 +29,17 @@ try {
 
 const report = resolve(root, 'test-results/full-release-results.json');
 mkdirSync(dirname(report), { recursive: true });
+const playwrightCli = resolve(root, 'node_modules/@playwright/test/cli.js');
 
 function run(label, cmd, args, opts = {}) {
   console.log(`\n[full-release] === ${label} ===`);
+  const { env: extraEnv, ...rest } = opts;
   const r = spawnSync(cmd, args, {
     cwd: root,
-    encoding: 'utf8',
-    shell: process.platform === 'win32',
-    stdio: opts.stdio || 'inherit',
-    env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: browsersPath },
-    maxBuffer: 20 * 1024 * 1024,
-    ...opts,
+    shell: false,
+    stdio: 'inherit',
+    env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: browsersPath, ...(extraEnv || {}) },
+    ...rest,
   });
   return r.status ?? 1;
 }
@@ -44,29 +48,22 @@ console.log(describeSuite('full', SUITE_FULL));
 console.log(
   '[full-release] Full = all Playwright + deep register/approve scripts. Manual Excel rows remain human.',
 );
+console.log(`[full-release] Live list reporter on; JSON → ${report}`);
+console.log('[full-release] Hang guard: list+file JSON; direct Playwright CLI (no npx/shell nesting).');
 
 let code = 0;
 
-const pw = spawnSync(
-  'npx',
-  ['playwright', 'test', ...SUITE_FULL, '--reporter=json'],
-  {
-    cwd: root,
-    encoding: 'utf8',
-    shell: process.platform === 'win32',
-    env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: browsersPath },
-    maxBuffer: 20 * 1024 * 1024,
-  },
-);
-const jsonOut = (pw.stdout || '').trim();
-const start = jsonOut.indexOf('{');
-if (start >= 0) {
-  writeFileSync(report, jsonOut.slice(start));
-  console.log(`Wrote ${report}`);
+const pwStatus = run('playwright-full', process.execPath, [playwrightCli, 'test', ...SUITE_FULL], {
+  env: { IP_PW_JSON_REPORT: report },
+});
+if (!existsSync(report)) {
+  console.error(
+    '[full-release] No JSON report written. Check IP_PW_JSON_REPORT / playwright.config.js reporters.',
+  );
 }
-if (pw.status !== 0) {
-  console.error(`Playwright full suite exited ${pw.status}`);
-  code = pw.status || 1;
+if (pwStatus !== 0) {
+  console.error(`Playwright full suite exited ${pwStatus}`);
+  code = pwStatus || 1;
 }
 
 const apply = spawnSync(process.execPath, ['scripts/apply-playwright-regression-xlsx.mjs', report], {

@@ -9,13 +9,19 @@
  * - Excel workbook holds Manual + Obsolete rows; Playwright does not automate all.
  * - After apply, prints coverage stats (mapped Automated vs remaining Manual).
  *
- * Important: use stdio inherit + list reporter so the run is not silent.
- * JSON is written to a file via IP_PW_JSON_REPORT (see playwright.config.js).
- * The old pattern (`--reporter=json` + spawnSync stdout capture) buffered all
- * output until the end and looked permanently hung.
+ * Hang guards (keep these — do not regress):
+ * 1) stdio: 'inherit' + Playwright list reporter for live progress
+ * 2) JSON via IP_PW_JSON_REPORT → file (playwright.config.js), never `--reporter=json`
+ *    with spawnSync stdout capture (buffers forever / looks hung)
+ * 3) Invoke `@playwright/test/cli.js` with process.execPath + shell:false
+ *    (Windows npx+cmd nesting also hid list output)
+ * 4) xlsx audit uses stdio inherit (not encoding/pipe capture)
+ *
+ * Filter UI: list/browse screens use IpTableFiltersShell (`.ip-tf__btn` / `.ip-tf__panel`).
+ * Specs must use qa/helpers/ipTableFilters.js — not legacy `.ip-br-drawer` / mobile sheets.
  */
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensurePlaywrightBrowsersPath, installPlaywrightBrowsersIfNeeded } from './lib/ensurePlaywrightBrowsers.mjs';
@@ -30,6 +36,12 @@ try {
 }
 const report = resolve(root, 'test-results/regression-results.json');
 mkdirSync(dirname(report), { recursive: true });
+const playwrightCli = resolve(root, 'node_modules/@playwright/test/cli.js');
+
+if (!existsSync(playwrightCli)) {
+  console.error(`[internsafar-qa] Missing Playwright CLI at ${playwrightCli}. Run npm install.`);
+  process.exit(2);
+}
 
 console.log(describeSuite('regression', SUITE_REGRESSION));
 console.log(
@@ -39,10 +51,11 @@ console.log(
   '[internsafar-qa] Still not full Excel coverage — Manual/Obsolete rows remain in InternSafar-Test-Cases.xlsx.',
 );
 console.log(`[internsafar-qa] Live list reporter on; JSON → ${report}`);
+console.log('[internsafar-qa] Hang guard: list+file JSON; direct Playwright CLI (no npx/shell nesting).');
 
-const pw = spawnSync('npx', ['playwright', 'test', ...SUITE_REGRESSION], {
+const pw = spawnSync(process.execPath, [playwrightCli, 'test', ...SUITE_REGRESSION], {
   cwd: root,
-  shell: process.platform === 'win32',
+  shell: false,
   stdio: 'inherit',
   env: {
     ...process.env,
@@ -66,14 +79,11 @@ const apply = spawnSync(process.execPath, ['scripts/apply-playwright-regression-
 try {
   const audit = spawnSync('python', ['scripts/audit-internsafar-test-cases-xlsx.py'], {
     cwd: root,
-    encoding: 'utf8',
     shell: process.platform === 'win32',
+    stdio: 'inherit',
   });
-  if (audit.stdout) {
-    writeFileSync(resolve(root, 'test-results/xlsx-coverage-hint.txt'), audit.stdout);
-    const m = audit.stdout.match(/"byAutomation"\s*:\s*\{[\s\S]*?\n  \}/);
-    console.log('[internsafar-qa] Excel Automation breakdown (post-apply):');
-    console.log(m ? m[0] : audit.stdout.slice(0, 600));
+  if (audit.status !== 0) {
+    console.warn(`[internsafar-qa] xlsx audit exited ${audit.status}`);
   }
 } catch (e) {
   console.warn('[internsafar-qa] audit hint skipped:', e.message || e);

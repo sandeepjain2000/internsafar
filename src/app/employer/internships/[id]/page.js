@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -17,9 +17,10 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import PageHeader from '@/components/ip/PageHeader';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
-import { useIsMobile } from '@/hooks/useViewMode';
+import { IpTableFiltersShell } from '@/components/ip/IpTableFiltersShell';
 import { StandardTableIconAction } from '@/components/ui/StandardTableIconAction';
 import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import '@/components/ip/ip-table-filters.css';
 
 const STATUS_OPTIONS = ['applied', 'shortlisted', 'interviewing', 'rejected', 'hired', 'completed'];
 const STATUS_VARIANT = {
@@ -85,7 +86,6 @@ export default function ApplicantsPipelinePage() {
   const [bulkResult, setBulkResult] = useState(null);
   const [mcqSummary, setMcqSummary] = useState([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const isMobile = useIsMobile();
 
   const snapshot = useMemo(() => ({ filters, sort }), [filters, sort]);
   const prefs = useListPrefsSync({
@@ -172,36 +172,22 @@ export default function ApplicantsPipelinePage() {
     setPage(1);
   }
 
-  useEffect(() => {
-    if (!isMobile) setFiltersOpen(false);
-  }, [isMobile]);
-
-  useEffect(() => {
-    if (!filtersOpen) return undefined;
-    document.body.classList.add('ip-scroll-locked');
-    return () => document.body.classList.remove('ip-scroll-locked');
-  }, [filtersOpen]);
-
-  const filterActive = Boolean(
-    filters.q
-      || filters.status
-      || filters.minMatch
-      || filters.screeningDisabled
-      || filters.listId
-      || filters.unread
-      || filters.responded
-      || filters.mcqQuestionId
-      || filters.minHistTotal
-      || filters.minHistCompleted
-      || filters.minHistOngoing
-      || sort !== 'match',
-  );
-
-  function applyFiltersNow() {
-    setPage(1);
-    load();
-    setFiltersOpen(false);
-  }
+  const filterActiveCount = useMemo(() => {
+    let n = 0;
+    if (filters.q) n += 1;
+    if (filters.status) n += 1;
+    if (filters.minMatch) n += 1;
+    if (filters.screeningDisabled) n += 1;
+    if (filters.listId) n += 1;
+    if (filters.unread) n += 1;
+    if (filters.responded) n += 1;
+    if (filters.mcqQuestionId) n += 1;
+    if (filters.minHistTotal) n += 1;
+    if (filters.minHistCompleted) n += 1;
+    if (filters.minHistOngoing) n += 1;
+    if (sort !== 'match') n += 1;
+    return n;
+  }, [filters, sort]);
 
   function toggleSelect(appId) {
     setSelected((prev) => {
@@ -333,50 +319,101 @@ export default function ApplicantsPipelinePage() {
 
   const renderFilterControls = () => (
     <>
-      <Input placeholder="Search name/college" value={filters.q} onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))} className="max-w-xs w-full" />
-      <select className="h-9 rounded-md border px-2 text-sm w-full max-w-xs" value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}>
-        <option value="">All statuses</option>
-        {STATUS_OPTIONS.concat('offered').map((s) => <option key={s} value={s}>{s}</option>)}
-      </select>
-      <Input placeholder="Min match %" type="number" value={filters.minMatch} onChange={(e) => setFilters((f) => ({ ...f, minMatch: e.target.value }))} className="max-w-[120px] w-full" />
-      <select className="h-9 rounded-md border px-2 text-sm w-full max-w-xs" value={filters.screeningDisabled} onChange={(e) => setFilters((f) => ({ ...f, screeningDisabled: e.target.value }))}>
-        <option value="">All screening</option>
-        <option value="1">Greyed-out / disabled</option>
-        <option value="0">Not disabled</option>
-      </select>
-      <select className="h-9 rounded-md border px-2 text-sm w-full max-w-xs" value={filters.listId} onChange={(e) => setFilters((f) => ({ ...f, listId: e.target.value }))}>
-        <option value="">All lists</option>
-        {lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-      </select>
-      <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={filters.unread} onChange={(e) => setFilters((f) => ({ ...f, unread: e.target.checked }))} /> Unread</label>
-      <select className="h-9 rounded-md border px-2 text-sm w-full max-w-xs" value={filters.responded} onChange={(e) => setFilters((f) => ({ ...f, responded: e.target.value }))}>
-        <option value="">Responded: any</option>
-        <option value="0">Unresponded</option>
-        <option value="1">Responded</option>
-      </select>
-      <select className="h-9 rounded-md border px-2 text-sm w-full max-w-xs" value={filters.mcqQuestionId} onChange={(e) => setFilters((f) => ({ ...f, mcqQuestionId: e.target.value, mcqAnswer: '' }))}>
-        <option value="">Screening question</option>
-        {(questions || []).filter((q) => q.type === 'mcq' || q.options).map((q) => (
-          <option key={q.id} value={q.id}>{q.prompt}</option>
-        ))}
-      </select>
-      {filters.mcqQuestionId ? (
-        <select className="h-9 rounded-md border px-2 text-sm w-full max-w-xs" value={filters.mcqAnswer} onChange={(e) => setFilters((f) => ({ ...f, mcqAnswer: e.target.value }))}>
-          <option value="">Any answer</option>
-          {(questions.find((q) => q.id === filters.mcqQuestionId)?.options || []).map((o) => (
-            <option key={o.id} value={o.id}>{o.label}</option>
+      <label className="ip-tf__field">
+        <span className="ip-tf__label">Status</span>
+        <select className="ip-tf__select ip-tf__select--single" value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}>
+          <option value="">All Statuses</option>
+          {STATUS_OPTIONS.concat('offered').map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </label>
+      <label className="ip-tf__field">
+        <span className="ip-tf__label">Min Match %</span>
+        <Input type="number" value={filters.minMatch} onChange={(e) => setFilters((f) => ({ ...f, minMatch: e.target.value }))} />
+      </label>
+      <label className="ip-tf__field">
+        <span className="ip-tf__label">Screening</span>
+        <select className="ip-tf__select ip-tf__select--single" value={filters.screeningDisabled} onChange={(e) => setFilters((f) => ({ ...f, screeningDisabled: e.target.value }))}>
+          <option value="">All Screening</option>
+          <option value="1">Greyed-Out / Disabled</option>
+          <option value="0">Not Disabled</option>
+        </select>
+      </label>
+      <label className="ip-tf__field">
+        <span className="ip-tf__label">List</span>
+        <select className="ip-tf__select ip-tf__select--single" value={filters.listId} onChange={(e) => setFilters((f) => ({ ...f, listId: e.target.value }))}>
+          <option value="">All Lists</option>
+          {lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+        </select>
+      </label>
+      <label className="ip-tf__field ip-tf__check">
+        <input type="checkbox" checked={filters.unread} onChange={(e) => setFilters((f) => ({ ...f, unread: e.target.checked }))} />
+        <span>Unread Only</span>
+      </label>
+      <label className="ip-tf__field">
+        <span className="ip-tf__label">Responded</span>
+        <select className="ip-tf__select ip-tf__select--single" value={filters.responded} onChange={(e) => setFilters((f) => ({ ...f, responded: e.target.value }))}>
+          <option value="">Any</option>
+          <option value="0">Unresponded</option>
+          <option value="1">Responded</option>
+        </select>
+      </label>
+      <label className="ip-tf__field">
+        <span className="ip-tf__label">Screening Question</span>
+        <select className="ip-tf__select ip-tf__select--single" value={filters.mcqQuestionId} onChange={(e) => setFilters((f) => ({ ...f, mcqQuestionId: e.target.value, mcqAnswer: '' }))}>
+          <option value="">Any Question</option>
+          {(questions || []).filter((q) => q.type === 'mcq' || q.options).map((q) => (
+            <option key={q.id} value={q.id}>{q.prompt}</option>
           ))}
         </select>
+      </label>
+      {filters.mcqQuestionId ? (
+        <label className="ip-tf__field">
+          <span className="ip-tf__label">Answer</span>
+          <select className="ip-tf__select ip-tf__select--single" value={filters.mcqAnswer} onChange={(e) => setFilters((f) => ({ ...f, mcqAnswer: e.target.value }))}>
+            <option value="">Any Answer</option>
+            {(questions.find((q) => q.id === filters.mcqQuestionId)?.options || []).map((o) => (
+              <option key={o.id} value={o.id}>{o.label}</option>
+            ))}
+          </select>
+        </label>
       ) : null}
-      <Input className="max-w-[110px] w-full" type="number" min={0} placeholder="Min total internships" value={filters.minHistTotal} onChange={(e) => setFilters((f) => ({ ...f, minHistTotal: e.target.value }))} title="Min total internships" />
-      <Input className="max-w-[110px] w-full" type="number" min={0} placeholder="Min completed" value={filters.minHistCompleted} onChange={(e) => setFilters((f) => ({ ...f, minHistCompleted: e.target.value }))} title="Min completed internships" />
-      <Input className="max-w-[110px] w-full" type="number" min={0} placeholder="Min ongoing" value={filters.minHistOngoing} onChange={(e) => setFilters((f) => ({ ...f, minHistOngoing: e.target.value }))} title="Min ongoing internships" />
-      <select className="h-9 rounded-md border px-2 text-sm w-full max-w-xs" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort applicants">
-        <option value="match">Best match</option>
-        <option value="newest">Newest</option>
-        <option value="name">Name A–Z</option>
-        <option value="status">Status</option>
-      </select>
+      <label className="ip-tf__field">
+        <span className="ip-tf__label">Min Total Internships</span>
+        <Input type="number" min={0} value={filters.minHistTotal} onChange={(e) => setFilters((f) => ({ ...f, minHistTotal: e.target.value }))} />
+      </label>
+      <label className="ip-tf__field">
+        <span className="ip-tf__label">Min Completed</span>
+        <Input type="number" min={0} value={filters.minHistCompleted} onChange={(e) => setFilters((f) => ({ ...f, minHistCompleted: e.target.value }))} />
+      </label>
+      <label className="ip-tf__field">
+        <span className="ip-tf__label">Min Ongoing</span>
+        <Input type="number" min={0} value={filters.minHistOngoing} onChange={(e) => setFilters((f) => ({ ...f, minHistOngoing: e.target.value }))} />
+      </label>
+      <label className="ip-tf__field">
+        <span className="ip-tf__label">Sort</span>
+        <select className="ip-tf__select ip-tf__select--single" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort Applicants">
+          <option value="match">Best Match</option>
+          <option value="newest">Newest</option>
+          <option value="name">Name A–Z</option>
+          <option value="status">Status</option>
+        </select>
+      </label>
+      <div className="ip-tf__actions">
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => {
+            setPage(1);
+            load();
+            setFiltersOpen(false);
+          }}
+        >
+          Apply Filters
+        </Button>
+        <Button type="button" size="sm" variant="outline" onClick={clearFilters}>
+          Reset
+        </Button>
+      </div>
     </>
   );
 
@@ -413,92 +450,62 @@ export default function ApplicantsPipelinePage() {
         <ClosureSummary internshipId={id} capacity={capacity} />
       ) : null}
 
-      {/* Mobile toolbar */}
-      <Card className="md:hidden">
-        <CardContent className="flex flex-col gap-2 pt-4">
-          <Input
-            placeholder="Search applicants…"
-            value={filters.q}
-            onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
-            aria-label="Search applicants"
-          />
-          <Button
-            type="button"
-            variant={filterActive ? 'default' : 'outline'}
-            className="min-h-11 w-full"
-            aria-expanded={filtersOpen}
-            onClick={() => setFiltersOpen(true)}
+      {/* Single filter toolbar — collapsible advanced panel (no mobile/desktop duplicate copies) */}
+      <Card>
+        <CardContent className="flex flex-col gap-3 pt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              className="min-w-[12rem] flex-1"
+              placeholder="Search Applicants…"
+              value={filters.q}
+              onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
+              aria-label="Search Applicants"
+            />
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => { setPage(1); load(); }}
+            >
+              Apply
+            </Button>
+          </div>
+          <IpTableFiltersShell
+            open={filtersOpen}
+            onToggle={() => setFiltersOpen((v) => !v)}
+            activeCount={filterActiveCount}
+            onClear={clearFilters}
           >
-            Filters{filterActive ? ' · on' : ''}
-          </Button>
+            {renderFilterControls()}
+          </IpTableFiltersShell>
           <ListPresetsBar {...prefs} />
+          <p className="text-xs text-muted-foreground">
+            Flagged screening answers stay inspectable. Unread / needs-response shown with text labels.
+          </p>
         </CardContent>
       </Card>
-
-      {/* Desktop filters */}
-      <Card className="hidden md:block">
-        <CardContent className="flex flex-wrap gap-2 pt-4 items-end">
-          {renderFilterControls()}
-          <Button size="sm" onClick={() => { setPage(1); load(); }}>Apply filters</Button>
-          <Button size="sm" variant="outline" onClick={clearFilters}>Reset</Button>
-          <div className="w-full">
-            <ListPresetsBar {...prefs} />
-          </div>
-        </CardContent>
-      </Card>
-
-      {filtersOpen ? (
-        <div className="ip-sheet is-open">
-          <button
-            type="button"
-            className="ip-sheet-scrim"
-            aria-label="Close filters"
-            onClick={() => setFiltersOpen(false)}
-          />
-          <div className="ip-sheet__panel" role="dialog" aria-label="Filter applicants">
-            <div className="ip-sheet__handle" aria-hidden />
-            <div className="ip-sheet__head">
-              <h3 className="ip-sheet__title">Filters</h3>
-              <button type="button" className="ip-sheet__x" onClick={() => setFiltersOpen(false)} aria-label="Close">
-                ×
-              </button>
-            </div>
-            <div className="ip-sheet__body flex flex-col gap-3">{renderFilterControls()}</div>
-            <div className="ip-sheet__actions">
-              <Button type="button" variant="outline" onClick={clearFilters}>
-                Reset
-              </Button>
-              <Button type="button" onClick={applyFiltersNow}>
-                Show {total}
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {mcqSummary?.length ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Screening response summary</CardTitle>
-            <CardDescription>Option selected, count and percentage across all applications on this posting</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2">
+        <details className="rounded-xl border bg-card px-4 py-3">
+          <summary className="cursor-pointer text-sm font-semibold">
+            Screening Response Summary
+          </summary>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {mcqSummary.map((q) => (
-              <div key={q.questionId} className="border rounded-md p-3 text-sm space-y-1">
+              <div key={q.questionId} className="rounded-md border p-3 text-sm">
                 <div className="font-medium">{q.prompt}</div>
-                <div className="text-xs text-muted-foreground">{q.answered} answered · {q.skipped} skipped</div>
-                <ul className="text-xs space-y-0.5">
+                <div className="text-xs text-muted-foreground">{q.answered} Answered · {q.skipped} Skipped</div>
+                <ul className="mt-1 space-y-0.5 text-xs">
                   {q.options.map((o) => (
                     <li key={o.id}>
                       {o.label}: <strong>{o.count}</strong> ({o.percent}%)
-                      {o.disablesApplication ? ' · trigger' : ''}
+                      {o.disablesApplication ? ' · Trigger' : ''}
                     </li>
                   ))}
                 </ul>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </details>
       ) : null}
 
       {activeChips.length ? (
@@ -513,15 +520,28 @@ export default function ApplicantsPipelinePage() {
       )}
 
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
-          <div>
-            <CardTitle className="text-base">Applicants</CardTitle>
-            <CardDescription>Flagged screening answers stay inspectable. Unread / needs-response shown with text labels.</CardDescription>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Input className="max-w-[200px]" placeholder="New list name" value={newListName} onChange={(e) => setNewListName(e.target.value)} />
-            <Button size="sm" variant="outline" onClick={createList}>Create list</Button>
-          </div>
+        <CardHeader className="border-b">
+          <CardTitle className="text-base">Applicants</CardTitle>
+          <CardAction>
+            <div className="flex flex-nowrap items-center gap-2">
+              <Input
+                className="h-8 w-[11rem] shrink-0"
+                placeholder="New list name"
+                value={newListName}
+                onChange={(e) => setNewListName(e.target.value)}
+                aria-label="New List Name"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    createList();
+                  }
+                }}
+              />
+              <Button size="sm" variant="outline" className="shrink-0" onClick={createList}>
+                Create List
+              </Button>
+            </div>
+          </CardAction>
         </CardHeader>
         <CardContent>
           {applicantsLoading ? (
@@ -627,7 +647,7 @@ export default function ApplicantsPipelinePage() {
                   <TableHead>History</TableHead>
                   <TableHead>Match</TableHead>
                   <TableHead>Answers</TableHead>
-                  <TableHead>Comm</TableHead>
+                  <TableHead>Messages</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>

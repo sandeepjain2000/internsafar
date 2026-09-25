@@ -95,6 +95,10 @@ Product hygiene (edit/obsolete/add cases vs live `src/`): `npm run qa:sync-xlsx-
 | Patch latest TC-IS rows | `npm run qa:patch-latest-cases` | `scripts/patch-internsafar-latest-cases.py` |
 | Install Playwright browsers | `npm run playwright:install` | Persistent `%LOCALAPPDATA%/ms-playwright` |
 
+**Hang guards (regression / full:release / local runner):** invoke `@playwright/test/cli.js` via `process.execPath` with `stdio: 'inherit'` and `shell: false`. JSON reports use `IP_PW_JSON_REPORT` → file + **list** reporter (`playwright.config.js`). Never `--reporter=json` with spawnSync stdout capture, and avoid Windows `npx`+`cmd` nesting (silent buffer).
+
+**Filter UI locators:** decongested list/browse screens use `IpTableFiltersShell` (`.ip-tf__btn` / `.ip-tf__panel`). Shared helper: `qa/helpers/ipTableFilters.js`. Do not assert legacy `.ip-br-drawer` / mobile filter sheets.
+
 Specs under `qa/tests/`: `auth.spec.js`, `google-auth.spec.js`, `regression.spec.js`, `journeys-candidate.spec.js`, `journeys-employer.spec.js`, `journeys-superadmin.spec.js`, `screens.spec.js`, `mobile-candidate-internships.spec.js`.
 
 AWS vs local: `qa/docs/AWS-QA-NOTES.txt`. Playbook: `qa/docs/internsafar-runner-playbook.md`.

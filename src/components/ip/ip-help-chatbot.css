@@ -327,6 +327,25 @@
   opacity: 0.9;
 }
 
+.ip-helpbot__retry-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  padding: 0 0.85rem;
+  border-radius: 0.5rem;
+  border: 1px solid #fca5a5;
+  background: #fff;
+  color: #991b1b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ip-helpbot__retry-btn:hover {
+  background: #fee2e2;
+}
+
 .ip-helpbot__composer {
   padding: 16px;
   background: var(--ip-hb-bg-surface);

@@ -634,53 +634,46 @@
   color: #cbd5e1;
 }
 
-/* —— Mobile (≤767): toolbar, tabstrip, cards, bottom modals —— */
-.ip-emp-offers .ip-eo-m-toolbar,
-.ip-emp-offers .ip-eo-tabstrip,
+/* —— Mobile (≤767): responsive toolbar, cards —— */
 .ip-emp-offers .ip-eo-cards {
   display: none;
 }
 
 @media (max-width: 767px) {
-  .ip-emp-offers .ip-eo-m-toolbar {
-    display: flex;
+  .ip-emp-offers .ip-eo-toolbar {
     flex-direction: column;
-    gap: 0.5rem;
+    align-items: stretch;
+    gap: 0.65rem;
     padding: 0.85rem 1rem 0.5rem;
   }
 
-  .ip-emp-offers .ip-eo-m-toolbar .ip-eo-search {
-    width: 100%;
-  }
-
-  .ip-emp-offers .ip-eo-m-toolbar .ip-eo-filters-btn {
-    width: 100%;
-    min-height: 2.75rem;
-    justify-content: center;
-    height: auto;
-  }
-
-  .ip-emp-offers .ip-eo-tabstrip {
+  .ip-emp-offers .ip-eo-tabs {
     display: flex;
     gap: 0.4rem;
     overflow-x: auto;
-    padding: 0.35rem 1rem 0.85rem;
+    width: 100%;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
-    border-bottom: 1px solid #e2e8f0;
   }
 
-  .ip-emp-offers .ip-eo-tabstrip::-webkit-scrollbar {
+  .ip-emp-offers .ip-eo-tabs::-webkit-scrollbar {
     display: none;
   }
 
-  .ip-emp-offers .ip-eo-tabstrip .ip-eo-tab {
+  .ip-emp-offers .ip-eo-tab {
     flex: 0 0 auto;
     white-space: nowrap;
   }
 
-  .ip-emp-offers .ip-eo-toolbar--desk,
-  .ip-emp-offers .ip-eo-presets-desk,
+  .ip-emp-offers .ip-eo-search {
+    width: 100%;
+  }
+
+  .ip-emp-offers .ip-eo-presets {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
   .ip-emp-offers .ip-eo-table-wrap {
     display: none !important;
   }
@@ -744,48 +737,6 @@
   }
 
   .ip-emp-offers .ip-eo-btn-primary {
-    min-height: 2.75rem;
-    justify-content: center;
-  }
-
-  .ip-emp-offers .ip-eo-sheet-hint {
-    margin: 0 0 0.5rem;
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #64748b;
-  }
-
-  .ip-emp-offers .ip-eo-sheet-opt {
-    display: flex;
-    width: 100%;
-    align-items: center;
-    min-height: 2.75rem;
-    margin-bottom: 0.35rem;
-    padding: 0 0.85rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.65rem;
-    background: #fff;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #334155;
-    cursor: pointer;
-  }
-
-  .ip-emp-offers .ip-eo-sheet-opt.is-on {
-    border-color: #c7d2fe;
-    background: #eef2ff;
-    color: #4338ca;
-  }
-
-  .ip-emp-offers .ip-eo-sheet-presets {
-    margin-top: 0.75rem;
-  }
-
-  .ip-emp-offers .ip-sheet__actions .ip-eo-btn-primary,
-  .ip-emp-offers .ip-sheet__actions .ip-eo-btn-ghost {
-    flex: 1 1 0;
     min-height: 2.75rem;
     justify-content: center;
   }

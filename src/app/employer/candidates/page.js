@@ -12,8 +12,10 @@ import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
 import useIpCountryCatalog from '@/hooks/useIpCountryCatalog';
 import { experienceSummaryLabel } from '@/lib/ipCandidateExperience';
+import { IpTableFiltersShell } from '@/components/ip/IpTableFiltersShell';
 import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 import '@/components/ip/ip-employer-candidates-gemini.css';
+import '@/components/ip/ip-table-filters.css';
 
 const PAGE_SIZE = 10;
 const SKILL_PILLS = ['All', 'React', 'Node.js', 'Figma', 'Python'];
@@ -109,7 +111,7 @@ export default function CandidateSearchPage() {
   const [busy, setBusy] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { page, setPage, totalPages, total, pageItems } = useClientPagination(items, PAGE_SIZE);
-  const [viewMode, setViewMode, { isMobile }] = useViewMode('ip_emp_cand_view', 'cards');
+  const [viewMode, setViewMode] = useViewMode('ip_emp_cand_view', 'cards');
 
   const snapshot = useMemo(() => ({
     filters: {
@@ -198,16 +200,6 @@ export default function CandidateSearchPage() {
     setFreshnessDays('');
     setMatchInternshipId('');
   }
-
-  useEffect(() => {
-    if (!isMobile) setFiltersOpen(false);
-  }, [isMobile]);
-
-  useEffect(() => {
-    if (!filtersOpen) return undefined;
-    document.body.classList.add('ip-scroll-locked');
-    return () => document.body.classList.remove('ip-scroll-locked');
-  }, [filtersOpen]);
 
   const filterCount = [
     matchInternshipId,
@@ -299,33 +291,7 @@ export default function CandidateSearchPage() {
         </div>
       </div>
 
-      {/* Mobile toolbar ≤767 */}
-      <div className="ip-ec-m-toolbar">
-        <div className="ip-ec-search">
-          <Search aria-hidden />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && load()}
-            placeholder="Search candidates…"
-            aria-label="Search candidates"
-          />
-        </div>
-        <button
-          type="button"
-          className={`ip-ec-filters-btn${filterCount || filtersOpen ? ' is-on' : ''}`}
-          aria-expanded={filtersOpen}
-          onClick={() => setFiltersOpen(true)}
-        >
-          Filters
-          {filterCount ? <span className="ip-ec-filters-btn__count">{filterCount}</span> : null}
-        </button>
-        <button type="button" className="ip-ec-primary" onClick={load}>Search</button>
-        <ListPresetsBar {...prefs} />
-      </div>
-
-      {/* Desktop / tablet panel */}
-      <div className="ip-ec-panel ip-ec-panel--desktop">
+      <div className="ip-ec-panel">
         <div className="ip-ec-search-row">
           <div className="ip-ec-search">
             <Search aria-hidden />
@@ -337,191 +303,132 @@ export default function CandidateSearchPage() {
               aria-label="Search candidates"
             />
           </div>
-          <button type="button" className="ip-ec-primary" onClick={load}>Search candidates</button>
+          <button type="button" className="ip-ec-primary" onClick={load}>Search</button>
         </div>
-        <div className="ip-ec-filterbar">
-          <select className="ip-ec-select" value={matchInternshipId} onChange={(e) => setMatchInternshipId(e.target.value)} aria-label="Any internship">
-            <option value="">Any internship</option>
-            {postings.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-          </select>
-          <select className="ip-ec-select" value={degree} onChange={(e) => setDegree(e.target.value)} aria-label="Education">
-            <option value="">Education</option>
-            {degreeOptions.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-          </select>
-          <select className="ip-ec-select" value={workMode} onChange={(e) => setWorkMode(e.target.value)} aria-label="Work mode">
-            <option value="">Any work mode</option>
-            <option value="remote">Remote</option>
-            <option value="hybrid">Hybrid</option>
-            <option value="on-site">On-site</option>
-          </select>
-          {CHIPS.map((c) => (
-            <button key={c.id} type="button" className={`ip-ec-chip${chip === c.id ? ' is-on' : ''}`} onClick={() => setChip(c.id)}>
-              {c.label}
-            </button>
-          ))}
-          <button type="button" className="ip-ec-clear" onClick={clearFilters}>Clear filters</button>
-        </div>
-        <ListPresetsBar {...prefs} />
-        <div className="ip-ec-skills-row">
-          <span>Filter by skill:</span>
-          {SKILL_PILLS.map((s) => (
-            <button key={s} type="button" className={`ip-ec-chip${skill === s ? ' is-on' : ''}`} onClick={() => setSkill(s)}>
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {filtersOpen ? (
-        <div className="ip-sheet is-open">
-          <button
-            type="button"
-            className="ip-sheet-scrim"
-            aria-label="Close filters"
-            onClick={() => setFiltersOpen(false)}
-          />
-          <div className="ip-sheet__panel" role="dialog" aria-label="Filter candidates">
-            <div className="ip-sheet__handle" aria-hidden />
-            <div className="ip-sheet__head">
-              <h3 className="ip-sheet__title">Filters</h3>
-              <button type="button" className="ip-sheet__x" onClick={() => setFiltersOpen(false)} aria-label="Close">
-                ×
-              </button>
-            </div>
-            <div className="ip-sheet__body ip-ec-sheet-body">
-              <div className="ip-ec-fsec">
-                <span>Role & education</span>
-                <select className="ip-ec-select" value={matchInternshipId} onChange={(e) => setMatchInternshipId(e.target.value)} aria-label="Any internship">
-                  <option value="">Any internship</option>
-                  {postings.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-                </select>
-                <select className="ip-ec-select" value={degree} onChange={(e) => setDegree(e.target.value)} aria-label="Education">
-                  <option value="">Education</option>
-                  {degreeOptions.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-                </select>
-                <select className="ip-ec-select" value={workMode} onChange={(e) => setWorkMode(e.target.value)} aria-label="Work mode">
-                  <option value="">Any work mode</option>
-                  <option value="remote">Remote</option>
-                  <option value="hybrid">Hybrid</option>
-                  <option value="on-site">On-site</option>
-                </select>
-              </div>
-              <div className="ip-ec-fsec">
-                <span>Quick filters</span>
-                <div className="ip-ec-chip-wrap">
-                  {CHIPS.map((c) => (
-                    <button key={`m-${c.id}`} type="button" className={`ip-ec-chip${chip === c.id ? ' is-on' : ''}`} onClick={() => setChip(c.id)}>
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="ip-ec-fsec">
-                <span>Filter by skill</span>
-                <div className="ip-ec-chip-wrap">
-                  {SKILL_PILLS.map((s) => (
-                    <button key={`m-skill-${s}`} type="button" className={`ip-ec-chip${skill === s ? ' is-on' : ''}`} onClick={() => setSkill(s)}>
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="ip-ec-fsec">
-                <span>Region</span>
-                <SearchableMultiSelect
-                  options={countryOptions}
-                  value={regions}
-                  onChange={setRegions}
-                  placeholder="Select regions…"
-                  ariaLabel="Region"
-                  emptyHint="No regions"
-                  loading={countriesLoading && !(countryOptions || []).length}
-                />
-              </div>
-              <div className="ip-ec-fsec">
-                <span>Location</span>
-                <SearchableMultiSelect
-                  options={placeCityOptions}
-                  value={cities}
-                  onChange={setCities}
-                  loading={citiesLoading && !(placeCityOptions || []).length}
-                  placeholder="Search cities…"
-                  ariaLabel="Cities"
-                />
-              </div>
-              <div className="ip-ec-fsec">
-                <span>Experience</span>
-                <label className="ip-ec-check"><input type="radio" name="exp-m" checked={experience === ''} onChange={() => setExperience('')} /> Any</label>
-                <label className="ip-ec-check"><input type="radio" name="exp-m" checked={experience === 'none'} onChange={() => setExperience('none')} /> No experience</label>
-                <label className="ip-ec-check"><input type="radio" name="exp-m" checked={experience === '1plus'} onChange={() => setExperience('1plus')} /> 1+ year</label>
-                <label className="ip-ec-check"><input type="radio" name="exp-m" checked={experience === '2plus'} onChange={() => setExperience('2plus')} /> 2+ years</label>
-              </div>
-              <div className="ip-ec-fsec">
-                <span>Availability</span>
-                <label className="ip-ec-check"><input type="radio" name="av-m" checked={availability === ''} onChange={() => setAvailability('')} /> Any</label>
-                <label className="ip-ec-check"><input type="radio" name="av-m" checked={availability === 'immediate'} onChange={() => setAvailability('immediate')} /> Immediate</label>
-                <label className="ip-ec-check"><input type="radio" name="av-m" checked={availability === '2weeks'} onChange={() => setAvailability('2weeks')} /> Within 2 weeks</label>
-                <label className="ip-ec-check"><input type="radio" name="av-m" checked={availability === '1month'} onChange={() => setAvailability('1month')} /> Within 1 month</label>
-              </div>
-              <div className="ip-ec-fsec">
-                <span>Academic score <em>{minCgpa || '0'}–10.0</em></span>
-                <input type="range" min="0" max="10" step="0.1" value={minCgpa} onChange={(e) => setMinCgpa(e.target.value)} />
-              </div>
-              <div className="ip-ec-fsec">
-                <span>Profile freshness</span>
-                <label className="ip-ec-check"><input type="radio" name="fr-m" checked={freshnessDays === ''} onChange={() => setFreshnessDays('')} /> Any</label>
-                <label className="ip-ec-check"><input type="radio" name="fr-m" checked={freshnessDays === '7'} onChange={() => setFreshnessDays('7')} /> Updated in 7 days</label>
-                <label className="ip-ec-check"><input type="radio" name="fr-m" checked={freshnessDays === '30'} onChange={() => setFreshnessDays('30')} /> Updated in 30 days</label>
-              </div>
-              <div className="ip-ec-fsec">
-                <span>Sort</span>
-                <select className="ip-ec-select" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort">
-                  <option value="match">Best role match</option>
-                  <option value="updated">Recently updated</option>
-                  <option value="availability">Availability</option>
-                  <option value="experience">Most experience</option>
-                </select>
-              </div>
-              <div className="ip-ec-fsec">
-                <span>Search summary</span>
-                <div className="ip-ec-summary">
-                  <div className="ip-ec-metric"><b>{summary.found}</b><span>Profiles found</span></div>
-                  <div className="ip-ec-metric"><b>{summary.roleMatches}</b><span>Role matches</span></div>
-                  <div className="ip-ec-metric"><b>{summary.shortlisted}</b><span>Shortlisted</span></div>
-                  <div className="ip-ec-metric"><b>{summary.invitesPending}</b><span>Invites pending</span></div>
-                </div>
-              </div>
-            </div>
-            <div className="ip-sheet__actions">
-              <button type="button" className="ip-ec-sbtn" onClick={clearFilters}>Reset</button>
-              <button type="button" className="ip-ec-sbtn is-primary" onClick={applyFiltersNow}>
-                Show {summary.found || total}
-              </button>
+        <IpTableFiltersShell
+          open={filtersOpen}
+          onToggle={() => setFiltersOpen((v) => !v)}
+          activeCount={filterCount}
+          onClear={clearFilters}
+        >
+          <div className="ip-ec-fsec">
+            <span>Role & education</span>
+            <select className="ip-ec-select" value={matchInternshipId} onChange={(e) => setMatchInternshipId(e.target.value)} aria-label="Any internship">
+              <option value="">Any internship</option>
+              {postings.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+            </select>
+            <select className="ip-ec-select" value={degree} onChange={(e) => setDegree(e.target.value)} aria-label="Education">
+              <option value="">Education</option>
+              {degreeOptions.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+            </select>
+            <select className="ip-ec-select" value={workMode} onChange={(e) => setWorkMode(e.target.value)} aria-label="Work mode">
+              <option value="">Any work mode</option>
+              <option value="remote">Remote</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="on-site">On-site</option>
+            </select>
+          </div>
+          <div className="ip-ec-fsec">
+            <span>Sort</span>
+            <select className="ip-ec-select" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort">
+              <option value="match">Best role match</option>
+              <option value="updated">Recently updated</option>
+              <option value="availability">Availability</option>
+              <option value="experience">Most experience</option>
+            </select>
+          </div>
+          <div className="ip-ec-fsec">
+            <span>Quick filters</span>
+            <div className="ip-ec-chip-wrap">
+              {CHIPS.map((c) => (
+                <button key={c.id} type="button" className={`ip-ec-chip${chip === c.id ? ' is-on' : ''}`} onClick={() => setChip(c.id)}>
+                  {c.label}
+                </button>
+              ))}
             </div>
           </div>
-        </div>
-      ) : null}
+          <div className="ip-ec-fsec">
+            <span>Filter by skill</span>
+            <div className="ip-ec-chip-wrap">
+              {SKILL_PILLS.map((s) => (
+                <button key={s} type="button" className={`ip-ec-chip${skill === s ? ' is-on' : ''}`} onClick={() => setSkill(s)}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="ip-ec-fsec">
+            <span>Region</span>
+            <SearchableMultiSelect
+              options={countryOptions}
+              value={regions}
+              onChange={setRegions}
+              placeholder="Select regions…"
+              ariaLabel="Region"
+              emptyHint="No regions"
+              loading={countriesLoading && !(countryOptions || []).length}
+            />
+          </div>
+          <div className="ip-ec-fsec">
+            <span>Location</span>
+            <SearchableMultiSelect
+              options={placeCityOptions}
+              value={cities}
+              onChange={setCities}
+              loading={citiesLoading && !(placeCityOptions || []).length}
+              placeholder="Search cities…"
+              ariaLabel="Cities"
+            />
+          </div>
+          <div className="ip-ec-fsec">
+            <span>Experience</span>
+            <label className="ip-ec-check"><input type="radio" name="exp" checked={experience === ''} onChange={() => setExperience('')} /> Any</label>
+            <label className="ip-ec-check"><input type="radio" name="exp" checked={experience === 'none'} onChange={() => setExperience('none')} /> No experience</label>
+            <label className="ip-ec-check"><input type="radio" name="exp" checked={experience === '1plus'} onChange={() => setExperience('1plus')} /> 1+ year</label>
+            <label className="ip-ec-check"><input type="radio" name="exp" checked={experience === '2plus'} onChange={() => setExperience('2plus')} /> 2+ years</label>
+          </div>
+          <div className="ip-ec-fsec">
+            <span>Availability</span>
+            <label className="ip-ec-check"><input type="radio" name="av" checked={availability === ''} onChange={() => setAvailability('')} /> Any</label>
+            <label className="ip-ec-check"><input type="radio" name="av" checked={availability === 'immediate'} onChange={() => setAvailability('immediate')} /> Immediate</label>
+            <label className="ip-ec-check"><input type="radio" name="av" checked={availability === '2weeks'} onChange={() => setAvailability('2weeks')} /> Within 2 weeks</label>
+            <label className="ip-ec-check"><input type="radio" name="av" checked={availability === '1month'} onChange={() => setAvailability('1month')} /> Within 1 month</label>
+          </div>
+          <div className="ip-ec-fsec">
+            <span>Academic score <em>{minCgpa || '0'}–10.0</em></span>
+            <input type="range" min="0" max="10" step="0.1" value={minCgpa} onChange={(e) => setMinCgpa(e.target.value)} />
+          </div>
+          <div className="ip-ec-fsec">
+            <span>Profile freshness</span>
+            <label className="ip-ec-check"><input type="radio" name="fr" checked={freshnessDays === ''} onChange={() => setFreshnessDays('')} /> Any</label>
+            <label className="ip-ec-check"><input type="radio" name="fr" checked={freshnessDays === '7'} onChange={() => setFreshnessDays('7')} /> Updated in 7 days</label>
+            <label className="ip-ec-check"><input type="radio" name="fr" checked={freshnessDays === '30'} onChange={() => setFreshnessDays('30')} /> Updated in 30 days</label>
+          </div>
+          <div className="ip-tf__actions">
+            <button type="button" className="ip-ec-sbtn" onClick={clearFilters}>Reset</button>
+            <button type="button" className="ip-ec-sbtn is-primary" onClick={applyFiltersNow}>Apply</button>
+          </div>
+        </IpTableFiltersShell>
+        <ListPresetsBar {...prefs} />
+      </div>
 
       <div className="ip-ec-context">
+        <div className="ip-ec-summary ip-ec-summary--inline">
+          <div className="ip-ec-metric"><b>{summary.found}</b><span>Profiles found</span></div>
+          <div className="ip-ec-metric"><b>{summary.roleMatches}</b><span>Role matches</span></div>
+          <div className="ip-ec-metric"><b>{summary.shortlisted}</b><span>Shortlisted</span></div>
+          <div className="ip-ec-metric"><b>{summary.invitesPending}</b><span>Invites pending</span></div>
+        </div>
         <div>
           <strong>{summary.found} candidate{summary.found === 1 ? '' : 's'}</strong>
           {postingTitle ? <span className="ip-ec-rolepill" style={{ marginLeft: 8 }}>Role matching: {postingTitle}</span> : null}
         </div>
-        <label>
-          <span style={{ fontSize: 11, color: '#667085', marginRight: 6 }}>Sort</span>
-          <select className="ip-ec-select" value={sort} onChange={(e) => setSort(e.target.value)}>
-            <option value="match">Best role match</option>
-            <option value="updated">Recently updated</option>
-            <option value="availability">Availability</option>
-            <option value="experience">Most experience</option>
-          </select>
-        </label>
         <div className="ip-ec-view-toggle">
           <ViewModeToggle value={viewMode} onChange={setViewMode} />
         </div>
       </div>
 
-      <div className="ip-ec-layout">
+      <div className="ip-ec-layout ip-ec-layout--single">
         <div className="ip-ec-results">
           {loading ? (
             <IpListLoading label="Loading Candidates…" />
@@ -643,74 +550,10 @@ export default function CandidateSearchPage() {
               </span>
             </div>
           ) : null}
+          <p className="ip-ec-privacy-note">
+            Results respect each candidate&apos;s discovery settings. Contact details stay restricted until the platform workflow allows access. Existing applications, invitations, and shortlists are shown to help avoid duplicate outreach.
+          </p>
         </div>
-
-        <aside className="ip-ec-side">
-          <div className="ip-ec-box">
-            <h3>Refine results</h3>
-            <div className="ip-ec-fsec">
-              <span>Region</span>
-              <SearchableMultiSelect
-                options={countryOptions}
-                value={regions}
-                onChange={setRegions}
-                placeholder="Select regions…"
-                ariaLabel="Region"
-                emptyHint="No regions"
-                loading={countriesLoading && !(countryOptions || []).length}
-              />
-            </div>
-            <div className="ip-ec-fsec">
-              <span>Location</span>
-              <SearchableMultiSelect
-                options={placeCityOptions}
-                value={cities}
-                onChange={setCities}
-                loading={citiesLoading && !(placeCityOptions || []).length}
-                placeholder="Search cities…"
-                ariaLabel="Cities"
-              />
-            </div>
-            <div className="ip-ec-fsec">
-              <span>Experience</span>
-              <label className="ip-ec-check"><input type="radio" name="exp" checked={experience === ''} onChange={() => setExperience('')} /> Any</label>
-              <label className="ip-ec-check"><input type="radio" name="exp" checked={experience === 'none'} onChange={() => setExperience('none')} /> No experience</label>
-              <label className="ip-ec-check"><input type="radio" name="exp" checked={experience === '1plus'} onChange={() => setExperience('1plus')} /> 1+ year</label>
-              <label className="ip-ec-check"><input type="radio" name="exp" checked={experience === '2plus'} onChange={() => setExperience('2plus')} /> 2+ years</label>
-            </div>
-            <div className="ip-ec-fsec">
-              <span>Availability</span>
-              <label className="ip-ec-check"><input type="radio" name="av" checked={availability === ''} onChange={() => setAvailability('')} /> Any</label>
-              <label className="ip-ec-check"><input type="radio" name="av" checked={availability === 'immediate'} onChange={() => setAvailability('immediate')} /> Immediate</label>
-              <label className="ip-ec-check"><input type="radio" name="av" checked={availability === '2weeks'} onChange={() => setAvailability('2weeks')} /> Within 2 weeks</label>
-              <label className="ip-ec-check"><input type="radio" name="av" checked={availability === '1month'} onChange={() => setAvailability('1month')} /> Within 1 month</label>
-            </div>
-            <div className="ip-ec-fsec">
-              <span>Academic score <em>{minCgpa || '0'}–10.0</em></span>
-              <input type="range" min="0" max="10" step="0.1" value={minCgpa} onChange={(e) => setMinCgpa(e.target.value)} />
-            </div>
-            <div className="ip-ec-fsec">
-              <span>Profile freshness</span>
-              <label className="ip-ec-check"><input type="radio" name="fr" checked={freshnessDays === ''} onChange={() => setFreshnessDays('')} /> Any</label>
-              <label className="ip-ec-check"><input type="radio" name="fr" checked={freshnessDays === '7'} onChange={() => setFreshnessDays('7')} /> Updated in 7 days</label>
-              <label className="ip-ec-check"><input type="radio" name="fr" checked={freshnessDays === '30'} onChange={() => setFreshnessDays('30')} /> Updated in 30 days</label>
-            </div>
-          </div>
-          <div className="ip-ec-box">
-            <h3>Search summary</h3>
-            <div className="ip-ec-summary">
-              <div className="ip-ec-metric"><b>{summary.found}</b><span>Profiles found</span></div>
-              <div className="ip-ec-metric"><b>{summary.roleMatches}</b><span>Role matches</span></div>
-              <div className="ip-ec-metric"><b>{summary.shortlisted}</b><span>Shortlisted</span></div>
-              <div className="ip-ec-metric"><b>{summary.invitesPending}</b><span>Invites pending</span></div>
-            </div>
-          </div>
-          <div className="ip-ec-box">
-            <h3>Privacy & outreach</h3>
-            <p>Search results only expose information allowed by the candidate&apos;s discovery settings. Private contact details stay restricted until the existing platform workflow permits access.</p>
-            <p style={{ marginBottom: 0 }}><b style={{ color: '#344054' }}>Duplicate protection:</b> existing applications, previous invitations and shortlists are shown so you do not repeatedly contact the same candidate.</p>
-          </div>
-        </aside>
       </div>
 
       {whyText ? (

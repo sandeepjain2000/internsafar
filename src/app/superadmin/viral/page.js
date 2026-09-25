@@ -38,6 +38,20 @@ function isFlagged(status) {
   return status === 'failed';
 }
 
+/** Soft check: declared channel vs destination URL host/path heuristics. */
+function channelUrlMismatch(share) {
+  const channel = String(share?.channel || '').toLowerCase();
+  const url = String(share?.claimed_post_url || share?.share_url || '').toLowerCase();
+  if (!channel || channel === 'other' || !url) return false;
+  const looksLinkedIn = /linkedin\.com|lnkd\.in/.test(url);
+  const looksWhatsApp = /wa\.me|whatsapp\.com|api\.whatsapp\.com/.test(url);
+  const looksTwitter = /twitter\.com|x\.com|t\.co\//.test(url);
+  if (channel === 'linkedin') return !looksLinkedIn && (looksWhatsApp || looksTwitter);
+  if (channel === 'whatsapp') return !looksWhatsApp && (looksLinkedIn || looksTwitter);
+  if (channel === 'twitter') return !looksTwitter && (looksLinkedIn || looksWhatsApp);
+  return false;
+}
+
 function scheduleLabel(s) {
   if (isVerified(s.status)) {
     return s.search_notes?.includes('Fast') || s.search_notes?.includes('SuperAdmin')
@@ -59,6 +73,7 @@ function scheduleLabel(s) {
 export default function SuperAdminViralPage() {
   const [tab, setTab] = useState('all');
   const [channel, setChannel] = useState('all');
+  const [mismatchOnly, setMismatchOnly] = useState(false);
   const [items, setItems] = useState([]);
   const [pts, setPts] = useState(LINKEDIN_PROMO_POINTS);
   const [search, setSearch] = useState('');
@@ -117,6 +132,7 @@ export default function SuperAdminViralPage() {
     if (tab === 'verified') rows = rows.filter((s) => isVerified(s.status));
     if (tab === 'flagged') rows = rows.filter((s) => isFlagged(s.status));
     if (channel !== 'all') rows = rows.filter((s) => String(s.channel).toLowerCase() === channel);
+    if (mismatchOnly) rows = rows.filter((s) => channelUrlMismatch(s));
     const q = search.trim().toLowerCase();
     if (!q) return rows;
     return rows.filter((s) =>
@@ -124,7 +140,7 @@ export default function SuperAdminViralPage() {
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q)),
     );
-  }, [items, tab, channel, search]);
+  }, [items, tab, channel, search, mismatchOnly]);
 
   const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(
     filtered,
@@ -133,7 +149,7 @@ export default function SuperAdminViralPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [tab, channel, search, setPage]);
+  }, [tab, channel, search, mismatchOnly, setPage]);
 
   const pendingSelectable = filtered.filter((s) => isPending(s.status));
 
@@ -302,6 +318,14 @@ export default function SuperAdminViralPage() {
               <option value="twitter">Twitter</option>
               <option value="other">Other</option>
             </select>
+            <label className="ip-saq-check" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600 }}>
+              <input
+                type="checkbox"
+                checked={mismatchOnly}
+                onChange={(e) => setMismatchOnly(e.target.checked)}
+              />
+              Channel / URL Mismatches Only
+            </label>
             <div className="ip-saq-search">
               <Search size={15} aria-hidden />
               <input
@@ -373,7 +397,14 @@ export default function SuperAdminViralPage() {
                       </div>
                     </td>
                     <td>
-                      <span className="ip-saq-pill ip-saq-pill--blue">{s.channel}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                        <span className="ip-saq-pill ip-saq-pill--blue">{s.channel}</span>
+                        {channelUrlMismatch(s) ? (
+                          <span className="ip-saq-pill ip-saq-pill--danger" title="Declared channel does not match destination URL">
+                            Channel / URL Mismatch
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
                     <td>
                       <a
@@ -451,6 +482,14 @@ export default function SuperAdminViralPage() {
                 <span>Channel</span>
                 <strong>{audit.channel}</strong>
               </div>
+              {channelUrlMismatch(audit) ? (
+                <div className="ip-saq-modal-row">
+                  <span>Consistency</span>
+                  <strong style={{ color: '#b91c1c' }}>
+                    Channel / URL Mismatch — Declared Channel Does Not Match The Open Link Destination. Review Before Verifying.
+                  </strong>
+                </div>
+              ) : null}
               <div className="ip-saq-modal-row">
                 <span>Status</span>
                 <strong>{audit.status}</strong>

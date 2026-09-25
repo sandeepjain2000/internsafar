@@ -186,3 +186,15 @@
 .ip-presets-bar {
   margin: 0.35rem 0 0.5rem;
 }
+
+.ip-tf__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.ip-emp-applicants .ip-tf {
+  margin: 0;
+}

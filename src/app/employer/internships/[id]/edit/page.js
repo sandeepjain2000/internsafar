@@ -13,9 +13,11 @@ import PageHeader from '@/components/ip/PageHeader';
 import ScreeningQuestionsEditor from '@/components/ip/ScreeningQuestionsEditor';
 import InternshipCandidatePreview from '@/components/ip/InternshipCandidatePreview';
 import PostingLocationsFields from '@/components/ip/PostingLocationsFields';
+import WorkModeRadios from '@/components/ip/WorkModeRadios';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
 import { internshipDurationMonths } from '@/lib/internshipDurationMonths';
 import { normalizeScreeningQuestions } from '@/lib/ipScreeningQuestions';
+import '@/components/ip/ip-post-internship.css';
 
 function toLocalInput(iso) {
   if (!iso) return '';
@@ -194,7 +196,7 @@ export default function EditInternshipPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="ip-post-internship space-y-4">
       <PageHeader title="Edit posting" description={form.lifecycle_label ? `Lifecycle: ${form.lifecycle_label}` : undefined} />
       <Card className="overflow-visible">
         <CardHeader>
@@ -243,15 +245,13 @@ export default function EditInternshipPage() {
                     />
                   </div>
                 </Field>
-                <Field>
-                  <FieldLabel>Work mode</FieldLabel>
-                  <Input
+                <Field className="sm:col-span-2">
+                  <FieldLabel>Work Mode</FieldLabel>
+                  <WorkModeRadios
+                    name={`edit-internship-work-mode-${form.id || 'x'}`}
                     value={form.work_mode || ''}
-                    onChange={(e) => set('work_mode', e.target.value)}
-                    placeholder="Remote / Hybrid / On-site"
-                    required
+                    onChange={(mode) => set('work_mode', mode)}
                   />
-                  <FieldDescription>No default — choose the mode candidates will see.</FieldDescription>
                 </Field>
                 <Field>
                   <FieldLabel>Duration (months)</FieldLabel>
