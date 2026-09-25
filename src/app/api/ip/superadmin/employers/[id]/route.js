@@ -117,6 +117,34 @@ export async function PATCH(request, { params }) {
   } catch {
     return jsonError('Invalid JSON');
   }
+
+  if (body.action === 'resetEthics' || body.resetEthics === true) {
+    const ids = Array.isArray(body.ids)
+      ? body.ids.map(String).filter(Boolean)
+      : [String(routeId || body.id || '')].filter(Boolean);
+    if (!ids.length) return jsonError('Id Required');
+    let ok = 0;
+    for (const id of ids) {
+      const emp = await query(
+        `UPDATE ip_employers
+         SET ethics_acks = '{}'::jsonb,
+             ethics_accepted_at = null,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING user_id`,
+        [id],
+      );
+      if (!emp.rows[0]) continue;
+      await query(
+        `UPDATE ip_users SET profile_complete = false, updated_at = now() WHERE id = $1`,
+        [emp.rows[0].user_id],
+      );
+      ok += 1;
+    }
+    if (!ok) return jsonError('Not Found', 404);
+    return jsonOk({ ok: true, processed: ok, action: 'resetEthics' });
+  }
+
   const status = String(body.approvalStatus || '');
   if (!ALLOWED.includes(status)) return jsonError(`approvalStatus Must Be One Of ${ALLOWED.join(', ')}`);
 

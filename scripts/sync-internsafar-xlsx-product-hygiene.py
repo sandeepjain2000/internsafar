@@ -66,8 +66,9 @@ AUTOMATED_IDS = {
 }
 
 OBSOLETE_IDS = {
-    "TC-IS-02-027": "Obsolete 2026-09-24: Google login on home removed; portal session via home Google is unreachable.",
-    "TC-IS-03-021": "Obsolete 2026-09-24: Home has no Google control; use GoogleLoginDisabled / register Google paths instead.",
+    # Removed from workbook 2026-09-25 (home Google login gone):
+    # TC-IS-02-027, TC-IS-03-021
+    # Removed: TC-IS-14-013 SuperAdmin viral UI (redirect-only)
 }
 
 EDITS = {
@@ -159,13 +160,13 @@ NEW_CASES = [
         ),
         "Role(s)": "Employer",
         "Preconditions": "Approved employer with profile complete",
-        "Automation": "Manual",
+        "Automation": "Automated",
         "Severity / Priority": "Medium",
         "Doc Status": "Ready for QA",
         "Phase": "P2 / industry QA sync",
         "Test Status": "Not Run",
         "Legacy ID": "",
-        "Comments / Notes": "UI component: src/components/ip/PostingLocationsFields.jsx",
+        "Comments / Notes": "Playwright: journeys-employer.spec.js JOURNEY-EMP-03; UI: PostingLocationsFields.jsx",
     },
     {
         "ID": "TC-IS-09-017",

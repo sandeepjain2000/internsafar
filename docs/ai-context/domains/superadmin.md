@@ -2,7 +2,7 @@
 
 ## Responsibility
 
-Platform oversight: employer approvals, manual requests, documents, postings, promotions, viral, login report, form registrations, feature ideas, messages, bootstrap.
+Platform oversight: employer approvals, manual requests, documents, postings, posting share rewards, login report, form registrations, feature ideas, messages, bootstrap.
 
 ## Central sources
 
@@ -23,12 +23,12 @@ Platform oversight: employer approvals, manual requests, documents, postings, pr
 | `/superadmin/approvals` | **Only** employer approval queue (Domain + Free-email). Path column on rows. |
 | `/superadmin/documents` | Documents |
 | `/superadmin/postings` | Postings oversight |
-| `/superadmin/promotions` | LinkedIn promos |
-| `/superadmin/viral` | Viral shares |
+| `/superadmin/promotions` | Posting Share Rewards (LinkedIn posting-share claims) |
 | `/superadmin/login-report` | Login report (default **All time**; not wiped by core reset) |
 | `/superadmin/messages` | Messages |
 | `/superadmin/feature-ideas` | Feature ideas |
 
+Retired (redirect → `/superadmin`): `/superadmin/viral` (orphaned viral-shares queue; APIs/table may remain).  
 Retired (redirect → `/superadmin/approvals`): `/superadmin/form-registrations`, `/superadmin/requests`.  
 APIs for those queues return **410**. Schema dropped on bootstrap: `ip_employer_requests`, `ip_users.form_approval_status` (`ensureIpRetireDeadQueuesSchema`).
 

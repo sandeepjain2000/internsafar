@@ -26,7 +26,6 @@ function buildQueues(stats) {
   const pendingEmp = Number(stats?.pendingEmployers || 0);
   const pendingIdeas = Number(stats?.pendingIdeas || 0);
   const pendingDocs = Number(stats?.pendingDocuments || 0);
-  const pendingViral = Number(stats?.pendingViral || 0);
   const pendingPromos = Number(stats?.pendingPromotions || 0);
   const unread = Number(stats?.unreadMessages || 0);
   const live = Number(stats?.internships?.live || 0);
@@ -100,21 +99,12 @@ function buildQueues(stats) {
     },
     {
       id: 'lin-pro',
-      area: 'LinkedIn Promotions',
-      desc: 'Verify promotion tokens / fast-track URLs submitted by recruiters.',
+      area: 'Posting Share Rewards',
+      desc: 'Review employer posting-share claims and award reward points after verification.',
       href: '/superadmin/promotions',
       badge: pendingPromos > 0 ? `${pendingPromos} Pending` : 'Clear',
       badgeClass: pendingPromos > 0 ? 'ip-sad-pill--warn' : 'ip-sad-pill--slate',
-      action: 'View Tokens',
-    },
-    {
-      id: 'vir-sha',
-      area: 'Viral Shares Queue',
-      desc: 'LinkedIn site shares queued for 24h Google search verification.',
-      href: '/superadmin/viral',
-      badge: pendingViral > 0 ? 'Queue Active' : 'Clear',
-      badgeClass: pendingViral > 0 ? 'ip-sad-pill--purple' : 'ip-sad-pill--slate',
-      action: 'Run Verification',
+      action: 'Review Claims',
     },
     {
       id: 'off-hir',
@@ -268,7 +258,7 @@ export default function SuperAdminDashboard() {
             <strong>{candidates}</strong>
             <span className="ip-sad-pill ip-sad-pill--ok">Registered</span>
           </div>
-          <p className="ip-sad-metric__sub">Verified student profiles</p>
+          <p className="ip-sad-metric__sub">All candidate user accounts</p>
         </div>
 
         <div className="ip-sad-metric">
@@ -281,12 +271,12 @@ export default function SuperAdminDashboard() {
           <div className="ip-sad-metric__row">
             <strong>{employers}</strong>
             {pendingEmp > 0 ? (
-              <span className="ip-sad-pill ip-sad-pill--warn">{pendingEmp} Pending</span>
+              <span className="ip-sad-pill ip-sad-pill--warn">{pendingEmp} Pending approval</span>
             ) : (
               <span className="ip-sad-pill ip-sad-pill--ok">All Approved</span>
             )}
           </div>
-          <p className="ip-sad-metric__sub">Registered organization accounts</p>
+          <p className="ip-sad-metric__sub">All employer accounts · pending = awaiting Final Approval</p>
         </div>
 
         <div className="ip-sad-metric">
@@ -298,9 +288,9 @@ export default function SuperAdminDashboard() {
           </div>
           <div className="ip-sad-metric__row">
             <strong>{internshipsTotal}</strong>
-            <span className="ip-sad-pill ip-sad-pill--ok">{internshipsLive} Live</span>
+            <span className="ip-sad-pill ip-sad-pill--ok">{internshipsLive} Published</span>
           </div>
-          <p className="ip-sad-metric__sub">Active campus postings</p>
+          <p className="ip-sad-metric__sub">Total postings · Published = status published (live)</p>
         </div>
 
         <div className="ip-sad-metric">
@@ -313,10 +303,10 @@ export default function SuperAdminDashboard() {
           <div className="ip-sad-metric__row">
             <strong>{applications}</strong>
             <span className="ip-sad-pill ip-sad-pill--brand">
-              {offersAccepted}/{offersTotal} Accepted
+              Offers {offersAccepted}/{offersTotal} accepted
             </span>
           </div>
-          <p className="ip-sad-metric__sub">Total submitted applications</p>
+          <p className="ip-sad-metric__sub">All application rows · pill counts offers (not applications)</p>
         </div>
       </div>
 

@@ -28,8 +28,10 @@ async function apiWithSession(request, email, method, url, options = {}) {
   expect(logged.ok, `API login failed for ${email}`).toBeTruthy();
   const cookie = logged.cookies.map((c) => `${c.name}=${c.value}`).join('; ');
   const headers = { ...(options.headers || {}), Cookie: cookie };
-  if (method === 'GET') return request.get(url, { ...options, headers });
-  if (method === 'POST') return request.post(url, { ...options, headers });
+  const m = String(method || 'GET').toUpperCase();
+  if (m === 'GET') return request.get(url, { ...options, headers });
+  if (m === 'POST') return request.post(url, { ...options, headers });
+  if (m === 'PATCH') return request.patch(url, { ...options, headers });
   throw new Error(`unsupported ${method}`);
 }
 
@@ -318,5 +320,152 @@ test.describe('InternSafar regression', () => {
     await expect(panel).toBeVisible({ timeout: 10_000 });
     await expect(panel.locator('label').filter({ hasText: /Start date/i })).toBeVisible();
     await expect(panel.locator('option', { hasText: 'Starts within 30 days' })).toBeAttached();
+  });
+
+  test('IS-065 active duplicate apply is blocked', async ({ request }) => {
+    const appsRes = await apiWithSession(
+      request,
+      candidate.email,
+      'GET',
+      '/api/ip/candidate/applications?pageSize=200',
+    );
+    expect(appsRes.ok()).toBeTruthy();
+    const appsBody = await appsRes.json();
+    const active = (appsBody.items || []).find((a) => {
+      const s = String(a.status || '').toLowerCase();
+      return s && s !== 'withdrawn';
+    });
+    test.skip(!active?.internship_id, 'No active application for core candidate');
+    const res = await apiWithSession(request, candidate.email, 'POST', '/api/ip/candidate/applications', {
+      data: { internshipId: active.internship_id, answers: {} },
+    });
+    expect(res.status()).toBe(409);
+    const body = await res.json().catch(() => ({}));
+    expect(String(body.error || '')).toMatch(/active application|already/i);
+  });
+
+  test('IS-066 withdraw then reapply allowed', async ({ request }) => {
+    function buildAnswers(questions) {
+      const answers = {};
+      for (const q of questions || []) {
+        if (typeof q === 'string') {
+          answers[`q${Object.keys(answers).length + 1}`] = 'QA reapply answer';
+          continue;
+        }
+        const id = String(q.id || '').trim();
+        if (!id) continue;
+        if (String(q.type || '').toLowerCase() === 'mcq') {
+          const opts = Array.isArray(q.options) ? q.options : [];
+          const safe = opts.find((o) => o && !o.disablesApplication) || opts[0];
+          if (safe) answers[id] = String(safe.id || safe.label || '');
+        } else {
+          answers[id] = 'QA reapply answer';
+        }
+      }
+      return answers;
+    }
+
+    async function loadQuestions(internshipId) {
+      const detail = await apiWithSession(
+        request,
+        candidate.email,
+        'GET',
+        `/api/ip/candidate/internships/${internshipId}`,
+      );
+      const detailBody = await detail.json().catch(() => ({}));
+      return Array.isArray(detailBody?.internship?.questions) ? detailBody.internship.questions : [];
+    }
+
+    async function applyTo(internshipId) {
+      const questions = await loadQuestions(internshipId);
+      const answers = buildAnswers(questions);
+      return apiWithSession(request, candidate.email, 'POST', '/api/ip/candidate/applications', {
+        data: { internshipId, answers },
+      });
+    }
+
+    async function seedOpenPosting() {
+      const created = await apiWithSession(request, employer.email, 'POST', '/api/ip/employer/internships', {
+        data: {
+          title: `QA IS-066 reapply ${Date.now()}`,
+          description: 'Automated seed posting for withdraw/reapply regression.',
+          workMode: 'Remote',
+          status: 'published',
+          questions: [],
+        },
+      });
+      if (![200, 201].includes(created.status())) {
+        const body = await created.json().catch(() => ({}));
+        return { ok: false, error: `${created.status()} ${body.error || ''}`.trim() };
+      }
+      const body = await created.json().catch(() => ({}));
+      return { ok: Boolean(body.id), id: body.id, error: body.error };
+    }
+
+    const appsRes = await apiWithSession(
+      request,
+      candidate.email,
+      'GET',
+      '/api/ip/candidate/applications?pageSize=200',
+    );
+    expect(appsRes.ok()).toBeTruthy();
+    const appsBody = await appsRes.json();
+    const items = appsBody.items || [];
+
+    let target = items.find((a) => {
+      const s = String(a.status || '').toLowerCase();
+      return ['applied', 'pending'].includes(s) && a.id && a.internship_id;
+    });
+
+    if (!target) {
+      const withdrawn = items.find(
+        (a) => String(a.status || '').toLowerCase() === 'withdrawn' && a.internship_id,
+      );
+      if (withdrawn) {
+        const again = await applyTo(withdrawn.internship_id);
+        expect([200, 201], `reapply on withdrawn failed: ${again.status()}`).toContain(again.status());
+        const againBody = await again.json().catch(() => ({}));
+        expect(againBody.ok || againBody.id).toBeTruthy();
+        return;
+      }
+
+      const listRes = await apiWithSession(
+        request,
+        candidate.email,
+        'GET',
+        '/api/ip/candidate/internships?pageSize=200&chip=unapplied',
+      );
+      expect(listRes.ok()).toBeTruthy();
+      const listBody = await listRes.json();
+      let openId = (listBody.items || []).find((i) => i?.id && !i.applied)?.id;
+      if (!openId) {
+        const seeded = await seedOpenPosting();
+        test.skip(!seeded.ok, `Could not seed open posting for reapply (${seeded.error || 'unknown'})`);
+        openId = seeded.id;
+      }
+
+      const created = await applyTo(openId);
+      test.skip(
+        ![200, 201].includes(created.status()),
+        `Could not create seed application (${created.status()})`,
+      );
+      const createdBody = await created.json().catch(() => ({}));
+      target = { id: createdBody.id, internship_id: openId };
+      test.skip(!target.id, 'Seed apply did not return application id');
+    }
+
+    const w = await apiWithSession(
+      request,
+      candidate.email,
+      'PATCH',
+      `/api/ip/candidate/applications/${target.id}`,
+      { data: { status: 'withdrawn' } },
+    );
+    expect(w.ok(), `withdraw failed: ${w.status()}`).toBeTruthy();
+
+    const again = await applyTo(target.internship_id);
+    expect([200, 201], `reapply failed: ${again.status()}`).toContain(again.status());
+    const againBody = await again.json().catch(() => ({}));
+    expect(againBody.ok || againBody.id).toBeTruthy();
   });
 });

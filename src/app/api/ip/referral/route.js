@@ -52,11 +52,35 @@ export async function GET(request) {
     ? referrals.rows.map(presentReferralForCandidate)
     : referrals.rows;
 
+  let postingShareRewards = [];
+  if (!isCandidate) {
+    const shareRows = await query(
+      `SELECT l.id, l.delta AS points_awarded, l.created_at, l.meta,
+              coalesce(i.title, 'Posting share') AS posting_title
+       FROM ip_points_ledger l
+       LEFT JOIN ip_linkedin_promotions p ON p.id = (l.meta->>'promoId')
+       LEFT JOIN ip_internships i ON i.id = p.internship_id
+       WHERE l.user_id = $1 AND l.reason = 'linkedin_promotion_verified'
+       ORDER BY l.created_at DESC
+       LIMIT 100`,
+      [session.user.id],
+    );
+    postingShareRewards = shareRows.rows.map((r) => ({
+      id: r.id,
+      kind: 'posting_share',
+      posting_title: r.posting_title,
+      points_awarded: r.points_awarded,
+      status: 'completed',
+      created_at: r.created_at,
+    }));
+  }
+
   return jsonOk({
     ...user.rows[0],
     referralLink: code ? `${origin}${path}?ref=${code}` : null,
     viralLink: code ? `${origin}/r/${code}` : null,
     referrals: presented,
+    postingShareRewards,
     waysEarned: {
       profileComplete: earnedSet.has('profile_complete'),
       firstApplication: earnedSet.has('first_application_bonus'),

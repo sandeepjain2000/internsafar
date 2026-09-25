@@ -8,11 +8,21 @@ import useIpCityCatalog from '@/hooks/useIpCityCatalog';
 import useIpCountryCatalog from '@/hooks/useIpCountryCatalog';
 import { documentAcceptAttr, imageAcceptAttr } from '@/lib/ipFileUpload';
 import { BUSINESS_ENTITY_TYPES } from '@/lib/employerBusinessEntity';
+import { isEthicsLocked } from '@/lib/employerEthics';
 import { PHONE_DIAL_OPTIONS, validateRequiredPhone } from '@/lib/ipPhoneValidation';
 import { toSafeClientError } from '@/lib/ipSafeClientError';
+import { toTitleCaseLabel } from '@/lib/ipTitleCase';
 import '@/components/ip/ip-employer-profile-gemini.css';
 
 const DOC_TYPES = ['Shop Act', 'LLP registration', 'Business PAN', 'Other'];
+
+const PROFILE_TABS = [
+  { id: 'company', label: 'Company Details' },
+  { id: 'contact', label: 'Contact & Location' },
+  { id: 'about', label: 'About & Visibility' },
+  { id: 'ethics', label: 'Guidelines & Ethics' },
+  { id: 'docs', label: 'Verification Documents' },
+];
 
 const INDUSTRY_OPTIONS = [
   'Technology / Software',
@@ -116,6 +126,21 @@ function PlusIcon() {
   );
 }
 
+function SaveCompanyButton({ saving, onSave }) {
+  return (
+    <div className="ip-ep-actions ip-ep-actions--save">
+      <button
+        type="button"
+        className="ip-ep-btn ip-ep-btn--primary"
+        disabled={saving}
+        onClick={onSave}
+      >
+        {saving ? 'Saving Details…' : 'Save Company Details'}
+      </button>
+    </div>
+  );
+}
+
 export default function EmployerProfilePage() {
   const [form, setForm] = useState(null);
   const [docs, setDocs] = useState([]);
@@ -129,6 +154,9 @@ export default function EmployerProfilePage() {
   const [docUrl, setDocUrl] = useState('');
   const [docFileName, setDocFileName] = useState('');
   const [logoBusy, setLogoBusy] = useState(false);
+  const [logoUrlOpen, setLogoUrlOpen] = useState(false);
+  const [logoUrlDraft, setLogoUrlDraft] = useState('');
+  const [profileTab, setProfileTab] = useState('company');
   const logoInputRef = useRef(null);
   const { placeCityOptions, stateOptions, findCity, loading: citiesLoading } = useIpCityCatalog();
   const { countryOptions, loading: countriesLoading } = useIpCountryCatalog();
@@ -167,10 +195,10 @@ export default function EmployerProfilePage() {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
-  function setEthics(id, checked) {
+  function setEthics(id, accepted) {
     setForm((f) => ({
       ...f,
-      ethics_acks: { ...(f.ethics_acks || {}), [id]: Boolean(checked) },
+      ethics_acks: { ...(f.ethics_acks || {}), [id]: Boolean(accepted) },
     }));
   }
 
@@ -199,10 +227,10 @@ export default function EmployerProfilePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       if (data.profileComplete) {
-        setMessage('Profile saved — complete! (Company fields + all Guidelines & Ethics checkboxes.)');
+        setMessage('Profile saved — complete! (Company fields + all Guidelines & Ethics accepted.)');
       } else if (!data.ethicsComplete) {
         setMessage(
-          'Profile saved, but Guidelines & Ethics is incomplete — check all boxes to finish profile completion.'
+          'Profile saved, but Guidelines & Ethics is incomplete — Accept & Save all items to finish profile completion.'
         );
       } else {
         setMessage('Profile saved. A few required company fields are still missing.');
@@ -230,6 +258,8 @@ export default function EmployerProfilePage() {
       if (!res.ok) throw new Error(data.error || data.hint || 'Upload failed');
       if (data.logo_url || data.fileUrl) {
         set('logo_url', data.logo_url || data.fileUrl);
+        setLogoUrlOpen(false);
+        setLogoUrlDraft('');
         setMessage('Logo uploaded to cloud storage.');
       }
     } catch (err) {
@@ -237,6 +267,18 @@ export default function EmployerProfilePage() {
     } finally {
       setLogoBusy(false);
     }
+  }
+
+  function applyLogoUrl() {
+    const url = String(logoUrlDraft || '').trim();
+    if (!url) {
+      setMessage('Enter a logo URL to apply.');
+      return;
+    }
+    set('logo_url', url);
+    setLogoUrlDraft('');
+    setLogoUrlOpen(false);
+    setMessage('Logo URL applied. Save Company Details to persist.');
   }
 
   async function addDoc(e) {
@@ -272,7 +314,9 @@ export default function EmployerProfilePage() {
   const sizeValue = sizeSelectValue(form.company_size);
   const sizeKnown = SIZE_OPTIONS.some((o) => o.value === sizeValue);
   const approved = form.approval_status === 'approved';
-  const ethicsAllOn = ethicsItems.length > 0 && ethicsItems.every((item) => !!form.ethics_acks?.[item.id]);
+  const ethicsLocked = isEthicsLocked(form);
+  const ethicsAllOn = ethicsItems.length > 0 && ethicsItems.every((item) => form.ethics_acks?.[item.id] === true);
+  const approvalLabel = toTitleCaseLabel(form.approval_status || 'Pending') || 'Pending';
 
   return (
     <div className="ip-emp-profile ip-mobile-bleed">
@@ -282,473 +326,578 @@ export default function EmployerProfilePage() {
           <p>Complete your organization&apos;s details to unlock posting internships.</p>
         </div>
         <span className={`ip-ep-badge${approved ? ' ip-ep-badge--ok' : ''}`}>
-          {form.approval_status || 'Pending'}
+          {approvalLabel}
         </span>
       </div>
 
       {message ? <div className="ip-ep-alert">{message}</div> : null}
 
-      {/* Company Details */}
-      <section className="ip-ep-card">
-        <div className="ip-ep-card__head">
-          <h2 className="ip-ep-card__title">Company Details</h2>
-        </div>
-        <div className="ip-ep-stack">
-          <div className="ip-ep-logo-row">
-            <input
-              ref={logoInputRef}
-              type="file"
-              accept={imageAcceptAttr()}
-              className="hidden"
-              onChange={onLogoPick}
-              disabled={logoBusy}
-            />
-            <button
-              type="button"
-              className="ip-ep-logo-box"
-              onClick={() => logoInputRef.current?.click()}
-              disabled={logoBusy}
-              aria-label="Upload company logo"
-            >
-              {form.logo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={form.logo_url} alt="" />
-              ) : (
-                <>
-                  <CameraIcon />
-                  <span>{logoBusy ? '…' : 'Upload'}</span>
-                </>
-              )}
-            </button>
-            <div className="ip-ep-logo-fields">
-              <label className="ip-ep-label">Or paste logo URL</label>
-              <input
-                className="ip-ep-input"
-                value={form.logo_url || ''}
-                onChange={(e) => set('logo_url', e.target.value)}
-                placeholder="https://…"
-              />
-              <p className="ip-ep-hint">Recommended: Square PNG or JPG, at least 200×200px.</p>
-            </div>
-          </div>
+      <div className="ip-ep-tabs" role="tablist" aria-label="Employer profile sections">
+        {PROFILE_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            id={`ip-ep-tab-${tab.id}`}
+            aria-selected={profileTab === tab.id}
+            aria-controls={`ip-ep-panel-${tab.id}`}
+            className={profileTab === tab.id ? 'is-active' : undefined}
+            onClick={() => setProfileTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-          <div className="ip-ep-grid">
-            <Field label="Company / legal name" required>
+      {/* Company Details */}
+      {profileTab === 'company' ? (
+        <section
+          className="ip-ep-card"
+          role="tabpanel"
+          id="ip-ep-panel-company"
+          aria-labelledby="ip-ep-tab-company"
+        >
+          <div className="ip-ep-card__head">
+            <h2 className="ip-ep-card__title">Company Details</h2>
+          </div>
+          <div className="ip-ep-stack">
+            <div className="ip-ep-logo-row">
               <input
-                className="ip-ep-input"
-                value={form.company_name || ''}
-                onChange={(e) => set('company_name', e.target.value)}
-                required
+                ref={logoInputRef}
+                type="file"
+                accept={imageAcceptAttr()}
+                className="hidden"
+                onChange={onLogoPick}
+                disabled={logoBusy}
+              />
+              <button
+                type="button"
+                className="ip-ep-logo-box"
+                onClick={() => logoInputRef.current?.click()}
+                disabled={logoBusy}
+                aria-label="Upload company logo"
+              >
+                {form.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={form.logo_url} alt="" />
+                ) : (
+                  <>
+                    <CameraIcon />
+                    <span>{logoBusy ? '…' : 'Upload'}</span>
+                  </>
+                )}
+              </button>
+              <div className="ip-ep-logo-fields">
+                <p className="ip-ep-hint">
+                  Square image recommended (≥400×400). Max 2 MB. Click the frame to upload.
+                </p>
+                <button
+                  type="button"
+                  className="ip-ep-logo-url-toggle"
+                  onClick={() => {
+                    setLogoUrlOpen((open) => !open);
+                    setLogoUrlDraft('');
+                  }}
+                >
+                  {logoUrlOpen ? 'Hide logo URL' : 'Change via logo URL'}
+                </button>
+                {logoUrlOpen ? (
+                  <div className="ip-ep-logo-url-row">
+                    <input
+                      className="ip-ep-input"
+                      value={logoUrlDraft}
+                      onChange={(e) => setLogoUrlDraft(e.target.value)}
+                      placeholder="https://…"
+                      aria-label="Logo URL"
+                    />
+                    <button
+                      type="button"
+                      className="ip-ep-btn ip-ep-btn--secondary"
+                      onClick={applyLogoUrl}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="ip-ep-grid">
+              <Field label="Company / legal name" required>
+                <input
+                  className="ip-ep-input"
+                  value={form.company_name || ''}
+                  onChange={(e) => set('company_name', e.target.value)}
+                  required
+                />
+              </Field>
+              <Field label="Business entity type" required>
+                <SelectInput
+                  value={form.business_entity_type || ''}
+                  onChange={(e) => set('business_entity_type', e.target.value)}
+                  required
+                >
+                  <option value="">Select entity type</option>
+                  {form.business_entity_type
+                    && !BUSINESS_ENTITY_TYPES.includes(form.business_entity_type) ? (
+                    <option value={form.business_entity_type}>{form.business_entity_type}</option>
+                  ) : null}
+                  {BUSINESS_ENTITY_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </SelectInput>
+              </Field>
+              <Field label="Brand / trading name">
+                <input
+                  className="ip-ep-input"
+                  value={form.brand_name || ''}
+                  onChange={(e) => set('brand_name', e.target.value)}
+                />
+              </Field>
+              <Field label="Website" required>
+                <input
+                  className="ip-ep-input ip-ep-input--website"
+                  value={form.website || ''}
+                  onChange={(e) => set('website', e.target.value)}
+                  required
+                />
+              </Field>
+              <Field label="Industry" required>
+                <SelectInput
+                  value={industrySelectValue}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    set('industry', v === 'Other' ? 'Other' : v);
+                  }}
+                  required
+                >
+                  <option value="">Select industry</option>
+                  {INDUSTRY_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </SelectInput>
+                {showIndustryOther ? (
+                  <input
+                    className="ip-ep-input"
+                    style={{ marginTop: '0.5rem' }}
+                    value={industryValue === 'Other' ? '' : industryValue}
+                    onChange={(e) => set('industry', e.target.value || 'Other')}
+                    placeholder="Describe your industry"
+                    aria-label="Custom industry"
+                    required
+                  />
+                ) : null}
+              </Field>
+              <Field label="Company size">
+                <SelectInput
+                  value={sizeKnown ? sizeValue : sizeValue || ''}
+                  onChange={(e) => set('company_size', e.target.value)}
+                >
+                  <option value="">Select size</option>
+                  {!sizeKnown && sizeValue ? <option value={sizeValue}>{form.company_size}</option> : null}
+                  {SIZE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </SelectInput>
+              </Field>
+            </div>
+            <SaveCompanyButton
+              saving={savingCompany}
+              onSave={() => saveProfile({ ethicsOnly: false })}
+            />
+          </div>
+        </section>
+      ) : null}
+
+      {/* Contact & Location */}
+      {profileTab === 'contact' ? (
+        <section
+          className="ip-ep-card"
+          role="tabpanel"
+          id="ip-ep-panel-contact"
+          aria-labelledby="ip-ep-tab-contact"
+        >
+          <div className="ip-ep-card__head">
+            <h2 className="ip-ep-card__title">Contact &amp; Location</h2>
+          </div>
+          <div className="ip-ep-stack">
+            <div className="ip-ep-grid">
+              <Field label="HQ Country">
+                <SearchableMultiSelect
+                  options={countryOptions}
+                  value={form.hq_country ? [form.hq_country] : ['India']}
+                  onChange={(next) => {
+                    const pick = next.length ? next[next.length - 1] : 'India';
+                    setForm((f) => {
+                      const prev = String(f.hq_country || 'India').trim();
+                      const changed = String(pick || '').trim() !== prev;
+                      if (!changed) return { ...f, hq_country: pick };
+                      return { ...f, hq_country: pick, hq_state: '', hq_city: '' };
+                    });
+                  }}
+                  placeholder="Search countries…"
+                  ariaLabel="HQ country"
+                  emptyHint="No countries"
+                  loading={countriesLoading && !(countryOptions || []).length}
+                />
+              </Field>
+              <Field label="HQ State / Province">
+                <SearchableSelect
+                  options={stateOptions}
+                  value={form.hq_state || ''}
+                  loading={citiesLoading && !(stateOptions || []).length}
+                  emptyHint="No states available"
+                  onChange={(state) => {
+                    setForm((f) => {
+                      const hit = findCity(f.hq_city);
+                      const cityStillValid =
+                        !state
+                        || !f.hq_city
+                        || (hit && String(hit.state || '').toLowerCase() === String(state).toLowerCase());
+                      return { ...f, hq_state: state, hq_city: cityStillValid ? f.hq_city : '' };
+                    });
+                  }}
+                  placeholder="Search states…"
+                  ariaLabel="HQ state or province"
+                />
+              </Field>
+              <Field label="HQ City" required>
+                <SearchableSelect
+                  options={hqCityChoices}
+                  value={form.hq_city || ''}
+                  loading={citiesLoading && !(hqCityChoices || []).length}
+                  emptyHint="No cities available"
+                  onChange={(city) => {
+                    const hit = findCity(city);
+                    setForm((f) => ({
+                      ...f,
+                      hq_city: city,
+                      hq_state: hit?.state && !/^work mode$/i.test(hit.state) ? hit.state : f.hq_state,
+                    }));
+                  }}
+                  placeholder="Search cities…"
+                  ariaLabel="HQ city"
+                />
+              </Field>
+              <Field label="Primary Contact Person" required>
+                <input
+                  className="ip-ep-input"
+                  value={form.contact_name || ''}
+                  onChange={(e) => set('contact_name', e.target.value)}
+                  required
+                />
+              </Field>
+              <Field label="Designation / Role">
+                <input
+                  className="ip-ep-input"
+                  value={form.contact_designation || ''}
+                  onChange={(e) => set('contact_designation', e.target.value)}
+                  placeholder="e.g. Placement Officer"
+                />
+              </Field>
+              <Field label="Contact Phone" required>
+                <div className="ip-ep-phone" role="group" aria-label="Contact phone with country code">
+                  <select
+                    className="ip-ep-phone__dial"
+                    value={form.contact_phone_country_code || '+91'}
+                    onChange={(e) => {
+                      set('contact_phone_country_code', e.target.value);
+                      setPhoneError('');
+                    }}
+                    aria-label="Country calling code"
+                  >
+                    {PHONE_DIAL_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className={`ip-ep-phone__num${phoneError ? ' is-invalid' : ''}`}
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel-national"
+                    value={form.contact_phone || ''}
+                    onChange={(e) => {
+                      set('contact_phone', e.target.value);
+                      setPhoneError('');
+                    }}
+                    placeholder="98765 43210"
+                    required
+                    aria-invalid={phoneError ? 'true' : 'false'}
+                  />
+                </div>
+                {phoneError ? <p className="ip-ep-error" role="alert">{phoneError}</p> : null}
+              </Field>
+              <Field label="Work Email" required>
+                <input
+                  className="ip-ep-input"
+                  type="email"
+                  value={form.work_email || ''}
+                  onChange={(e) => set('work_email', e.target.value)}
+                  required
+                />
+              </Field>
+            </div>
+            <SaveCompanyButton
+              saving={savingCompany}
+              onSave={() => saveProfile({ ethicsOnly: false })}
+            />
+          </div>
+        </section>
+      ) : null}
+
+      {/* About & Visibility */}
+      {profileTab === 'about' ? (
+        <section
+          className="ip-ep-card"
+          role="tabpanel"
+          id="ip-ep-panel-about"
+          aria-labelledby="ip-ep-tab-about"
+        >
+          <div className="ip-ep-card__head">
+            <h2 className="ip-ep-card__title">About &amp; Visibility</h2>
+          </div>
+          <div className="ip-ep-stack">
+            <Field label="About the company">
+              <textarea
+                className="ip-ep-textarea"
+                rows={4}
+                value={form.about || ''}
+                onChange={(e) => set('about', e.target.value)}
+                placeholder="Describe your organization, mission, and culture…"
               />
             </Field>
-            <Field label="Business entity type" required>
-              <SelectInput
-                value={form.business_entity_type || ''}
-                onChange={(e) => set('business_entity_type', e.target.value)}
-                required
-              >
-                <option value="">Select entity type</option>
-                {form.business_entity_type
-                  && !BUSINESS_ENTITY_TYPES.includes(form.business_entity_type) ? (
-                  <option value={form.business_entity_type}>{form.business_entity_type}</option>
-                ) : null}
-                {BUSINESS_ENTITY_TYPES.map((t) => (
+            <Field label="LinkedIn / Company page">
+              <input
+                className="ip-ep-input"
+                value={form.linkedin_url || ''}
+                onChange={(e) => set('linkedin_url', e.target.value)}
+                placeholder="https://linkedin.com/company/…"
+              />
+            </Field>
+            <div className="ip-ep-prefs">
+              <label className="ip-ep-label">Platform Preferences</label>
+              <label className="ip-ep-check">
+                <input
+                  type="checkbox"
+                  checked={!!form.show_identity_on_posting}
+                  onChange={(e) => set('show_identity_on_posting', e.target.checked)}
+                />
+                Show company identity on internship postings
+              </label>
+              <label className="ip-ep-check">
+                <input
+                  type="checkbox"
+                  checked={!!form.show_hiring_numbers}
+                  onChange={(e) => set('show_hiring_numbers', e.target.checked)}
+                />
+                Show hiring numbers (active applications) to candidates
+              </label>
+              <label className="ip-ep-check">
+                <input
+                  type="checkbox"
+                  checked={!!form.whatsapp_opt_in}
+                  onChange={(e) => set('whatsapp_opt_in', e.target.checked)}
+                />
+                Opt in to WhatsApp communications from candidates
+              </label>
+              <label className="ip-ep-check">
+                <input
+                  type="checkbox"
+                  checked={!!form.telegram_opt_in}
+                  onChange={(e) => set('telegram_opt_in', e.target.checked)}
+                />
+                Opt in to Telegram communications from candidates
+              </label>
+            </div>
+            <SaveCompanyButton
+              saving={savingCompany}
+              onSave={() => saveProfile({ ethicsOnly: false })}
+            />
+          </div>
+        </section>
+      ) : null}
+
+      {/* Guidelines & Ethics */}
+      {profileTab === 'ethics' ? (
+        <section
+          className="ip-ep-card"
+          role="tabpanel"
+          id="ip-ep-panel-ethics"
+          aria-labelledby="ip-ep-tab-ethics"
+        >
+          <div className="ip-ep-card__head ip-ep-card__head--plain">
+            <h2 className="ip-ep-card__title">Guidelines &amp; Ethics</h2>
+            <p className="ip-ep-card__desc">
+              Accept &amp; Save required before posting internships. Confirm each item.
+              {ethicsVersion ? ` (Version: ${ethicsVersion}` : ' (Version: —'}
+              {form.ethics_accepted_at
+                ? ` · Accepted ${new Date(form.ethics_accepted_at).toLocaleString()})`
+                : ')'}
+              {ethicsLocked ? ' Acknowledgements are locked and cannot be revoked.' : ''}
+            </p>
+          </div>
+          <div className="ip-ep-ethics">
+            {(ethicsItems.length ? ethicsItems : []).map((item) => {
+              const ack = form.ethics_acks?.[item.id];
+              const accepted = ack === true;
+              const rejected = ack === false;
+              return (
+                <div
+                  key={item.id}
+                  className={`ip-ep-ethic${accepted ? ' ip-ep-ethic--on' : ''}${rejected ? ' ip-ep-ethic--reject' : ''}${ethicsLocked ? ' ip-ep-ethic--locked' : ''}`}
+                >
+                  <p className="ip-ep-ethic__label">{item.label}</p>
+                  <div className="ip-ep-ethic__actions" role="group" aria-label={item.label}>
+                    <button
+                      type="button"
+                      className={`ip-ep-ethic-btn ip-ep-ethic-btn--accept${accepted ? ' is-selected' : ''}`}
+                      disabled={ethicsLocked || savingEthics}
+                      aria-pressed={accepted}
+                      onClick={() => setEthics(item.id, true)}
+                    >
+                      Accept
+                    </button>
+                    <button
+                      type="button"
+                      className={`ip-ep-ethic-btn ip-ep-ethic-btn--reject${rejected ? ' is-selected' : ''}`}
+                      disabled={ethicsLocked || savingEthics}
+                      aria-pressed={rejected}
+                      onClick={() => setEthics(item.id, false)}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            {!ethicsItems.length ? (
+              <p className="ip-ep-hint">Ethics checklist failed to load. Refresh the page.</p>
+            ) : null}
+          </div>
+          <div className="ip-ep-actions">
+            <button
+              type="button"
+              className={`ip-ep-btn ${ethicsAllOn ? 'ip-ep-btn--primary' : 'ip-ep-btn--secondary'}`}
+              disabled={savingEthics || ethicsLocked}
+              onClick={() => saveProfile({ ethicsOnly: true })}
+            >
+              {ethicsLocked ? 'Acknowledgements locked' : savingEthics ? 'Saving…' : 'Save Acknowledgements'}
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {/* Verification documents */}
+      {profileTab === 'docs' ? (
+        <section
+          className="ip-ep-card"
+          role="tabpanel"
+          id="ip-ep-panel-docs"
+          aria-labelledby="ip-ep-tab-docs"
+        >
+          <div className="ip-ep-card__head ip-ep-card__head--plain">
+            <h2 className="ip-ep-card__title">
+              Verification Documents
+            </h2>
+            <p className="ip-ep-card__desc">
+              Shop Act, LLP registration, Business PAN, or other company-registration evidence.
+            </p>
+          </div>
+
+          {docs.length ? (
+            <div className="ip-ep-doc-list">
+              {docs.map((d) => (
+                <div key={d.id} className="ip-ep-doc">
+                  <div className="ip-ep-doc__main">
+                    <div className="ip-ep-doc__icon">
+                      <FileTextIcon />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="ip-ep-doc__title">{d.doc_type || 'Document'}</p>
+                      {d.url ? (
+                        <a
+                          href={d.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="ip-ep-doc__link"
+                        >
+                          {d.file_name || 'Open file'}
+                        </a>
+                      ) : (
+                        <span className="ip-ep-doc__meta">{d.file_name || '—'}</span>
+                      )}
+                    </div>
+                  </div>
+                  <span className={`ip-ep-badge${d.review_status === 'approved' ? ' ip-ep-badge--ok' : ''}`}>
+                    {toTitleCaseLabel(d.review_status || 'pending') || 'Pending'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="ip-ep-upload-panel">
+            <h3>Upload new document</h3>
+            <div className="ip-ep-upload-row">
+              <SelectInput value={docType} onChange={(e) => setDocType(e.target.value)}>
+                {DOC_TYPES.map((t) => (
                   <option key={t} value={t}>
                     {t}
                   </option>
                 ))}
               </SelectInput>
-            </Field>
-            <Field label="Brand / trading name">
-              <input
-                className="ip-ep-input"
-                value={form.brand_name || ''}
-                onChange={(e) => set('brand_name', e.target.value)}
-              />
-            </Field>
-            <Field label="Website" required>
-              <input
-                className="ip-ep-input"
-                value={form.website || ''}
-                onChange={(e) => set('website', e.target.value)}
-                required
-              />
-            </Field>
-            <Field label="Industry" required>
-              <SelectInput
-                value={industrySelectValue}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  set('industry', v === 'Other' ? 'Other' : v);
-                }}
-                required
-              >
-                <option value="">Select industry</option>
-                {INDUSTRY_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </SelectInput>
-              {showIndustryOther ? (
-                <input
-                  className="ip-ep-input"
-                  style={{ marginTop: '0.5rem' }}
-                  value={industryValue === 'Other' ? '' : industryValue}
-                  onChange={(e) => set('industry', e.target.value || 'Other')}
-                  placeholder="Describe your industry"
-                  aria-label="Custom industry"
-                  required
+              <div className="ip-ep-upload-wrap">
+                <IpUploadButton
+                  endpoint="/api/ip/employer/documents/upload"
+                  accept={documentAcceptAttr()}
+                  label="Upload File (PDF/Image)"
+                  extraFormData={{ docType }}
+                  onUploaded={async () => {
+                    setMessage('Document uploaded.');
+                    await load();
+                  }}
                 />
-              ) : null}
-            </Field>
-            <Field label="Company size">
-              <SelectInput
-                value={sizeKnown ? sizeValue : sizeValue || ''}
-                onChange={(e) => set('company_size', e.target.value)}
-              >
-                <option value="">Select size</option>
-                {!sizeKnown && sizeValue ? <option value={sizeValue}>{form.company_size}</option> : null}
-                {SIZE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </SelectInput>
-            </Field>
-          </div>
-        </div>
-      </section>
-
-      {/* Contact & Location */}
-      <section className="ip-ep-card">
-        <div className="ip-ep-card__head">
-          <h2 className="ip-ep-card__title">Contact &amp; Location</h2>
-        </div>
-        <div className="ip-ep-grid">
-          <Field label="HQ City" required>
-            <SearchableSelect
-              options={hqCityChoices}
-              value={form.hq_city || ''}
-              loading={citiesLoading && !(hqCityChoices || []).length}
-              emptyHint="No cities available"
-              onChange={(city) => {
-                const hit = findCity(city);
-                setForm((f) => ({
-                  ...f,
-                  hq_city: city,
-                  hq_state: hit?.state && !/^work mode$/i.test(hit.state) ? hit.state : f.hq_state,
-                }));
-              }}
-              placeholder="Search cities…"
-              ariaLabel="HQ city"
-            />
-          </Field>
-          <Field label="HQ Country">
-            <SearchableMultiSelect
-              options={countryOptions}
-              value={form.hq_country ? [form.hq_country] : ['India']}
-              onChange={(next) => {
-                const pick = next.length ? next[next.length - 1] : 'India';
-                set('hq_country', pick);
-              }}
-              placeholder="Search countries…"
-              ariaLabel="HQ country"
-              emptyHint="No countries"
-              loading={countriesLoading && !(countryOptions || []).length}
-            />
-          </Field>
-          <Field label="HQ State / Province">
-            <SearchableSelect
-              options={stateOptions}
-              value={form.hq_state || ''}
-              loading={citiesLoading && !(stateOptions || []).length}
-              emptyHint="No states available"
-              onChange={(state) => {
-                setForm((f) => {
-                  const hit = findCity(f.hq_city);
-                  const cityStillValid =
-                    !state
-                    || !f.hq_city
-                    || (hit && String(hit.state || '').toLowerCase() === String(state).toLowerCase());
-                  return { ...f, hq_state: state, hq_city: cityStillValid ? f.hq_city : '' };
-                });
-              }}
-              placeholder="Search states…"
-              ariaLabel="HQ state or province"
-            />
-          </Field>
-          <Field label="Primary Contact Person" required>
-            <input
-              className="ip-ep-input"
-              value={form.contact_name || ''}
-              onChange={(e) => set('contact_name', e.target.value)}
-              required
-            />
-          </Field>
-          <Field label="Designation / Role">
-            <input
-              className="ip-ep-input"
-              value={form.contact_designation || ''}
-              onChange={(e) => set('contact_designation', e.target.value)}
-              placeholder="e.g. Placement Officer"
-            />
-          </Field>
-          <Field label="Contact Phone" required>
-            <div className="ip-ep-phone" role="group" aria-label="Contact phone with country code">
-              <select
-                className="ip-ep-phone__dial"
-                value={form.contact_phone_country_code || '+91'}
-                onChange={(e) => {
-                  set('contact_phone_country_code', e.target.value);
-                  setPhoneError('');
-                }}
-                aria-label="Country calling code"
-              >
-                {PHONE_DIAL_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <input
-                className={`ip-ep-phone__num${phoneError ? ' is-invalid' : ''}`}
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel-national"
-                value={form.contact_phone || ''}
-                onChange={(e) => {
-                  set('contact_phone', e.target.value);
-                  setPhoneError('');
-                }}
-                placeholder="98765 43210"
-                required
-                aria-invalid={phoneError ? 'true' : 'false'}
-              />
-            </div>
-            {phoneError ? <p className="ip-ep-error" role="alert">{phoneError}</p> : null}
-          </Field>
-          <Field label="Work Email" required>
-            <input
-              className="ip-ep-input"
-              type="email"
-              value={form.work_email || ''}
-              onChange={(e) => set('work_email', e.target.value)}
-              required
-            />
-          </Field>
-        </div>
-      </section>
-
-      {/* About & Visibility */}
-      <section className="ip-ep-card">
-        <div className="ip-ep-card__head">
-          <h2 className="ip-ep-card__title">About &amp; Visibility</h2>
-        </div>
-        <div className="ip-ep-stack">
-          <Field label="About the company">
-            <textarea
-              className="ip-ep-textarea"
-              rows={4}
-              value={form.about || ''}
-              onChange={(e) => set('about', e.target.value)}
-              placeholder="Describe your organization, mission, and culture…"
-            />
-          </Field>
-          <Field label="LinkedIn / Company page">
-            <input
-              className="ip-ep-input"
-              value={form.linkedin_url || ''}
-              onChange={(e) => set('linkedin_url', e.target.value)}
-              placeholder="https://linkedin.com/company/…"
-            />
-          </Field>
-          <div className="ip-ep-prefs">
-            <label className="ip-ep-label">Platform Preferences</label>
-            <label className="ip-ep-check">
-              <input
-                type="checkbox"
-                checked={!!form.show_identity_on_posting}
-                onChange={(e) => set('show_identity_on_posting', e.target.checked)}
-              />
-              Show company identity on internship postings
-            </label>
-            <label className="ip-ep-check">
-              <input
-                type="checkbox"
-                checked={!!form.show_hiring_numbers}
-                onChange={(e) => set('show_hiring_numbers', e.target.checked)}
-              />
-              Show hiring numbers (active applications) to candidates
-            </label>
-            <label className="ip-ep-check">
-              <input
-                type="checkbox"
-                checked={!!form.whatsapp_opt_in}
-                onChange={(e) => set('whatsapp_opt_in', e.target.checked)}
-              />
-              Opt in to WhatsApp communications from candidates
-            </label>
-            <label className="ip-ep-check">
-              <input
-                type="checkbox"
-                checked={!!form.telegram_opt_in}
-                onChange={(e) => set('telegram_opt_in', e.target.checked)}
-              />
-              Opt in to Telegram communications from candidates
-            </label>
-          </div>
-          <div className="ip-ep-actions ip-ep-actions--save">
-            <button
-              type="button"
-              className="ip-ep-btn ip-ep-btn--primary"
-              disabled={savingCompany}
-              onClick={() => saveProfile({ ethicsOnly: false })}
-            >
-              {savingCompany ? 'Saving Details…' : 'Save Company Details'}
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Guidelines & Ethics */}
-      <section className="ip-ep-card">
-        <div className="ip-ep-card__head ip-ep-card__head--plain">
-          <h2 className="ip-ep-card__title">Guidelines &amp; Ethics</h2>
-          <p className="ip-ep-card__desc">
-            Required for profile completion. Confirm each item.
-            {ethicsVersion ? ` (Version: ${ethicsVersion}` : ' (Version: —'}
-            {form.ethics_accepted_at
-              ? ` · Accepted ${new Date(form.ethics_accepted_at).toLocaleString()})`
-              : ')'}
-          </p>
-        </div>
-        <div className="ip-ep-ethics">
-          {(ethicsItems.length ? ethicsItems : []).map((item) => {
-            const on = !!form.ethics_acks?.[item.id];
-            return (
-              <label key={item.id} className={`ip-ep-ethic${on ? ' ip-ep-ethic--on' : ''}`}>
-                <input
-                  type="checkbox"
-                  checked={on}
-                  onChange={(e) => setEthics(item.id, e.target.checked)}
-                />
-                <span>{item.label}</span>
-              </label>
-            );
-          })}
-          {!ethicsItems.length ? (
-            <p className="ip-ep-hint">Ethics checklist failed to load. Refresh the page.</p>
-          ) : null}
-        </div>
-        <div className="ip-ep-actions">
-          <button
-            type="button"
-            className={`ip-ep-btn ${ethicsAllOn ? 'ip-ep-btn--primary' : 'ip-ep-btn--secondary'}`}
-            disabled={savingEthics}
-            onClick={() => saveProfile({ ethicsOnly: true })}
-          >
-            {savingEthics ? 'Saving…' : 'Save Acknowledgements'}
-          </button>
-        </div>
-      </section>
-
-      {/* Verification documents */}
-      <section className="ip-ep-card">
-        <div className="ip-ep-card__head ip-ep-card__head--plain">
-          <h2 className="ip-ep-card__title">
-            Verification Documents
-          </h2>
-          <p className="ip-ep-card__desc">
-            Shop Act, LLP registration, Business PAN, or other company-registration evidence.
-          </p>
-        </div>
-
-        {docs.length ? (
-          <div className="ip-ep-doc-list">
-            {docs.map((d) => (
-              <div key={d.id} className="ip-ep-doc">
-                <div className="ip-ep-doc__main">
-                  <div className="ip-ep-doc__icon">
-                    <FileTextIcon />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="ip-ep-doc__title">{d.doc_type || 'Document'}</p>
-                    {d.url ? (
-                      <a
-                        href={d.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="ip-ep-doc__link"
-                      >
-                        {d.file_name || 'Open file'}
-                      </a>
-                    ) : (
-                      <span className="ip-ep-doc__meta">{d.file_name || '—'}</span>
-                    )}
-                  </div>
-                </div>
-                <span className={`ip-ep-badge${d.review_status === 'approved' ? ' ip-ep-badge--ok' : ''}`}>
-                  {d.review_status || 'pending'}
-                </span>
               </div>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="ip-ep-upload-panel">
-          <h3>Upload new document</h3>
-          <div className="ip-ep-upload-row">
-            <SelectInput value={docType} onChange={(e) => setDocType(e.target.value)}>
-              {DOC_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </SelectInput>
-            <div className="ip-ep-upload-wrap">
-              <IpUploadButton
-                endpoint="/api/ip/employer/documents/upload"
-                accept={documentAcceptAttr()}
-                label="Upload File (PDF/Image)"
-                extraFormData={{ docType }}
-                onUploaded={async () => {
-                  setMessage('Document uploaded.');
-                  await load();
-                }}
-              />
             </div>
-          </div>
 
-          <div className="ip-ep-or">
-            <span>OR</span>
-          </div>
+            <div className="ip-ep-or">
+              <span>OR</span>
+            </div>
 
-          <form className="ip-ep-upload-row" onSubmit={addDoc}>
-            <input
-              className="ip-ep-input"
-              style={{ maxWidth: '12.5rem' }}
-              placeholder="File name"
-              value={docFileName}
-              onChange={(e) => setDocFileName(e.target.value)}
-            />
-            <input
-              className="ip-ep-input"
-              style={{ flex: 1 }}
-              placeholder="URL (optional)"
-              value={docUrl}
-              onChange={(e) => setDocUrl(e.target.value)}
-            />
-            <button type="submit" className="ip-ep-btn ip-ep-btn--secondary">
-              <PlusIcon /> Add Link
-            </button>
-          </form>
-          <p className="ip-ep-hint">
-            Prefer the upload button — it stores the file directly. The link form is for referencing a
-            document already hosted elsewhere.
-          </p>
-        </div>
-      </section>
+            <form className="ip-ep-upload-row" onSubmit={addDoc}>
+              <input
+                className="ip-ep-input"
+                style={{ maxWidth: '12.5rem' }}
+                placeholder="File name"
+                value={docFileName}
+                onChange={(e) => setDocFileName(e.target.value)}
+              />
+              <input
+                className="ip-ep-input"
+                style={{ flex: 1 }}
+                placeholder="URL (optional)"
+                value={docUrl}
+                onChange={(e) => setDocUrl(e.target.value)}
+              />
+              <button type="submit" className="ip-ep-btn ip-ep-btn--secondary">
+                <PlusIcon /> Add Link
+              </button>
+            </form>
+            <p className="ip-ep-hint">
+              Prefer the upload button — it stores the file directly. The link form is for referencing a
+              document already hosted elsewhere.
+            </p>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

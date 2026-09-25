@@ -39,8 +39,7 @@ function isRejected(status) {
 function statusLabel(p, pts) {
   if (isVerified(p.status)) return `verified (+${p.points_awarded || pts} Pts)`;
   if (isRejected(p.status)) return 'rejected';
-  if (p.status === 'fast_track_pending') return 'pending audit';
-  return 'pending audit';
+  return 'Pending Verification';
 }
 
 export default function SuperAdminPromotionsPage() {
@@ -122,7 +121,9 @@ export default function SuperAdminPromotionsPage() {
     setPage(1);
   }, [tab, search, setPage]);
 
-  const pendingSelectable = filtered.filter((p) => isPending(p.status));
+  const pendingSelectable = filtered.filter(
+    (p) => isPending(p.status) && String(p.claimed_post_url || '').trim(),
+  );
   async function act(ids, action, reviewNotes = '') {
     if (!ids.length) return;
     setBusy(true);
@@ -154,12 +155,11 @@ export default function SuperAdminPromotionsPage() {
       <div className="ip-saq-head">
         <div>
           <div className="ip-saq-head__title">
-            <h1>LinkedIn Promos</h1>
+            <h1>Posting Share Rewards</h1>
             <span className="ip-saq-pill ip-saq-pill--warn">{counts.pending} Pending Verification</span>
           </div>
           <p>
-            Audit, verify, or fast-track promotional post URLs submitted by recruiters on LinkedIn to release reward
-            tokens and viral points.
+            Review employer posting-share claims and award reward points after verification.
           </p>
         </div>
         <button
@@ -178,7 +178,7 @@ export default function SuperAdminPromotionsPage() {
       <div className="ip-saq-metrics">
         <div className="ip-saq-metric">
           <div className="ip-saq-metric__top">
-            <span>Pending Audit</span>
+            <span>Pending Verification</span>
             <div className="ip-saq-metric__ico ip-saq-metric__ico--amber">
               <Clock size={18} aria-hidden />
             </div>
@@ -191,7 +191,7 @@ export default function SuperAdminPromotionsPage() {
         </div>
         <div className="ip-saq-metric">
           <div className="ip-saq-metric__top">
-            <span>Verified Tokens</span>
+            <span>Verified Shares</span>
             <div className="ip-saq-metric__ico ip-saq-metric__ico--green">
               <Check size={18} aria-hidden />
             </div>
@@ -200,7 +200,7 @@ export default function SuperAdminPromotionsPage() {
             <strong>{counts.verified}</strong>
             <span className="ip-saq-pill ip-saq-pill--ok">Approved</span>
           </div>
-          <p className="ip-saq-metric__sub">Points credited to recruiters</p>
+          <p className="ip-saq-metric__sub">Reward points credited to employers</p>
         </div>
         <div className="ip-saq-metric">
           <div className="ip-saq-metric__top">
@@ -213,7 +213,7 @@ export default function SuperAdminPromotionsPage() {
             <strong>+{counts.pointsAwarded}</strong>
             <span className="ip-saq-pill ip-saq-pill--brand">Total Pts</span>
           </div>
-          <p className="ip-saq-metric__sub">+{pts} Pts per verified share</p>
+          <p className="ip-saq-metric__sub">+{pts} reward points per verified share</p>
         </div>
         <div className="ip-saq-metric">
           <div className="ip-saq-metric__top">
@@ -235,7 +235,7 @@ export default function SuperAdminPromotionsPage() {
           <div className="ip-saq-tabs">
             {[
               { id: 'all', label: `All (${counts.total})` },
-              { id: 'pending', label: `Pending Audit (${counts.pending})` },
+              { id: 'pending', label: `Pending Verification (${counts.pending})` },
               { id: 'verified', label: `Verified (${counts.verified})` },
               { id: 'rejected', label: `Rejected (${counts.rejected})` },
             ].map((t) => (
@@ -253,7 +253,7 @@ export default function SuperAdminPromotionsPage() {
             <Search size={15} aria-hidden />
             <input
               type="search"
-              placeholder="Search company, token, URL..."
+              placeholder="Search company, share code, URL..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -261,12 +261,12 @@ export default function SuperAdminPromotionsPage() {
         </div>
 
         {loading ? (
-          <IpListLoading label="Loading Promotions…" />
+          <IpListLoading label="Loading Posting Share Claims…" />
         ) : !filtered.length ? (
           <IpListEmpty
             icon={Medal}
-            title="No Promotion Claims In This View"
-            hint="Employer LinkedIn Promo Submissions Will Appear Here."
+            title="No Posting Share Claims In This View"
+            hint="Employer Posting Share Claims Will Appear Here."
           />
         ) : (
           <>
@@ -287,7 +287,7 @@ export default function SuperAdminPromotionsPage() {
                   </th>
                   <th>Company &amp; Recruiter</th>
                   <th>Target Role</th>
-                  <th>Promo Token</th>
+                  <th>Share Code</th>
                   <th>Claimed LinkedIn URL</th>
                   <th>Status</th>
                   <th style={{ textAlign: 'right' }}>Audit</th>
@@ -381,7 +381,7 @@ export default function SuperAdminPromotionsPage() {
                   <Eye size={18} aria-hidden />
                 </div>
                 <div>
-                  <h3>Audit promo claim</h3>
+                  <h3>Audit posting share claim</h3>
                   <span>{audit.token}</span>
                 </div>
               </div>
@@ -437,7 +437,12 @@ export default function SuperAdminPromotionsPage() {
                   <button
                     type="button"
                     className="ip-saq-btn ip-saq-btn--emerald"
-                    disabled={busy}
+                    disabled={busy || !String(audit.claimed_post_url || '').trim()}
+                    title={
+                      String(audit.claimed_post_url || '').trim()
+                        ? undefined
+                        : 'Employer must submit a LinkedIn post URL first'
+                    }
                     onClick={() => act([audit.id], 'verify')}
                   >
                     Verify +{pts} Pts

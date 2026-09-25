@@ -57,18 +57,23 @@ export async function GET(request, { params }) {
     : null;
 
   let applied = false;
+  let previouslyWithdrawn = false;
   if (session?.user?.id) {
     const cand = await query(`SELECT id FROM ip_candidates WHERE user_id = $1`, [session.user.id]);
     const candidateId = cand.rows[0]?.id;
     if (candidateId) {
       const app = await query(
-        `SELECT 1 FROM ip_applications
+        `SELECT status FROM ip_applications
          WHERE candidate_id = $1 AND internship_id = $2
-           AND lower(coalesce(status,'')) NOT IN ('withdrawn')
-         LIMIT 1`,
+         ORDER BY created_at DESC`,
         [candidateId, id],
       );
-      applied = Boolean(app.rows[0]);
+      const active = app.rows.find(
+        (r) => String(r.status || '').toLowerCase() !== 'withdrawn',
+      );
+      applied = Boolean(active);
+      previouslyWithdrawn =
+        !applied && app.rows.some((r) => String(r.status || '').toLowerCase() === 'withdrawn');
     }
   }
 
@@ -82,6 +87,7 @@ export async function GET(request, { params }) {
       validation_breakdown: validation.validation_breakdown,
       preview_mode: preview || false,
       applied,
+      previouslyWithdrawn,
     },
   });
 }

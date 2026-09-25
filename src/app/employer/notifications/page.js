@@ -30,6 +30,7 @@ import {
   IP_RECEIVED_WINDOW_OPTIONS,
   inReceivedWindow,
 } from '@/components/ip/IpTableFiltersShell';
+import { IpListLoading } from '@/components/ip/IpListStatus';
 import '@/components/ip/ip-employer-notifications-gemini.css';
 import '@/components/ip/ip-table-filters.css';
 import '@/components/ip/ip-list-pager.css';
@@ -391,9 +392,7 @@ export default function EmployerNotificationsPage() {
       </div>
 
       {loading ? (
-        <div className="ip-en-empty">
-          <p>Loading notifications…</p>
-        </div>
+        <IpListLoading label="Please Wait…" />
       ) : !items.length ? (
         <div className="ip-en-empty ip-en-empty--dash">
           <div className="ip-en-empty__icon">

@@ -1,7 +1,7 @@
 # InternSafar — Project Context Index (Level 1)
 
 Compact map for AI agents. **Not** a full README of the product.  
-**Inspected from live sibling app:** 2026-09-25 (QA hang guards + IpTableFiltersShell locator helper).
+**Inspected from live sibling app:** 2026-09-25 (regression baseline: re-apply, session-refresh, Posting Share Rewards).
 
 After this file: open `FOLDER_STRUCTURE.md` to locate paths, then **one** `domains/*.md`, then live source.
 
@@ -17,7 +17,7 @@ All paths below are relative to app root: `internship-portal/` unless marked oth
 |------|-------------|--------------|
 | **candidate** | `/candidate` | Profile, browse/apply, applications, messages, offers, referral, notifications |
 | **employer** | `/employer` | Profile/docs, postings, candidate search/workbench, messages, offers, analytics |
-| **superadmin** | `/superadmin` | Approvals, documents, postings oversight, promos, viral, ideas |
+| **superadmin** | `/superadmin` | Approvals, documents, postings oversight, posting share rewards, ideas |
 
 Public/marketing and auth surfaces: `/` (landing + **email/password** sign-in), `/login`, `/register`, `/register/candidate`, `/register/employer`, `/forgot-password`, `/help`, `/ideas`, `/guidelines`, `/how-it-works`, `/account`, referral short links `/r/[code]`, email unsubscribe `/unsubscribe?token=…` (token only — email not in URL). Google OAuth is used for **registration verify** only, not home login.
 

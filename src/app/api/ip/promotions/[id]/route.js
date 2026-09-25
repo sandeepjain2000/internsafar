@@ -4,6 +4,7 @@ import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { LINKEDIN_PROMO_POINTS } from '@/lib/pointsEconomy';
 import { notifyUser } from '@/lib/ipNotify';
+import { isLinkedInPostUrl } from '@/lib/ipLinkedInShareUrl';
 
 async function loadPromo(id) {
   const result = await query(
@@ -53,16 +54,16 @@ async function rewardPromo(promo) {
   if (!awarded) return false;
   await notifyUser({
     userId: promo.employer_user_id,
-    title: 'LinkedIn Promotion Verified',
+    title: 'Posting Share Verified — Reward Added',
     body: `Rewards Added For ${promo.title}: +${LINKEDIN_PROMO_POINTS} Points.`,
-    link: '/employer/referral',
-    category: 'referral',
+    link: '/employer/internships',
+    category: 'system',
     forceEmail: true,
   });
   return true;
 }
 
-/** Employer: submit post URL for fast-track. SuperAdmin: verify/fail. */
+/** Employer: submit LinkedIn post URL. SuperAdmin: verify/fail. */
 export async function PATCH(request, { params }) {
   const { session, error } = await requireSession(['employer', 'superadmin']);
   if (error) return error;
@@ -80,7 +81,10 @@ export async function PATCH(request, { params }) {
   if (session.user.role === 'employer') {
     if (promo.employer_user_id !== session.user.id) return jsonError('Forbidden', 403);
     const postUrl = String(body.claimedPostUrl || body.claimed_post_url || '').trim();
-    if (!postUrl) return jsonError('claimedPostUrl is required for fast-track');
+    if (!postUrl) return jsonError('LinkedIn post URL is required for verification');
+    if (!isLinkedInPostUrl(postUrl)) {
+      return jsonError('Submit a valid LinkedIn post URL (linkedin.com)');
+    }
     await query(
       `UPDATE ip_linkedin_promotions
        SET claimed_post_url = $2, status = 'fast_track_pending', updated_at = now()
@@ -96,6 +100,7 @@ export async function PATCH(request, { params }) {
 
   const ids = Array.isArray(body.ids) ? body.ids.map(String).filter(Boolean) : [String(id)].filter(Boolean);
   let processed = 0;
+  let skippedNoUrl = 0;
   for (const promoId of ids) {
     const row = await loadPromo(promoId);
     if (!row) continue;
@@ -108,13 +113,19 @@ export async function PATCH(request, { params }) {
       );
       await notifyUser({
         userId: row.employer_user_id,
-        title: 'LinkedIn Promotion Not Verified',
-        body: notes || `Could Not Verify Promotion For ${row.title}.`,
+        title: 'Posting Share Not Verified',
+        body: notes || `Could Not Verify Posting Share For ${row.title}.`,
         link: '/employer/internships',
         category: 'system',
         forceEmail: true,
       });
+      processed += 1;
     } else {
+      const claimed = String(row.claimed_post_url || '').trim();
+      if (!claimed || !isLinkedInPostUrl(claimed)) {
+        skippedNoUrl += 1;
+        continue;
+      }
       await query(
         `UPDATE ip_linkedin_promotions
          SET status = 'verified', review_notes = $2, reviewed_by = $3, reviewed_at = now(), updated_at = now()
@@ -122,9 +133,19 @@ export async function PATCH(request, { params }) {
         [promoId, notes, session.user.id],
       );
       await rewardPromo(await loadPromo(promoId));
+      processed += 1;
     }
-    processed += 1;
   }
-  if (!processed) return jsonError('Not found', 404);
-  return jsonOk({ ok: true, processed, status: action === 'fail' ? 'failed' : 'rewarded' });
+  if (!processed) {
+    if (skippedNoUrl) {
+      return jsonError('Cannot verify without a valid LinkedIn post URL on the claim', 400);
+    }
+    return jsonError('Not found', 404);
+  }
+  return jsonOk({
+    ok: true,
+    processed,
+    skippedNoUrl,
+    status: action === 'fail' ? 'failed' : 'rewarded',
+  });
 }

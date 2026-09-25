@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 import '@/components/ip/ip-list-status.css';
 
 /** Intermediate loading state — never use the empty-list UI while this is showing. */
-export function IpListLoading({ label = 'Loading…' }) {
+export function IpListLoading({ label = 'Please Wait…' }) {
   return (
     <div className="ip-list-status ip-list-status--loading" role="status" aria-live="polite">
       <Loader2 className="ip-list-status__spinner" size={28} aria-hidden />

@@ -2,7 +2,7 @@
 
 ## Responsibility
 
-Employer dashboard, profile/docs, internship postings, candidate search/workbench, messages, offers, analytics, referrals, rejection templates, viral shares.
+Employer dashboard, profile/docs, internship postings, candidate search/workbench, messages, offers, analytics, referrals (points earned includes posting-share rewards), rejection templates.
 
 ## Central sources
 
@@ -30,8 +30,8 @@ Employer dashboard, profile/docs, internship postings, candidate search/workbenc
 | `/employer/notifications` | Notifications |
 | `/employer/analytics` | Analytics |
 | `/employer/rejection-templates` | Templates |
-| `/employer/referral` | Refer & earn |
-| `/employer/viral` | Viral shares |
+| `/employer/referral` | Refer & earn (+ posting-share reward rows in points earned) |
+| `/employer/viral` | Redirect → `/employer/referral` (legacy) |
 
 Nav order: `src/lib/ipNav.js` → `EMPLOYER_NAV`.
 

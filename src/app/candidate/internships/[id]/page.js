@@ -45,6 +45,7 @@ export default function InternshipDetailPage() {
   const [reporting, setReporting] = useState(false);
   const [draftHint, setDraftHint] = useState('');
   const [alreadyApplied, setAlreadyApplied] = useState(false);
+  const [previouslyWithdrawn, setPreviouslyWithdrawn] = useState(false);
 
   useEffect(() => {
     fetch(`/api/ip/candidate/internships/${id}`).then((r) => r.json()).then((d) => {
@@ -54,6 +55,7 @@ export default function InternshipDetailPage() {
       }
       setInternship(d.internship);
       setAlreadyApplied(Boolean(d.internship.applied));
+      setPreviouslyWithdrawn(Boolean(d.internship.previouslyWithdrawn));
       const qs = Array.isArray(d.internship?.questions) ? d.internship.questions : [];
       const init = {};
       qs.forEach((q, idx) => { init[q.id || `q${idx}`] = ''; });
@@ -174,7 +176,9 @@ export default function InternshipDetailPage() {
     ? 'Applying…'
     : alreadyApplied || message
       ? 'Already applied'
-      : 'Apply now';
+      : previouslyWithdrawn
+        ? 'Apply again'
+        : 'Apply now';
   const applyDisabled = applying || alreadyApplied || Boolean(message);
 
   if (missing) {
@@ -233,6 +237,14 @@ export default function InternshipDetailPage() {
           {message ? <Alert><AlertDescription>{message}</AlertDescription></Alert> : null}
           {reportMsg ? <Alert><AlertDescription>{reportMsg}</AlertDescription></Alert> : null}
           {draftHint ? <Alert><AlertDescription>{draftHint}</AlertDescription></Alert> : null}
+          {previouslyWithdrawn && !alreadyApplied ? (
+            <Alert>
+              <AlertTitle>You withdrew earlier</AlertTitle>
+              <AlertDescription>
+                You can apply again while this posting is still open. Your withdrawn application will be reopened as a new submission (points are charged again).
+              </AlertDescription>
+            </Alert>
+          ) : null}
           {!profileComplete ? (
             <Alert>
               <AlertTitle>Fill your profile</AlertTitle>

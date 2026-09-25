@@ -38,7 +38,6 @@ SKIP = frozenset({"Index", "Coverage", "Coverage Matrix", "Notes", "How to use",
 MANUAL_ONLY_TC_IDS = frozenset(
     {
         "TC-IS-06-007",
-        "TC-IS-02-027",
         "TC-IS-03-001",
         "TC-IS-03-006",
         "TC-IS-03-007",
@@ -48,7 +47,6 @@ MANUAL_ONLY_TC_IDS = frozenset(
         "TC-IS-03-015",
         "TC-IS-03-019",
         "TC-IS-03-020",
-        "TC-IS-03-021",
         "TC-IS-03-022",
         "TC-IS-03-023",
     }

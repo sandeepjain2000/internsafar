@@ -22,9 +22,9 @@ function BrandIcon({ src, alt }) {
 }
 
 /**
- * Single Share entry for employer postings:
- *  - WhatsApp (plain share)
- *  - LinkedIn (tracked share link + post URL for SuperAdmin verify)
+ * Share entry for employer postings:
+ *  - WhatsApp: plain share (no reward claim)
+ *  - LinkedIn: unique share link + post URL for SuperAdmin verification / reward points
  */
 export default function SharePostingDialog({
   open,
@@ -69,8 +69,8 @@ export default function SharePostingDialog({
   }
 
   const claimTitle = postingTitle
-    ? `Share On LinkedIn — “${postingTitle}”`
-    : 'Share On LinkedIn';
+    ? `Share On LinkedIn — Earn Reward Points — “${postingTitle}”`
+    : 'Share On LinkedIn — Earn Reward Points';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -80,7 +80,7 @@ export default function SharePostingDialog({
             <DialogHeader>
               <DialogTitle>Share Posting</DialogTitle>
               <DialogDescription>
-                Choose a channel. LinkedIn opens a tracked share link so SuperAdmin can verify your post for rewards.
+                Choose a channel. LinkedIn uses a unique posting share link so SuperAdmin can verify your post for reward points.
               </DialogDescription>
             </DialogHeader>
 
@@ -103,7 +103,7 @@ export default function SharePostingDialog({
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="font-semibold">WhatsApp</span>
                   <span className="text-muted-foreground text-xs font-normal">
-                    Open a message with the candidate internship link.
+                    Share the internship directly. No verification or reward claim.
                   </span>
                 </span>
               </Button>
@@ -117,9 +117,9 @@ export default function SharePostingDialog({
               >
                 <BrandIcon src="/brand/linkedin.svg" alt="" />
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="font-semibold">LinkedIn</span>
+                  <span className="font-semibold">LinkedIn — Earn Reward Points</span>
                   <span className="text-muted-foreground text-xs font-normal">
-                    Share the tracked link, then paste your post URL for verification.
+                    Share the unique posting link, then submit your live LinkedIn post URL for SuperAdmin verification.
                   </span>
                 </span>
               </Button>
@@ -136,7 +136,7 @@ export default function SharePostingDialog({
             <DialogHeader>
               <DialogTitle>{claimTitle}</DialogTitle>
               <DialogDescription>
-                LinkedIn should be open with your share link. Include the share code in the post, then paste the live post URL below so SuperAdmin can verify it.
+                LinkedIn should be open with your unique share link. Paste the live post URL below so SuperAdmin can verify it for reward points. Including the share code in the post is optional.
               </DialogDescription>
             </DialogHeader>
 

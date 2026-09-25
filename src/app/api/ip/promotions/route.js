@@ -3,7 +3,6 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { LINKEDIN_PROMO_CREDITS, LINKEDIN_PROMO_POINTS } from '@/lib/pointsEconomy';
-import { notifyUser } from '@/lib/ipNotify';
 import { resolveAppOrigin } from '@/lib/ipAppOrigin';
 
 function promoToken() {
@@ -46,7 +45,7 @@ export async function GET(request) {
   return jsonOk({ items: result.rows, economy: { LINKEDIN_PROMO_POINTS, LINKEDIN_PROMO_CREDITS } });
 }
 
-/** Create a LinkedIn promotion with unique token for an internship. */
+/** Create a posting-share reward claim (LinkedIn) with unique share code for a live internship. */
 export async function POST(request) {
   const { session, error } = await requireSession(['employer']);
   if (error) return error;
@@ -61,14 +60,20 @@ export async function POST(request) {
 
   const emp = await query(`SELECT id FROM ip_employers WHERE user_id = $1`, [session.user.id]);
   if (!emp.rows[0]) return jsonError('Employer profile missing', 404);
-  const owns = await query(`SELECT id, title FROM ip_internships WHERE id = $1 AND employer_id = $2`, [internshipId, emp.rows[0].id]);
+  const owns = await query(
+    `SELECT id, title, status FROM ip_internships WHERE id = $1 AND employer_id = $2`,
+    [internshipId, emp.rows[0].id],
+  );
   if (!owns.rows[0]) return jsonError('Internship not found', 404);
+  if (String(owns.rows[0].status || '').toLowerCase() !== 'published') {
+    return jsonError('Only published (live) postings can be shared for reward points', 400);
+  }
 
   const open = await query(
     `SELECT id FROM ip_linkedin_promotions WHERE internship_id = $1 AND status IN ('pending','fast_track_pending') LIMIT 1`,
     [internshipId],
   );
-  if (open.rows[0]) return jsonError('A promotion is already pending for this posting', 409);
+  if (open.rows[0]) return jsonError('A posting share claim is already pending for this listing', 409);
 
   const id = newId('ip_promo');
   const token = promoToken();

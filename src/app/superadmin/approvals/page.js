@@ -187,6 +187,34 @@ export default function SuperAdminApprovalsPage() {
     }
   }
 
+  async function resetEthicsSelected(ids) {
+    if (!ids.length) return;
+    if (
+      !window.confirm(
+        `Reset Guidelines & Ethics for ${ids.length} employer(s)? They must Accept & Save again before posting.`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/ip/superadmin/employers/${ids[0]}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, action: 'resetEthics' }),
+      });
+      const data = await res.json();
+      if (!res.ok) setError(data.error || 'Ethics reset failed');
+      else {
+        setToast(`Reset ethics for ${data.processed || ids.length} employer(s)`);
+        await load();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function toggleAll(checked) {
     setSelected(checked ? filtered.filter((e) => e.approval_status === 'pending').map((e) => e.id) : []);
   }
@@ -258,6 +286,15 @@ export default function SuperAdminApprovalsPage() {
             onClick={() => deleteSelected(selected)}
           >
             Delete Selected ({selected.length})
+          </button>
+          <button
+            type="button"
+            className="ip-saq-btn"
+            disabled={!selected.length || busy}
+            onClick={() => resetEthicsSelected(selected)}
+            title="Unlock Guidelines & Ethics so the employer can Accept & Save again"
+          >
+            Reset Ethics ({selected.length})
           </button>
         </div>
       </div>

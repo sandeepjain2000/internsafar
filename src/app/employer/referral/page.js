@@ -46,10 +46,12 @@ const EMPTY_COLS = {
 };
 
 function orgLabel(r) {
+  if (r.kind === 'posting_share') return r.posting_title || 'Posting share';
   return r.referred_company || r.referred_name || 'Pending signup';
 }
 
 function domainLabel(r) {
+  if (r.kind === 'posting_share') return 'Posting share';
   return r.referred_domain || (r.referred_email ? String(r.referred_email).split('@')[1] : '') || '—';
 }
 
@@ -65,7 +67,12 @@ function initials(r) {
 }
 
 function isVerified(r) {
+  if (r.kind === 'posting_share') return true;
   return String(r.status || '').toLowerCase() === 'completed';
+}
+
+function sourceLabel(r) {
+  return r.kind === 'posting_share' ? 'Posting share' : 'Referral';
 }
 
 function dayKey(value) {
@@ -92,6 +99,7 @@ function uniqSorted(values) {
 function pointsLabel(r) {
   const verified = isVerified(r);
   const pts = Number(r.points_awarded) || 0;
+  if (r.kind === 'posting_share') return `+${pts} Pts`;
   if (verified) return `+${pts || REFERRAL_POINTS} Pts`;
   if (pts) return `+${pts} Pts (Pending)`;
   return `+${REFERRAL_POINTS} Pts (Pending)`;
@@ -137,6 +145,13 @@ export default function EmployerReferralPage() {
   });
 
   const referrals = data?.referrals || [];
+  const postingShareRewards = data?.postingShareRewards || [];
+  const historyRows = useMemo(() => {
+    const refRows = referrals.map((r) => ({ ...r, kind: 'referral' }));
+    return [...refRows, ...postingShareRewards].sort(
+      (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
+    );
+  }, [referrals, postingShareRewards]);
   const points = Number(data?.points ?? 0);
   const affordPosts = POINTS_PER_POST > 0 ? Math.floor(points / POINTS_PER_POST) : 0;
 
@@ -151,20 +166,20 @@ export default function EmployerReferralPage() {
 
   const link = data?.viralLink || data?.referralLink || '';
 
-  const completed = useMemo(() => referrals.filter(isVerified), [referrals]);
+  const completed = useMemo(() => historyRows.filter(isVerified), [historyRows]);
   const earnedFromReferrals = useMemo(
-    () => referrals.reduce((sum, r) => sum + (Number(r.points_awarded) || 0), 0),
-    [referrals],
+    () => historyRows.reduce((sum, r) => sum + (isVerified(r) ? Number(r.points_awarded) || 0 : 0), 0),
+    [historyRows],
   );
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return referrals.filter((r) => {
+    return historyRows.filter((r) => {
       const verified = isVerified(r);
       if (filter === 'Verified' && !verified) return false;
       if (filter === 'Pending' && verified) return false;
       if (needle) {
-        const hay = `${orgLabel(r)} ${domainLabel(r)} ${r.referred_email || ''} ${r.referred_name || ''}`.toLowerCase();
+        const hay = `${orgLabel(r)} ${domainLabel(r)} ${sourceLabel(r)} ${r.referred_email || ''} ${r.referred_name || ''}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       if (cols.orgs.length && !cols.orgs.includes(orgLabel(r))) return false;
@@ -173,15 +188,15 @@ export default function EmployerReferralPage() {
       if (!inDateRange(r.created_at, cols.dateFrom, cols.dateTo)) return false;
       return true;
     });
-  }, [referrals, q, filter, cols]);
+  }, [historyRows, q, filter, cols]);
 
   const optionLists = useMemo(
     () => ({
-      orgs: uniqSorted(referrals.map(orgLabel)),
-      domains: uniqSorted(referrals.map(domainLabel)),
-      points: uniqSorted(referrals.map(pointsLabel)),
+      orgs: uniqSorted(historyRows.map(orgLabel)),
+      domains: uniqSorted(historyRows.map(domainLabel)),
+      points: uniqSorted(historyRows.map(pointsLabel)),
     }),
-    [referrals],
+    [historyRows],
   );
 
   const { page, setPage, totalPages, total, pageItems } = useClientPagination(filtered, PAGE_SIZE);
@@ -315,16 +330,16 @@ export default function EmployerReferralPage() {
         </div>
         <div className="ip-er-metric">
           <div>
-            <p>Successful Referrals</p>
+            <p>Points Credited</p>
             <h3>
-              {data ? `${completed.length} Employer${completed.length === 1 ? '' : 's'}` : '—'}
+              {data ? `${completed.length} Credited` : '—'}
             </h3>
             <div className="ip-er-metric-sub ip-er-metric-sub--brand">
               <Users size={13} aria-hidden />
               <span>
                 {earnedFromReferrals > 0
                   ? `+${earnedFromReferrals} points earned total`
-                  : 'Share link to start earning'}
+                  : 'Share link or posting to start earning'}
               </span>
             </div>
           </div>
@@ -411,15 +426,17 @@ export default function EmployerReferralPage() {
       <div className="ip-er-card">
         <div className="ip-er-hist-head">
           <div>
-            <h2>Referral History</h2>
-            <p className="ip-er-card__intro">Track your invited organizations and credited reward points in real time.</p>
+            <h2>Points Earned</h2>
+            <p className="ip-er-card__intro">
+              Referral signups and verified posting-share rewards in one place.
+            </p>
           </div>
-          {referrals.length ? (
-            <span className="ip-er-hist-count">Total: {referrals.length} Invites</span>
+          {historyRows.length ? (
+            <span className="ip-er-hist-count">Total: {historyRows.length} Entries</span>
           ) : null}
         </div>
 
-        {referrals.length ? (
+        {historyRows.length ? (
           <>
           <div className="ip-er-filters">
             <div className="ip-er-search">
@@ -428,11 +445,11 @@ export default function EmployerReferralPage() {
                 type="search"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Search organization or domain…"
-                aria-label="Search referrals"
+                placeholder="Search organization, posting, or domain…"
+                aria-label="Search points earned"
               />
             </div>
-            <div className="ip-er-tabs" role="tablist" aria-label="Referral status">
+            <div className="ip-er-tabs" role="tablist" aria-label="Points earned status">
               {FILTERS.map((f) => (
                 <button
                   key={f}
@@ -457,21 +474,21 @@ export default function EmployerReferralPage() {
             onClear={() => setCols(EMPTY_COLS)}
           >
             <IpSearchableMultiFilter
-              label="Organization Name"
+              label="Name / Posting"
               options={optionLists.orgs}
               values={cols.orgs}
               onChange={(orgs) => setCols((c) => ({ ...c, orgs }))}
-              placeholder="Search organizations…"
+              placeholder="Search names…"
             />
             <IpSearchableMultiFilter
-              label="Domain"
+              label="Source / Domain"
               options={optionLists.domains}
               values={cols.domains}
               onChange={(domains) => setCols((c) => ({ ...c, domains }))}
-              placeholder="Search domains…"
+              placeholder="Search sources…"
             />
             <IpDateRangeFilter
-              label="Date Joined"
+              label="Date"
               from={cols.dateFrom}
               to={cols.dateTo}
               onFrom={(dateFrom) => setCols((c) => ({ ...c, dateFrom }))}
@@ -489,16 +506,15 @@ export default function EmployerReferralPage() {
         ) : null}
 
         {loading ? (
-          <IpListLoading label="Loading Referrals…" />
-        ) : !referrals.length ? (
+          <IpListLoading label="Loading Points Earned…" />
+        ) : !historyRows.length ? (
           <div className="ip-er-empty">
             <div className="ip-er-empty__icon">
               <Users size={22} aria-hidden />
             </div>
             <p>
-              <strong>No Employer Referrals Yet</strong>
-              Share Your Unique Referral Link With Fellow HR Managers And Recruiters To Start Earning Free
-              Posting Points!
+              <strong>No Points Earned Yet</strong>
+              Share your referral link, or share a live posting on LinkedIn for reward verification, to start earning.
             </p>
             <div style={{ marginTop: '0.75rem' }}>
               <button type="button" className="ip-er-btn-primary" onClick={copy} disabled={!link}>
@@ -516,8 +532,7 @@ export default function EmployerReferralPage() {
           </div>
         ) : (
           <>
-            {/* Mobile history cards */}
-            <div className="ip-er-cards" aria-label="Referral history cards">
+            <div className="ip-er-cards" aria-label="Points earned cards">
               {pageItems.map((r) => {
                 const verified = isVerified(r);
                 const pts = Number(r.points_awarded) || 0;
@@ -530,7 +545,8 @@ export default function EmployerReferralPage() {
                         </div>
                         <div>
                           <strong>{orgLabel(r)}</strong>
-                          {r.referred_email ? <span>{r.referred_email}</span> : null}
+                          <span>{sourceLabel(r)}</span>
+                          {r.kind !== 'posting_share' && r.referred_email ? <span>{r.referred_email}</span> : null}
                         </div>
                       </div>
                       <span className={`ip-er-badge ${verified ? 'ip-er-badge--ok' : 'ip-er-badge--pending'}`}>
@@ -542,11 +558,13 @@ export default function EmployerReferralPage() {
                       {r.created_at ? ` · ${new Date(r.created_at).toLocaleDateString()}` : ''}
                     </p>
                     <p className="ip-er-mcard__pts">
-                      {verified
-                        ? `+${pts || REFERRAL_POINTS} Pts`
-                        : pts
-                          ? `+${pts} Pts (Pending)`
-                          : `+${REFERRAL_POINTS} Pts (Pending)`}
+                      {r.kind === 'posting_share'
+                        ? `+${pts} Pts`
+                        : verified
+                          ? `+${pts || REFERRAL_POINTS} Pts`
+                          : pts
+                            ? `+${pts} Pts (Pending)`
+                            : `+${REFERRAL_POINTS} Pts (Pending)`}
                     </p>
                   </article>
                 );
@@ -557,9 +575,9 @@ export default function EmployerReferralPage() {
               <table className="ip-er-table">
                 <thead>
                   <tr>
-                    <th>Organization Name</th>
-                    <th>Domain</th>
-                    <th>Date Joined</th>
+                    <th>Name / Posting</th>
+                    <th>Source</th>
+                    <th>Date</th>
                     <th>Status</th>
                     <th style={{ textAlign: 'right' }}>Points Rewarded</th>
                   </tr>
@@ -577,11 +595,11 @@ export default function EmployerReferralPage() {
                             </div>
                             <div>
                               <strong>{orgLabel(r)}</strong>
-                              {r.referred_email ? <span>{r.referred_email}</span> : null}
+                              {r.kind !== 'posting_share' && r.referred_email ? <span>{r.referred_email}</span> : null}
                             </div>
                           </div>
                         </td>
-                        <td style={{ color: '#64748b' }}>{domainLabel(r)}</td>
+                        <td style={{ color: '#64748b' }}>{sourceLabel(r)}</td>
                         <td style={{ color: '#64748b' }}>
                           {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
                         </td>
@@ -591,11 +609,13 @@ export default function EmployerReferralPage() {
                           </span>
                         </td>
                         <td className="ip-er-pts">
-                          {verified
-                            ? `+${pts || REFERRAL_POINTS} Pts`
-                            : pts
-                              ? `+${pts} Pts (Pending)`
-                              : `+${REFERRAL_POINTS} Pts (Pending)`}
+                          {r.kind === 'posting_share'
+                            ? `+${pts} Pts`
+                            : verified
+                              ? `+${pts || REFERRAL_POINTS} Pts`
+                              : pts
+                                ? `+${pts} Pts (Pending)`
+                                : `+${REFERRAL_POINTS} Pts (Pending)`}
                         </td>
                       </tr>
                     );

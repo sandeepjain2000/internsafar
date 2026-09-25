@@ -24,7 +24,7 @@ import {
   formatDurationMonths,
   formatStipendInr,
 } from '@/lib/ipMessagePresentation';
-import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
+import { toTitleCaseLabel } from '@/lib/ipTitleCase';
 // Both roles now render the candidate layout: the employer tree keeps its own content and
 // actions but uses this stylesheet, scoped by .ip-cand-msg--employer for its extras.
 // ip-employer-messages-gemini.css is intentionally no longer imported.
@@ -360,6 +360,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
   // Column filters — one per inbox table column. Saved views carry these for both roles.
   const [cols, setCols] = useState(EMPTY_COLS);
   const [showFilters, setShowFilters] = useState(false);
+  const [pickedIds, setPickedIds] = useState([]);
 
   const snapshot = useMemo(
     () => ({ filters: { tab, search, cols }, sort }),
@@ -478,6 +479,10 @@ export default function MessagesSplitPane({ role = 'employer' }) {
     setPage(1);
   }, [tab, search, sort, cols, setPage]);
 
+  useEffect(() => {
+    setPickedIds([]);
+  }, [tab, search, sort, cols, page]);
+
   const loadThread = useCallback(
     async (id) => {
       if (!id) {
@@ -586,6 +591,42 @@ export default function MessagesSplitPane({ role = 'employer' }) {
     } catch (err) {
       setError(err.message);
     }
+  }
+
+  async function bulkSetArchived(archived) {
+    const ids = pickedIds.filter(Boolean);
+    if (!ids.length) return;
+    setError('');
+    let ok = 0;
+    for (const id of ids) {
+      try {
+        const res = await fetch(`/api/ip/messages/threads/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ archived }),
+        });
+        if (res.ok) ok += 1;
+      } catch {
+        /* continue */
+      }
+    }
+    setPickedIds([]);
+    if (ids.includes(selectedId)) selectThread('');
+    showToast(
+      archived
+        ? `Archived ${ok} conversation${ok === 1 ? '' : 's'}`
+        : `Unarchived ${ok} conversation${ok === 1 ? '' : 's'}`,
+    );
+    await loadThreads();
+  }
+
+  function togglePick(id, checked) {
+    setPickedIds((prev) => {
+      const set = new Set(prev);
+      if (checked) set.add(id);
+      else set.delete(id);
+      return [...set];
+    });
   }
 
   function openResume() {
@@ -1175,6 +1216,47 @@ export default function MessagesSplitPane({ role = 'employer' }) {
             <div className="px-3 pb-2">
               <ListPresetsBar {...prefs} />
             </div>
+            {filtered.length ? (
+              <div className="ip-cm-bulk px-3 pb-2" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', fontWeight: 700 }}>
+                  <input
+                    type="checkbox"
+                    checked={pageItems.length > 0 && pageItems.every((t) => pickedIds.includes(t.id))}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      setPickedIds((prev) => {
+                        const set = new Set(prev);
+                        for (const t of pageItems) {
+                          if (on) set.add(t.id);
+                          else set.delete(t.id);
+                        }
+                        return [...set];
+                      });
+                    }}
+                  />
+                  Select All
+                </label>
+                {tab === 'archived' ? (
+                  <button
+                    type="button"
+                    className="ip-cm-adv-clear"
+                    disabled={!pickedIds.length}
+                    onClick={() => bulkSetArchived(false)}
+                  >
+                    Unarchive Selected ({pickedIds.length})
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="ip-cm-adv-clear"
+                    disabled={!pickedIds.length}
+                    onClick={() => bulkSetArchived(true)}
+                  >
+                    Archive Selected ({pickedIds.length})
+                  </button>
+                )}
+              </div>
+            ) : null}
           </div>
 
           <div className="ip-cm-list-body">
@@ -1211,6 +1293,9 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                 <table className="ip-ph-list ip-msg-table">
                   <thead>
                     <tr>
+                      <th style={{ width: '2.5rem' }}>
+                        <span className="sr-only">Select</span>
+                      </th>
                       <th>Candidate</th>
                       <th>Internship</th>
                       <th>Preview</th>
@@ -1223,12 +1308,21 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                       const unread = Number(t.unread_count) > 0;
                       const on = t.id === selectedId;
                       const name = counterpartName(t, role);
+                      const statusRaw = t.application_status || (Number(t.message_count) ? 'Open' : 'New');
                       return (
                         <tr
                           key={t.id}
                           className={on ? 'is-on' : undefined}
                           onClick={() => selectThread(t.id)}
                         >
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={pickedIds.includes(t.id)}
+                              onChange={(e) => togglePick(t.id, e.target.checked)}
+                              aria-label={`Select conversation with ${name}`}
+                            />
+                          </td>
                           <td>
                             <strong>{name}</strong>
                             {unread ? <span className="ip-cm-unread" aria-label="Unread" /> : null}
@@ -1236,7 +1330,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                           <td>{roleLine(t)}</td>
                           <td className="ip-msg-table__preview">{t.last_message || t.subject || '—'}</td>
                           <td>{formatWhen(t.last_message_at || t.updated_at)}</td>
-                          <td>{t.application_status || (Number(t.message_count) ? 'Open' : 'New')}</td>
+                          <td>{toTitleCaseLabel(statusRaw) || statusRaw}</td>
                         </tr>
                       );
                     })}

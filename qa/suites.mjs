@@ -31,6 +31,7 @@ export const SUITE_REGRESSION = [
   'qa/tests/journeys-superadmin.spec.js',
   'qa/tests/screens.spec.js',
   'qa/tests/mobile-candidate-internships.spec.js',
+  'qa/tests/session-refresh.spec.js',
 ];
 
 /** All Playwright specs under qa/tests. */
@@ -43,6 +44,7 @@ export const SUITE_FULL = [
   'qa/tests/journeys-superadmin.spec.js',
   'qa/tests/screens.spec.js',
   'qa/tests/mobile-candidate-internships.spec.js',
+  'qa/tests/session-refresh.spec.js',
 ];
 
 /**

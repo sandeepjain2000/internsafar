@@ -191,7 +191,12 @@ export async function GET(request) {
   if (candidateId) {
     const saved = await query(`SELECT internship_id FROM ip_saved_internships WHERE candidate_id = $1`, [candidateId]);
     savedIds = new Set(saved.rows.map((r) => r.internship_id));
-    const applied = await query(`SELECT internship_id FROM ip_applications WHERE candidate_id = $1`, [candidateId]);
+    const applied = await query(
+      `SELECT internship_id FROM ip_applications
+       WHERE candidate_id = $1
+         AND lower(coalesce(status, '')) NOT IN ('withdrawn')`,
+      [candidateId],
+    );
     appliedIds = new Set(applied.rows.map((r) => r.internship_id));
   }
 

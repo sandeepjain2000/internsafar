@@ -1,7 +1,7 @@
 # Stable project decisions (InternSafar)
 
 Only confirmed, durable decisions. Not a chat diary.  
-Last pack refresh: 2026-09-23.
+Last pack refresh: 2026-09-25.
 
 | Decision | Domain | Status | Evidence |
 |----------|--------|--------|----------|
@@ -29,6 +29,8 @@ Last pack refresh: 2026-09-23.
 | Profile/registration label = **Country**; list filters label = **Region**. Options live in DB table `ip_ref_countries` (migration `043_*`) and `/api/ip/ref/countries`, with static fallback in `src/lib/ipRegions.js`: India, Pakistan, Bangladesh, Sri Lanka, Nepal, Indonesia, Malaysia, Thailand. Candidate browse filters employer `hq_country`; employer search filters candidate `country` via `region` query. | Candidate / Employer | Confirmed | `ip_ref_countries`, `useIpCountryCatalog`, migration `043_*` |
 | Live Employer Register (Domain + Free Email) → `/superadmin/approvals` Only; Form Registrations + Manual Requests UI Retired; Candidates Have No SA Approval Queue; Path Column Uses `registration_source` | SuperAdmin / Auth | Confirmed | Live Register Proof 2026-09-23; `register-employer`, Redirects, `ipNav.js` |
 | Final Employer Approval Requires Documents First (At Least One Approved Doc, No Pending Docs); Documents Approve Does Not Alone Unlock Login/Posting | SuperAdmin / Employer | Confirmed | `employers/[id]` Gate 2026-09-23 |
+| Employer Guidelines & Ethics: Accept/Reject UI; lock after all Accepted + saved (`ethics_accepted_at`); API rejects revoke; SA `resetEthics` unlock; posting gate requires saved ethics | Employer / SuperAdmin | Confirmed | Profile + `ipEmployerPostingGate` + SA employers PATCH 2026-09-25 |
+| Employer profile uses employer-specific Tabs (Company / Contact & Location / About & Visibility / Ethics / Documents); Country→State→City→Phone; logo URL hidden when image set | Employer / UI | Confirmed | `employer/profile/page.js` 2026-09-25 |
 | Employer may sign in after email verification while still pending Final Approval (to upload docs); Postings nav/API stay gated until approved | Auth / Employer | Confirmed | `auth.js` + employer layout 2026-09-23 |
 | Employer email-verify QA exposure via `IP_QA_EMPLOYER_EMAIL_VERIFY_TOKEN_IN_RESPONSE` (token + mail metadata in register JSON); hard-off when `VERCEL_ENV=production`; employers use form password (no temp-password mail) | Testing / Auth | Confirmed | `ipQaEmployerRegister.js`, `qa-employer-reg-verify-approve-login.mjs`, `docs/qa-employer-register-e2e.md` |
 | Employer email verify resend (login + post-register); cooldown ~45s; candidates have no verify-before-login | Auth | Confirmed | `employer-email-verify/resend`, `IpSignInLanding`, `EmployerRegisterClient` |

@@ -99,7 +99,9 @@ Product hygiene (edit/obsolete/add cases vs live `src/`): `npm run qa:sync-xlsx-
 
 **Filter UI locators:** decongested list/browse screens use `IpTableFiltersShell` (`.ip-tf__btn` / `.ip-tf__panel`). Shared helper: `qa/helpers/ipTableFilters.js`. Do not assert legacy `.ip-br-drawer` / mobile filter sheets.
 
-Specs under `qa/tests/`: `auth.spec.js`, `google-auth.spec.js`, `regression.spec.js`, `journeys-candidate.spec.js`, `journeys-employer.spec.js`, `journeys-superadmin.spec.js`, `screens.spec.js`, `mobile-candidate-internships.spec.js`.
+Specs under `qa/tests/`: `auth.spec.js`, `google-auth.spec.js`, `regression.spec.js`, `journeys-candidate.spec.js`, `journeys-employer.spec.js`, `journeys-superadmin.spec.js`, `screens.spec.js`, `mobile-candidate-internships.spec.js`, `session-refresh.spec.js`.
+
+**Baseline product notes (2026-09-25):** Posting Share Rewards (not LinkedIn promos / Viral SA UI); withdraw then re-apply allowed while posting open (IS-065/066; seeds employer posting when core candidate has no applied/pending); session-refresh in regression suite; SA dashboard metric labels are definitional (not one shared “pending”).
 
 AWS vs local: `qa/docs/AWS-QA-NOTES.txt`. Playbook: `qa/docs/internsafar-runner-playbook.md`.
 

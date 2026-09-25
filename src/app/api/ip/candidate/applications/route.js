@@ -151,11 +151,24 @@ export async function POST(request) {
   const disableEval = evaluateScreeningDisable(liveQuestions, answersNorm);
   const qSnapshot = snapshotQuestions(liveQuestions);
 
-  const dupe = await query(
-    `SELECT id FROM ip_applications WHERE internship_id = $1 AND candidate_id = $2`,
+  const existingApps = await query(
+    `SELECT id, status FROM ip_applications
+     WHERE internship_id = $1 AND candidate_id = $2
+     ORDER BY created_at DESC`,
     [internshipId, cand.rows[0].id],
   );
-  if (dupe.rows[0]) return jsonError('You already applied to this internship', 409);
+  const activeApp = existingApps.rows.find(
+    (r) => String(r.status || '').toLowerCase() !== 'withdrawn',
+  );
+  if (activeApp) {
+    return jsonError(
+      'You already have an active application to this internship. Withdraw it first if you want to apply again.',
+      409,
+    );
+  }
+  const withdrawnApp = existingApps.rows.find(
+    (r) => String(r.status || '').toLowerCase() === 'withdrawn',
+  );
 
   const userRow = await query(`SELECT points FROM ip_users WHERE id = $1`, [session.user.id]);
   const points = Number(userRow.rows[0]?.points || 0);
@@ -199,39 +212,90 @@ export async function POST(request) {
           newId('ip_pts'),
           session.user.id,
           -POINTS_PER_APPLICATION,
-          JSON.stringify({ internshipId, rate: POINTS_PER_APPLICATION }),
-        ],
-      );
-      const appId = newId('ip_app');
-      await client.query(
-        `INSERT INTO ip_applications (
-           id, internship_id, candidate_id, status, match_score, answers,
-           questions_snapshot, screening_disabled, screening_disable_reason
-         ) VALUES ($1,$2,$3,'applied',$4,$5::jsonb,$6::jsonb,$7,$8::jsonb)`,
-        [
-          appId,
-          internshipId,
-          cand.rows[0].id,
-          matchScore,
-          JSON.stringify(answersNorm),
-          JSON.stringify(qSnapshot),
-          disableEval.disabled,
-          disableEval.reason ? JSON.stringify(disableEval.reason) : null,
-        ],
-      );
-      await client.query(
-        `INSERT INTO ip_application_events (id, application_id, actor_user_id, event_type, payload)
-         VALUES ($1,$2,$3,'applied',$4::jsonb)`,
-        [
-          newId('ip_aev'),
-          appId,
-          session.user.id,
           JSON.stringify({
-            screening_disabled: disableEval.disabled,
-            reason: disableEval.reason,
+            internshipId,
+            rate: POINTS_PER_APPLICATION,
+            reapply: Boolean(withdrawnApp),
           }),
         ],
       );
+
+      let appId;
+      if (withdrawnApp) {
+        // UNIQUE(internship_id, candidate_id) — reopen withdrawn row as a fresh apply
+        appId = withdrawnApp.id;
+        await client.query(
+          `UPDATE ip_applications SET
+             status = 'applied',
+             match_score = $2,
+             answers = $3::jsonb,
+             questions_snapshot = $4::jsonb,
+             screening_disabled = $5,
+             screening_disable_reason = $6::jsonb,
+             rejection_template_id = NULL,
+             rejection_template_version = NULL,
+             interview_at = NULL,
+             interview_meet_url = NULL,
+             completed_at = NULL,
+             completion_notes = NULL,
+             created_at = now(),
+             updated_at = now()
+           WHERE id = $1 AND lower(coalesce(status, '')) = 'withdrawn'`,
+          [
+            appId,
+            matchScore,
+            JSON.stringify(answersNorm),
+            JSON.stringify(qSnapshot),
+            disableEval.disabled,
+            disableEval.reason ? JSON.stringify(disableEval.reason) : null,
+          ],
+        );
+        await client.query(
+          `INSERT INTO ip_application_events (id, application_id, actor_user_id, event_type, payload)
+           VALUES ($1,$2,$3,'reapplied',$4::jsonb)`,
+          [
+            newId('ip_aev'),
+            appId,
+            session.user.id,
+            JSON.stringify({
+              screening_disabled: disableEval.disabled,
+              reason: disableEval.reason,
+              priorStatus: 'withdrawn',
+            }),
+          ],
+        );
+      } else {
+        appId = newId('ip_app');
+        await client.query(
+          `INSERT INTO ip_applications (
+             id, internship_id, candidate_id, status, match_score, answers,
+             questions_snapshot, screening_disabled, screening_disable_reason
+           ) VALUES ($1,$2,$3,'applied',$4,$5::jsonb,$6::jsonb,$7,$8::jsonb)`,
+          [
+            appId,
+            internshipId,
+            cand.rows[0].id,
+            matchScore,
+            JSON.stringify(answersNorm),
+            JSON.stringify(qSnapshot),
+            disableEval.disabled,
+            disableEval.reason ? JSON.stringify(disableEval.reason) : null,
+          ],
+        );
+        await client.query(
+          `INSERT INTO ip_application_events (id, application_id, actor_user_id, event_type, payload)
+           VALUES ($1,$2,$3,'applied',$4::jsonb)`,
+          [
+            newId('ip_aev'),
+            appId,
+            session.user.id,
+            JSON.stringify({
+              screening_disabled: disableEval.disabled,
+              reason: disableEval.reason,
+            }),
+          ],
+        );
+      }
       return appId;
     });
   } catch (e) {

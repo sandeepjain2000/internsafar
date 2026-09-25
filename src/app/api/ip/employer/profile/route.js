@@ -1,6 +1,13 @@
 import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
-import { EMPLOYER_ETHICS_ITEMS, EMPLOYER_ETHICS_VERSION, allEthicsChecked } from '@/lib/employerEthics';
+import {
+  EMPLOYER_ETHICS_ITEMS,
+  EMPLOYER_ETHICS_VERSION,
+  allEthicsChecked,
+  ethicsMapsEqual,
+  isEthicsLocked,
+  normalizeEthicsAcks,
+} from '@/lib/employerEthics';
 import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
 import { isValidBusinessEntityType } from '@/lib/employerBusinessEntity';
 import { REQUIRED_FOR_COMPLETE } from '@/lib/employerProfileComplete';
@@ -82,21 +89,31 @@ export async function PUT(request) {
       sets.push(`${field} = $${params.length}`);
     }
 
-    let ethicsAcks = null;
     if (body.ethics_acks !== undefined) {
-      const incoming = body.ethics_acks && typeof body.ethics_acks === 'object' ? body.ethics_acks : {};
-      ethicsAcks = {};
-      for (const item of EMPLOYER_ETHICS_ITEMS) {
-        ethicsAcks[item.id] = incoming[item.id] === true;
-      }
-      params.push(JSON.stringify(ethicsAcks));
-      sets.push(`ethics_acks = $${params.length}::jsonb`);
-      params.push(EMPLOYER_ETHICS_VERSION);
-      sets.push(`ethics_version = $${params.length}`);
-      if (allEthicsChecked(ethicsAcks)) {
-        sets.push('ethics_accepted_at = now()');
+      const current = await query(
+        `SELECT ethics_acks, ethics_accepted_at FROM ip_employers WHERE user_id = $1 LIMIT 1`,
+        [session.user.id],
+      );
+      const cur = current.rows[0] || {};
+      const incoming = normalizeEthicsAcks(body.ethics_acks);
+      if (isEthicsLocked(cur)) {
+        if (!ethicsMapsEqual(cur.ethics_acks, incoming) || !allEthicsChecked(incoming)) {
+          return jsonError(
+            'Guidelines & Ethics are locked after save. Contact SuperAdmin to reset acknowledgements.',
+            403,
+          );
+        }
+        // Locked + unchanged — ignore ethics fields (keep stamp).
       } else {
-        sets.push('ethics_accepted_at = null');
+        params.push(JSON.stringify(incoming));
+        sets.push(`ethics_acks = $${params.length}::jsonb`);
+        params.push(EMPLOYER_ETHICS_VERSION);
+        sets.push(`ethics_version = $${params.length}`);
+        if (allEthicsChecked(incoming)) {
+          sets.push('ethics_accepted_at = now()');
+        } else {
+          sets.push('ethics_accepted_at = null');
+        }
       }
     }
 
@@ -107,7 +124,7 @@ export async function PUT(request) {
     const merged = await query(`SELECT * FROM ip_employers WHERE user_id = $1`, [session.user.id]);
     const row = merged.rows[0] || {};
     const fieldsOk = REQUIRED_FOR_COMPLETE.every((f) => row[f] !== null && row[f] !== undefined && String(row[f]).trim() !== '');
-    const ethicsOk = allEthicsChecked(row.ethics_acks);
+    const ethicsOk = allEthicsChecked(row.ethics_acks) && Boolean(row.ethics_accepted_at);
     const complete = fieldsOk && ethicsOk;
     await query(`UPDATE ip_users SET profile_complete = $2, updated_at = now() WHERE id = $1`, [session.user.id, complete]);
 
@@ -115,7 +132,10 @@ export async function PUT(request) {
       ok: true,
       profileComplete: complete,
       ethicsComplete: ethicsOk,
-      missingEthics: ethicsOk ? [] : EMPLOYER_ETHICS_ITEMS.filter((i) => !row.ethics_acks?.[i.id]).map((i) => i.id),
+      ethicsLocked: isEthicsLocked(row),
+      missingEthics: ethicsOk
+        ? []
+        : EMPLOYER_ETHICS_ITEMS.filter((i) => row.ethics_acks?.[i.id] !== true).map((i) => i.id),
     });
   } catch (e) {
     console.error('[ip] employer profile PUT', e);

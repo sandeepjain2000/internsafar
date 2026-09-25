@@ -1290,8 +1290,14 @@ async function runBrowserSuite(logins) {
     await gotoApp(page, '/superadmin/promotions');
     assessUi('SA-PR-1', await visible(page, 'main, h1'), { url: page.url() });
 
+    // Viral shares SA UI removed — route redirects to dashboard
     await gotoApp(page, '/superadmin/viral');
-    assessUi('SA-V-1', await visible(page, 'main, h1'), { url: page.url() });
+    const viralRedirected =
+      /\/superadmin\/?$/.test(new URL(page.url()).pathname) && !(await visible(page, 'text=Viral Shares Queue'));
+    assessUi('SA-V-1', viralRedirected && (await visible(page, 'main, h1')), {
+      url: page.url(),
+      note: 'SA viral page removed; redirects to /superadmin',
+    });
 
     await gotoApp(page, '/superadmin/login-report');
     assessUi('SA-L-1', await visible(page, 'main, table, h1'), { url: page.url() });

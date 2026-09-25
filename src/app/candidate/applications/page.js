@@ -329,13 +329,21 @@ export default function MyApplicationsPage() {
   }
 
   async function withdraw(id) {
-    await fetch(`/api/ip/candidate/applications/${id}`, {
+    const res = await fetch(`/api/ip/candidate/applications/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'withdrawn' }),
     });
+    const data = await res.json().catch(() => ({}));
     setDetail(null);
     await load();
+    if (res.ok) {
+      window.alert(
+        'Application withdrawn. You can apply again to this posting while it is still open (points will be charged again).',
+      );
+    } else if (data.error) {
+      window.alert(data.error);
+    }
   }
 
   function tabCount(id) {

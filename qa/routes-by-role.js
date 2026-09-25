@@ -38,7 +38,6 @@ const EMPLOYER = [
   { label: 'Rejection templates', href: '/employer/rejection-templates' },
   { label: 'Refer & earn', href: '/employer/referral' },
   { label: 'Notifications', href: '/employer/notifications' },
-  { label: 'Viral', href: '/employer/viral' },
   { label: 'Feature ideas', href: '/ideas' },
   { label: 'Account', href: '/account' },
 ];
@@ -50,8 +49,7 @@ const SUPERADMIN = [
   { label: 'Manual requests', href: '/superadmin/requests' },
   { label: 'Documents', href: '/superadmin/documents' },
   { label: 'Postings', href: '/superadmin/postings' },
-  { label: 'LinkedIn promos', href: '/superadmin/promotions' },
-  { label: 'Viral shares', href: '/superadmin/viral' },
+  { label: 'Posting Share Rewards', href: '/superadmin/promotions' },
   { label: 'Login report', href: '/superadmin/login-report' },
   { label: 'Messages', href: '/superadmin/messages' },
   { label: 'Feature ideas', href: '/superadmin/feature-ideas' },

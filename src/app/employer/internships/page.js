@@ -353,15 +353,17 @@ export default function EmployerInternshipsPage() {
             <Plus className="size-4" />
           </button>
         ) : null}
-        <button
-          type="button"
-          className="ip-epo-btn ip-epo-btn--icon"
-          title="Share Posting"
-          aria-label="Share Posting"
-          onClick={() => openShare(i)}
-        >
-          <Share2 className="size-4" />
-        </button>
+        {i.status === 'published' ? (
+          <button
+            type="button"
+            className="ip-epo-btn ip-epo-btn--icon"
+            title="Share Posting"
+            aria-label="Share Posting"
+            onClick={() => openShare(i)}
+          >
+            <Share2 className="size-4" />
+          </button>
+        ) : null}
       </div>
     );
   }

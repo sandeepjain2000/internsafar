@@ -329,7 +329,7 @@
 .ip-emp-profile .ip-ep-logo-box img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   background: #ffffff;
 }
 
@@ -734,3 +734,206 @@
     margin-right: -1.5rem;
   }
 }
+
+/* —— Tabs, logo URL, website chrome, ethics Accept/Reject (appended) —— */
+
+.ip-emp-profile .ip-ep-tabs {
+  display: flex;
+  overflow-x: auto;
+  gap: 0;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  -webkit-overflow-scrolling: touch;
+}
+
+.ip-emp-profile .ip-ep-tabs button[role='tab'] {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  padding: 0.875rem 1.1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  font-family: inherit;
+  margin: 0;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.ip-emp-profile .ip-ep-tabs button[role='tab']:hover {
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+.ip-emp-profile .ip-ep-tabs button[role='tab'][aria-selected='true'],
+.ip-emp-profile .ip-ep-tabs button[role='tab'].is-active {
+  color: #4338ca;
+  background: #fff;
+  border-bottom-color: var(--ip-indigo, #4f46e5);
+}
+
+.ip-emp-profile .ip-ep-input--website {
+  color: #2563eb;
+}
+
+.ip-emp-profile .ip-ep-input--website::placeholder {
+  color: #93c5fd;
+}
+
+.ip-emp-profile .ip-ep-input--website:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.ip-emp-profile .ip-ep-logo-url-toggle {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #4f46e5;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ip-emp-profile .ip-ep-logo-url-toggle:hover {
+  color: #4338ca;
+}
+
+.ip-emp-profile .ip-ep-logo-url-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ip-emp-profile .ip-ep-logo-url-row .ip-ep-input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.ip-emp-profile .ip-ep-ethic {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  cursor: default;
+}
+
+.ip-emp-profile .ip-ep-ethic__label {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.625;
+  color: #334155;
+}
+
+.ip-emp-profile .ip-ep-ethic--on .ip-ep-ethic__label {
+  color: #1e1b4b;
+  font-weight: 500;
+}
+
+.ip-emp-profile .ip-ep-ethic--reject {
+  border-color: #fecaca;
+  background: rgba(254, 242, 242, 0.55);
+}
+
+.ip-emp-profile .ip-ep-ethic--locked {
+  opacity: 0.85;
+}
+
+.ip-emp-profile .ip-ep-ethic__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ip-emp-profile .ip-ep-ethic-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5.5rem;
+  height: 2rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 0.375rem;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  color: #475569;
+  margin: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.ip-emp-profile .ip-ep-ethic-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.ip-emp-profile .ip-ep-ethic-btn--accept:hover:not(:disabled) {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.ip-emp-profile .ip-ep-ethic-btn--accept.is-selected {
+  border-color: #a5b4fc;
+  background: #4f46e5;
+  color: #ffffff;
+}
+
+.ip-emp-profile .ip-ep-ethic-btn--reject:hover:not(:disabled) {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.ip-emp-profile .ip-ep-ethic-btn--reject.is-selected {
+  border-color: #fca5a5;
+  background: #dc2626;
+  color: #ffffff;
+}
+
+@media (max-width: 767px) {
+  .ip-emp-profile .ip-ep-tabs {
+    margin-left: 1rem;
+    margin-right: 1rem;
+    border-radius: 0.5rem;
+  }
+
+  .ip-emp-profile .ip-ep-tabs button[role='tab'] {
+    padding: 0.75rem 0.9rem;
+    font-size: 0.75rem;
+  }
+
+  .ip-emp-profile .ip-ep-logo-url-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ip-emp-profile .ip-ep-logo-url-row .ip-ep-btn {
+    width: 100%;
+    min-height: 2.75rem;
+  }
+
+  .ip-emp-profile .ip-ep-ethic__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ip-emp-profile .ip-ep-ethic-btn {
+    width: 100%;
+    min-height: 2.5rem;
+  }
+}
+

@@ -1,4 +1,4 @@
-/** Employer Guidelines & Ethics — authoritative checkbox copy (DOCX §24). */
+/** Employer Guidelines & Ethics — authoritative copy (DOCX §24). */
 export const EMPLOYER_ETHICS_VERSION = '2026-08-08';
 
 export const EMPLOYER_ETHICS_ITEMS = [
@@ -34,7 +34,31 @@ export const EMPLOYER_ETHICS_ITEMS = [
   },
 ];
 
+/** Every item must be explicitly Accepted (`true`). Reject / missing = incomplete. */
 export function allEthicsChecked(acks) {
   const map = acks && typeof acks === 'object' ? acks : {};
   return EMPLOYER_ETHICS_ITEMS.every((item) => map[item.id] === true);
+}
+
+/** Locked after a successful save with all items Accepted (`ethics_accepted_at` set). */
+export function isEthicsLocked(profile) {
+  if (!profile) return false;
+  return Boolean(profile.ethics_accepted_at) && allEthicsChecked(profile.ethics_acks);
+}
+
+/** Normalize Accept/Reject map from client payload. */
+export function normalizeEthicsAcks(incoming) {
+  const raw = incoming && typeof incoming === 'object' ? incoming : {};
+  const out = {};
+  for (const item of EMPLOYER_ETHICS_ITEMS) {
+    if (raw[item.id] === true) out[item.id] = true;
+    else if (raw[item.id] === false) out[item.id] = false;
+  }
+  return out;
+}
+
+export function ethicsMapsEqual(a, b) {
+  const left = a && typeof a === 'object' ? a : {};
+  const right = b && typeof b === 'object' ? b : {};
+  return EMPLOYER_ETHICS_ITEMS.every((item) => left[item.id] === right[item.id]);
 }
