@@ -10,6 +10,7 @@ import '@/components/ip/ip-list-pager.css';
 import IpListPager from '@/components/ip/IpListPager';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
+import { toTitleCaseLabel } from '@/lib/ipTitleCase';
 
 export default function ListingReportsPage() {
   const [items, setItems] = useState([]);
@@ -94,8 +95,8 @@ export default function ListingReportsPage() {
           {pageItems.map((r) => (
             <div key={r.id} className="rounded-md border p-3 text-sm space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge>{r.reason}</Badge>
-                <Badge variant="outline">{r.status}</Badge>
+                <Badge>{toTitleCaseLabel(r.reason) || r.reason}</Badge>
+                <Badge variant="outline">{toTitleCaseLabel(r.status) || r.status}</Badge>
                 <span className="text-muted-foreground">{new Date(r.created_at).toLocaleString()}</span>
               </div>
               <p>

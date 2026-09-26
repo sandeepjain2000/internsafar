@@ -253,7 +253,7 @@ export default function CandidateDashboard() {
       items.push({
         key: `iv-${a.id}`,
         kind: 'interview',
-        badge: 'Interview scheduled',
+        badge: 'Interview Scheduled',
         when: formatInterviewWhen(a.interview_at),
         title: a.title || 'Interview',
         meta: [a.company_name, a.work_mode].filter(Boolean).join(' · '),

@@ -20,6 +20,7 @@ import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { IpTableFiltersShell } from '@/components/ip/IpTableFiltersShell';
 import { StandardTableIconAction } from '@/components/ui/StandardTableIconAction';
 import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import { toTitleCaseLabel } from '@/lib/ipTitleCase';
 import '@/components/ip/ip-table-filters.css';
 
 const STATUS_OPTIONS = ['applied', 'shortlisted', 'interviewing', 'rejected', 'hired', 'completed'];
@@ -604,7 +605,7 @@ export default function ApplicantsPipelinePage() {
                         ) : null}
                       </div>
                     </div>
-                    <Badge variant={STATUS_VARIANT[a.status] || 'outline'}>{a.status}</Badge>
+                    <Badge variant={STATUS_VARIANT[a.status] || 'outline'}>{toTitleCaseLabel(a.status) || a.status}</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {a.internship_history
@@ -702,7 +703,7 @@ export default function ApplicantsPipelinePage() {
                       {a.communication?.unresponded ? <div role="status">Needs response</div> : <div className="text-muted-foreground">Responded</div>}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={STATUS_VARIANT[a.status] || 'outline'}>{a.status}</Badge>
+                      <Badge variant={STATUS_VARIANT[a.status] || 'outline'}>{toTitleCaseLabel(a.status) || a.status}</Badge>
                     </TableCell>
                     <TableCell className="space-x-1 whitespace-nowrap">
                       {renderApplicantActions(a)}

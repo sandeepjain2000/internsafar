@@ -727,6 +727,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                 >
                   <SlidersHorizontal className="size-3.5" aria-hidden />
                   Filters
+                  <span className="ip-cm-adv-state">{showFilters ? 'On' : 'Off'}</span>
                   {colsActive ? <span className="ip-cm-adv-dot" aria-label="Filters active" /> : null}
                 </button>
                 {colsActive ? (
@@ -1160,6 +1161,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
               >
                 <SlidersHorizontal className="size-3.5" aria-hidden />
                 Filters
+                <span className="ip-cm-adv-state">{showFilters ? 'On' : 'Off'}</span>
                 {colsActive ? <span className="ip-cm-adv-dot" aria-label="Filters active" /> : null}
               </button>
               {colsActive ? (

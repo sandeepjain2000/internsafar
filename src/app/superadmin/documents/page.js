@@ -18,6 +18,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import '@/components/ip/ip-superadmin-queue-gemini.css';
 import '@/components/ip/ip-list-pager.css';
 import IpListPager from '@/components/ip/IpListPager';
+import { toTitleCaseLabel } from '@/lib/ipTitleCase';
 import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import { employerDomainRisk, REJECT_PRESETS } from '@/lib/ipDomainRisk';
@@ -400,7 +401,7 @@ export default function SuperAdminDocumentsPage() {
                               : 'ip-saq-pill--warn'
                         }`}
                       >
-                        {d.status}
+                        {toTitleCaseLabel(d.status) || d.status}
                       </span>
                     </td>
                     <td>

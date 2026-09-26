@@ -189,6 +189,7 @@ export default function IpNotificationsInbox({ tableKey = 'shared.notifications'
             >
               <SlidersHorizontal size={14} aria-hidden />
               <span>Filters</span>
+              <span className="ip-nf-filters-state">{filtersOpen ? 'On' : 'Off'}</span>
               {filter !== 'all' ? <span className="ip-nf-filters-chip">{activeFilter.label}</span> : null}
             </button>
             {filtersOpen ? (

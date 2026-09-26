@@ -19,6 +19,7 @@ import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
 import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
+import { toTitleCaseLabel } from '@/lib/ipTitleCase';
 
 function initial(name) {
   return String(name || '?').trim().charAt(0).toUpperCase() || '?';
@@ -354,7 +355,7 @@ export default function SuperAdminPostingsPage() {
                                 : 'ip-saq-pill--slate'
                         }`}
                       >
-                        {i.status === 'closed' ? 'takedown' : i.status}
+                        {toTitleCaseLabel(i.status === 'closed' ? 'takedown' : i.status)}
                       </span>
                     </td>
                     <td>

@@ -142,29 +142,6 @@ export default function SearchableMultiSelect({
 
   return (
     <div className="ip-sms" ref={rootRef}>
-      <div className="ip-sms-chips">
-        {selected.length ? (
-          selected.map((s) => (
-            <span key={s} className="ip-sms-chip">
-              {s}
-              <button
-                type="button"
-                className="ip-sms-chip__x"
-                aria-label={`Remove ${s}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  toggle(s);
-                }}
-              >
-                ×
-              </button>
-            </span>
-          ))
-        ) : (
-          <span className="ip-sms-empty">None selected</span>
-        )}
-      </div>
       <input
         ref={inputRef}
         type="text"
@@ -185,6 +162,27 @@ export default function SearchableMultiSelect({
           }
         }}
       />
+      {selected.length ? (
+        <div className="ip-sms-chips">
+          {selected.map((s) => (
+            <span key={s} className="ip-sms-chip">
+              {s}
+              <button
+                type="button"
+                className="ip-sms-chip__x"
+                aria-label={`Remove ${s}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggle(s);
+                }}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
       {menu}
     </div>
   );

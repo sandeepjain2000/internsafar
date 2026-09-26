@@ -1037,6 +1037,25 @@
   color: #3730a3;
 }
 
+.ip-cand-msg .ip-cm-adv-state {
+  margin-left: 0.1rem;
+  padding: 0.08rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #64748b;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+.ip-cand-msg .ip-cm-adv-toggle[aria-expanded='true'] .ip-cm-adv-state {
+  color: #3730a3;
+  background: #e0e7ff;
+  border-color: #c7d2fe;
+}
+
 /* Dot marks filters still narrowing the list once the panel is collapsed. */
 .ip-cand-msg .ip-cm-adv-dot {
   width: 0.4375rem;

@@ -85,7 +85,7 @@ function applicantsLabel(i) {
 function statusBadgeText(bucket) {
   if (bucket === 'active') return '● Live';
   if (bucket === 'scheduled') return '◷ Scheduled';
-  if (bucket === 'closing') return 'Closing soon';
+  if (bucket === 'closing') return 'Closing Soon';
   if (bucket === 'paused') return '⏸ Paused';
   if (bucket === 'closed') return 'Closed';
   return 'Draft';

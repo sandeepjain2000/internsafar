@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Field, FieldLabel } from '@/components/ui/field';
 import PageHeader from '@/components/ip/PageHeader';
+import { toTitleCaseLabel } from '@/lib/ipTitleCase';
 import {
   experienceEntries,
   experienceEntryLabel,
@@ -323,7 +324,7 @@ export default function EmployerCandidateProfilePage() {
                   <CardHeader><CardTitle className="text-base">This application</CardTitle></CardHeader>
                   <CardContent className="space-y-2 text-sm">
                     <div>{a.internship_title || 'Internship'}</div>
-                    <Badge variant="outline">{a.status}</Badge>
+                    <Badge variant="outline">{toTitleCaseLabel(a.status) || a.status}</Badge>
                     <div>Match {a.match_score != null ? `${a.match_score}%` : '—'}</div>
                     {a.screening_disabled ? <div className="text-muted-foreground">Screening disabled</div> : null}
                     <div className="pt-2">
