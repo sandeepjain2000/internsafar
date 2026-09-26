@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { signOutAndEndSession } from '@/lib/ipClientSignOut';
+import { readResponseJson } from '@/lib/readResponseJson';
 import {
   Activity,
   Award,
@@ -100,7 +101,7 @@ export default function PortalShell({
   useEffect(() => {
     if (status !== 'authenticated') return;
     fetch('/api/ip/nav-badges')
-      .then((r) => r.json())
+      .then((r) => readResponseJson(r, {}))
       .then((d) => setNavBadges(d.badges || {}))
       .catch(() => {});
   }, [status, pathname]);

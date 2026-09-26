@@ -39,15 +39,18 @@ Google OAuth callbacks are expected for `localhost:3000`, the Vercel preview hos
 
 | Path | DB action |
 |------|-----------|
-| **B** — app-only AWS update | **No migrate.** Swap app + build + PM2 only. Do not set `IP_ALLOW_DB_MIGRATE`. |
+| **B** — app-only AWS update | **No Path C migrate.** Swap app + build + PM2 only. Do not set `IP_ALLOW_DB_MIGRATE`. |
 | **C** — fresh empty RDS | `IP_ALLOW_DB_MIGRATE=1 npm run deploy:fresh-aws-db` only. Never Path C on live prod data. |
-| Live schema change | Explicit user request + additive SQL + gates |
+| Live schema gap on AWS | Explicit **additive** DDL + **blank-fill** temp runner so existing accounts keep working — **not** grandfather flags. Plan (workspace): `aws deploy/AWS-PUSH-PLAN-SCHEMA-BACKFILL-2026-09-26.md` |
+
+Path B does **not** mean “never touch RDS.” It means do not run the full migrate/Path C wipe path. If new columns would leave blanks that break gates, fill those values in a controlled one-time step.
 
 ## Constraints
 
 - Deploy Vercel **from sibling** only; never from nested mono folder.
 - Do not commit or chat-dump PEM/secret values.
 - Laptop/Vercel migrate refuses AWS RDS hostnames (`assert-db-migrate-target.js`); Path C on EC2 is the empty-RDS path.
+- Prefer RDS snapshot before production DDL when rollback is hard.
 
 ## Related domains
 

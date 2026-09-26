@@ -139,23 +139,34 @@ function interviewDeadline(interview) {
   return `Interview ${d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
 }
 
-export function decorateCandidateNotification(n, { offers = [], interviews = [] } = {}) {
+export function decorateCandidateNotification(n, { offers = [], interviews = [], applications = [] } = {}) {
   const meta = parseMeta(n.meta);
   const bucket = resolveCandidateBucket(n);
   const action = actionForCandidateNotification(n, bucket);
   let company = meta.company || null;
+  let internshipTitle = meta.internshipTitle || meta.internship_title || null;
   let priority = 'normal';
   let deadlineText = meta.deadlineText || null;
+
+  if (meta.applicationId) {
+    const app = applications.find((a) => a.id === meta.applicationId);
+    if (app) {
+      company = company || app.company_name || null;
+      internshipTitle = internshipTitle || app.internship_title || null;
+    }
+  }
 
   if (bucket === 'offers') {
     const offer = matchOffer(n, offers);
     const extra = offerPriority(offer);
     company = extra.company || company;
+    internshipTitle = internshipTitle || offer?.role_title || offer?.title || null;
     if (extra.priority !== 'normal') priority = extra.priority;
     if (extra.deadlineText) deadlineText = extra.deadlineText;
   } else if (bucket === 'interviews') {
     const interview = matchInterview(n, interviews);
     company = interview?.company_name || company;
+    internshipTitle = internshipTitle || interview?.title || null;
     const when = interviewDeadline(interview) || (meta.interviewAt ? interviewDeadline({ interview_at: meta.interviewAt }) : null);
     if (when) {
       priority = 'action_required';
@@ -165,12 +176,35 @@ export function decorateCandidateNotification(n, { offers = [], interviews = [] 
     company = meta.company || company;
   } else if (bucket === 'applications') {
     company = meta.company || company;
+    // Older "You applied to {role}" bodies without company — match by title text
+    if (!company || !internshipTitle) {
+      const body = String(n.body || '');
+      const m = body.match(/^You applied to\s+(.+?)(?:\s+at\s+(.+))?$/i);
+      if (m) {
+        internshipTitle = internshipTitle || m[1].trim();
+        company = company || (m[2] ? m[2].trim() : null);
+      }
+      if ((!company || !internshipTitle) && internshipTitle) {
+        const hit = applications.find(
+          (a) => String(a.internship_title || '').toLowerCase() === String(internshipTitle).toLowerCase(),
+        );
+        if (hit) {
+          company = company || hit.company_name;
+          internshipTitle = internshipTitle || hit.internship_title;
+        }
+      }
+    }
   }
 
   const timeSensitive =
     priority === 'urgent'
     || priority === 'action_required'
     || Boolean(deadlineText);
+
+  const contextLine = [company, internshipTitle].filter(Boolean).join(' · ')
+    || (deadlineText || null)
+    || String(n.body || '').trim()
+    || '';
 
   return {
     id: n.id,
@@ -181,6 +215,8 @@ export function decorateCandidateNotification(n, { offers = [], interviews = [] 
     read_at: n.read_at,
     bucket,
     company,
+    internshipTitle,
+    contextLine,
     priority,
     deadlineText,
     time_sensitive: timeSensitive,
@@ -193,7 +229,7 @@ export function decorateCandidateNotification(n, { offers = [], interviews = [] 
 export async function loadCandidateNotificationContext(userId) {
   const cand = await query(`SELECT id FROM ip_candidates WHERE user_id = $1`, [userId]);
   const candidateId = cand.rows[0]?.id;
-  if (!candidateId) return { offers: [], interviews: [] };
+  if (!candidateId) return { offers: [], interviews: [], applications: [] };
 
   const offers = await query(
     `SELECT o.id, o.status, o.valid_until, o.role_title, i.title, e.company_name
@@ -213,7 +249,21 @@ export async function loadCandidateNotificationContext(userId) {
      ORDER BY a.interview_at DESC`,
     [candidateId],
   );
-  return { offers: offers.rows, interviews: interviews.rows };
+  const applications = await query(
+    `SELECT a.id, i.title AS internship_title, e.company_name
+     FROM ip_applications a
+     JOIN ip_internships i ON i.id = a.internship_id
+     JOIN ip_employers e ON e.id = i.employer_id
+     WHERE a.candidate_id = $1
+     ORDER BY a.created_at DESC
+     LIMIT 300`,
+    [candidateId],
+  );
+  return {
+    offers: offers.rows,
+    interviews: interviews.rows,
+    applications: applications.rows,
+  };
 }
 
 /** Insert a real expiry notice for pending offers that expire within 3 days (once per offer). */

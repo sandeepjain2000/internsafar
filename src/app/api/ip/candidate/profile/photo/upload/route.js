@@ -44,11 +44,15 @@ export async function POST(request) {
       contentType: validated.contentType,
       body: buffer,
     });
+    // New key each time (UUID) — prior photo objects stay in S3; we only update DB URL.
 
     const upd = await query(
-      `UPDATE ip_candidates SET profile_picture_url = $1, updated_at = NOW()
+      `UPDATE ip_candidates
+       SET profile_picture_url = $1,
+           show_profile_picture = true,
+           updated_at = NOW()
        WHERE user_id = $2
-       RETURNING profile_picture_url`,
+       RETURNING profile_picture_url, show_profile_picture`,
       [uploaded.fileUrl, session.user.id],
     );
     if (!upd.rows[0]) {
@@ -58,6 +62,7 @@ export async function POST(request) {
     return NextResponse.json({
       ok: true,
       profile_picture_url: upd.rows[0].profile_picture_url,
+      show_profile_picture: upd.rows[0].show_profile_picture,
       fileUrl: uploaded.fileUrl,
       storage: 's3',
     });

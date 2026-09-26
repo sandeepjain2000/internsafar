@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { computeValidationScore } from '@/lib/internshipValidationScore';
 import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
+import { ensureIpEmployerDocumentSlotsSchema } from '@/lib/ipEmployerDocuments';
 import { isCandidateAccessible } from '@/lib/ipInternshipVisibility';
 import { publicApplicationVolumeLabel } from '@/lib/ipApplicationVolume';
 import { maskEmployerName } from '@/lib/ipEmployerIdentity';
@@ -10,6 +11,7 @@ export async function GET(request, { params }) {
   const { session, error } = await requireSession(['candidate']);
   if (error) return error;
   await ensureIpWorkbenchSchema();
+  await ensureIpEmployerDocumentSlotsSchema();
   const { id } = await params;
   const { searchParams } = new URL(request.url);
   const preview = searchParams.get('preview') === '1';

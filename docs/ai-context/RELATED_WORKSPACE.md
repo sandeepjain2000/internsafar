@@ -12,7 +12,7 @@ Open the folders below only when the task needs them.
 | `internship-portal-aws-handoff` | AWS deploy pack (prefer no secrets) | AWS Path B/C, EC2, migrate gates |
 | `internship-portal-aws-handoff-WITH-SECRETS` | Handoff that may contain secrets | Ops only — never echo secrets into chat/docs |
 | `latets projet cdoe for aws deploy` | Extra/older AWS handoff copy + zip | Compare/history if primary handoff unclear |
-| `aws deploy` | Guides, tarballs, PEM, problem notes | First-time setup / redeploy docs |
+| `aws deploy` | Guides, tarballs, PEM, problem notes; **AWS schema/backfill push plan** `AWS-PUSH-PLAN-SCHEMA-BACKFILL-2026-09-26.md` | First-time setup / redeploy / AWS blank-fill planning |
 | `Aws deployment documents` | Formal runbook / setup / update DOCX | Human runbooks — summarize, don’t dump |
 | `gemini-tsx-handoff` | Gemini HTML mocks + assets/logo | UI redesign from mocks |
 | `mobile csreens internsafar` | Mobile HTML handoff package | Mobile UI redesign |

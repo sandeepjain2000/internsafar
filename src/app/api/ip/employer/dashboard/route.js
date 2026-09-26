@@ -3,6 +3,7 @@ import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { POINTS_PER_POST } from '@/lib/pointsEconomy';
 import { processAutoRejectExpiredApplications } from '@/lib/ipAutoRejectExpiredApplications';
 import { ensureIpApplicationInterviewSchema } from '@/lib/ensureIpApplicationInterviewSchema';
+import { ensureIpEmployerDocumentSlotsSchema } from '@/lib/ipEmployerDocuments';
 
 /** Employer home aggregates — recent apps + week delta (no new tables). */
 export async function GET() {
@@ -10,6 +11,7 @@ export async function GET() {
   if (error) return error;
 
   await ensureIpApplicationInterviewSchema();
+  await ensureIpEmployerDocumentSlotsSchema();
 
   const emp = await query(
     `SELECT e.id, e.company_name, e.approval_status, u.points, u.name, u.email,

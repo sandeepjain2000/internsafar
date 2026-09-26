@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bookmark, Search, Star } from 'lucide-react';
+import { Bookmark, CalendarDays, LayoutGrid, Search, Sparkles, Star } from 'lucide-react';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
@@ -19,17 +19,36 @@ import '@/components/ip/ip-browse-internships-gemini.css';
 import '@/components/ip/ip-table-filters.css';
 import '@/components/ip/ip-list-pager.css';
 import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
+import { readResponseJson } from '@/lib/readResponseJson';
 
 const PAGE_SIZE = 10;
-
-const QUICK_CHIPS = [
-  { id: 'unapplied', label: 'Unapplied' },
-  { id: '', label: 'All listings' },
-  { id: 'starting-soon', label: 'Starting soon' },
-  { id: 'saved', label: 'Saved' },
-  { id: 'recent', label: 'Recently updated' },
-  { id: 'verified', label: 'Verified employers' },
+const BROWSE_TAB_SESSION_KEY = 'ip_browse_tab';
+const BROWSE_TABS = [
+  { id: 'unapplied', label: 'Unapplied', icon: 'unapplied' },
+  { id: 'all', label: 'All Internships', icon: 'all' },
+  { id: 'starting-soon', label: 'Starting soon', icon: 'soon' },
+  { id: 'saved', label: 'Saved', icon: 'saved' },
+  { id: 'recommended', label: 'Recommended for You', icon: 'recommended' },
 ];
+const BROWSE_TAB_IDS = new Set(BROWSE_TABS.map((t) => t.id));
+
+function readSessionBrowseTab() {
+  try {
+    const v = String(sessionStorage.getItem(BROWSE_TAB_SESSION_KEY) || '').trim();
+    if (BROWSE_TAB_IDS.has(v)) return v;
+  } catch {
+    /* ignore */
+  }
+  return 'unapplied';
+}
+
+function writeSessionBrowseTab(tabId) {
+  try {
+    sessionStorage.setItem(BROWSE_TAB_SESSION_KEY, tabId);
+  } catch {
+    /* ignore */
+  }
+}
 
 const WORK_MODES = [
   { value: 'all', label: 'All Modes' },
@@ -96,12 +115,35 @@ function companyInitials(name) {
   return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || 'IN';
 }
 
+function browseTabIcon(kind) {
+  if (kind === 'saved') return <Bookmark fill="currentColor" aria-hidden />;
+  if (kind === 'recommended') return <Star aria-hidden />;
+  if (kind === 'soon') return <CalendarDays aria-hidden />;
+  if (kind === 'unapplied') return <Sparkles aria-hidden />;
+  return <LayoutGrid aria-hidden />;
+}
+
+function browseTabCount(counts, tabId) {
+  if (tabId === 'all') return counts.all ?? 0;
+  if (tabId === 'unapplied') return counts.unapplied ?? 0;
+  if (tabId === 'starting-soon') return counts.startingSoon ?? 0;
+  if (tabId === 'saved') return counts.saved ?? 0;
+  if (tabId === 'recommended') return counts.recommended ?? 0;
+  return null;
+}
+
 export default function BrowseInternshipsPage() {
   const router = useRouter();
   const { placeCityOptions, cityOptions: catalogCities, loading: citiesLoading } = useIpCityCatalog();
   const { countryOptions, loading: countriesLoading } = useIpCountryCatalog();
   const [items, setItems] = useState([]);
-  const [counts, setCounts] = useState({ all: 0, saved: 0, recommended: 0 });
+  const [counts, setCounts] = useState({
+    all: 0,
+    unapplied: 0,
+    startingSoon: 0,
+    saved: 0,
+    recommended: 0,
+  });
   const [q, setQ] = useState('');
   const [minStipend, setMinStipend] = useState('0');
   const [maxDuration, setMaxDuration] = useState('0');
@@ -112,22 +154,21 @@ export default function BrowseInternshipsPage() {
   const [minMatch, setMinMatch] = useState('0');
   const [minValidation, setMinValidation] = useState('');
   const [sort, setSort] = useState('best-match');
-  const [tab, setTab] = useState('all');
-  const [chip, setChip] = useState('unapplied');
+  const [tab, setTab] = useState('unapplied');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [points, setPoints] = useState(null);
-  const [viewMode, setViewMode] = useViewMode('ip_browse_view', 'cards');
+  const [viewMode, setViewMode] = useViewMode('ip_browse_view', 'list');
   const [presetResetKey, setPresetResetKey] = useState(0);
   const reqRef = useRef(0);
   const { page, setPage, totalPages, total, pageItems, pageSize, serialOffset } = useClientPagination(items, PAGE_SIZE);
 
   const snapshot = useMemo(() => ({
     filters: {
-      q, minStipend, maxDuration, workMode, startDate, selectedRegions, selectedCities, minMatch, minValidation, tab, chip,
+      q, minStipend, maxDuration, workMode, startDate, selectedRegions, selectedCities, minMatch, minValidation,
     },
     sort,
-  }), [q, minStipend, maxDuration, workMode, startDate, selectedRegions, selectedCities, minMatch, minValidation, tab, chip, sort]);
+  }), [q, minStipend, maxDuration, workMode, startDate, selectedRegions, selectedCities, minMatch, minValidation, sort]);
   const prefs = useListPrefsSync({
     tableKey: 'candidate.internships',
     snapshot,
@@ -142,8 +183,6 @@ export default function BrowseInternshipsPage() {
       if (Array.isArray(f.selectedCities)) setSelectedCities(f.selectedCities);
       if (f.minMatch != null) setMinMatch(String(f.minMatch));
       if (f.minValidation != null) setMinValidation(f.minValidation);
-      if (f.tab != null) setTab(f.tab);
-      if (f.chip != null) setChip(f.chip);
       if (s.sort) setSort(s.sort);
     },
   });
@@ -151,15 +190,30 @@ export default function BrowseInternshipsPage() {
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('saved') === '1') setTab('saved');
+      if (params.get('saved') === '1') {
+        setTab('saved');
+        writeSessionBrowseTab('saved');
+      } else {
+        const next = readSessionBrowseTab();
+        setTab(next);
+      }
     } catch {
-      /* ignore */
+      setTab('unapplied');
     }
     fetch('/api/ip/candidate/profile')
-      .then((r) => r.json())
+      .then((r) => readResponseJson(r, {}))
       .then((d) => setPoints(d.profile?.points ?? null))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    writeSessionBrowseTab(tab);
+  }, [tab]);
+
+  function selectTab(nextTab) {
+    setTab(nextTab);
+    writeSessionBrowseTab(nextTab);
+  }
 
   async function load(next = {}) {
     const nextQ = next.q !== undefined ? next.q : q;
@@ -173,31 +227,38 @@ export default function BrowseInternshipsPage() {
     const nextValid = next.minValidation !== undefined ? next.minValidation : minValidation;
     const nextSort = next.sort !== undefined ? next.sort : sort;
     const nextTab = next.tab !== undefined ? next.tab : tab;
-    const nextChip = next.chip !== undefined ? next.chip : chip;
 
     const id = ++reqRef.current;
     setLoading(true);
-    const params = new URLSearchParams();
-    if (nextQ) params.set('q', nextQ);
-    if (nextStipend === 'unpaid') params.set('stipendType', 'unpaid');
-    else if (Number(nextStipend)) params.set('minStipend', nextStipend);
-    if (Number(nextDuration)) params.set('maxDuration', nextDuration);
-    if (nextMode && nextMode !== 'all') params.set('workMode', nextMode);
-    if (nextStart && nextStart !== 'any') params.set('startDate', nextStart);
-    if (nextCities?.length) params.set('location', nextCities.join(','));
-    if (nextRegions?.length) params.set('region', nextRegions.join(','));
-    if (Number(nextMatch)) params.set('minMatch', nextMatch);
-    if (nextValid) params.set('minValidation', nextValid);
-    params.set('sort', nextSort);
-    if (nextTab === 'saved') params.set('savedOnly', '1');
-    if (nextTab === 'recommended') params.set('minMatch', String(Math.max(Number(nextMatch) || 0, 85)));
-    if (nextChip) params.set('chip', nextChip);
-    const res = await fetch(`/api/ip/candidate/internships?${params.toString()}`);
-    const data = await res.json();
-    if (id !== reqRef.current) return;
-    setItems(data.items || []);
-    if (data.counts) setCounts(data.counts);
-    setLoading(false);
+    try {
+      const params = new URLSearchParams();
+      if (nextQ) params.set('q', nextQ);
+      if (nextStipend === 'unpaid') params.set('stipendType', 'unpaid');
+      else if (Number(nextStipend)) params.set('minStipend', nextStipend);
+      if (Number(nextDuration)) params.set('maxDuration', nextDuration);
+      if (nextMode && nextMode !== 'all') params.set('workMode', nextMode);
+      if (nextStart && nextStart !== 'any') params.set('startDate', nextStart);
+      if (nextCities?.length) params.set('location', nextCities.join(','));
+      if (nextRegions?.length) params.set('region', nextRegions.join(','));
+      if (Number(nextMatch)) params.set('minMatch', nextMatch);
+      if (nextValid) params.set('minValidation', nextValid);
+      params.set('sort', nextSort);
+      if (nextTab === 'saved') params.set('savedOnly', '1');
+      if (nextTab === 'recommended') params.set('recommended', '1');
+      if (nextTab === 'unapplied' || nextTab === 'starting-soon') {
+        params.set('chip', nextTab);
+      }
+      const res = await fetch(`/api/ip/candidate/internships?${params.toString()}`);
+      const data = await readResponseJson(res, {});
+      if (id !== reqRef.current) return;
+      setItems(Array.isArray(data.items) ? data.items : []);
+      if (data.counts) setCounts(data.counts);
+    } catch {
+      if (id !== reqRef.current) return;
+      setItems([]);
+    } finally {
+      if (id === reqRef.current) setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -207,11 +268,11 @@ export default function BrowseInternshipsPage() {
     }, q ? 250 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefs.ready, q, minStipend, maxDuration, workMode, startDate, selectedRegions, selectedCities, minMatch, minValidation, sort, tab, chip]);
+  }, [prefs.ready, q, minStipend, maxDuration, workMode, startDate, selectedRegions, selectedCities, minMatch, minValidation, sort, tab]);
 
   useEffect(() => {
     setPage(1);
-  }, [q, minStipend, maxDuration, workMode, startDate, selectedRegions, selectedCities, minMatch, minValidation, sort, tab, chip, setPage]);
+  }, [q, minStipend, maxDuration, workMode, startDate, selectedRegions, selectedCities, minMatch, minValidation, sort, tab, setPage]);
 
   async function toggleSave(internshipId, saved) {
     await fetch('/api/ip/candidate/saved', {
@@ -233,8 +294,7 @@ export default function BrowseInternshipsPage() {
     setMinMatch('0');
     setMinValidation('');
     setSort('best-match');
-    setTab('all');
-    setChip('unapplied');
+    selectTab('unapplied');
     setFiltersOpen(false);
     setPresetResetKey((k) => k + 1);
   }
@@ -275,7 +335,7 @@ export default function BrowseInternshipsPage() {
               className="ip-br-m-saved"
               title="Saved internships"
               aria-label={`Saved internships (${counts.saved})`}
-              onClick={() => setTab('saved')}
+              onClick={() => selectTab('saved')}
             >
               <Bookmark fill={tab === 'saved' ? 'currentColor' : 'none'} />
               {counts.saved > 0 ? <span>{counts.saved}</span> : null}
@@ -354,7 +414,6 @@ export default function BrowseInternshipsPage() {
             </label>
             <div className="ip-br-city-filter">
               <span className="ip-br-city-filter__label">Region</span>
-              <span className="ip-br-city-hint">Filter internships by employer region.</span>
               <SearchableMultiSelect
                 options={countryOptions}
                 value={selectedRegions}
@@ -367,7 +426,6 @@ export default function BrowseInternshipsPage() {
             </div>
             <div className="ip-br-city-filter">
               <span className="ip-br-city-filter__label">Work location (city)</span>
-              <span className="ip-br-city-hint">Searchable multi-select of work cities (separate from screening questions).</span>
               <SearchableMultiSelect
                 options={browseCityOptions}
                 value={selectedCities}
@@ -402,33 +460,27 @@ export default function BrowseInternshipsPage() {
         </div>
 
         <div className="ip-br-tabs">
-          <div className="ip-br-tabs__list">
-            <button type="button" className={tab === 'all' ? 'is-on' : undefined} onClick={() => setTab('all')}>
-              All Internships ({counts.all})
-            </button>
-            <button type="button" className={tab === 'saved' ? 'is-on' : undefined} onClick={() => setTab('saved')}>
-              <Bookmark fill="currentColor" />
-              Saved Internships ({counts.saved})
-            </button>
-            <button type="button" className={tab === 'recommended' ? 'is-on' : undefined} onClick={() => setTab('recommended')}>
-              Recommended for You
-            </button>
+          <div className="ip-br-tabs__list" role="tablist" aria-label="Browse views">
+            {BROWSE_TABS.map((t) => {
+              const count = browseTabCount(counts, t.id);
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === t.id}
+                  className={tab === t.id ? 'is-on' : undefined}
+                  onClick={() => selectTab(t.id)}
+                >
+                  {browseTabIcon(t.icon)}
+                  <span>{t.label}</span>
+                  {count != null ? <span className="ip-br-tab-count">{count}</span> : null}
+                </button>
+              );
+            })}
           </div>
           <button type="button" className="ip-br-reset" onClick={resetFilters}>Reset All Filters</button>
           <ViewModeToggle value={viewMode} onChange={setViewMode} />
-        </div>
-
-        <div className="ip-br-chips" role="tablist" aria-label="Quick filters">
-          {QUICK_CHIPS.map((c) => (
-            <button
-              key={c.id || 'all'}
-              type="button"
-              className={`ip-br-qchip${chip === c.id ? ' is-on' : ''}`}
-              onClick={() => setChip(c.id)}
-            >
-              {c.label}
-            </button>
-          ))}
         </div>
       </div>
 

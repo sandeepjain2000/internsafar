@@ -8,7 +8,7 @@ import useIpCountryCatalog from '@/hooks/useIpCountryCatalog';
 import { documentAcceptAttr, imageAcceptAttr } from '@/lib/ipFileUpload';
 import { BUSINESS_ENTITY_TYPES } from '@/lib/employerBusinessEntity';
 import { isEthicsLocked } from '@/lib/employerEthics';
-import { PHONE_DIAL_OPTIONS, validateRequiredPhone } from '@/lib/ipPhoneValidation';
+import { phoneDialOptionsFor, validateRequiredPhone } from '@/lib/ipPhoneValidation';
 import { toSafeClientError } from '@/lib/ipSafeClientError';
 import { toTitleCaseLabel } from '@/lib/ipTitleCase';
 import '@/components/ip/ip-employer-profile-gemini.css';
@@ -117,14 +117,6 @@ function CameraIcon() {
   );
 }
 
-function PlusIcon() {
-  return (
-    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-    </svg>
-  );
-}
-
 function SaveCompanyButton({ saving, onSave }) {
   return (
     <div className="ip-ep-actions ip-ep-actions--save">
@@ -151,11 +143,7 @@ export default function EmployerProfilePage() {
   const [savingEthics, setSavingEthics] = useState(false);
   const [docType, setDocType] = useState(DOC_TYPES[0]);
   const [docLabel, setDocLabel] = useState('');
-  const [docUrl, setDocUrl] = useState('');
-  const [docFileName, setDocFileName] = useState('');
   const [logoBusy, setLogoBusy] = useState(false);
-  const [logoUrlOpen, setLogoUrlOpen] = useState(false);
-  const [logoUrlDraft, setLogoUrlDraft] = useState('');
   const [profileTab, setProfileTab] = useState('company');
   const logoInputRef = useRef(null);
   const { placeCityOptions, stateOptions, findCity, loading: citiesLoading } = useIpCityCatalog();
@@ -269,47 +257,6 @@ export default function EmployerProfilePage() {
     }
   }
 
-  function applyLogoUrl() {
-    const url = String(logoUrlDraft || '').trim();
-    if (!url) {
-      setMessage('Enter a logo URL to apply.');
-      return;
-    }
-    set('logo_url', url);
-    setLogoUrlDraft('');
-    setLogoUrlOpen(false);
-    setMessage('Logo URL applied. Save Company Details to persist.');
-  }
-
-  async function addDoc(e) {
-    e.preventDefault();
-    if (!docFileName && !docUrl) return;
-    if (docType === 'Other' && !String(docLabel || '').trim()) {
-      setMessage('Enter a document name when type is Other.');
-      return;
-    }
-    const res = await fetch('/api/ip/employer/documents', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        docType,
-        docLabel: docType === 'Other' ? docLabel : null,
-        fileName: docFileName,
-        url: docUrl,
-      }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setMessage(toSafeClientError(data.error || 'Upload failed'));
-      return;
-    }
-    setDocFileName('');
-    setDocUrl('');
-    setDocLabel('');
-    setMessage('Document saved. Replacing a type resets review to Pending.');
-    await load();
-  }
-
   if (!form) {
     if (message) {
       return (
@@ -391,7 +338,9 @@ export default function EmployerProfilePage() {
                 className="ip-ep-logo-box"
                 onClick={() => logoInputRef.current?.click()}
                 disabled={logoBusy}
-                aria-label="Upload company logo"
+                title="Upload new logo."
+                aria-label="Upload new logo."
+                data-tip="Upload new logo."
               >
                 {form.logo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -407,34 +356,6 @@ export default function EmployerProfilePage() {
                 <p className="ip-ep-hint">
                   Square image recommended (≥400×400). Max 2 MB. Click the frame to upload.
                 </p>
-                <button
-                  type="button"
-                  className="ip-ep-logo-url-toggle"
-                  onClick={() => {
-                    setLogoUrlOpen((open) => !open);
-                    setLogoUrlDraft('');
-                  }}
-                >
-                  {logoUrlOpen ? 'Hide logo URL' : 'Change via logo URL'}
-                </button>
-                {logoUrlOpen ? (
-                  <div className="ip-ep-logo-url-row">
-                    <input
-                      className="ip-ep-input"
-                      value={logoUrlDraft}
-                      onChange={(e) => setLogoUrlDraft(e.target.value)}
-                      placeholder="https://…"
-                      aria-label="Logo URL"
-                    />
-                    <button
-                      type="button"
-                      className="ip-ep-btn ip-ep-btn--secondary"
-                      onClick={applyLogoUrl}
-                    >
-                      Apply
-                    </button>
-                  </div>
-                ) : null}
               </div>
             </div>
 
@@ -627,7 +548,7 @@ export default function EmployerProfilePage() {
                     }}
                     aria-label="Country calling code"
                   >
-                    {PHONE_DIAL_OPTIONS.map((opt) => (
+                    {phoneDialOptionsFor(form.contact_phone_country_code).map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
@@ -911,36 +832,30 @@ export default function EmployerProfilePage() {
                 />
               </div>
             </div>
-
-            <div className="ip-ep-or">
-              <span>OR</span>
-            </div>
-
-            <form className="ip-ep-upload-row" onSubmit={addDoc}>
-              <input
-                className="ip-ep-input"
-                style={{ maxWidth: '12.5rem' }}
-                placeholder="File name"
-                value={docFileName}
-                onChange={(e) => setDocFileName(e.target.value)}
-              />
-              <input
-                className="ip-ep-input"
-                style={{ flex: 1 }}
-                placeholder="URL (optional)"
-                value={docUrl}
-                onChange={(e) => setDocUrl(e.target.value)}
-              />
-              <button type="submit" className="ip-ep-btn ip-ep-btn--secondary">
-                <PlusIcon /> Add Link
-              </button>
-            </form>
-            <p className="ip-ep-hint">
-              Prefer the upload button — it stores the file directly. The link form is for referencing a
-              document already hosted elsewhere.
-            </p>
           </div>
         </section>
+      ) : null}
+
+      {profileTab === 'company' ? (
+        <div className="ip-ep-export">
+          <div>
+            <div className="ip-ep-export__title">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                />
+              </svg>
+              <h3>Export Employer Profile Data (.xlsx)</h3>
+            </div>
+            <p>Download a multi-sheet Excel workbook with company details and verification documents.</p>
+          </div>
+          <a className="ip-ep-btn ip-ep-btn--outline" href="/api/ip/employer/profile/export">
+            Download Excel (.xlsx)
+          </a>
+        </div>
       ) : null}
     </div>
   );

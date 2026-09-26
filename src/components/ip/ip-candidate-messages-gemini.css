@@ -802,24 +802,29 @@
 .ip-cand-msg .ip-cm-thread {
   flex: 1 1 0;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
+/* Compact context row (employer/internship) — not a side column */
 .ip-cand-msg .ip-msg-party {
-  flex: 1 1 100%;
-  border-top: 1px solid #e2e8f0;
+  flex: 0 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  border-bottom: 1px solid #e2e8f0;
   background: #f8fafc;
-  padding: 1rem;
+  padding: 0.55rem 0.85rem;
   min-width: 0;
 }
 
 @media (min-width: 1050px) {
   .ip-cand-msg .ip-cm-split {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 16.25rem;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(16rem, 1fr);
     align-items: stretch;
   }
-  /* List stays in the left column only — never under the party panel. */
   .ip-cand-msg .ip-cm-list {
     grid-column: 1;
     grid-row: 1;
@@ -833,76 +838,70 @@
     grid-row: 2;
     min-width: 0;
   }
-  .ip-cand-msg .ip-msg-party {
-    grid-column: 2;
-    grid-row: 1 / -1;
-    flex: unset;
-    border-top: none;
-    border-left: 1px solid #e2e8f0;
-    min-width: 0;
-    overflow: auto;
-  }
 }
 
-.ip-cand-msg .ip-msg-party h3 {
-  margin: 0 0 0.75rem;
-  font-size: 0.75rem;
+.ip-cand-msg .ip-msg-party__kicker {
+  display: block;
+  margin: 0 0 0.25rem;
+  font-size: 0.625rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: #4338ca;
 }
 
-.ip-cand-msg .ip-msg-party__card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  margin-bottom: 0.85rem;
-}
-
-.ip-cand-msg .ip-msg-party__av {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.65rem;
-  background: #4f46e5;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  font-weight: 800;
-  margin-bottom: 0.4rem;
-}
-
-.ip-cand-msg .ip-msg-party__card strong {
-  font-size: 0.95rem;
-  color: #0f172a;
-}
-
-.ip-cand-msg .ip-msg-party__card p,
-.ip-cand-msg .ip-msg-party__sec span {
+.ip-cand-msg .ip-msg-party__hint {
   margin: 0;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #475569;
+}
+
+.ip-cand-msg .ip-msg-party__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.65rem;
+  min-width: 0;
+}
+
+.ip-cand-msg .ip-msg-party__item {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.ip-cand-msg .ip-msg-party__label {
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: #64748b;
 }
 
-.ip-cand-msg .ip-msg-party__sec {
-  margin-bottom: 0.65rem;
-}
-
-.ip-cand-msg .ip-msg-party__sec b {
-  display: block;
-  font-size: 0.8rem;
+.ip-cand-msg .ip-msg-party__item strong {
+  font-size: 0.8125rem;
+  font-weight: 700;
   color: #0f172a;
 }
 
-.ip-cand-msg .ip-msg-party__link {
-  display: inline-block;
-  margin-top: 0.25rem;
-  font-size: 0.75rem;
+.ip-cand-msg .ip-msg-party__sep {
+  color: #cbd5e1;
   font-weight: 700;
-  color: #4338ca;
+}
+
+.ip-cand-msg .ip-msg-party__link {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #4f46e5;
   text-decoration: none;
+}
+
+.ip-cand-msg .ip-msg-party__link:hover {
+  text-decoration: underline;
 }
 
 .ip-cand-msg .ip-msg-table,
@@ -1056,7 +1055,23 @@
   border-color: #c7d2fe;
 }
 
-/* Dot marks filters still narrowing the list once the panel is collapsed. */
+/* Count chip — same pattern as IpTableFiltersShell / other list pages */
+.ip-cand-msg .ip-cm-adv-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* Dot kept as unused fallback if any old markup remains */
 .ip-cand-msg .ip-cm-adv-dot {
   width: 0.4375rem;
   height: 0.4375rem;
@@ -1350,17 +1365,15 @@
     border: none;
   }
 
-  /* Inbox: hide thread + party until a conversation is open */
-  .ip-cand-msg:not(.ip-cand-msg--thread-open) .ip-cm-thread,
-  .ip-cand-msg:not(.ip-cand-msg--thread-open) .ip-msg-party {
+  /* Inbox: hide thread until a conversation is open */
+  .ip-cand-msg:not(.ip-cand-msg--thread-open) .ip-cm-thread {
     display: none;
   }
 
-  /* Thread open: full-screen chat; hide inbox chrome */
+  /* Thread open: full-screen chat; hide inbox chrome (context row stays inside thread) */
   .ip-cand-msg.ip-cand-msg--thread-open .ip-cm-banner,
   .ip-cand-msg.ip-cand-msg--thread-open .ip-cm-policy,
-  .ip-cand-msg.ip-cand-msg--thread-open .ip-cm-list,
-  .ip-cand-msg.ip-cand-msg--thread-open .ip-msg-party {
+  .ip-cand-msg.ip-cand-msg--thread-open .ip-cm-list {
     display: none;
   }
 

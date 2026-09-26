@@ -4,8 +4,9 @@ import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { sendMail } from '@/lib/mail';
 import { ensureIpCandidateProfileSchema } from '@/lib/ensureIpCandidateProfileSchema';
 
+/** Login-email change for Account page (candidate + employer). */
 export async function POST(request) {
-  const { session, error } = await requireSession(['candidate']);
+  const { session, error } = await requireSession(['candidate', 'employer']);
   if (error) return error;
   await ensureIpCandidateProfileSchema();
   const body = await request.json().catch(() => ({}));
@@ -28,7 +29,7 @@ export async function POST(request) {
   );
   await sendMail({
     to: newEmail,
-    subject: 'Verify your new PlacementHub email',
+    subject: 'Verify your new InternSafar login email',
     text: `Your verification code is ${code}. It expires in 10 minutes.`,
     html: `<p>Your verification code is <strong>${code}</strong>.</p><p>It expires in 10 minutes.</p>`,
     skipUnsubscribe: true,

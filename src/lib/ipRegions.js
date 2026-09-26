@@ -1,6 +1,7 @@
 /** Shared country/region values.
  * Profile / registration label = Country (single).
  * List filters label = Region (multi-select).
+ * Phone dial codes must stay aligned with this list (see IP_COUNTRY_PHONE_DIALS).
  */
 export const IP_COUNTRY_OPTIONS = [
   'India',
@@ -11,6 +12,18 @@ export const IP_COUNTRY_OPTIONS = [
   'Indonesia',
   'Malaysia',
   'Thailand',
+];
+
+/** Country → calling code + ISO2 for phone validation (same set as IP_COUNTRY_OPTIONS). */
+export const IP_COUNTRY_PHONE_DIALS = [
+  { country: 'India', dial: '+91', iso2: 'IN' },
+  { country: 'Pakistan', dial: '+92', iso2: 'PK' },
+  { country: 'Bangladesh', dial: '+880', iso2: 'BD' },
+  { country: 'Sri Lanka', dial: '+94', iso2: 'LK' },
+  { country: 'Nepal', dial: '+977', iso2: 'NP' },
+  { country: 'Indonesia', dial: '+62', iso2: 'ID' },
+  { country: 'Malaysia', dial: '+60', iso2: 'MY' },
+  { country: 'Thailand', dial: '+66', iso2: 'TH' },
 ];
 
 /** @deprecated Prefer IP_COUNTRY_OPTIONS — same list used for Region filters. */

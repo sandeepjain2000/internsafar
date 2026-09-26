@@ -2,14 +2,14 @@
 
 ## Responsibility
 
-Platform oversight: employer approvals, manual requests, documents, postings, posting share rewards, login report, form registrations, feature ideas, messages, bootstrap.
+Platform oversight: employer approvals (incl. Reject/Suspend), documents, Adjust Points, postings, posting share rewards, login report, feature ideas, messages, bootstrap.
 
 ## Central sources
 
 | Path | Role |
 |------|------|
 | `src/app/superadmin/**` | Pages |
-| `src/app/api/ip/superadmin/**` | SuperAdmin APIs |
+| `src/app/api/ip/superadmin/**` | SuperAdmin APIs (incl. `points`, `employers`, `documents`) |
 | `src/app/api/ip/bootstrap/` | Demo/bootstrap ensure |
 | `src/lib/ensureIpBootstrap.js` | Bootstrap helper |
 | Login page | `/superadmin/login` (not public `/`) |
@@ -20,11 +20,11 @@ Platform oversight: employer approvals, manual requests, documents, postings, po
 |-------|---------|
 | `/superadmin` | Dashboard |
 | `/superadmin/login` | SuperAdmin login |
-| `/superadmin/approvals` | **Only** employer approval queue (Domain + Free-email). Path column on rows. |
-| `/superadmin/documents` | Documents |
+| `/superadmin/approvals` | **Only** employer approval queue (Domain + Free-email). Path column on rows. **Reject** and **Suspend** available for approved employers (not only pending). |
+| `/superadmin/documents` | Documents (active rows only: `superseded_at IS NULL`) |
 | `/superadmin/postings` | Postings oversight |
 | `/superadmin/promotions` | Posting Share Rewards (LinkedIn posting-share claims) |
-| `/superadmin/points` | Adjust Points (SA manual add/deduct; support-only; users get notification only) |
+| `/superadmin/points` | **Adjust Points** — manual add/deduct on candidate or employer `ip_users.points`; floor 0; no cap; optional note; in-app notify user only (not advertised on user UIs) |
 | `/superadmin/login-report` | Login report (default **All time**; not wiped by core reset) |
 | `/superadmin/messages` | Messages |
 | `/superadmin/feature-ideas` | Feature ideas |
@@ -36,6 +36,8 @@ APIs for those queues return **410**. Schema dropped on bootstrap: `ip_employer_
 Live employer onboarding = Domain / Free-email → Approvals only. Candidate register = Google path only (`path=form` → 410).
 
 Employer email verify resend: `POST /api/ip/auth/employer-email-verify/resend` (login + post-register UI). Candidates do **not** use this verify gate.
+
+**Suspend vs Reject:** both block login; keep as distinct `approval_status` values (`suspended` \| `rejected`). Do not collapse them.
 
 Nav order: `src/lib/ipNav.js` → `SUPERADMIN_NAV`.
 
@@ -52,13 +54,14 @@ There is **no** dedicated SuperAdmin page route for unsubscribe as of 2026-09-18
 ## Confirmed demo account (from `README.md`)
 
 Bootstrap via `/api/ip/bootstrap` ensures: `support@placementhub.online` / `Admin@123`.  
-Do not invent alternate admin roles.
+Do not invent alternate admin roles. Do not reset password hashes for existing SuperAdmin in bootstrap.
 
 ## Constraints
 
 - Separate login path from candidate/employer landing.
-- Treat approval/document flows as sensitive; inspect API auth checks before changes.
+- Treat approval/document/points flows as sensitive; inspect API auth checks before changes.
 - Migration `036_ip_single_superadmin.sql` encodes single-superadmin data repair — read before changing admin user model.
+- Final Approval still needs ≥1 approved active doc and no pending active docs (`assertDocumentsReadyForFinalApproval`).
 
 ## Related domains
 
@@ -66,4 +69,4 @@ Auth, Employer (approvals), Database, UI/UX.
 
 ## Inspect before modifying
 
-Superadmin page, matching API, and shared approval/document schema helpers.
+Superadmin page, matching API, and shared approval/document/points helpers.

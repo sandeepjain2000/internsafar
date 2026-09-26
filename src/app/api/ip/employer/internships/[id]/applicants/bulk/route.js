@@ -36,13 +36,32 @@ export async function POST(request, { params }) {
   }
 
   const action = String(body.action || '');
-  const applicationIds = Array.isArray(body.applicationIds)
+  let applicationIds = Array.isArray(body.applicationIds)
     ? body.applicationIds.map(String).filter(Boolean)
     : [];
-  if (!applicationIds.length) return jsonError('Select at least one application');
-  if (applicationIds.length > 100) return jsonError('Too many applications selected', 400);
 
-  const rows = await ownedApps(emp.rows[0].id, internshipId, applicationIds);
+  // Export may target selected IDs or every applicant on this internship.
+  if (action === 'export' && body.exportAll) {
+    const all = await query(
+      `SELECT a.id
+       FROM ip_applications a
+       JOIN ip_internships i ON i.id = a.internship_id
+       WHERE i.employer_id = $1 AND a.internship_id = $2
+       ORDER BY a.created_at ASC`,
+      [emp.rows[0].id, internshipId],
+    );
+    applicationIds = all.rows.map((r) => r.id);
+    if (!applicationIds.length) return jsonError('No applications on this internship', 404);
+  } else {
+    if (!applicationIds.length) return jsonError('Select at least one application');
+    if (applicationIds.length > 100) return jsonError('Too many applications selected', 400);
+  }
+
+  // Export-all can exceed 100; still owned-check via loadApps / partition.
+  const rows =
+    action === 'export' && body.exportAll
+      ? applicationIds.map((id) => ({ id }))
+      : await ownedApps(emp.rows[0].id, internshipId, applicationIds);
   if (!rows.length) return jsonError('No matching applications', 404);
 
   if (action === 'shortlist' || action === 'reject') {

@@ -1,13 +1,19 @@
 import { query } from '@/lib/db';
-import { requireSession, jsonOk } from '@/lib/apiAuth';
+import { requireSession, jsonOk, jsonError } from '@/lib/apiAuth';
 import { computeValidationScore } from '@/lib/internshipValidationScore';
 import { skillMatchPercent } from '@/lib/skillMatch';
 import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
+import { ensureIpStudentDiscoveryFeatures } from '@/lib/ensureIpStudentDiscoveryFeatures';
 import { CANDIDATE_VISIBLE_SQL } from '@/lib/ipInternshipVisibility';
 import { publicApplicationVolumeLabel } from '@/lib/ipApplicationVolume';
 import { maskEmployerName } from '@/lib/ipEmployerIdentity';
 import { matchesRegionValue } from '@/lib/ipRegions';
 import { ensureIpInternshipStipendRangeSchema } from '@/lib/ensureIpInternshipStipendRangeSchema';
+import { ensureIpEmployerDocumentSlotsSchema } from '@/lib/ipEmployerDocuments';
+import {
+  internshipMatchesPreferredRoles,
+  preferredRolesMatchTokens,
+} from '@/lib/ipPreferredRoles';
 
 function eligibilitySkills(eligibility) {
   let el = eligibility;
@@ -117,8 +123,12 @@ function sortItems(items, sort) {
 export async function GET(request) {
   const { session, error } = await requireSession(['candidate']);
   if (error) return error;
+  try {
   await ensureIpWorkbenchSchema();
   await ensureIpInternshipStipendRangeSchema();
+  await ensureIpEmployerDocumentSlotsSchema();
+  // preferred_roles is selected below — ensure column exists before browse (profile may not have run yet)
+  await ensureIpStudentDiscoveryFeatures();
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get('q') || '').trim().toLowerCase();
   const minStipend = Number(searchParams.get('minStipend') || 0);
@@ -135,9 +145,13 @@ export async function GET(request) {
   const chip = (searchParams.get('chip') || '').trim().toLowerCase();
   const sort = searchParams.get('sort') || (recommended ? 'best-match' : 'newest');
 
-  const candResult = await query(`SELECT id, skills FROM ip_candidates WHERE user_id = $1`, [session.user.id]);
+  const candResult = await query(
+    `SELECT id, skills, preferred_roles FROM ip_candidates WHERE user_id = $1`,
+    [session.user.id],
+  );
   const candidateId = candResult.rows[0]?.id;
   const skills = candResult.rows[0]?.skills || [];
+  const roleTokens = preferredRolesMatchTokens(candResult.rows[0]?.preferred_roles);
 
   const result = await query(
     `SELECT i.*,
@@ -226,6 +240,16 @@ export async function GET(request) {
       historical_application_count: undefined,
       application_volume_label: volume,
       match_score: skillMatchPercent(skills, r.eligibility),
+      role_interest_match: internshipMatchesPreferredRoles(
+        {
+          title: r.title,
+          description: r.description,
+          employer_industry: r.employer_industry,
+          eligibility: r.eligibility,
+          skill_tags,
+        },
+        roleTokens,
+      ),
       saved: savedIds.has(r.id),
       applied: appliedIds.has(r.id),
       skill_tags,
@@ -236,10 +260,19 @@ export async function GET(request) {
     };
   });
 
+  const isRecommendedRow = (i) => (i.match_score ?? 0) >= 85 || Boolean(i.role_interest_match);
+
   const counts = {
     all: mapped.length,
+    unapplied: mapped.filter((i) => !i.applied).length,
+    startingSoon: mapped.filter((i) => {
+      const start = i.start_date || i.starts_at;
+      if (!start) return false;
+      const t = new Date(start).getTime();
+      return !Number.isNaN(t) && t >= Date.now() && t <= Date.now() + 21 * 86400000;
+    }).length,
     saved: mapped.filter((i) => i.saved).length,
-    recommended: mapped.filter((i) => (i.match_score ?? 0) >= 85).length,
+    recommended: mapped.filter(isRecommendedRow).length,
   };
 
   let items = mapped.filter((i) => {
@@ -269,7 +302,11 @@ export async function GET(request) {
     }
     if (!matchesLocation(i, location)) return false;
     if (!matchesRegionValue(i.employer_hq_country, region)) return false;
-    if (minMatch && (i.match_score ?? 0) < minMatch) return false;
+    if (recommended) {
+      if (!isRecommendedRow(i)) return false;
+    } else if (minMatch && (i.match_score ?? 0) < minMatch) {
+      return false;
+    }
     if (minValidation && (i.validation_score ?? 0) < minValidation) return false;
     if (chip === 'unapplied' && i.applied) return false;
     if (chip === 'starting-soon') {
@@ -289,7 +326,7 @@ export async function GET(request) {
 
   items = sortItems(items, sort);
   if (recommended) items = items.slice(0, 12);
-  items = items.map(({ _applicantCount, historical_application_count, ...rest }) => rest);
+  items = items.map(({ _applicantCount, historical_application_count, role_interest_match, ...rest }) => rest);
 
   // Work-location cities from visible postings (browse filter — independent of MCQ disable)
   const citySet = new Map(); // lower -> display
@@ -306,4 +343,8 @@ export async function GET(request) {
   const availableCities = [...citySet.values()].sort((a, b) => a.localeCompare(b));
 
   return jsonOk({ items, counts, availableCities });
+  } catch (e) {
+    console.error('[candidate/internships]', e);
+    return jsonError(e?.message || 'Failed to load internships', 500);
+  }
 }

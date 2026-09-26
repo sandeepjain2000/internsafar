@@ -319,21 +319,37 @@ export async function POST(request) {
     [internship.rows[0].employer_id],
   );
   if (employer.rows[0]) {
+    const candNameRow = await query(
+      `SELECT coalesce(nullif(trim(c.name), ''), nullif(trim(u.name), ''), 'Candidate') AS name
+       FROM ip_candidates c
+       JOIN ip_users u ON u.id = c.user_id
+       WHERE c.id = $1
+       LIMIT 1`,
+      [cand.rows[0].id],
+    );
+    const candidateName = candNameRow.rows[0]?.name || session.user?.name || 'Candidate';
+    const roleTitle = internship.rows[0].title;
     await notifyUser({
       userId: employer.rows[0].user_id,
       title: 'New Applicant',
-      body: `New Application For ${internship.rows[0].title}`,
+      body: `${candidateName} applied for ${roleTitle}`,
       link: `/employer/internships/${internshipId}`,
       category: 'application',
+      meta: {
+        candidateName,
+        internshipTitle: roleTitle,
+        internshipId,
+        applicationId: id,
+      },
       forceEmail: true,
       skipEmail: true,
     });
     try {
       await sendMail({
         to: employer.rows[0].email,
-        subject: `New Applicant — ${internship.rows[0].title}`,
-        html: `<p>You Received A New Application For <strong>${internship.rows[0].title}</strong>.</p><p>Sign In To Review Applicants.</p>`,
-        text: `New Application For ${internship.rows[0].title}.`,
+        subject: `New Applicant — ${roleTitle}`,
+        html: `<p><strong>${candidateName}</strong> applied for <strong>${roleTitle}</strong>.</p><p>Sign In To Review Applicants.</p>`,
+        text: `${candidateName} applied for ${roleTitle}.`,
       });
     } catch (e) {
       console.warn('[applications] employer email', e.message);
@@ -343,10 +359,15 @@ export async function POST(request) {
   await notifyUser({
     userId: session.user.id,
     title: 'Application submitted',
-    body: `You applied to ${internship.rows[0].title}`,
+    body: `You applied to ${internship.rows[0].title}${employer.rows[0]?.company_name ? ` at ${employer.rows[0].company_name}` : ''}`,
     link: `/candidate/applications?id=${encodeURIComponent(id)}`,
     category: 'application',
-    meta: { applicationId: id },
+    meta: {
+      applicationId: id,
+      internshipId,
+      internshipTitle: internship.rows[0].title,
+      company: employer.rows[0]?.company_name || null,
+    },
   });
 
   const bal = await query(`SELECT points FROM ip_users WHERE id = $1`, [session.user.id]);

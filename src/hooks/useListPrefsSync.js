@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { readResponseJson } from '@/lib/readResponseJson';
 
 /**
  * Hydrate last-used filters/sort (and optional default preset) for a tableKey,
@@ -19,7 +20,7 @@ export function useListPrefsSync({ tableKey, snapshot, applySnapshot }) {
   const loadPresets = useCallback(async () => {
     if (!tableKey) return [];
     const res = await fetch(`/api/ip/list-presets?tableKey=${encodeURIComponent(tableKey)}`);
-    const data = await res.json().catch(() => ({}));
+    const data = await readResponseJson(res, {});
     const raw = Array.isArray(data.items) ? data.items : [];
     const items = raw.map((p) => {
       let filters = p?.filters;
@@ -49,8 +50,7 @@ export function useListPrefsSync({ tableKey, snapshot, applySnapshot }) {
       try {
         const [prefRes, items] = await Promise.all([
           fetch(`/api/ip/table-filter-prefs?tableKey=${encodeURIComponent(tableKey)}`)
-            .then((r) => r.json())
-            .catch(() => ({})),
+            .then((r) => readResponseJson(r, {})),
           loadPresets(),
         ]);
         if (cancelled) return;
@@ -104,7 +104,7 @@ export function useListPrefsSync({ tableKey, snapshot, applySnapshot }) {
         isDefault: Boolean(asDefault),
       }),
     });
-    const data = await res.json().catch(() => ({}));
+    const data = await readResponseJson(res, {});
     if (!res.ok) {
       setPresetError(data.error || 'Could not save preset');
       return { ok: false, id: null };
@@ -136,7 +136,7 @@ export function useListPrefsSync({ tableKey, snapshot, applySnapshot }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: preset.id, isDefault: !preset.is_default }),
     });
-    const data = await res.json().catch(() => ({}));
+    const data = await readResponseJson(res, {});
     if (!res.ok) {
       setPresetError(data.error || 'Could not update default');
       return;
@@ -147,7 +147,7 @@ export function useListPrefsSync({ tableKey, snapshot, applySnapshot }) {
   async function deletePreset(preset) {
     setPresetError('');
     const res = await fetch(`/api/ip/list-presets?id=${encodeURIComponent(preset.id)}`, { method: 'DELETE' });
-    const data = await res.json().catch(() => ({}));
+    const data = await readResponseJson(res, {});
     if (!res.ok) {
       setPresetError(data.error || 'Could not delete preset');
       return { ok: false };

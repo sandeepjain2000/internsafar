@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { plainTextFromMessageHtml, sanitizeMessageHtml } from '@/lib/ipRichText';
+import { readResponseJson } from '@/lib/readResponseJson';
 import { cn } from '@/lib/utils';
 
 /**
@@ -35,7 +36,7 @@ export default function MessageThreadView({ role }) {
     setError('');
     try {
       const res = await fetch(`/api/ip/messages/threads/${id}`);
-      const data = await res.json();
+      const data = await readResponseJson(res, {});
       if (!res.ok) throw new Error(data.error || 'Thread not found');
       setThread(data.thread);
       setMessages(data.messages || []);
@@ -61,7 +62,7 @@ export default function MessageThreadView({ role }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: draft }),
       });
-      const data = await res.json();
+      const data = await readResponseJson(res, {});
       if (!res.ok) throw new Error(data.error || 'Send failed');
       setDraft('');
       await load();
@@ -83,7 +84,7 @@ export default function MessageThreadView({ role }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ archived: next }),
       });
-      const data = await res.json();
+      const data = await readResponseJson(res, {});
       if (!res.ok) throw new Error(data.error || 'Could not update archive');
       if (data.thread) setThread(data.thread);
       else await load();

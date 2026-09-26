@@ -26,7 +26,7 @@ export function IpTableFiltersShell({
         >
           <Filter size={14} aria-hidden />
           Filters
-          <span className={`ip-tf__state${open ? ' is-on' : ''}`}>{open ? 'On' : 'Off'}</span>
+          <span className={`ip-tf__state${open ? ' is-on' : ''}`}>{open ? 'Hide' : 'Show'}</span>
           {activeCount > 0 ? <span className="ip-tf__chip">{activeCount}</span> : null}
         </button>
         {activeCount > 0 ? (

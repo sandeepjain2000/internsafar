@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { IP_COUNTRY_SELECT_OPTIONS } from '@/lib/ipRegions';
+import { readResponseJson } from '@/lib/readResponseJson';
 
 let cachedCountryItems = null;
 let inflightCountries = null;
@@ -11,7 +12,7 @@ async function loadCountriesOnce() {
   if (inflightCountries) return inflightCountries;
   inflightCountries = fetch('/api/ip/ref/countries')
     .then(async (r) => {
-      const d = await r.json().catch(() => ({}));
+      const d = await readResponseJson(r, {});
       if (!r.ok) throw new Error(d.error || `Countries HTTP ${r.status}`);
       const items = Array.isArray(d.items) ? d.items : [];
       if (items.length) cachedCountryItems = items;

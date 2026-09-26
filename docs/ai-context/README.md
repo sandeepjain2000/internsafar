@@ -12,8 +12,8 @@ It is **not** the application source. It is a map so an AI (or human) can orient
 | Git | **Tracked in git** (folder + zip) — pushed to GitHub with the app repo |
 | App to edit | Sibling folder `internship-portal/` (same repo root as this `docs/` tree) |
 | Do not edit | `campus-placement-multiuser/internship-portal/` (frozen nested copy) |
-| Last pack refresh | 2026-09-19 (agent convention: session-startup Read of PROJECT_INDEX) |
-| Last zip rebuild | 2026-09-19 |
+| Last pack refresh | 2026-09-26 |
+| Last zip rebuild | 2026-09-26 |
 
 ## If you only received a zip of this folder
 

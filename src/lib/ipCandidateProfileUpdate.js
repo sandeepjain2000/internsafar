@@ -6,6 +6,7 @@
  */
 
 import { normalizeCountry } from '@/lib/ipRegions';
+import { normalizePreferredRolesInput } from '@/lib/ipPreferredRoles';
 
 export const EDITABLE_FIELDS = [
   'name', 'first_name', 'middle_name', 'last_name', 'phone', 'phone_country_code',
@@ -34,7 +35,7 @@ const REQUIRED_BOOLS = new Set([
 const NULL_WHEN_BLANK = new Set(['availability_date', 'graduation_year', 'cgpa']);
 
 /** Stored as TEXT[]; node-postgres maps a JS array straight onto that. */
-const TEXT_ARRAYS = new Set(['skills', 'preferred_locations', 'preferred_roles']);
+const TEXT_ARRAYS = new Set(['skills', 'preferred_locations']);
 
 export function normalizeOptionalBool(value) {
   if (value === null || value === undefined || value === '') return null;
@@ -84,6 +85,10 @@ export function buildCandidateProfileUpdate(body, userId, options = {}) {
 
     if (TEXT_ARRAYS.has(field)) {
       assign(field, toTextArray(value), '::text[]');
+      continue;
+    }
+    if (field === 'preferred_roles') {
+      assign(field, normalizePreferredRolesInput(value), '::text[]');
       continue;
     }
     if (field === 'resume_links') {

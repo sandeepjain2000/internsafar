@@ -278,8 +278,9 @@
 .ip-browse .ip-br-filter-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
+  gap: 0.65rem;
   grid-column: 1 / -1;
+  width: 100%;
 }
 
 @media (min-width: 640px) {
@@ -301,6 +302,12 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: #334155;
+}
+
+/* Avoid nested auto-fill grid fighting the browse filter layout */
+.ip-browse .ip-tf__panel {
+  display: block;
+  padding: 0.75rem;
 }
 
 .ip-browse .ip-tf {
@@ -341,7 +348,21 @@
 .ip-browse .ip-br-tabs__list button svg {
   width: 0.875rem;
   height: 0.875rem;
+  color: currentColor;
+  flex-shrink: 0;
+}
+
+.ip-browse .ip-br-tabs__list button[aria-selected='true'] svg,
+.ip-browse .ip-br-tabs__list button.is-on svg {
+  color: #4338ca;
+}
+
+.ip-browse .ip-br-tabs__list button .lucide-bookmark {
   color: #f59e0b;
+}
+
+.ip-browse .ip-br-tabs__list button.is-on .lucide-bookmark {
+  color: #d97706;
 }
 
 .ip-browse .ip-br-tabs__list button:hover {
@@ -351,6 +372,26 @@
 .ip-browse .ip-br-tabs__list button.is-on {
   background: #eef2ff;
   color: #4338ca;
+}
+
+.ip-browse .ip-br-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.15rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.ip-browse .ip-br-tabs__list button.is-on .ip-br-tab-count {
+  background: #c7d2fe;
+  color: #3730a3;
 }
 
 .ip-browse .ip-br-reset {
@@ -740,16 +781,20 @@
 .ip-browse .ip-br-city-filter {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  grid-column: 1 / -1;
-  align-items: flex-start;
+  gap: 0.25rem;
+  min-width: 0;
+  align-items: stretch;
+  /* Same grid cell as stipend / work mode / other filters — do not span 2 */
+  grid-column: span 1;
 }
 .ip-browse .ip-br-city-filter .ip-sms {
   width: 100%;
+  gap: 0.25rem;
 }
 .ip-browse .ip-br-city-filter .ip-sms-chips {
   width: fit-content;
   max-width: 100%;
+  min-height: 0;
 }
 .ip-browse .ip-br-city-filter .ip-sms-chip {
   pointer-events: none;
@@ -758,20 +803,19 @@
   pointer-events: auto;
 }
 .ip-browse .ip-br-city-filter__label {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: #0f172a;
+  color: #334155;
+  line-height: 1.25;
 }
 .ip-browse .ip-br-city-hint {
-  font-size: 0.75rem;
-  color: #64748b;
-  font-weight: 400;
+  display: none;
 }
 .ip-browse .ip-br-city-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  min-height: 1.75rem;
+  min-height: 0;
 }
 .ip-browse .ip-br-city-chip {
   border: 1px solid #c7d2fe;

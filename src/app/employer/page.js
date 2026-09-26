@@ -8,10 +8,8 @@ import {
   Award,
   BarChart3,
   Briefcase,
-  ChevronRight,
   Clock,
   Download,
-  GraduationCap,
   MessageSquare,
   Plus,
   Search,
@@ -19,16 +17,7 @@ import {
 } from 'lucide-react';
 import '@/components/ip/ip-employer-dashboard-gemini.css';
 import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
-
-function initials(name) {
-  const parts = String(name || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (!parts.length) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
-  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-}
+import { readResponseJson } from '@/lib/readResponseJson';
 
 function stipendLabel(i) {
   return formatInternshipStipend(i, { unpaidLabel: 'Stipend TBD' }) || 'Stipend TBD';
@@ -48,7 +37,7 @@ export default function EmployerDashboard() {
 
   useEffect(() => {
     fetch('/api/ip/employer/dashboard')
-      .then((r) => r.json())
+      .then((r) => readResponseJson(r, {}))
       .then((d) => setData(d))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -58,10 +47,8 @@ export default function EmployerDashboard() {
   const stats = data?.stats || {};
   const actionCenter = data?.actionCenter || {};
   const stalePending = Number(actionCenter.pendingReviewStaleDays || 0);
-  const interviewsToday = Number(actionCenter.interviewsToday || 0);
   const documentsUploaded = Number(actionCenter.documentsUploaded || 0);
   const postings = data?.postings || [];
-  const recent = data?.recentApplications || [];
   const finalApproved = employer?.approvalStatus === 'approved';
   const canPost = finalApproved && employer?.emailVerified !== false;
   const profileComplete = Boolean(employer?.profileComplete);
@@ -80,6 +67,31 @@ export default function EmployerDashboard() {
   } else if (!finalApproved) {
     primaryAction = 'await_approval';
   }
+
+  const actionScore = (() => {
+    if (primaryAction === 'upload_docs') {
+      return { value: 1, href: '/employer/profile', hint: 'Upload verification documents', needs: true };
+    }
+    if (primaryAction === 'complete_profile') {
+      return { value: 1, href: '/employer/profile', hint: 'Finish your company profile', needs: true };
+    }
+    if (primaryAction === 'stale_apps') {
+      return {
+        value: stalePending,
+        href: '/employer/internships',
+        hint:
+          stalePending > 0
+            ? 'Applications waiting for your review (3+ days)'
+            : 'No applications waiting for review',
+        needs: stalePending > 0,
+      };
+    }
+    if (primaryAction === 'await_approval') {
+      return { value: 1, href: '/employer/profile', hint: 'Waiting for Final Approval', needs: true };
+    }
+    return { value: 0, href: '/employer/internships', hint: 'No tasks right now', needs: false };
+  })();
+
   const company = employer?.companyName || 'Employer';
   const avg = Number(stats.avgRating || 0);
   const activePct =
@@ -95,10 +107,6 @@ export default function EmployerDashboard() {
             <p>Loading workspace…</p>
           </div>
         </div>
-        <div className="ip-ed-card ip-ed-shortcuts">
-          <h2>Workspace Shortcuts</h2>
-          <p className="ip-ed-empty">Loading…</p>
-        </div>
         <div className="ip-ed-stats">
           {['Active Postings', 'Total Applicants', 'Pending Reviews', 'Reward Points'].map((label) => (
             <div key={label} className="ip-ed-stat">
@@ -106,6 +114,10 @@ export default function EmployerDashboard() {
               <div className="ip-ed-stat-row"><strong>—</strong></div>
             </div>
           ))}
+        </div>
+        <div className="ip-ed-card ip-ed-shortcuts">
+          <h2>Workspace Shortcuts</h2>
+          <p className="ip-ed-empty">Loading…</p>
         </div>
       </div>
     );
@@ -129,7 +141,7 @@ export default function EmployerDashboard() {
         <div className="ip-ed-banner-actions">
           <a className="ip-ed-btn-ghost" href="/api/ip/employer/export">
             <Download aria-hidden />
-            <span>Export Data (.CSV)</span>
+            <span>Export overview (.xlsx)</span>
           </a>
           <Link className="ip-ed-btn-light" href="/employer/candidates">
             <Search aria-hidden />
@@ -138,111 +150,17 @@ export default function EmployerDashboard() {
         </div>
       </div>
 
-      <div className="ip-ed-card ip-ed-action-center" data-testid="employer-action-center">
-        <div className="ip-ed-card-head">
-          <div>
-            <h2>Action center</h2>
-            <p>Tasks that need attention and what is coming up today.</p>
-          </div>
-        </div>
-        <div className="ip-ed-action-grid">
-          {primaryAction === 'upload_docs' ? (
-            <Link className="ip-ed-action-card ip-ed-action-card--warn" href="/employer/profile">
-              <span className="ip-ed-action-kicker">Action required</span>
-              <strong>Upload verification documents</strong>
-              <span className="ip-ed-action-hint">
-                SuperAdmin needs approved documents before Final Employer Approval
-              </span>
-            </Link>
-          ) : null}
-          {primaryAction === 'complete_profile' ? (
-            <Link className="ip-ed-action-card ip-ed-action-card--warn" href="/employer/profile">
-              <span className="ip-ed-action-kicker">Action required</span>
-              <strong>Complete your company profile</strong>
-              <span className="ip-ed-action-hint">
-                Fill required company details and ethics acknowledgements under Profile &amp; docs
-              </span>
-            </Link>
-          ) : null}
-          {primaryAction === 'stale_apps' ? (
-            <Link className="ip-ed-action-card ip-ed-action-card--warn" href="/employer/internships">
-              <span className="ip-ed-action-kicker">Action required</span>
-              <strong>
-                {stalePending} application{stalePending === 1 ? '' : 's'} pending review for 3+ days
-              </strong>
-              <span className="ip-ed-action-hint">Open internships to shortlist or reject waiting candidates</span>
-            </Link>
-          ) : null}
-          {primaryAction === 'await_approval' ? (
-            <Link className="ip-ed-action-card ip-ed-action-card--warn" href="/employer/profile">
-              <span className="ip-ed-action-kicker">Action required</span>
-              <strong>Waiting for Final Employer Approval</strong>
-              <span className="ip-ed-action-hint">
-                Documents are with SuperAdmin. Postings unlock after Final Approval
-              </span>
-            </Link>
-          ) : null}
-          <Link className="ip-ed-action-card ip-ed-action-card--info" href="/employer/offers">
-            <span className="ip-ed-action-kicker">Upcoming</span>
-            <strong>
-              {interviewsToday} interview{interviewsToday === 1 ? '' : 's'} scheduled today
-            </strong>
-            <span className="ip-ed-action-hint">Check messages and offers for interview details</span>
-          </Link>
-        </div>
-      </div>
-
-      <div className="ip-ed-card ip-ed-shortcuts" style={{ marginBottom: '1.25rem' }}>
-        <h2>Workspace Shortcuts</h2>
-        <Link className="ip-ed-short" href="/employer/candidates">
-          <div className="ip-ed-short-left">
-            <span className="ip-ed-short-ico" style={{ background: '#eff6ff', color: '#2563eb' }}>
-              <Users aria-hidden />
-            </span>
-            <div>
-              <h4>Search Candidates</h4>
-              <p>Invite searchable student profiles</p>
-            </div>
-          </div>
-          <ChevronRight aria-hidden style={{ width: 14, height: 14, color: '#cbd5e1' }} />
-        </Link>
-        <Link className="ip-ed-short" href="/employer/messages">
-          <div className="ip-ed-short-left">
-            <span className="ip-ed-short-ico" style={{ background: '#ecfdf5', color: '#059669' }}>
-              <MessageSquare aria-hidden />
-            </span>
-            <div>
-              <h4>Candidate Messages</h4>
-              <p>Inbox with applicants</p>
-            </div>
-          </div>
-          <ChevronRight aria-hidden style={{ width: 14, height: 14, color: '#cbd5e1' }} />
-        </Link>
-        <Link className="ip-ed-short" href="/employer/offers">
-          <div className="ip-ed-short-left">
-            <span className="ip-ed-short-ico" style={{ background: '#fff7ed', color: '#ea580c' }}>
-              <Award aria-hidden />
-            </span>
-            <div>
-              <h4>Offers & Agreements</h4>
-              <p>Create and track offers</p>
-            </div>
-          </div>
-          <ChevronRight aria-hidden style={{ width: 14, height: 14, color: '#cbd5e1' }} />
-        </Link>
-        <Link className="ip-ed-short" href="/employer/analytics">
-          <div className="ip-ed-short-left">
-            <span className="ip-ed-short-ico" style={{ background: '#faf5ff', color: '#9333ea' }}>
-              <BarChart3 aria-hidden />
-            </span>
-            <div>
-              <h4>Analytics & Funnel</h4>
-              <p>Pipeline and stipend mix</p>
-            </div>
-          </div>
-          <ChevronRight aria-hidden style={{ width: 14, height: 14, color: '#cbd5e1' }} />
-        </Link>
-      </div>
+      <Link
+        className={`ip-ed-action-score${actionScore.needs ? ' is-warn' : ''}`}
+        href={actionScore.href}
+        data-testid="employer-action-center"
+      >
+        <span className="ip-ed-action-score__label">Action center</span>
+        <span className="ip-ed-action-score__row">
+          <strong className="ip-ed-action-score__value">{actionScore.value}</strong>
+          <span className="ip-ed-action-score__link">{actionScore.hint}</span>
+        </span>
+      </Link>
 
       <div className="ip-ed-stats">
         <div className="ip-ed-stat">
@@ -312,6 +230,40 @@ export default function EmployerDashboard() {
         </div>
       </div>
 
+      <div className="ip-ed-card ip-ed-shortcuts">
+        <h2>Workspace Shortcuts</h2>
+        <div className="ip-ed-short-grid">
+          <Link className="ip-ed-short" href="/employer/candidates">
+            <span className="ip-ed-short-ico" aria-hidden>
+              <Users />
+            </span>
+            <h4>Search Candidates</h4>
+            <p>Invite searchable student profiles</p>
+          </Link>
+          <Link className="ip-ed-short" href="/employer/messages">
+            <span className="ip-ed-short-ico" aria-hidden>
+              <MessageSquare />
+            </span>
+            <h4>Candidate Messages</h4>
+            <p>Inbox with applicants</p>
+          </Link>
+          <Link className="ip-ed-short" href="/employer/offers">
+            <span className="ip-ed-short-ico" aria-hidden>
+              <Award />
+            </span>
+            <h4>Offers &amp; Agreements</h4>
+            <p>Create and track offers</p>
+          </Link>
+          <Link className="ip-ed-short" href="/employer/analytics">
+            <span className="ip-ed-short-ico" aria-hidden>
+              <BarChart3 />
+            </span>
+            <h4>Analytics &amp; Funnel</h4>
+            <p>Pipeline and stipend mix</p>
+          </Link>
+        </div>
+      </div>
+
       {canPost ? (
       <div className="ip-ed-grid">
         <div className="ip-ed-col">
@@ -365,53 +317,6 @@ export default function EmployerDashboard() {
                 <Plus aria-hidden />
                 <span>Post New Internship</span>
               </Link>
-            </div>
-          </div>
-
-          <div className="ip-ed-card">
-            <div className="ip-ed-card-head">
-              <div>
-                <h2>Recent Candidate Applications</h2>
-                <p>Candidates who recently applied to your positions.</p>
-              </div>
-              {(stats.pendingReviews || 0) > 0 ? (
-                <span className="ip-ed-pending-pill">{stats.pendingReviews} Pending Review</span>
-              ) : null}
-            </div>
-            <div className="ip-ed-apps-pad">
-              {recent.length ? (
-                recent.map((a) => (
-                  <div key={a.id} className="ip-ed-app">
-                    <div className="ip-ed-app-top">
-                      <div className="ip-ed-app-person">
-                        <span className="ip-ed-avatar">{initials(a.candidate_name)}</span>
-                        <div>
-                          <h4>{a.candidate_name || 'Candidate'}</h4>
-                          <p>{a.internship_title}</p>
-                        </div>
-                      </div>
-                      {a.match_score != null ? (
-                        <span className="ip-ed-match">{Math.round(Number(a.match_score))}%</span>
-                      ) : null}
-                    </div>
-                    <div className="ip-ed-app-foot">
-                      <span>
-                        <GraduationCap
-                          aria-hidden
-                          style={{ width: 13, height: 13, display: 'inline', verticalAlign: 'middle', marginRight: 4 }}
-                        />
-                        {a.college || '—'}
-                        {a.cgpa != null ? ` · CGPA ${a.cgpa}` : ''}
-                      </span>
-                      <Link href={`/employer/internships/${a.internship_id}`}>
-                        {a.resume_url ? 'Review Resume' : 'Review'}
-                      </Link>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="ip-ed-empty">No applications yet.</p>
-              )}
             </div>
           </div>
         </div>

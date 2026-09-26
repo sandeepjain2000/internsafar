@@ -842,22 +842,22 @@ export default function AccountPage() {
                 </div>
                 <div className="ip-ac-row">
                   <input type="email" value={email} readOnly />
-                  {isCandidate ? (
-                    <button
-                      type="button"
-                      className="ip-ac-btn-outline"
-                      onClick={() => {
-                        setEmailStep('request');
-                        setEmailCode('');
-                        setNewEmail('');
-                        setModal('email');
-                      }}
-                    >
-                      Change Email
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    className="ip-ac-btn-outline"
+                    onClick={() => {
+                      setEmailStep('request');
+                      setEmailCode('');
+                      setNewEmail('');
+                      setModal('email');
+                    }}
+                  >
+                    Change Email
+                  </button>
                 </div>
-                <p className="ip-ac-note">Used for signing in and receiving application status updates.</p>
+                <p className="ip-ac-note">
+                  Used for signing in and security alerts. Change it here — not on your profile page.
+                </p>
               </div>
 
               {isCandidate ? (

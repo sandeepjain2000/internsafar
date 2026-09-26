@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowRight,
   Check,
   CheckCheck,
   Inbox,
@@ -96,6 +95,41 @@ function isNotificationUnread(n) {
 function categoryLabel(bucket) {
   const hit = CATEGORY_OPTIONS.find((o) => o.value === bucket);
   return hit?.label || (bucket ? String(bucket) : 'System');
+}
+
+const CONTEXT_PREVIEW_LEN = 96;
+
+/** Second-line context: Employer · Internship (preferred). */
+function candidateContextLine(n) {
+  if (n.contextLine) return String(n.contextLine).trim();
+  const employer = String(n.company || '').trim();
+  const role = String(n.internshipTitle || '').trim();
+  if (employer && role) return `${employer} · ${role}`;
+  if (employer) return employer;
+  if (role) return role;
+  const bits = [];
+  if (n.body) bits.push(String(n.body).trim());
+  if (n.deadlineText && !bits.some((b) => b.includes(String(n.deadlineText)))) {
+    bits.push(String(n.deadlineText).trim());
+  }
+  return bits.filter(Boolean).join(' · ');
+}
+
+function ContextPreview({ text, expanded, onToggle, moreClassName = 'ip-cn-context-more' }) {
+  const full = String(text || '').trim();
+  if (!full) return null;
+  const needsMore = full.length > CONTEXT_PREVIEW_LEN;
+  const preview = needsMore ? `${full.slice(0, CONTEXT_PREVIEW_LEN).trimEnd()}…` : full;
+  return (
+    <p className="ip-cn-table-context">
+      <span>{expanded || !needsMore ? full : preview}</span>
+      {needsMore ? (
+        <button type="button" className={moreClassName} onClick={onToggle}>
+          {expanded ? ' less' : ' or more'}
+        </button>
+      ) : null}
+    </p>
+  );
 }
 
 function relativeTime(value) {
@@ -438,7 +472,6 @@ export default function CandidateNotificationsPage() {
                     <th>#</th>
                     <th>Title</th>
                     <th>Category</th>
-                    <th>Company</th>
                     <th>When</th>
                     <th>Status</th>
                     <th>Action</th>
@@ -449,6 +482,7 @@ export default function CandidateNotificationsPage() {
                     const unread = isNotificationUnread(n);
                     const sr = serialOffset + idx + 1;
                     const open = expandedId === n.id;
+                    const context = candidateContextLine(n);
                     return (
                       <tr key={n.id} className={unread ? 'is-unread' : undefined}>
                         <td>
@@ -461,35 +495,16 @@ export default function CandidateNotificationsPage() {
                         </td>
                         <td>{sr}</td>
                         <td>
-                          <button type="button" className="ip-cn-table-title" onClick={() => toggleExpand(n)}>
-                            {n.title || '—'}
-                          </button>
-                          {open ? (
-                            <div className="ip-cn-table-expand">
-                              {n.body ? <p className="ip-cn-table-body">{n.body}</p> : null}
-                              <div className="ip-cn-table-expand__actions">
-                                {n.actionHref && !n.resourceUnavailable ? (
-                                  <Link
-                                    href={n.actionHref}
-                                    className="ip-cn-btn ip-cn-btn--primary"
-                                    onClick={() => { if (unread) markRead(n.id); }}
-                                  >
-                                    {n.actionLabel || 'View details'}
-                                    <ArrowRight size={14} aria-hidden />
-                                  </Link>
-                                ) : null}
-                                {unread ? (
-                                  <button type="button" className="ip-cn-mark" onClick={() => markRead(n.id)}>
-                                    <Check size={14} aria-hidden />
-                                    Mark as read
-                                  </button>
-                                ) : null}
-                              </div>
-                            </div>
-                          ) : null}
+                          <div className="ip-cn-table-title-block">
+                            <span className="ip-cn-table-title">{n.title || '—'}</span>
+                            <ContextPreview
+                              text={context}
+                              expanded={open}
+                              onToggle={() => toggleExpand(n)}
+                            />
+                          </div>
                         </td>
                         <td>{categoryLabel(n.bucket)}</td>
-                        <td>{n.company || '—'}</td>
                         <td>{relativeTime(n.created_at)}</td>
                         <td>{unread ? 'Unread' : 'Read'}</td>
                         <td>

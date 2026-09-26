@@ -1,7 +1,7 @@
 # InternSafar — Project Context Index (Level 1)
 
 Compact map for AI agents. **Not** a full README of the product.  
-**Inspected from live sibling app:** 2026-09-25 (regression baseline: re-apply, session-refresh, Posting Share Rewards).
+**Inspected from live sibling app:** 2026-09-26 (Hybrid E docs, SA Reject/Suspend + Adjust Points, HQ Country single-select, stipend range, posting ethics gate; Vercel `82ead1b`).
 
 After this file: open `FOLDER_STRUCTURE.md` to locate paths, then **one** `domains/*.md`, then live source.
 
@@ -17,7 +17,7 @@ All paths below are relative to app root: `internship-portal/` unless marked oth
 |------|-------------|--------------|
 | **candidate** | `/candidate` | Profile, browse/apply, applications, messages, offers, referral, notifications |
 | **employer** | `/employer` | Profile/docs, postings, candidate search/workbench, messages, offers, analytics |
-| **superadmin** | `/superadmin` | Approvals, documents, postings oversight, posting share rewards, ideas |
+| **superadmin** | `/superadmin` | Approvals (incl. Reject/Suspend), documents, Adjust Points, postings oversight, posting share rewards, ideas |
 
 Public/marketing and auth surfaces: `/` (landing + **email/password** sign-in), `/login`, `/register`, `/register/candidate`, `/register/employer`, `/forgot-password`, `/help`, `/ideas`, `/guidelines`, `/how-it-works`, `/account`, referral short links `/r/[code]`, email unsubscribe `/unsubscribe?token=…` (token only — email not in URL). Google OAuth is used for **registration verify** only, not home login.
 
@@ -86,7 +86,7 @@ Full route/API inventory (large): `ISM_ROUTE_INVENTORY.md` — open only when yo
 
 1. **Sibling only** for product edits; never edit nested mono `campus-placement-multiuser/internship-portal`.
 2. **`ip_*` tables only** — no Placement Hub schema changes from IP work.
-3. **Path B AWS app update = no DB migrate.** Path C = fresh/empty RDS only with `IP_ALLOW_DB_MIGRATE=1`.
+3. **Path B AWS app update = no Path C migrate runner.** If sibling code needs columns AWS lacks, do **additive schema + one-time blank-fill** (temp runner) so existing accounts keep working — **not** grandfather flags like `email_verify_required=false`. See `DECISIONS.md` + workspace plan `aws deploy/AWS-PUSH-PLAN-SCHEMA-BACKFILL-2026-09-26.md`. Path C = fresh/empty RDS only with `IP_ALLOW_DB_MIGRATE=1`.
 4. **New migrations must not wipe live data** (no DELETE/DROP TABLE/TRUNCATE patterns in new SQL). Gates: `scripts/assert-db-migrate-allowed.js`, `scripts/assert-migration-sql-safe.js`.
 5. **Never blank/wipe** `.env` / `.env.local`. Do not push unless the user explicitly asks in that message.
 6. **No `middleware.js`** — protect via API session/role checks + `src/components/ip/PortalShell.jsx`.
@@ -133,5 +133,6 @@ Full route/API inventory (large): `ISM_ROUTE_INVENTORY.md` — open only when yo
 | `docs/README.md` | Named in `AGENTS.md` documentation layout, **not present** |
 | `docs/ai-context/` | Local-only (gitignored). Zip this folder for offline AI briefing; keep it next to a full app checkout to edit code |
 | Handoff-WITH-SECRETS workspace folder | May contain secrets — never paste secret values into chat or into these docs |
-| ER notes last full sync | `docs/ip-er-diagram-notes.md` synced through migration **039**; files **040** (`ip_help_chat_analytics`) and **041** (email unsubscribe tokens/requests) also exist — re-check ER notes when changing schema |
+| ER notes last full sync | `docs/ip-er-diagram-notes.md` synced through migration **039**; also **040–044** (help-chat analytics, unsubscribe, country/region, `ip_ref_countries`, stipend range) + runtime Hybrid E `superseded_at`/`doc_label` — re-check ER notes when changing schema |
+| AWS vs local/Vercel schema | Production RDS is separate; as of 2026-09-26 still missing `superseded_at`, `doc_label`, `stipend_inr_max` until planned ADD/fill — do not Path B those features without the plan |
 | Code-review remediation (2026-09-18) | Valid **Critical** + Valid **High** (non-a11y) from GPT triage applied on sibling + Vercel preview; **Medium/Low** and all **Accessibility** still open — see `DECISIONS.md` |

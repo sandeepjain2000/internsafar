@@ -22,6 +22,7 @@ import IpListPager from '@/components/ip/IpListPager';
 import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
+import { readResponseJson } from '@/lib/readResponseJson';
 
 /** Classify live notifications into mock-style buckets without new DB fields. */
 function classifyAlert(n) {
@@ -108,7 +109,7 @@ export default function SuperAdminMessagesPage() {
     setError('');
     try {
       const res = await fetch('/api/ip/notifications?meta=1');
-      const data = await res.json();
+      const data = await readResponseJson(res, {});
       if (!res.ok) {
         setError(data.error || 'Failed to load');
         setItems([]);
@@ -201,7 +202,7 @@ export default function SuperAdminMessagesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids }),
       });
-      const data = await res.json();
+      const data = await readResponseJson(res, {});
       if (!res.ok) setError(data.error || 'Resolve failed');
       else {
         setToast(ids.length > 1 ? `Marked ${data.processed || ids.length} alerts resolved` : 'Alert marked as resolved');
@@ -222,7 +223,7 @@ export default function SuperAdminMessagesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ markAllRead: true }),
       });
-      const data = await res.json();
+      const data = await readResponseJson(res, {});
       if (!res.ok) setError(data.error || 'Failed');
       else {
         setToast('All alerts marked resolved');

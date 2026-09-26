@@ -1,13 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import {
   Award,
-  Bookmark,
   Coins,
   FileText,
+  Gauge,
   MessageSquare,
   Search,
   Share2,
@@ -22,60 +22,47 @@ import {
   readProfileDraft,
 } from '@/lib/ipCandidateProfileDraft';
 import { parseExperienceEntries } from '@/lib/ipPostingBody';
+import { readResponseJson } from '@/lib/readResponseJson';
 import '@/components/ip/ip-candidate-dashboard-gemini.css';
 
 const FEATURES = [
   {
     href: '/candidate/internships',
     title: 'Browse internships',
-    desc: 'Filter by stipend, eligibility, and work mode.',
+    desc: 'Find roles by stipend and mode',
     Icon: Search,
   },
   {
     href: '/candidate/applications',
     title: 'My applications',
-    desc: 'Track status of every submitted application.',
+    desc: 'Track every submission',
     Icon: FileText,
   },
   {
     href: '/candidate/messages',
     title: 'Messages',
-    desc: 'Chat with verified employers and recruiters.',
+    desc: 'Inbox with employers',
     Icon: MessageSquare,
   },
   {
     href: '/candidate/offers',
     title: 'Offers',
-    desc: 'Review and respond to internship offers.',
+    desc: 'Review and respond to offers',
     Icon: Award,
   },
   {
     href: '/candidate/referral',
     title: 'Refer & earn',
-    desc: 'Share your link and earn candidate points.',
+    desc: 'Share your link, earn points',
     Icon: Share2,
   },
   {
     href: '/candidate/profile',
     title: 'Profile',
-    desc: 'Keep your profile ready for applications.',
+    desc: 'Keep your profile application-ready',
     Icon: User,
   },
 ];
-
-function stipendLabel(row) {
-  return formatInternshipStipend(row);
-}
-
-function modeLabel(row) {
-  return row?.work_mode || row?.location || null;
-}
-
-function matchTone(score) {
-  if (score >= 85) return 'ok';
-  if (score >= 70) return 'mid';
-  return 'low';
-}
 
 function profileReadiness(profile) {
   const skills = Array.isArray(profile?.skills) ? profile.skills.filter(Boolean) : [];
@@ -137,39 +124,27 @@ function offerExpiresLabel(validUntil) {
 /**
  * Layout from candidate_home_redesign.html + pending/profile blocks from
  * placementhub_candidate_dashboard.html (content pane only).
+ * Home stays above-the-fold: KPIs + pending + shortcuts. Browse owns recommended/saved.
  */
 export default function CandidateDashboard() {
   const { data: session } = useSession();
   const [profile, setProfile] = useState(null);
   const [apps, setApps] = useState([]);
-  const [recommended, setRecommended] = useState([]);
-  const [saved, setSaved] = useState([]);
   const [offers, setOffers] = useState([]);
-  const [busySave, setBusySave] = useState('');
   const [dashReady, setDashReady] = useState(false);
-  const [listsReady, setListsReady] = useState(false);
+  const [profileReady, setProfileReady] = useState(false);
   const [draftBanner, setDraftBanner] = useState('');
-
-  const reloadLists = useCallback(async () => {
-    const [rec, sav] = await Promise.all([
-      fetch('/api/ip/candidate/internships?recommended=1').then((r) => r.json()).catch(() => ({})),
-      fetch('/api/ip/candidate/saved').then((r) => r.json()).catch(() => ({})),
-    ]);
-    setRecommended((rec.items || []).slice(0, 3));
-    setSaved((sav.items || []).slice(0, 4));
-    setListsReady(true);
-  }, []);
 
   useEffect(() => {
     fetch('/api/ip/candidate/profile')
-      .then((r) => r.json())
+      .then((r) => readResponseJson(r, {}))
       .then(async (d) => {
         setProfile(d.profile);
         const userId = d.profile?.user_id;
         if (!userId) return;
         let serverAcademics = [];
         try {
-          const acad = await fetch('/api/ip/candidate/academics').then((r) => r.json());
+          const acad = await fetch('/api/ip/candidate/academics').then((r) => readResponseJson(r, {}));
           serverAcademics = (acad.items || []).map((a) => ({
             id: a.id,
             row_label: a.row_label || '',
@@ -194,20 +169,19 @@ export default function CandidateDashboard() {
           setDraftBanner(PROFILE_DRAFT_DASH_MESSAGE);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setProfileReady(true));
     Promise.all([
-      fetch('/api/ip/candidate/applications?pageSize=200', { cache: 'no-store', credentials: 'include' }).then((r) => r.json()).catch(() => ({})),
-      fetch('/api/ip/offers').then((r) => r.json()).catch(() => ({})),
+      fetch('/api/ip/candidate/applications?pageSize=200', { cache: 'no-store', credentials: 'include' }).then((r) => readResponseJson(r, {})),
+      fetch('/api/ip/offers').then((r) => readResponseJson(r, {})),
     ]).then(([appData, offerData]) => {
       setApps(appData.items || []);
       setOffers(offerData.items || []);
-    }).finally(() => setDashReady(true));
-    reloadLists();
-  }, [reloadLists]);
+    }).catch(() => {}).finally(() => setDashReady(true));
+  }, []);
 
   const points = Number(profile?.points ?? 0);
   const used = apps.length;
-  const completed = apps.filter((a) => String(a.status).toLowerCase() === 'completed');
   const appsLeft = Math.max(0, Math.floor(points / POINTS_PER_APPLICATION));
   const readiness = useMemo(() => profileReadiness(profile), [profile]);
 
@@ -216,7 +190,6 @@ export default function CandidateDashboard() {
       offers
         .filter((o) => {
           if (String(o.status).toLowerCase() !== 'pending') return false;
-          // Exclude past-deadline offers from actionable pending (Offers page still lists them as Expired)
           if (o.valid_until) {
             const end = new Date(o.valid_until).getTime();
             if (!Number.isNaN(end) && end < Date.now()) return false;
@@ -237,6 +210,20 @@ export default function CandidateDashboard() {
 
   const pendingItems = useMemo(() => {
     const items = [];
+    if (profile) {
+      for (const gap of readiness.items.filter((i) => !i.done)) {
+        items.push({
+          key: `profile-${gap.id}`,
+          kind: 'profile',
+          badge: 'Profile Incomplete',
+          when: null,
+          title: gap.label,
+          meta: 'Complete this on your profile so employers can shortlist you.',
+          href: '/candidate/profile',
+          cta: 'Update Profile',
+        });
+      }
+    }
     for (const o of pendingOffers) {
       items.push({
         key: `offer-${o.id}`,
@@ -244,7 +231,7 @@ export default function CandidateDashboard() {
         badge: 'Offer Awaiting Decision',
         when: offerExpiresLabel(o.valid_until),
         title: o.role_title || o.title || 'Internship offer',
-        meta: [o.company_name, stipendLabel(o)].filter(Boolean).join(' · '),
+        meta: [o.company_name, formatInternshipStipend(o)].filter(Boolean).join(' · '),
         href: '/candidate/offers',
         cta: 'Review Offer',
       });
@@ -261,23 +248,11 @@ export default function CandidateDashboard() {
         cta: 'View Details',
       });
     }
-    return items.slice(0, 2);
-  }, [pendingOffers, upcomingInterviews]);
+    return items;
+  }, [profile, readiness, pendingOffers, upcomingInterviews]);
 
-  async function toggleSave(internshipId, currentlySaved) {
-    if (!internshipId || busySave) return;
-    setBusySave(internshipId);
-    try {
-      await fetch('/api/ip/candidate/saved', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ internshipId, saved: !currentlySaved }),
-      });
-      await reloadLists();
-    } finally {
-      setBusySave('');
-    }
-  }
+  const profileScoreReady = profileReady && Boolean(profile);
+  const profilePill = readiness.percent >= 100 ? 'ip-cd-pill--ok' : 'ip-cd-pill--warn';
 
   return (
     <div className="ip-cand-dash ip-mobile-bleed">
@@ -301,30 +276,35 @@ export default function CandidateDashboard() {
         </div>
       ) : null}
 
-      <section className="ip-cd-pending" aria-label="Pending actions">
+      <section
+        className={`ip-cd-pending${dashReady && profileReady && !pendingItems.length ? ' is-empty' : ''}`}
+        aria-label="Pending actions"
+      >
         <div className="ip-cd-pending__head">
           <div className="ip-cd-pending__title">
             <span className="ip-cd-pending__dot" aria-hidden />
             Pending Actions Required
           </div>
           <span className="ip-cd-pending__count">
-            {!dashReady
+            {!dashReady || !profileReady
               ? 'Loading…'
               : `${pendingItems.length} Item${pendingItems.length === 1 ? '' : 's'} Need Attention`}
           </span>
         </div>
-        <div className="ip-cd-pending__grid">
-          {!dashReady ? (
-            [0, 1].map((i) => (
+        {!dashReady || !profileReady ? (
+          <div className="ip-cd-pending__grid">
+            {[0, 1].map((i) => (
               <div key={i} className="ip-cd-pending__card" aria-hidden>
                 <div>
                   <h3>—</h3>
                   <p>—</p>
                 </div>
               </div>
-            ))
-          ) : pendingItems.length ? (
-            pendingItems.map((item) => (
+            ))}
+          </div>
+        ) : pendingItems.length ? (
+          <div className="ip-cd-pending__grid">
+            {pendingItems.map((item) => (
               <div key={item.key} className="ip-cd-pending__card">
                 <div>
                   <div className="ip-cd-pending__badges">
@@ -340,41 +320,17 @@ export default function CandidateDashboard() {
                   {item.cta}
                 </Link>
               </div>
-            ))
-          ) : (
-            <div className="ip-cd-pending__card">
-              <div>
-                <h3>No pending actions</h3>
-                <p>Offers and interviews will show here when they need a response.</p>
-              </div>
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        ) : null}
       </section>
 
-      <div className="ip-cd-features">
-        {FEATURES.map((f) => (
-          <div key={f.href} className="ip-cd-card ip-cd-feature">
-            <div>
-              <div className="ip-cd-feature__ico" aria-hidden>
-                <f.Icon size={16} />
-              </div>
-              <h2>{f.title}</h2>
-              <p>{f.desc}</p>
-            </div>
-            <Link href={f.href} className="ip-cd-open">
-              Open
-            </Link>
-          </div>
-        ))}
-      </div>
-
-      <div className="ip-cd-stats">
+      <div className="ip-cd-stats" aria-label="Account summary">
         <div className="ip-cd-card ip-cd-stat">
           <div className="ip-cd-stat__top">
             <p className="ip-cd-stat__label">Reward points</p>
             <div className="ip-cd-stat__ico">
-              <Coins size={16} aria-hidden />
+              <Coins size={14} aria-hidden />
             </div>
           </div>
           <div className="ip-cd-stat__row">
@@ -390,7 +346,7 @@ export default function CandidateDashboard() {
           <div className="ip-cd-stat__top">
             <p className="ip-cd-stat__label">Applications sent</p>
             <div className="ip-cd-stat__ico ip-cd-stat__ico--indigo">
-              <FileText size={16} aria-hidden />
+              <FileText size={14} aria-hidden />
             </div>
           </div>
           <div className="ip-cd-stat__row">
@@ -399,146 +355,45 @@ export default function CandidateDashboard() {
           </div>
           <p className="ip-cd-stat__sub">Active role submissions under review.</p>
         </div>
-        <div className="ip-cd-card ip-cd-stat">
+        <Link href="/candidate/profile" className="ip-cd-card ip-cd-stat ip-cd-stat--link">
           <div className="ip-cd-stat__top">
-            <p className="ip-cd-stat__label">Internships Completed</p>
+            <p className="ip-cd-stat__label">Profile score</p>
             <div className="ip-cd-stat__ico ip-cd-stat__ico--green">
-              <Award size={16} aria-hidden />
+              <Gauge size={14} aria-hidden />
             </div>
           </div>
           <div className="ip-cd-stat__row">
-            <p className="ip-cd-stat__value">{completed.length}</p>
-            {completed.length ? <span className="ip-cd-pill ip-cd-pill--ok">Verified</span> : null}
+            <p className="ip-cd-stat__value">
+              {profileScoreReady ? `${readiness.percent}%` : '—'}
+            </p>
+            {profileScoreReady ? (
+              <span className={`ip-cd-pill ${profilePill}`}>
+                {readiness.percent >= 100 ? 'Ready' : 'Needs work'}
+              </span>
+            ) : null}
           </div>
-          <p className="ip-cd-stat__sub">Verified completion certificates issued.</p>
-        </div>
+          <p className="ip-cd-stat__sub">
+            {profileScoreReady
+              ? (readiness.percent >= 100
+                ? 'Basics, resume, and skills look complete.'
+                : `${readiness.doneCount} of ${readiness.items.length} readiness items done — open profile.`)
+              : 'Loading profile quality…'}
+          </p>
+        </Link>
       </div>
 
-      <div className="ip-cd-mid">
-        <div className="ip-cd-mid__main">
-          <div className="ip-cd-card ip-cd-panel ip-cd-ready">
-            <div className="ip-cd-ready__head">
-              <div>
-                <h2>Profile Readiness</h2>
-                <p className="ip-cd-panel__sub">Finish these items so employers can shortlist you faster.</p>
-              </div>
-              <span className={`ip-cd-pill ${readiness.percent >= 100 ? 'ip-cd-pill--ok' : 'ip-cd-pill--warn'}`}>
-                {readiness.percent}% Ready
+      <div className="ip-cd-card ip-cd-shortcuts">
+        <h2>Workspace Shortcuts</h2>
+        <div className="ip-cd-features" aria-label="Workspace shortcuts">
+          {FEATURES.map((f) => (
+            <Link key={f.href} href={f.href} className="ip-cd-feature">
+              <span className="ip-cd-feature__ico" aria-hidden>
+                <f.Icon size={16} />
               </span>
-            </div>
-            <div className="ip-cd-ready__bar" aria-hidden>
-              <span style={{ width: `${readiness.percent}%` }} />
-            </div>
-            <ul className="ip-cd-ready__list">
-              {readiness.items.map((item) => (
-                <li key={item.id} className={item.done ? 'is-done' : 'is-pending'}>
-                  <span>{item.label}</span>
-                  <strong>{item.done ? 'Done' : 'Action pending'}</strong>
-                </li>
-              ))}
-            </ul>
-            <Link href="/candidate/profile" className="ip-cd-link">
-              Update Profile →
+              <h3>{f.title}</h3>
+              <p>{f.desc}</p>
             </Link>
-          </div>
-
-          <div className="ip-cd-card ip-cd-panel">
-            <div className="ip-cd-panel__head">
-              <div>
-                <h2>Recommended for you</h2>
-                <p className="ip-cd-panel__sub">Ranked by eligibility match score</p>
-              </div>
-              <span className="ip-cd-engine">Match Engine</span>
-            </div>
-            {recommended.length ? (
-              <div className="ip-cd-list">
-                {recommended.map((i) => {
-                  const score = Number(i.match_score);
-                  const meta = [i.company_name, stipendLabel(i), modeLabel(i)].filter(Boolean).join(' · ');
-                  return (
-                    <div key={i.id} className="ip-cd-row">
-                      <div>
-                        <div className="ip-cd-row__title">
-                          <Link href={`/candidate/internships/${i.id}`}>
-                            <h3>{i.title}</h3>
-                          </Link>
-                          {Number.isFinite(score) ? (
-                            <span className={`ip-cd-match ip-cd-match--${matchTone(score)}`}>
-                              {Math.round(score)}% Match
-                            </span>
-                          ) : null}
-                        </div>
-                        <p>{meta || '—'}</p>
-                      </div>
-                      <div className="ip-cd-row__actions">
-                        <button
-                          type="button"
-                          className={`ip-cd-bookmark${i.saved ? ' is-on' : ''}`}
-                          aria-label={i.saved ? 'Remove bookmark' : 'Bookmark role'}
-                          disabled={busySave === i.id}
-                          onClick={() => toggleSave(i.id, Boolean(i.saved))}
-                        >
-                          <Bookmark size={16} aria-hidden />
-                        </button>
-                        <Link href={`/candidate/internships/${i.id}`} className="ip-cd-open">
-                          Open
-                        </Link>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : !listsReady ? (
-              <div className="ip-cd-empty">
-                <p>Loading Recommendations…</p>
-              </div>
-            ) : (
-              <div className="ip-cd-empty">
-                <p>No Recommendations Yet — Complete Skills On Your Profile.</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="ip-cd-card ip-cd-panel ip-cd-saved">
-          <div className="ip-cd-panel__head">
-            <div className="ip-cd-saved__title">
-              <span className="ip-cd-saved__ico" aria-hidden>
-                <Bookmark size={14} />
-              </span>
-              <h2>Saved internships</h2>
-            </div>
-          </div>
-          <p className="ip-cd-panel__sub">Shortcuts to roles you bookmarked for quick applying.</p>
-          {saved.length ? (
-            <div className="ip-cd-list">
-              {saved.map((i) => (
-                <div key={i.id} className="ip-cd-saved-row">
-                  <div>
-                    <h3>{i.title}</h3>
-                    <p>{[i.company_name, stipendLabel(i)].filter(Boolean).join(' · ') || '—'}</p>
-                  </div>
-                  <Link href={`/candidate/internships/${i.id}`} className="ip-cd-open">
-                    Open
-                  </Link>
-                </div>
-              ))}
-              <Link href="/candidate/internships?saved=1" className="ip-cd-link">
-                View All Listings →
-              </Link>
-            </div>
-          ) : !listsReady ? (
-            <div className="ip-cd-empty">
-              <p>Loading Saved Roles…</p>
-            </div>
-          ) : (
-            <div className="ip-cd-empty">
-              <p>No Saved Roles Yet.</p>
-              <Link href="/candidate/internships" className="ip-cd-link">
-                Browse all postings →
-              </Link>
-            </div>
-          )}
+          ))}
         </div>
       </div>
 

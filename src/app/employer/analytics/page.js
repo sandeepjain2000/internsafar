@@ -135,7 +135,9 @@ export default function EmployerAnalyticsPage() {
         </CardContent>
       </Card>
 
-      <Button render={<a href="/api/ip/employer/export" />} variant="outline">Download Excel export (.csv)</Button>
+      <Button render={<a href="/api/ip/employer/export" />} variant="outline">
+        Download overview Excel (postings + applications)
+      </Button>
     </div>
   );
 }

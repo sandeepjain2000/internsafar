@@ -1,7 +1,7 @@
 # InternSafar — folder structure map
 
 **App root:** `internship-portal/`  
-**Generated from live tree:** 2026-09-19  
+**Generated from live tree:** 2026-09-26  
 **Omits:** `node_modules/`, `.next/`, `.git/`, `test-results/`, scratch `tmp-*`
 
 Use this to **locate** files. Then open the real path.  
@@ -99,6 +99,7 @@ src/
 │   │   ├── login/
 │   │   ├── login-report/
 │   │   ├── messages/
+│   │   ├── points/             # Adjust Points (SA manual add/deduct)
 │   │   ├── postings/
 │   │   ├── promotions/
 │   │   ├── requests/
@@ -130,7 +131,7 @@ src/
 | Content | `/help`, `/ideas`, `/guidelines`, `/how-it-works` |
 | Candidate | `/candidate`, `/candidate/profile`, `/candidate/internships`, `/candidate/internships/[id]`, `/candidate/applications`, `/candidate/messages`, `/candidate/messages/[id]`, `/candidate/offers`, `/candidate/notifications`, `/candidate/referral` |
 | Employer | `/employer`, `/employer/profile`, `/employer/internships`, `/employer/internships/new`, `/employer/internships/[id]`, `/employer/internships/[id]/edit`, `/employer/candidates`, `/employer/candidates/[id]`, `/employer/messages`, `/employer/messages/[id]`, `/employer/offers`, `/employer/notifications`, `/employer/analytics`, `/employer/rejection-templates`, `/employer/referral`, `/employer/viral` (redirect → referral) |
-| SuperAdmin | `/superadmin`, `/superadmin/login`, `/superadmin/approvals`, `/superadmin/requests`, `/superadmin/documents`, `/superadmin/postings`, `/superadmin/promotions` (Posting Share Rewards), `/superadmin/viral` (redirect → dashboard; UI removed), `/superadmin/login-report`, `/superadmin/messages`, `/superadmin/form-registrations`, `/superadmin/feature-ideas` |
+| SuperAdmin | `/superadmin`, `/superadmin/login`, `/superadmin/approvals`, `/superadmin/requests`, `/superadmin/documents`, `/superadmin/postings`, `/superadmin/promotions` (Posting Share Rewards), `/superadmin/points` (Adjust Points), `/superadmin/viral` (redirect → dashboard; UI removed), `/superadmin/login-report`, `/superadmin/messages`, `/superadmin/form-registrations`, `/superadmin/feature-ideas` |
 
 Nav labels/order: `src/lib/ipNav.js`.
 

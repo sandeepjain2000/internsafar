@@ -17,7 +17,7 @@ import {
   User,
 } from 'lucide-react';
 import { imageAcceptAttr, resumeAcceptAttr } from '@/lib/ipFileUpload';
-import { validateRequiredPhone, PHONE_DIAL_OPTIONS } from '@/lib/ipPhoneValidation';
+import { validateRequiredPhone, phoneDialOptionsFor } from '@/lib/ipPhoneValidation';
 import IpUploadButton from '@/components/ip/IpUploadButton';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import SearchableSelect from '@/components/ip/SearchableSelect';
@@ -36,6 +36,7 @@ import {
   readProfileDraft,
   writeProfileDraft,
 } from '@/lib/ipCandidateProfileDraft';
+import { preferredRolesToText } from '@/lib/ipPreferredRoles';
 import '@/components/ip/ip-candidate-profile-gemini.css';
 
 const PROFILE_TABS = [
@@ -60,11 +61,6 @@ const COMMITMENT_OPTIONS = [
   { value: 'other', label: 'Yes — other (use note)' },
 ];
 
-function newResumeLinkId() {
-  return `rl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-/** Show human filename, not the long /api/ip/files?key=… path. */
 function resumeDisplayName(url, fallbackName = '') {
   if (fallbackName) return fallbackName;
   const raw = String(url || '').trim();
@@ -154,13 +150,13 @@ export default function CandidateProfilePage() {
   const [profileTab, setProfileTab] = useState('basics');
   /** Highest wizard step index the user may open (0=basics). Advanced by Save & Next. */
   const [wizardUnlockedThru, setWizardUnlockedThru] = useState(0);
-  const [newEmail, setNewEmail] = useState('');
-  const [emailCode, setEmailCode] = useState('');
-  const [emailStep, setEmailStep] = useState('idle');
   const [newSkill, setNewSkill] = useState('');
   const [photoStatus, setPhotoStatus] = useState('No file selected');
+  const [photoPreview, setPhotoPreview] = useState('');
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoImgFailed, setPhotoImgFailed] = useState(false);
+  const photoInputRef = useRef(null);
   const [resumeFileName, setResumeFileName] = useState('');
-  const [linkDraftError, setLinkDraftError] = useState('');
   const [phoneError, setPhoneError] = useState('');
   /** Save failures must show next to the buttons; the top alert is off-screen from the save row. */
   const [saveError, setSaveError] = useState('');
@@ -214,7 +210,11 @@ export default function CandidateProfilePage() {
         nextExperiences,
       );
       if (hasUnsavedDraft && draft?.form) {
-        nextForm = { ...nextForm, ...draft.form };
+        // Draft must not blank out account-side uploads (photo/resume live in S3 + DB).
+        const draftForm = { ...draft.form };
+        if (!String(draftForm.profile_picture_url || '').trim()) delete draftForm.profile_picture_url;
+        if (!String(draftForm.resume_url || '').trim()) delete draftForm.resume_url;
+        nextForm = { ...nextForm, ...draftForm };
         if (Array.isArray(draft.academics) && draft.academics.length) nextAcademics = draft.academics;
         if (Array.isArray(draft.experiences) && draft.experiences.length) nextExperiences = draft.experiences;
         setDraftNotOnAccount(true);
@@ -223,6 +223,7 @@ export default function CandidateProfilePage() {
         setDraftNotOnAccount(false);
       }
       setForm(nextForm);
+      setPhotoStatus(nextForm?.profile_picture_url ? 'Photo on file' : 'No file selected');
       setResumeFileName(resumeDisplayName(nextForm?.resume_url));
       setExperiences(nextExperiences);
       setAcademics(nextAcademics);
@@ -297,33 +298,6 @@ export default function CandidateProfilePage() {
     set('skills', skills.filter((s) => s !== tag));
   }
 
-  function addResumeLink() {
-    setForm((f) => ({
-      ...f,
-      resume_links: [
-        ...(Array.isArray(f.resume_links) ? f.resume_links : []),
-        { id: newResumeLinkId(), title: '', url: '' },
-      ],
-    }));
-    setLinkDraftError('');
-  }
-
-  function updateResumeLink(id, patch) {
-    setForm((f) => ({
-      ...f,
-      resume_links: (Array.isArray(f.resume_links) ? f.resume_links : []).map((l) =>
-        l.id === id ? { ...l, ...patch } : l,
-      ),
-    }));
-  }
-
-  function removeResumeLink(id) {
-    setForm((f) => ({
-      ...f,
-      resume_links: (Array.isArray(f.resume_links) ? f.resume_links : []).filter((l) => l.id !== id),
-    }));
-  }
-
   async function saveProfileBody() {
     const dial = form.phone_country_code || '+91';
     // Draft (local) may omit phone; account Save always requires a valid phone.
@@ -345,9 +319,7 @@ export default function CandidateProfilePage() {
       preferred_locations: typeof form.preferred_locations === 'string'
         ? form.preferred_locations.split(',').map((s) => s.trim()).filter(Boolean)
         : form.preferred_locations,
-      preferred_roles: typeof form.preferred_roles === 'string'
-        ? form.preferred_roles.split(',').map((s) => s.trim()).filter(Boolean)
-        : form.preferred_roles,
+      preferred_roles: preferredRolesToText(form.preferred_roles),
       prior_experience: serializeExperienceEntries(experiences),
       // Empty date inputs must be null — "" breaks Postgres DATE columns and blocks Save & Next
       availability_date: String(form.availability_date || '').trim() || null,
@@ -446,38 +418,21 @@ export default function CandidateProfilePage() {
     }
   }
 
-  async function requestEmailCode() {
-    setMessage('');
-    const res = await fetch('/api/ip/candidate/profile/email-change/request', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ newEmail }),
-    });
-    const data = await res.json();
-    if (!res.ok) return setMessage(data.error || 'Could not send code');
-    setEmailStep('verify');
-    setMessage(data.message);
-  }
-
-  async function verifyEmailCode() {
-    const res = await fetch('/api/ip/candidate/profile/email-change/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: emailCode }),
-    });
-    const data = await res.json();
-    if (!res.ok) return setMessage(data.error || 'Could not verify code');
-    setForm((current) => ({ ...current, account_email: data.newEmail }));
-    setEmailStep('idle');
-    setNewEmail('');
-    setEmailCode('');
-    setMessage('Login email changed. Sign in with the new email next time.');
-  }
-
   async function onPhotoFile(e) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+
+    if (photoPreview) {
+      try {
+        URL.revokeObjectURL(photoPreview);
+      } catch {
+        /* ignore */
+      }
+    }
+    const localUrl = URL.createObjectURL(file);
+    setPhotoPreview(localUrl);
+    setPhotoBusy(true);
     setPhotoStatus('Uploading…');
     setMessage('');
     try {
@@ -486,13 +441,28 @@ export default function CandidateProfilePage() {
       const res = await fetch('/api/ip/candidate/profile/photo/upload', { method: 'POST', body: fd });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || data.hint || 'Upload failed');
-      const url = data.profile_picture_url || data.fileUrl;
-      if (url) set('profile_picture_url', url);
+      const url = String(data.profile_picture_url || data.fileUrl || '').trim();
+      if (!url) throw new Error('Upload finished but no photo URL was returned. Please try again.');
+      setForm((f) => ({
+        ...f,
+        profile_picture_url: url,
+        show_profile_picture: true,
+      }));
+      setPhotoImgFailed(false);
       setPhotoStatus(file.name);
-      setMessage('Photo uploaded. Display is controlled below.');
+      setMessage('Photo uploaded. Employers see it when “Display my profile picture” is on.');
+      // Drop blob once the account URL is known (keep blob until then for preview).
+      try {
+        URL.revokeObjectURL(localUrl);
+      } catch {
+        /* ignore */
+      }
+      setPhotoPreview('');
     } catch (err) {
       setPhotoStatus('Upload failed');
       setMessage(err.message || 'Upload failed');
+    } finally {
+      setPhotoBusy(false);
     }
   }
 
@@ -513,7 +483,7 @@ export default function CandidateProfilePage() {
       { label: 'Basic Information *', done: basicInfoDone },
       { label: 'Mobile Phone *', done: Boolean(form.phone) },
       { label: 'College / Edu *', done: collegeDone },
-      { label: 'Resume Link *', done: Boolean(form.resume_url) },
+      { label: 'Resume / CV *', done: Boolean(form.resume_url) },
       { label: 'Key Skills *', done: skills.length > 0 },
     ];
   }, [form, collegeDone, skills.length]);
@@ -534,7 +504,7 @@ export default function CandidateProfilePage() {
       Boolean(form.profile_picture_url),
       Boolean(serializeExperienceEntries(experiences)),
       Boolean(form.phone),
-      Array.isArray(form.preferred_roles) ? form.preferred_roles.length > 0 : Boolean(form.preferred_roles),
+      Boolean(preferredRolesToText(form.preferred_roles)),
     ];
     return Math.round((checks.filter(Boolean).length / checks.length) * 100);
   }, [form, collegeDone, skills.length, experiences]);
@@ -557,7 +527,7 @@ export default function CandidateProfilePage() {
     if (!form.preferred_work_mode) {
       actions.push({ label: 'Set preferred work mode', tab: 'basics', scrollId: 'ip-cp-preferences' });
     }
-    if (!(Array.isArray(form.preferred_roles) && form.preferred_roles.length)) {
+    if (!preferredRolesToText(form.preferred_roles)) {
       actions.push({ label: 'Add preferred roles / interests', tab: 'basics', scrollId: 'ip-cp-preferences' });
     }
     if (!form.availability_date) {
@@ -785,52 +755,6 @@ export default function CandidateProfilePage() {
               </div>
             </section>
 
-            <div className="ip-cp-email">
-              <div className="ip-cp-email__top">
-                <div className="ip-cp-email__label">
-                  <Lock />
-                  <h4>Current Login Email (Verified)</h4>
-                </div>
-                <span className="ip-cp-email__badge">Active Login ID</span>
-              </div>
-              <p className="ip-cp-email__value">{form.account_email || ''}</p>
-              <div className="ip-cp-email__change">
-                <label className="ip-cp-label" htmlFor="new-login-email-input">Change Login Email Address</label>
-                <div className="ip-cp-email__row">
-                  <input
-                    id="new-login-email-input"
-                    className="ip-cp-input"
-                    type="email"
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    placeholder="Enter new email address (e.g., name.new@college.edu)"
-                  />
-                  <button type="button" className="ip-cp-btn ip-cp-btn--primary" onClick={requestEmailCode} disabled={!newEmail}>
-                    Send Verification Code
-                  </button>
-                </div>
-              </div>
-              {emailStep === 'verify' ? (
-                <div className="ip-cp-email__otp">
-                  <p>A security verification code was requested for <strong>{newEmail}</strong>. Please enter the verification code:</p>
-                  <div className="ip-cp-email__otp-row">
-                    <input
-                      className="ip-cp-input ip-cp-input--otp"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={emailCode}
-                      onChange={(e) => setEmailCode(e.target.value)}
-                      placeholder="Enter 6-digit code"
-                    />
-                    <button type="button" className="ip-cp-btn ip-cp-btn--ok" onClick={verifyEmailCode}>
-                      Confirm &amp; Update Email
-                    </button>
-                  </div>
-                  <p className="ip-cp-hint">Security Note: Updating your login email will re-route future authentication notifications to your new address.</p>
-                </div>
-              ) : null}
-            </div>
-
             <section>
               <div className="ip-cp-sec-head"><h3>Contact &amp; Location</h3></div>
               <div className="ip-cp-grid ip-cp-grid--3">
@@ -845,7 +769,7 @@ export default function CandidateProfilePage() {
                       }}
                       aria-label="Country calling code"
                     >
-                      {PHONE_DIAL_OPTIONS.map((opt) => (
+                      {phoneDialOptionsFor(form.phone_country_code).map((opt) => (
                         <option key={opt.value} value={opt.value}>
                           {opt.label}
                         </option>
@@ -957,36 +881,28 @@ export default function CandidateProfilePage() {
                     ariaLabel="Preferred locations"
                   />
                 </Field>
-                <Field label="Preferred Roles / Interests" optional hint="e.g. Marketing, Backend, UI/UX — used for Recommended" span={2}>
-                  <SearchableMultiSelect
-                    options={(Array.isArray(form.preferred_roles) ? form.preferred_roles : [])
-                      .map((r) => ({ value: r, label: r }))
-                      .concat([
-                        'Marketing', 'Sales', 'Backend', 'Frontend', 'Full Stack', 'UI/UX',
-                        'Data Science', 'Content Writing', 'HR', 'Finance', 'Product', 'Mobile',
-                      ].map((r) => ({ value: r, label: r })))
-                      .filter((o, idx, arr) => arr.findIndex((x) => x.value === o.value) === idx)}
-                    value={
-                      Array.isArray(form.preferred_roles)
-                        ? form.preferred_roles
-                        : String(form.preferred_roles || '')
-                          .split(',')
-                          .map((s) => s.trim())
-                          .filter(Boolean)
-                    }
-                    onChange={(next) => set('preferred_roles', next)}
-                    placeholder="Add roles or interests…"
-                    ariaLabel="Preferred roles"
-                    allowCustom
+                <Field
+                  label="Preferred Roles / Interests"
+                  optional
+                  hint="Free text — roles, interests, or a short note. Used to soft-match Recommended internships."
+                  span={2}
+                >
+                  <textarea
+                    className="ip-cp-input ip-cp-textarea"
+                    rows={3}
+                    value={preferredRolesToText(form.preferred_roles)}
+                    onChange={(e) => set('preferred_roles', e.target.value)}
+                    placeholder="e.g. Marketing and brand work, backend APIs, UI/UX for mobile apps…"
+                    aria-label="Preferred roles and interests"
                   />
                 </Field>
               </div>
             </section>
 
             <section id="ip-cp-resume">
-              <div className="ip-cp-sec-head"><h3>Resume &amp; Portfolio Links</h3></div>
+              <div className="ip-cp-sec-head"><h3>Resume &amp; Portfolio</h3></div>
               <div className="ip-cp-stack-sm">
-                <Field label="Resume / CV" required hint="Upload a PDF/DOC/DOCX or paste a hosted URL" invalid={isMissing('resume_url')}>
+                <Field label="Resume / CV" required hint="Upload a PDF, DOC, or DOCX (max size per upload rules)." invalid={isMissing('resume_url')}>
                   <div className="ip-cp-resume-row">
                     <div className="ip-cp-upload-wrap">
                       <IpUploadButton
@@ -1018,68 +934,10 @@ export default function CandidateProfilePage() {
                         </button>
                       </div>
                     ) : (
-                      <input
-                        className="ip-cp-input ip-cp-input--mono"
-                        type="url"
-                        value=""
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          set('resume_url', v);
-                          setResumeFileName(resumeDisplayName(v));
-                        }}
-                        placeholder="Or paste a hosted URL…"
-                      />
+                      <p className="ip-cp-hint">No resume uploaded yet.</p>
                     )}
                   </div>
                 </Field>
-
-                <div className="ip-cp-link-block">
-                  <div className="ip-cp-sec-head ip-cp-sec-head--compact">
-                    <div>
-                      <h3>Extra CV-related links</h3>
-                      <p className="ip-cp-hint">Optional docs, certificates, or alternate CV hosts — separate from LinkedIn/GitHub. Add each link below, then use Save Basics &amp; Contact.</p>
-                    </div>
-                    <button type="button" className="ip-cp-btn ip-cp-btn--soft" onClick={addResumeLink}>
-                      <Plus />
-                      + Add link
-                    </button>
-                  </div>
-                  {(Array.isArray(form.resume_links) ? form.resume_links : []).length === 0 ? (
-                    <p className="ip-cp-hint">No extra links yet. Use + Add link to add one.</p>
-                  ) : (
-                    <div className="ip-cp-stack-sm">
-                      {(form.resume_links || []).map((link) => (
-                        <div key={link.id} className="ip-cp-link-row">
-                          <Field label="Title / label" optional>
-                            <input
-                              className="ip-cp-input"
-                              value={link.title || ''}
-                              onChange={(e) => updateResumeLink(link.id, { title: e.target.value })}
-                              placeholder="e.g. Design portfolio PDF"
-                            />
-                          </Field>
-                          <Field label="URL" optional>
-                            <input
-                              className="ip-cp-input ip-cp-input--mono"
-                              type="url"
-                              value={link.url || ''}
-                              onChange={(e) => updateResumeLink(link.id, { url: e.target.value })}
-                              placeholder="https://"
-                            />
-                          </Field>
-                          <button
-                            type="button"
-                            className="ip-cp-btn ip-cp-btn--danger-outline"
-                            onClick={() => removeResumeLink(link.id)}
-                          >
-                            Remove link
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {linkDraftError ? <p className="ip-cp-error">{linkDraftError}</p> : null}
-                </div>
 
                 <div id="ip-cp-social-links" className="ip-cp-grid">
                   <Field label="LinkedIn Profile URL" optional>
@@ -1321,21 +1179,49 @@ export default function CandidateProfilePage() {
             <section id="ip-cp-photo">
               <div className="ip-cp-sec-head"><h3>Profile Photo</h3></div>
               <div className="ip-cp-photo">
-                <div className="ip-cp-photo__preview">
-                  {form.profile_picture_url && form.show_profile_picture !== false ? (
+                <button
+                  type="button"
+                  className="ip-cp-photo__preview"
+                  disabled={photoBusy}
+                  title="Upload new logo."
+                  aria-label="Upload new logo."
+                  data-tip="Upload new logo."
+                  onClick={() => photoInputRef.current?.click()}
+                >
+                  {photoPreview || (form.profile_picture_url && !photoImgFailed) ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={form.profile_picture_url} alt="" />
+                    <img
+                      key={photoPreview || form.profile_picture_url}
+                      src={photoPreview || form.profile_picture_url}
+                      alt=""
+                      onError={() => {
+                        if (!photoPreview) setPhotoImgFailed(true);
+                      }}
+                    />
                   ) : (
                     <span>{initialsFrom(form)}</span>
                   )}
-                </div>
+                </button>
                 <div>
                   <p>Upload a professional headshot (JPG, PNG. Max 2MB).</p>
                   <div className="ip-cp-photo__actions">
-                    <label className="ip-cp-btn ip-cp-btn--outline ip-cp-btn--file">
-                      <span>Choose File</span>
-                      <input type="file" accept={imageAcceptAttr()} className="ip-cp-sr" onChange={onPhotoFile} />
-                    </label>
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept={imageAcceptAttr()}
+                      className="ip-cp-sr"
+                      onChange={onPhotoFile}
+                      disabled={photoBusy}
+                    />
+                    <button
+                      type="button"
+                      className="ip-cp-btn ip-cp-btn--outline"
+                      disabled={photoBusy}
+                      title="Upload new logo."
+                      onClick={() => photoInputRef.current?.click()}
+                    >
+                      {photoBusy ? 'Uploading…' : 'Choose File'}
+                    </button>
                     <span className="ip-cp-hint">{photoStatus}</span>
                   </div>
                   <label className="ip-cp-check ip-cp-check--inline">
@@ -1541,19 +1427,21 @@ export default function CandidateProfilePage() {
         ) : null}
       </form>
 
-      <div className="ip-cp-export">
-        <div>
-          <div className="ip-cp-export__title">
-            <Download />
-            <h3>Export Candidate Profile Data (.xlsx)</h3>
+      {profileTab === 'basics' ? (
+        <div className="ip-cp-export">
+          <div>
+            <div className="ip-cp-export__title">
+              <Download />
+              <h3>Export Candidate Profile Data (.xlsx)</h3>
+            </div>
+            <p>Download a multi-sheet Excel workbook with your full profile, academics, skills, applications, offers, and endorsements.</p>
           </div>
-          <p>Download a multi-sheet Excel workbook with your full profile, academics, skills, applications, offers, and endorsements.</p>
+          <a className="ip-cp-btn ip-cp-btn--outline" href="/api/ip/candidate/export">
+            <Download />
+            Download Excel (.xlsx)
+          </a>
         </div>
-        <a className="ip-cp-btn ip-cp-btn--outline" href="/api/ip/candidate/export">
-          <Download />
-          Download Excel (.xlsx)
-        </a>
-      </div>
+      ) : null}
     </div>
   );
 }

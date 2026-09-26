@@ -31,11 +31,24 @@ Sign-in, registration, sessions, role homes, Google auth helpers, 2FA, account s
 - Candidate Google register: verify Gmail → create account → temp password emailed → sign in with email/password; change password in Account; Forgot password at `/forgot-password`.
 - Each deploy host needs matching `NEXTAUTH_URL` + Google OAuth redirect URI (still required for **register** verify).
 
+### Employer login / approval (confirmed 2026-09-23+)
+
+| Status | Login | Posting |
+|--------|-------|---------|
+| Email not verified | Blocked (`EMAIL_NOT_VERIFIED` + resend UI) | Blocked |
+| Pending + email verified | **Allowed** (upload docs) | Blocked until Final Approval |
+| Approved + email verified | Allowed | Gate: profile + ethics + approved (`ipEmployerPostingGate`) |
+| Rejected | Blocked | — |
+| Suspended | Blocked | — |
+
+Candidates do **not** require email verify before login. Employer email verify table/columns: `ensureIpEmployerEmailVerifySchema` (schema only — fill blanks via temp runner on AWS, never `email_verify_required=false` grandfather).
+
 ## Constraints
 
 - Do not invent OAuth providers, session fields, or role names.
 - Preserve Playwright IDs and existing login/register behaviour unless the user asks to change them.
 - Never blank `.env.local` auth secrets.
+- Process bugs (e.g. docs required for approval but login blocked until approval): surface early; prefer smallest path that restores a workable flow.
 
 ## Related domains
 

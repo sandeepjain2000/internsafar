@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import PortalShell from '@/components/ip/PortalShell';
 import { EMPLOYER_NAV } from '@/lib/ipNav';
+import { readResponseJson } from '@/lib/readResponseJson';
 
 const POSTING_HREF = '/employer/internships';
 
@@ -15,7 +16,7 @@ export default function EmployerLayout({ children }) {
   useEffect(() => {
     let alive = true;
     fetch('/api/ip/employer/dashboard')
-      .then((r) => r.json())
+      .then((r) => readResponseJson(r, {}))
       .then((d) => {
         if (!alive) return;
         setApprovalStatus(String(d?.employer?.approvalStatus || '').toLowerCase() || 'pending');

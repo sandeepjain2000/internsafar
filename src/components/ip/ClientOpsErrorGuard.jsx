@@ -9,6 +9,9 @@ const IGNORE = [
   /Loading chunk [\d]+ failed/i,
   // CefSharp / Outlook Safe Links / embedded Chromium crawlers — not our app.
   /^Object Not Found Matching Id:\d+, MethodName:update, ParamCount:\d+$/i,
+  // Empty/truncated bodies during deploy cutovers — clients should soft-fail; not ops-worthy.
+  /Failed to execute ['"]json['"] on ['"]Response['"]/i,
+  /Unexpected end of JSON input/i,
 ];
 
 function report(message, meta = {}) {

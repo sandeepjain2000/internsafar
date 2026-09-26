@@ -27,12 +27,12 @@ const PAGE_SIZE = 10;
 
 const TABS = [
   { id: 'all', label: 'All Applications' },
-  { id: 'applied', label: 'Applied' },
+  { id: 'applied', label: 'Awaiting Review' },
   { id: 'review', label: 'Under Review' },
   { id: 'interview', label: 'Interview Scheduled' },
   { id: 'offer', label: 'Offer Received' },
   { id: 'rejected', label: 'Rejected' },
-  { id: 'withdrawn', label: 'Rejected By You' },
+  { id: 'withdrawn', label: 'Withdrawn' },
 ];
 
 const EMPTY_COLS = {
@@ -48,15 +48,15 @@ const EMPTY_COLS = {
 
 /** Prefefined application display statuses (single-select — one status per row). */
 const STATUS_FILTER_OPTIONS = [
-  'Applied',
+  'Awaiting Review',
   'Under Review',
   'Interview Scheduled',
   'Offer Received',
   'Rejected',
-  'Rejected By You',
   'Withdrawn',
   'Hired',
   'Completed',
+  'Offer Declined',
 ];
 
 function stipendLabel(a) {
@@ -204,7 +204,7 @@ export default function MyApplicationsPage() {
       if (cols.employers.length && !cols.employers.includes(String(a.company_name || '—'))) return false;
       if (cols.stipends.length && !cols.stipends.includes(stipendLabel(a))) return false;
       if (cols.locations.length && !cols.locations.includes(locationLabel(a))) return false;
-      if (cols.status && String(a.display_status || 'Applied') !== cols.status) return false;
+      if (cols.status && String(a.display_status || 'Awaiting Review') !== cols.status) return false;
       if (cols.nextStep && !applicationNextStepFilterMatch(a, cols.nextStep)) return false;
       if (!inDateRange(a.created_at, cols.dateFrom, cols.dateTo)) return false;
       return true;
@@ -516,7 +516,7 @@ export default function MyApplicationsPage() {
                     {a.title || 'Internship'}
                   </Link>
                   <span className={`ip-ap-badge ${statusClass(a.status)}`}>
-                    {a.display_status || 'Applied'}
+                    {a.display_status || 'Awaiting Review'}
                   </span>
                 </div>
                 <p className="ip-ap-card__company">
@@ -583,7 +583,7 @@ export default function MyApplicationsPage() {
                         {a.title || 'Internship'}
                       </Link>
                       <span className={`ip-ap-badge ${statusClass(a.status)}`}>
-                        {a.display_status || 'Applied'}
+                        {a.display_status || 'Awaiting Review'}
                       </span>
                     </div>
                   </td>

@@ -5,8 +5,9 @@ import { sendMail } from '@/lib/mail';
 import { ensureIpCandidateProfileSchema } from '@/lib/ensureIpCandidateProfileSchema';
 import { ensureIpAccountSettingsSchema } from '@/lib/ensureIpAccountSettingsSchema';
 
+/** Confirm login-email change for Account page (candidate + employer). */
 export async function POST(request) {
-  const { session, error } = await requireSession(['candidate']);
+  const { session, error } = await requireSession(['candidate', 'employer']);
   if (error) return error;
   await ensureIpCandidateProfileSchema();
   await ensureIpAccountSettingsSchema();
@@ -14,6 +15,7 @@ export async function POST(request) {
   const code = String(body.code || '').trim();
   if (!/^\d{6}$/.test(code)) return jsonError('Enter the 6-digit code');
   const hash = createHash('sha256').update(code).digest('hex');
+  const role = session.user.role;
 
   const changed = await withClient(async (client) => {
     await client.query('BEGIN');
@@ -33,7 +35,12 @@ export async function POST(request) {
         `UPDATE ip_users SET email = $2, email_verified_at = now(), updated_at = now() WHERE id = $1`,
         [session.user.id, challenge.new_email],
       );
-      await client.query(`UPDATE ip_candidates SET email = $2, updated_at = now() WHERE user_id = $1`, [session.user.id, challenge.new_email]);
+      if (role === 'candidate') {
+        await client.query(
+          `UPDATE ip_candidates SET email = $2, updated_at = now() WHERE user_id = $1`,
+          [session.user.id, challenge.new_email],
+        );
+      }
       await client.query(`UPDATE ip_email_change_challenges SET used_at = now() WHERE id = $1`, [challenge.id]);
       await client.query(`DELETE FROM ip_auth_sessions WHERE user_id = $1`, [session.user.id]).catch(() => {});
       await client.query('COMMIT');
@@ -48,9 +55,9 @@ export async function POST(request) {
   try {
     await sendMail({
       to: changed.old_email,
-      subject: 'Your PlacementHub login email changed',
+      subject: 'Your InternSafar login email changed',
       text: `Your login email was changed to ${changed.new_email}. Your old email can no longer be used to sign in.`,
-      html: `<p>Your PlacementHub login email was changed to <strong>${changed.new_email}</strong>.</p><p>Your old email can no longer be used to sign in.</p>`,
+      html: `<p>Your InternSafar login email was changed to <strong>${changed.new_email}</strong>.</p><p>Your old email can no longer be used to sign in.</p>`,
       skipUnsubscribe: true,
     });
   } catch (mailError) {

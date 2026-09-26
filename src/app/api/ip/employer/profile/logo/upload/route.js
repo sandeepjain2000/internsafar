@@ -45,6 +45,7 @@ export async function POST(request) {
       contentType: validated.contentType,
       body: buffer,
     });
+    // New key each time (UUID) — prior logo objects stay in S3; we only update DB URL.
 
     const upd = await query(
       `UPDATE ip_employers SET logo_url = $1, updated_at = NOW()

@@ -754,11 +754,37 @@
   font-weight: 600;
   color: #1e293b;
   text-align: left;
+  display: block;
+}
+
+.ip-emp-notif .ip-en-table-title-block {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.ip-emp-notif .ip-en-table-context {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #64748b;
+  white-space: pre-wrap;
+}
+
+.ip-emp-notif .ip-en-context-more {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0 0 0 0.2rem;
+  font: inherit;
+  font-size: inherit;
+  font-weight: 700;
+  color: #4f46e5;
   cursor: pointer;
 }
 
-.ip-emp-notif .ip-en-table-title:hover {
-  color: #4f46e5;
+.ip-emp-notif .ip-en-context-more:hover {
   text-decoration: underline;
 }
 

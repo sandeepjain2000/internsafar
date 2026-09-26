@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { IP_REF_CITIES } from '@/lib/ipRefCitiesDegrees';
+import { readResponseJson } from '@/lib/readResponseJson';
 
 /** Instant client options so dropdowns never look empty while the API warms. */
 function mapCityRows(rows) {
@@ -29,7 +30,7 @@ async function loadCitiesOnce() {
   if (inflightCities) return inflightCities;
   inflightCities = fetch('/api/ip/ref/cities')
     .then(async (r) => {
-      const d = await r.json().catch(() => ({}));
+      const d = await readResponseJson(r, {});
       if (!r.ok) throw new Error(d.error || `Cities HTTP ${r.status}`);
       const items = Array.isArray(d.items) ? d.items : [];
       // Never cache an empty success — cold/seed races used to stick the UI on “not loaded”.

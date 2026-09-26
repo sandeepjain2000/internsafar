@@ -25,6 +25,8 @@ import {
   formatStipendInr,
 } from '@/lib/ipMessagePresentation';
 import { toTitleCaseLabel } from '@/lib/ipTitleCase';
+import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
+import { readResponseJson } from '@/lib/readResponseJson';
 // Both roles now render the candidate layout: the employer tree keeps its own content and
 // actions but uses this stylesheet, scoped by .ip-cand-msg--employer for its extras.
 // ip-employer-messages-gemini.css is intentionally no longer imported.
@@ -79,8 +81,8 @@ function counterpartName(t, role) {
 /**
  * Inbox column filters — same five slots for both roles, labels differ:
  * Employer: Candidate · Internship · Preview · When · Status
- * Candidate: From · Internship · Preview · When · Status
- * `party` holds the counterpart name (From / Candidate).
+ * Candidate: Employer · Internship · Preview · When · Status
+ * `party` holds the counterpart name (Employer / Candidate).
  */
 const EMPTY_COLS = {
   party: '',
@@ -131,91 +133,76 @@ function roleLine(t) {
   return t.subject || 'Conversation';
 }
 
+/** Compact employer/internship (or candidate/internship) context row — not a side column. */
 function ThreadPartyPanel({ role, thread }) {
-  if (!thread) {
+  if (role === 'candidate') {
+    if (!thread) {
+      return (
+        <aside className="ip-msg-party" aria-label="Conversation context">
+          <p className="ip-msg-party__hint">
+            Employer- and internship-based conversations. Select a thread to see which employer and role it is for.
+          </p>
+        </aside>
+      );
+    }
+    const company = thread.company_name || thread.employer_name || 'Employer';
+    const internship = thread.internship_title || 'General conversation';
     return (
-      <aside className="ip-msg-party">
-        <h3>{role === 'candidate' ? 'Employer in this thread' : 'Candidate in this thread'}</h3>
-        <p>Select a conversation to see details for this thread only.</p>
+      <aside className="ip-msg-party" aria-label="Conversation context">
+        <span className="ip-msg-party__kicker">Employer &amp; internship</span>
+        <div className="ip-msg-party__row">
+          <span className="ip-msg-party__item">
+            <span className="ip-msg-party__label">Employer</span>
+            <strong>{company}</strong>
+          </span>
+          <span className="ip-msg-party__sep" aria-hidden>
+            ·
+          </span>
+          <span className="ip-msg-party__item">
+            <span className="ip-msg-party__label">Internship</span>
+            <strong>{internship}</strong>
+          </span>
+          {thread.internship_id ? (
+            <Link className="ip-msg-party__link" href={`/candidate/internships/${thread.internship_id}`}>
+              View role
+            </Link>
+          ) : null}
+        </div>
       </aside>
     );
   }
-  if (role === 'candidate') {
-    const company = thread.company_name || thread.employer_name || 'Employer';
+
+  if (!thread) {
     return (
-      <aside className="ip-msg-party">
-        <h3>Employer in this thread</h3>
-        <div className="ip-msg-party__card">
-          <div className="ip-msg-party__av">{initials(company)}</div>
-          <strong>{company}</strong>
-          {String(thread.employer_approval_status || '').toLowerCase() === 'approved' || thread.employer_verified ? (
-            <p>Verified employer</p>
-          ) : (
-            <p>Employer in this conversation</p>
-          )}
-        </div>
-        <div className="ip-msg-party__sec">
-          <span>Internship in this thread</span>
-          <b>{thread.internship_title || 'General conversation'}</b>
-        </div>
-        <div className="ip-msg-party__sec">
-          <span>Work details</span>
-          <b>{[thread.internship_work_mode, thread.internship_location].filter(Boolean).join(' · ') || '—'}</b>
-        </div>
-        <div className="ip-msg-party__sec">
-          <span>Stipend</span>
-          <b>{formatInternshipStipend({
-            stipend_inr: thread.internship_stipend_inr,
-            stipend_inr_max: thread.internship_stipend_inr_max,
-            stipend_type: thread.internship_stipend_type,
-          }, { unpaidLabel: '—' }) || '—'}</b>
-        </div>
-        <div className="ip-msg-party__sec">
-          <span>Duration</span>
-          <b>{formatDurationMonths(thread.internship_duration_months) || '—'}</b>
-        </div>
-        <div className="ip-msg-party__sec">
-          <span>Your application</span>
-          <b>{thread.application_status || 'No application on this thread'}</b>
-        </div>
-        {thread.offer_status ? (
-          <div className="ip-msg-party__sec">
-            <span>Offer</span>
-            <b>{thread.offer_status}{thread.offer_role_title ? ` · ${thread.offer_role_title}` : ''}</b>
-          </div>
-        ) : null}
-        {thread.internship_id ? (
-          <Link className="ip-msg-party__link" href={`/candidate/internships/${thread.internship_id}`}>
-            View internship
-          </Link>
-        ) : null}
+      <aside className="ip-msg-party" aria-label="Conversation context">
+        <p className="ip-msg-party__hint">
+          Candidate- and internship-based conversations. Select a thread to see which candidate and role it is for.
+        </p>
       </aside>
     );
   }
   const name = thread.candidate_name || 'Candidate';
+  const internship = thread.internship_title || 'General conversation';
   return (
-    <aside className="ip-msg-party">
-      <h3>Candidate in this thread</h3>
-      <div className="ip-msg-party__card">
-        <div className="ip-msg-party__av">{initials(name)}</div>
-        <strong>{name}</strong>
-        <p>{[thread.candidate_degree, thread.candidate_specialization].filter(Boolean).join(' · ') || 'Candidate'}</p>
-      </div>
-      <div className="ip-msg-party__sec">
-        <span>College</span>
-        <b>{thread.candidate_college || '—'}</b>
-      </div>
-      <div className="ip-msg-party__sec">
-        <span>CGPA</span>
-        <b>{thread.candidate_cgpa != null ? thread.candidate_cgpa : '—'}</b>
-      </div>
-      <div className="ip-msg-party__sec">
-        <span>Internship</span>
-        <b>{thread.internship_title || '—'}</b>
-      </div>
-      <div className="ip-msg-party__sec">
-        <span>Application</span>
-        <b>{thread.application_status || '—'}</b>
+    <aside className="ip-msg-party" aria-label="Conversation context">
+      <span className="ip-msg-party__kicker">Candidate &amp; internship</span>
+      <div className="ip-msg-party__row">
+        <span className="ip-msg-party__item">
+          <span className="ip-msg-party__label">Candidate</span>
+          <strong>{name}</strong>
+        </span>
+        <span className="ip-msg-party__sep" aria-hidden>
+          ·
+        </span>
+        <span className="ip-msg-party__item">
+          <span className="ip-msg-party__label">Internship</span>
+          <strong>{internship}</strong>
+        </span>
+        {thread.internship_id ? (
+          <Link className="ip-msg-party__link" href={`/employer/internships/${thread.internship_id}`}>
+            View role
+          </Link>
+        ) : null}
       </div>
     </aside>
   );
@@ -379,7 +366,8 @@ export default function MessagesSplitPane({ role = 'employer' }) {
     },
   });
 
-  const colsActive = Object.entries(cols).some(([k, v]) => v !== EMPTY_COLS[k]);
+  const colsActiveCount = Object.entries(cols).filter(([k, v]) => v !== EMPTY_COLS[k]).length;
+  const colsActive = colsActiveCount > 0;
 
   const statusOptions = useMemo(() => {
     const known = [
@@ -404,6 +392,16 @@ export default function MessagesSplitPane({ role = 'employer' }) {
     );
   }, [threads]);
 
+  const partyOptions = useMemo(() => {
+    const names = threads.map((t) => counterpartName(t, role)).filter(Boolean);
+    return [...new Set(names)].sort((a, b) => a.localeCompare(b));
+  }, [threads, role]);
+
+  const internshipOptions = useMemo(() => {
+    const titles = threads.map((t) => roleLine(t)).filter(Boolean);
+    return [...new Set(titles)].sort((a, b) => a.localeCompare(b));
+  }, [threads]);
+
   function showToast(msg) {
     setToast(msg);
     setTimeout(() => setToast(''), 2800);
@@ -414,7 +412,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
     try {
       const qs = tab === 'archived' ? '?archived=1' : '';
       const res = await fetch(`/api/ip/messages/threads${qs}`);
-      const data = await res.json();
+      const data = await readResponseJson(res, {});
       const items = data.items || [];
       setThreads(items);
       if (tab !== 'archived') {
@@ -451,8 +449,8 @@ export default function MessagesSplitPane({ role = 'employer' }) {
         if (!last || last !== me) return false;
       }
       // Column filters AND with tab + search for both roles.
-      if (!has(counterpartName(t, role), cols.party)) return false;
-      if (!has(roleLine(t), cols.internship)) return false;
+      if (cols.party && counterpartName(t, role) !== cols.party) return false;
+      if (cols.internship && roleLine(t) !== cols.internship) return false;
       if (!has(t.last_message || t.subject, cols.preview)) return false;
       {
         const statusLabel = t.application_status || (Number(t.message_count) ? 'Open' : 'New');
@@ -494,7 +492,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
       setError('');
       try {
         const res = await fetch(`/api/ip/messages/threads/${id}`);
-        const data = await res.json();
+        const data = await readResponseJson(res, {});
         if (!res.ok) throw new Error(data.error || 'Thread not found');
         setThread(data.thread);
         setMessages(data.messages || []);
@@ -547,7 +545,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
           method: 'POST',
           body: fd,
         });
-        const upData = await up.json().catch(() => ({}));
+        const upData = await readResponseJson(up, {});
         if (!up.ok) throw new Error(upData.error || 'Upload failed');
         attachment = {
           url: upData.url,
@@ -561,7 +559,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, attachment }),
       });
-      const data = await res.json();
+      const data = await readResponseJson(res, {});
       if (!res.ok) throw new Error(data.error || 'Send failed');
       setDraft('');
       setPendingFile(null);
@@ -581,7 +579,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ archived }),
       });
-      const data = await res.json();
+      const data = await readResponseJson(res, {});
       if (!res.ok) throw new Error(data.error || 'Archive failed');
       showToast(archived ? 'Conversation archived' : 'Conversation unarchived');
       if (id === selectedId) {
@@ -727,8 +725,12 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                 >
                   <SlidersHorizontal className="size-3.5" aria-hidden />
                   Filters
-                  <span className="ip-cm-adv-state">{showFilters ? 'On' : 'Off'}</span>
-                  {colsActive ? <span className="ip-cm-adv-dot" aria-label="Filters active" /> : null}
+                  <span className="ip-cm-adv-state">{showFilters ? 'Hide' : 'Show'}</span>
+                  {colsActiveCount > 0 ? (
+                    <span className="ip-cm-adv-chip" aria-label={`${colsActiveCount} filters active`}>
+                      {colsActiveCount}
+                    </span>
+                  ) : null}
                 </button>
                 {colsActive ? (
                   <button type="button" className="ip-cm-adv-clear" onClick={() => setCols(EMPTY_COLS)}>
@@ -738,21 +740,41 @@ export default function MessagesSplitPane({ role = 'employer' }) {
               </div>
               {showFilters ? (
                 <div className="ip-cm-adv-grid">
-                  {[
-                    ['party', 'From'],
-                    ['internship', 'Internship'],
-                    ['preview', 'Preview'],
-                  ].map(([key, label]) => (
-                    <label key={key}>
-                      <span>{label}</span>
-                      <input
-                        type="search"
-                        value={cols[key]}
-                        onChange={(e) => setCols((c) => ({ ...c, [key]: e.target.value }))}
-                        placeholder={`Filter by ${label.toLowerCase()}`}
-                      />
-                    </label>
-                  ))}
+                  <label>
+                    <span>Employer</span>
+                    <select
+                      value={cols.party}
+                      onChange={(e) => setCols((c) => ({ ...c, party: e.target.value }))}
+                      aria-label="Filter by employer"
+                    >
+                      <option value="">Any employer</option>
+                      {partyOptions.map((name) => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Internship</span>
+                    <select
+                      value={cols.internship}
+                      onChange={(e) => setCols((c) => ({ ...c, internship: e.target.value }))}
+                      aria-label="Filter by internship"
+                    >
+                      <option value="">Any internship</option>
+                      {internshipOptions.map((title) => (
+                        <option key={title} value={title}>{title}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Preview</span>
+                    <input
+                      type="search"
+                      value={cols.preview}
+                      onChange={(e) => setCols((c) => ({ ...c, preview: e.target.value }))}
+                      placeholder="Filter by preview"
+                    />
+                  </label>
                   <label>
                     <span>When</span>
                     <select
@@ -814,7 +836,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                   <table className="ip-ph-list ip-msg-table">
                     <thead>
                       <tr>
-                        <th>From</th>
+                        <th>Employer</th>
                         <th>Internship</th>
                         <th>Preview</th>
                         <th>When</th>
@@ -866,6 +888,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
           </aside>
 
           <section className="ip-cm-thread">
+            <ThreadPartyPanel role={role} thread={selectedId ? thread : null} />
             {!selectedId ? (
               <div className="ip-cm-thread-empty">Select a conversation to view details.</div>
             ) : loadingThread && !thread ? (
@@ -1068,7 +1091,6 @@ export default function MessagesSplitPane({ role = 'employer' }) {
               </>
             )}
           </section>
-          <ThreadPartyPanel role={role} thread={selectedId ? thread : null} />
         </div>
       </div>
     );
@@ -1161,8 +1183,12 @@ export default function MessagesSplitPane({ role = 'employer' }) {
               >
                 <SlidersHorizontal className="size-3.5" aria-hidden />
                 Filters
-                <span className="ip-cm-adv-state">{showFilters ? 'On' : 'Off'}</span>
-                {colsActive ? <span className="ip-cm-adv-dot" aria-label="Filters active" /> : null}
+                <span className="ip-cm-adv-state">{showFilters ? 'Hide' : 'Show'}</span>
+                {colsActiveCount > 0 ? (
+                  <span className="ip-cm-adv-chip" aria-label={`${colsActiveCount} filters active`}>
+                    {colsActiveCount}
+                  </span>
+                ) : null}
               </button>
               {colsActive ? (
                 <button type="button" className="ip-cm-adv-clear" onClick={() => setCols(EMPTY_COLS)}>
@@ -1173,21 +1199,41 @@ export default function MessagesSplitPane({ role = 'employer' }) {
 
             {showFilters ? (
               <div className="ip-cm-adv-grid">
-                {[
-                  ['party', 'Candidate'],
-                  ['internship', 'Internship'],
-                  ['preview', 'Preview'],
-                ].map(([key, label]) => (
-                  <label key={key}>
-                    <span>{label}</span>
-                    <input
-                      type="search"
-                      value={cols[key]}
-                      onChange={(e) => setCols((c) => ({ ...c, [key]: e.target.value }))}
-                      placeholder={`Filter by ${label.toLowerCase()}`}
-                    />
-                  </label>
-                ))}
+                <label>
+                  <span>Candidate</span>
+                  <select
+                    value={cols.party}
+                    onChange={(e) => setCols((c) => ({ ...c, party: e.target.value }))}
+                    aria-label="Filter by candidate"
+                  >
+                    <option value="">Any candidate</option>
+                    {partyOptions.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Internship</span>
+                  <select
+                    value={cols.internship}
+                    onChange={(e) => setCols((c) => ({ ...c, internship: e.target.value }))}
+                    aria-label="Filter by internship"
+                  >
+                    <option value="">Any internship</option>
+                    {internshipOptions.map((title) => (
+                      <option key={title} value={title}>{title}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Preview</span>
+                  <input
+                    type="search"
+                    value={cols.preview}
+                    onChange={(e) => setCols((c) => ({ ...c, preview: e.target.value }))}
+                    placeholder="Filter by preview"
+                  />
+                </label>
                 <label>
                   <span>When</span>
                   <select
@@ -1359,6 +1405,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
         </aside>
 
         <section className="ip-cm-thread">
+          <ThreadPartyPanel role={role} thread={selectedId ? thread : null} />
           {!selectedId ? (
             <div className="ip-cm-thread-empty">Select a conversation to read and reply.</div>
           ) : loadingThread && !thread ? (
@@ -1504,7 +1551,6 @@ export default function MessagesSplitPane({ role = 'employer' }) {
             </>
           )}
         </section>
-        <ThreadPartyPanel role={role} thread={selectedId ? thread : null} />
       </div>
     </div>
   );

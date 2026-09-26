@@ -225,6 +225,99 @@ export default function ApplicantsPipelinePage() {
     await load();
   }
 
+  function triggerDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadExportPayload(payload) {
+    if (payload.zipBase64 || payload.result_zip_base64) {
+      const b64 = payload.zipBase64 || payload.result_zip_base64;
+      const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      triggerDownload(new Blob([bin], { type: 'application/zip' }), payload.filename || payload.result_filename || 'applicants-export.zip');
+      return;
+    }
+    const fname = payload.filename || payload.result_filename || 'applicants-export.xlsx';
+    const b64 = payload.xlsxBase64 || (String(fname).toLowerCase().endsWith('.xlsx') ? payload.result_csv || payload.csv : null);
+    if (b64 && String(fname).toLowerCase().endsWith('.xlsx')) {
+      const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      triggerDownload(
+        new Blob([bin], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+        fname,
+      );
+      return;
+    }
+    const csv = payload.csv || payload.result_csv || '';
+    triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8' }), fname.endsWith('.csv') ? fname : 'applicants-export.csv');
+  }
+
+  /**
+   * @param {{ includeResumes?: boolean, exportAll?: boolean }} opts
+   * Selected rows when exportAll is false; otherwise every applicant on this internship.
+   * includeResumes → ZIP with applicants.xlsx + resumes/; otherwise Excel only.
+   */
+  async function runApplicantExport({ includeResumes = false, exportAll = false } = {}) {
+    const applicationIds = exportAll ? [] : [...selected];
+    if (!exportAll && !applicationIds.length) {
+      window.alert('Select one or more applicants first, or use “Download all”.');
+      return;
+    }
+    if (exportAll && !window.confirm(includeResumes
+      ? 'Download Excel + all CVs for every applicant on this internship as a ZIP?'
+      : 'Download Excel for every applicant on this internship?')) {
+      return;
+    }
+    const res = await fetch(`/api/ip/employer/internships/${id}/applicants/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'export',
+        applicationIds,
+        exportAll: Boolean(exportAll),
+        includeResumes: Boolean(includeResumes),
+        async: Boolean(includeResumes) || exportAll || applicationIds.length > 15,
+      }),
+    }).then((r) => r.json());
+    if (res.error) {
+      window.alert(res.error);
+      return;
+    }
+    if (res.async && res.jobId) {
+      setBulkResult({ ...res, exportPolling: true });
+      let tries = 0;
+      const poll = async () => {
+        tries += 1;
+        const j = await fetch(`/api/ip/employer/export-jobs/${res.jobId}`).then((r) => r.json());
+        const job = j.job;
+        if (!job) return;
+        setBulkResult({ jobId: res.jobId, job });
+        if (job.status === 'done') {
+          const skipped = Array.isArray(job.skipped_application_ids) ? job.skipped_application_ids : [];
+          if (skipped.length) {
+            window.alert(`Export ready. Skipped ${skipped.length} application(s) that no longer exist.`);
+          }
+          downloadExportPayload(job);
+          return;
+        }
+        if (job.status === 'failed') {
+          window.alert(job.error || 'Export failed');
+          return;
+        }
+        if (tries < 90) setTimeout(poll, 1500);
+      };
+      poll();
+      return;
+    }
+    if (res.skippedApplications) {
+      window.alert(`Export ready. Skipped ${res.skippedApplications} application(s) that no longer exist.`);
+    }
+    downloadExportPayload(res);
+  }
+
   async function setStatus(appId, next) {
     if (next === 'interviewing') {
       const row = applicants.find((a) => a.id === appId);
@@ -446,6 +539,49 @@ export default function ApplicantsPipelinePage() {
         title={internship.title}
         description={`${total} result(s) · ${capacity ? `${capacity.active}/${capacity.max} active · ${capacity.historical} historical` : ''} · ${internship.lifecycle_label || ''}`}
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Download applicants</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!selected.size}
+            onClick={() => runApplicantExport({ includeResumes: false, exportAll: false })}
+          >
+            Excel (selected{selected.size ? `: ${selected.size}` : ''})
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!selected.size}
+            onClick={() => runApplicantExport({ includeResumes: true, exportAll: false })}
+          >
+            Excel + CVs ZIP (selected)
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={!total}
+            onClick={() => runApplicantExport({ includeResumes: false, exportAll: true })}
+          >
+            Excel (all in this internship)
+          </Button>
+          <Button
+            size="sm"
+            disabled={!total}
+            onClick={() => runApplicantExport({ includeResumes: true, exportAll: true })}
+          >
+            Excel + CVs ZIP (all)
+          </Button>
+          <p className="w-full text-xs text-muted-foreground m-0">
+            CV packages are a ZIP with <code>applicants.xlsx</code> plus each available resume under <code>resumes/</code>.
+            Select rows for a partial download, or use “all in this internship”.
+          </p>
+        </CardContent>
+      </Card>
 
       {internship.status === 'closed' ? (
         <ClosureSummary internshipId={id} capacity={capacity} />
@@ -759,118 +895,12 @@ export default function ApplicantsPipelinePage() {
               <option value="">Add to list…</option>
               {lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
-            <Button size="sm" variant="outline" onClick={async () => {
-              const includeResumes = true;
-              const res = await fetch(`/api/ip/employer/internships/${id}/applicants/bulk`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  action: 'export',
-                  applicationIds: [...selected],
-                  includeResumes,
-                  async: includeResumes || selected.size > 15,
-                }),
-              }).then((r) => r.json());
-              if (res.error) {
-                window.alert(res.error);
-                return;
-              }
-              if (res.async && res.jobId) {
-                setBulkResult({ ...res, exportPolling: true });
-                let tries = 0;
-                const poll = async () => {
-                  tries += 1;
-                  const j = await fetch(`/api/ip/employer/export-jobs/${res.jobId}`).then((r) => r.json());
-                  const job = j.job;
-                  if (!job) return;
-                  setBulkResult({ jobId: res.jobId, job });
-                  if (job.status === 'done') {
-                    const skipped = Array.isArray(job.skipped_application_ids)
-                      ? job.skipped_application_ids
-                      : [];
-                    if (skipped.length) {
-                      window.alert(
-                        `Export ready. Skipped ${skipped.length} application(s) that no longer exist.`,
-                      );
-                    }
-                    if (job.result_zip_base64) {
-                      const bin = Uint8Array.from(atob(job.result_zip_base64), (c) => c.charCodeAt(0));
-                      const blob = new Blob([bin], { type: 'application/zip' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = job.result_filename || 'applicants-export.zip';
-                      a.click();
-                      URL.revokeObjectURL(url);
-                    } else if (job.result_csv) {
-                      const fname = job.result_filename || 'applicants-export.xlsx';
-                      if (String(fname).toLowerCase().endsWith('.xlsx')) {
-                        const bin = Uint8Array.from(atob(job.result_csv), (c) => c.charCodeAt(0));
-                        const blob = new Blob([bin], {
-                          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                        });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = fname;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                      } else {
-                        const blob = new Blob([job.result_csv], { type: 'text/csv;charset=utf-8' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = fname.endsWith('.csv') ? fname : 'applicants-export.csv';
-                        a.click();
-                        URL.revokeObjectURL(url);
-                      }
-                    }
-                    return;
-                  }
-                  if (job.status === 'failed') {
-                    window.alert(job.error || 'Export failed');
-                    return;
-                  }
-                  if (tries < 60) setTimeout(poll, 1500);
-                };
-                poll();
-                return;
-              }
-              if (res.skippedApplications) {
-                window.alert(
-                  `Export ready. Skipped ${res.skippedApplications} application(s) that no longer exist.`,
-                );
-              }
-              if (res.zipBase64) {
-                const bin = Uint8Array.from(atob(res.zipBase64), (c) => c.charCodeAt(0));
-                const blob = new Blob([bin], { type: 'application/zip' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = res.filename || 'applicants-export.zip';
-                a.click();
-                URL.revokeObjectURL(url);
-              } else if (res.xlsxBase64) {
-                const bin = Uint8Array.from(atob(res.xlsxBase64), (c) => c.charCodeAt(0));
-                const blob = new Blob([bin], {
-                  type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = res.filename || 'applicants-export.xlsx';
-                a.click();
-                URL.revokeObjectURL(url);
-              } else {
-                const blob = new Blob([res.csv || ''], { type: 'text/csv;charset=utf-8' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = res.filename || 'applicants-export.csv';
-                a.click();
-                URL.revokeObjectURL(url);
-              }
-            }}>Download Excel + CV (ZIP)</Button>
+            <Button size="sm" variant="outline" onClick={() => runApplicantExport({ includeResumes: false, exportAll: false })}>
+              Excel (selected)
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => runApplicantExport({ includeResumes: true, exportAll: false })}>
+              Excel + CVs ZIP
+            </Button>
             </div>
           </div>
         </div>

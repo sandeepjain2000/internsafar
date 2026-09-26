@@ -7,6 +7,7 @@ import {
   ensureCandidateOfferExpiryNotices,
   loadCandidateNotificationContext,
 } from '@/lib/ipCandidateNotificationPresentation';
+import { decorateEmployerNotifications } from '@/lib/ipEmployerNotificationPresentation';
 import { annotateNotificationsTargetAvailability } from '@/lib/ipNotificationTargetAvailability';
 
 export async function GET(request) {
@@ -29,6 +30,8 @@ export async function GET(request) {
   if (session.user.role === 'candidate') {
     const ctx = await loadCandidateNotificationContext(session.user.id);
     items = items.map((n) => decorateCandidateNotification(n, ctx));
+  } else if (session.user.role === 'employer') {
+    items = await decorateEmployerNotifications(items, session.user.id);
   }
 
   items = await annotateNotificationsTargetAvailability(query, items);

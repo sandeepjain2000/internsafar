@@ -152,6 +152,47 @@ function categoryLabel(bucket) {
   return hit?.label || 'System';
 }
 
+const CONTEXT_PREVIEW_LEN = 96;
+
+function parseNotifMeta(raw) {
+  if (!raw) return {};
+  if (typeof raw === 'object') return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+/** Employer second line: Candidate · Internship. */
+function employerContextLine(n) {
+  if (n.contextLine) return String(n.contextLine).trim();
+  const meta = parseNotifMeta(n.meta);
+  const candidate = String(n.candidateName || meta.candidateName || meta.candidate_name || '').trim();
+  const internship = String(n.internshipTitle || meta.internshipTitle || meta.internship_title || '').trim();
+  if (candidate && internship) return `${candidate} · ${internship}`;
+  if (candidate) return candidate;
+  if (internship) return internship;
+  return String(n.body || '').trim();
+}
+
+function ContextPreview({ text, expanded, onToggle }) {
+  const full = String(text || '').trim();
+  if (!full) return null;
+  const needsMore = full.length > CONTEXT_PREVIEW_LEN;
+  const preview = needsMore ? `${full.slice(0, CONTEXT_PREVIEW_LEN).trimEnd()}…` : full;
+  return (
+    <p className="ip-en-table-context">
+      <span>{expanded || !needsMore ? full : preview}</span>
+      {needsMore ? (
+        <button type="button" className="ip-en-context-more" onClick={onToggle}>
+          {expanded ? ' less' : ' or more'}
+        </button>
+      ) : null}
+    </p>
+  );
+}
+
 function actionFor(n, bucket) {
   const link = String(n.link || '');
   if (link.includes('/internships/') && link.split('/').length > 3) {
@@ -423,39 +464,19 @@ export default function EmployerNotificationsPage() {
                     const href = n.resourceUnavailable ? null : n.link && n.link !== '#' ? n.link : null;
                     const sr = serialOffset + idx + 1;
                     const open = expandedId === n.id;
+                    const context = employerContextLine(n);
                     return (
                       <tr key={n.id} className={unread ? 'is-unread' : undefined}>
                         <td>{sr}</td>
                         <td>
-                          <button type="button" className="ip-en-table-title" onClick={() => toggleExpand(n)}>
-                            {n.title || '—'}
-                          </button>
-                          {open ? (
-                            <div className="ip-en-table-expand">
-                              {n.body ? <p className="ip-en-table-body">{n.body}</p> : null}
-                              {n.resourceUnavailable ? (
-                                <p className="ip-en-table-body">{n.resourceUnavailableMessage}</p>
-                              ) : null}
-                              <div className="ip-en-table-expand__actions">
-                                {href ? (
-                                  <Link
-                                    href={href}
-                                    className="ip-en-cta"
-                                    onClick={() => {
-                                      if (unread) markRead(n.id);
-                                    }}
-                                  >
-                                    {action.label}
-                                  </Link>
-                                ) : null}
-                                {unread ? (
-                                  <button type="button" className="ip-en-icon-btn" title="Mark as read" onClick={() => markRead(n.id)}>
-                                    <Check size={16} aria-hidden />
-                                  </button>
-                                ) : null}
-                              </div>
-                            </div>
-                          ) : null}
+                          <div className="ip-en-table-title-block">
+                            <span className="ip-en-table-title">{n.title || '—'}</span>
+                            <ContextPreview
+                              text={context}
+                              expanded={open}
+                              onToggle={() => toggleExpand(n)}
+                            />
+                          </div>
                         </td>
                         <td>{categoryLabel(bucket)}</td>
                         <td>{relativeTime(n.created_at)}</td>

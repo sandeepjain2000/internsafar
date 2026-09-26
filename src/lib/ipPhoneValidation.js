@@ -1,8 +1,19 @@
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
+import { IP_COUNTRY_PHONE_DIALS } from '@/lib/ipRegions';
 
 /** Dial code → ISO 3166-1 alpha-2 for libphonenumber defaultCountry. */
-export const PHONE_DIAL_TO_COUNTRY = {
-  '+91': 'IN',
+export const PHONE_DIAL_TO_COUNTRY = Object.fromEntries(
+  IP_COUNTRY_PHONE_DIALS.map((row) => [row.dial, row.iso2]),
+);
+
+/** Phone dial dropdown — same countries as Country / Region catalog (+ dial). */
+export const PHONE_DIAL_OPTIONS = IP_COUNTRY_PHONE_DIALS.map((row) => ({
+  value: row.dial,
+  label: `${row.country} (${row.dial})`,
+}));
+
+/** Legacy dials that may still be stored from the old phone dropdown. */
+const LEGACY_PHONE_DIAL_TO_COUNTRY = {
   '+1': 'US',
   '+44': 'GB',
   '+65': 'SG',
@@ -10,14 +21,21 @@ export const PHONE_DIAL_TO_COUNTRY = {
   '+61': 'AU',
 };
 
-export const PHONE_DIAL_OPTIONS = [
-  { value: '+91', label: 'India (+91)' },
-  { value: '+1', label: 'United States (+1)' },
-  { value: '+44', label: 'United Kingdom (+44)' },
-  { value: '+65', label: 'Singapore (+65)' },
-  { value: '+971', label: 'UAE (+971)' },
-  { value: '+61', label: 'Australia (+61)' },
-];
+function resolveDefaultCountry(dial) {
+  return PHONE_DIAL_TO_COUNTRY[dial] || LEGACY_PHONE_DIAL_TO_COUNTRY[dial] || 'IN';
+}
+
+/**
+ * Options for a dial `<select>`, ensuring a stored legacy dial still appears if present.
+ * @param {string|null|undefined} currentDial
+ */
+export function phoneDialOptionsFor(currentDial) {
+  const dial = String(currentDial || '').trim();
+  if (!dial || PHONE_DIAL_OPTIONS.some((o) => o.value === dial)) {
+    return PHONE_DIAL_OPTIONS;
+  }
+  return [{ value: dial, label: `Other (${dial})` }, ...PHONE_DIAL_OPTIONS];
+}
 
 /**
  * Optional phone: blank is OK. Non-blank must be valid for the dial-code country.
@@ -30,7 +48,7 @@ export function validateOptionalPhone(phone, phoneCountryCode) {
   if (!trimmed) return { ok: true, e164: null };
 
   const dial = String(phoneCountryCode || '').trim() || '+91';
-  const defaultCountry = PHONE_DIAL_TO_COUNTRY[dial] || 'IN';
+  const defaultCountry = resolveDefaultCountry(dial);
 
   // Prefer national number + country; also accept E.164 already including dial.
   let parsed = parsePhoneNumberFromString(trimmed, defaultCountry);

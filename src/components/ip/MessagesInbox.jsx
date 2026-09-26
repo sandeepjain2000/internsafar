@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, Search } from 'lucide-react';
 import { useClientPagination } from '@/hooks/useClientPagination';
+import { readResponseJson } from '@/lib/readResponseJson';
 import '@/components/ip/ip-messages-gemini.css';
 
 const PAGE_SIZE = 10;
@@ -43,7 +44,7 @@ export default function MessagesInbox({ role }) {
     if (nextFolder === 'archived') params.set('archived', '1');
     try {
       const res = await fetch(`/api/ip/messages/threads?${params.toString()}`);
-      const data = await res.json();
+      const data = await readResponseJson(res, {});
       setThreads(data.items || []);
     } catch {
       setThreads([]);
