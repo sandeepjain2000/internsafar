@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Check, CircleHelp, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -205,20 +206,25 @@ export default function NewInternshipPage() {
 
   return (
     <div className="ip-post-internship flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <PageHeader
-          title="Post An Internship"
-          description="Hours, engagement, and compensation-type fields are optional. Eligibility never blocks applications."
-        />
-        <Button
-          type="button"
-          variant="outline"
-          disabled={saving}
-          onClick={(e) => submit(e, 'draft')}
-        >
-          Save Draft
-        </Button>
-      </div>
+      <PageHeader
+        title="Post An Internship"
+        description="Hours, engagement, and compensation-type fields are optional. Eligibility never blocks applications."
+        actions={(
+          <>
+            <Button type="button" variant="outline" render={<Link href="/employer/internships" />}>
+              Back to Postings
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving}
+              onClick={(e) => submit(e, 'draft')}
+            >
+              Save Draft
+            </Button>
+          </>
+        )}
+      />
 
       <section className="ip-pq" aria-label="Posting Quality Checklist">
         <div className="ip-pq__inner">

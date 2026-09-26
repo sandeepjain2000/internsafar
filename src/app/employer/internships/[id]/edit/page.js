@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -197,7 +198,15 @@ export default function EditInternshipPage() {
 
   return (
     <div className="ip-post-internship space-y-4">
-      <PageHeader title="Edit posting" description={form.lifecycle_label ? `Lifecycle: ${form.lifecycle_label}` : undefined} />
+      <PageHeader
+        title="Edit Posting"
+        description={form.lifecycle_label ? `Lifecycle: ${form.lifecycle_label}` : undefined}
+        actions={(
+          <Button type="button" variant="outline" render={<Link href="/employer/internships" />}>
+            Back to Postings
+          </Button>
+        )}
+      />
       <Card className="overflow-visible">
         <CardHeader>
           <CardTitle className="text-base">Details</CardTitle>
