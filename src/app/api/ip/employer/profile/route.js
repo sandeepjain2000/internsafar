@@ -9,6 +9,7 @@ import {
   normalizeEthicsAcks,
 } from '@/lib/employerEthics';
 import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
+import { ensureIpEmployerDocumentSlotsSchema } from '@/lib/ipEmployerDocuments';
 import { isValidBusinessEntityType } from '@/lib/employerBusinessEntity';
 import { REQUIRED_FOR_COMPLETE } from '@/lib/employerProfileComplete';
 import { validateRequiredPhone } from '@/lib/ipPhoneValidation';
@@ -27,6 +28,7 @@ export async function GET() {
   if (error) return error;
   try {
     await ensureIpEmployerApprovalSchema();
+    await ensureIpEmployerDocumentSlotsSchema();
     const result = await query(
       `SELECT e.*, u.email as account_email, u.points, u.free_post_credits, u.referral_code, u.profile_complete
        FROM ip_employers e JOIN ip_users u ON u.id = e.user_id
@@ -36,7 +38,12 @@ export async function GET() {
     if (!result.rows[0]) return jsonError('Profile not found', 404);
     result.rows[0].hq_country ||= 'India';
     result.rows[0].contact_phone_country_code ||= '+91';
-    const docs = await query(`SELECT * FROM ip_employer_documents WHERE employer_id = $1 ORDER BY created_at DESC`, [result.rows[0].id]);
+    const docs = await query(
+      `SELECT * FROM ip_employer_documents
+       WHERE employer_id = $1 AND superseded_at IS NULL
+       ORDER BY created_at DESC`,
+      [result.rows[0].id],
+    );
     return jsonOk({
       profile: result.rows[0],
       documents: docs.rows,

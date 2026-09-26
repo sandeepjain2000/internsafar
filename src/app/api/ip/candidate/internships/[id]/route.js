@@ -35,7 +35,7 @@ export async function GET(request, { params }) {
 
   const docs = await query(
     `SELECT id, employer_id, doc_type, review_status, reviewed_at, created_at
-     FROM ip_employer_documents WHERE employer_id = $1`,
+     FROM ip_employer_documents WHERE employer_id = $1 AND superseded_at IS NULL`,
     [row.employer_id],
   );
   const validation = computeValidationScore({

@@ -1,10 +1,12 @@
 import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
+import { replaceEmployerDocument } from '@/lib/ipEmployerDocuments';
 
 /**
  * Document metadata + optional URL reference.
  * Prefer file upload via POST /api/ip/employer/documents/upload (S3) when available.
+ * One active document per type — re-submit replaces the prior slot (new review = pending).
  */
 export async function POST(request) {
   const { session, error } = await requireSession(['employer']);
@@ -22,9 +24,15 @@ export async function POST(request) {
   if (!emp.rows[0]) return jsonError('Employer profile missing', 404);
 
   const id = newId('ip_doc');
-  await query(
-    `INSERT INTO ip_employer_documents (id, employer_id, doc_type, file_name, url) VALUES ($1,$2,$3,$4,$5)`,
-    [id, emp.rows[0].id, docType, body.fileName || null, body.url || null],
-  );
-  return jsonOk({ ok: true, id }, 201);
+  const replaced = await replaceEmployerDocument({
+    employerId: emp.rows[0].id,
+    docType,
+    docLabel: body.docLabel || body.documentName || null,
+    fileName: body.fileName || null,
+    url: body.url || null,
+    fileSize: null,
+    id,
+  });
+  if (!replaced.ok) return jsonError(replaced.error, 400);
+  return jsonOk({ ok: true, id, replaced: true, reviewStatus: 'pending' }, 201);
 }

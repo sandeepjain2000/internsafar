@@ -151,6 +151,7 @@ export default function EmployerProfilePage() {
   const [savingCompany, setSavingCompany] = useState(false);
   const [savingEthics, setSavingEthics] = useState(false);
   const [docType, setDocType] = useState(DOC_TYPES[0]);
+  const [docLabel, setDocLabel] = useState('');
   const [docUrl, setDocUrl] = useState('');
   const [docFileName, setDocFileName] = useState('');
   const [logoBusy, setLogoBusy] = useState(false);
@@ -284,13 +285,29 @@ export default function EmployerProfilePage() {
   async function addDoc(e) {
     e.preventDefault();
     if (!docFileName && !docUrl) return;
-    await fetch('/api/ip/employer/documents', {
+    if (docType === 'Other' && !String(docLabel || '').trim()) {
+      setMessage('Enter a document name when type is Other.');
+      return;
+    }
+    const res = await fetch('/api/ip/employer/documents', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ docType, fileName: docFileName, url: docUrl }),
+      body: JSON.stringify({
+        docType,
+        docLabel: docType === 'Other' ? docLabel : null,
+        fileName: docFileName,
+        url: docUrl,
+      }),
     });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setMessage(toSafeClientError(data.error || 'Upload failed'));
+      return;
+    }
     setDocFileName('');
     setDocUrl('');
+    setDocLabel('');
+    setMessage('Document saved. Replacing a type resets review to Pending.');
     await load();
   }
 
@@ -808,20 +825,27 @@ export default function EmployerProfilePage() {
               Verification Documents
             </h2>
             <p className="ip-ep-card__desc">
-              Shop Act, LLP registration, Business PAN, or other company-registration evidence.
+              One active file per type (Shop Act, LLP registration, Business PAN, Other). Uploading again
+              replaces that type and resets review to Pending. Rejected docs can stay; Final Approval needs
+              at least one Approved and none Pending.
             </p>
           </div>
 
           {docs.length ? (
             <div className="ip-ep-doc-list">
-              {docs.map((d) => (
+              {docs.map((d) => {
+                const title =
+                  d.doc_type === 'Other' && d.doc_label
+                    ? `Other — ${d.doc_label}`
+                    : d.doc_type || 'Document';
+                return (
                 <div key={d.id} className="ip-ep-doc">
                   <div className="ip-ep-doc__main">
                     <div className="ip-ep-doc__icon">
                       <FileTextIcon />
                     </div>
                     <div className="min-w-0">
-                      <p className="ip-ep-doc__title">{d.doc_type || 'Document'}</p>
+                      <p className="ip-ep-doc__title">{title}</p>
                       {d.url ? (
                         <a
                           href={d.url}
@@ -840,28 +864,50 @@ export default function EmployerProfilePage() {
                     {toTitleCaseLabel(d.review_status || 'pending') || 'Pending'}
                   </span>
                 </div>
-              ))}
+              );
+              })}
             </div>
           ) : null}
 
           <div className="ip-ep-upload-panel">
-            <h3>Upload new document</h3>
+            <h3>Upload Document</h3>
             <div className="ip-ep-upload-row">
-              <SelectInput value={docType} onChange={(e) => setDocType(e.target.value)}>
+              <SelectInput
+                value={docType}
+                onChange={(e) => {
+                  setDocType(e.target.value);
+                  if (e.target.value !== 'Other') setDocLabel('');
+                }}
+              >
                 {DOC_TYPES.map((t) => (
                   <option key={t} value={t}>
                     {t}
                   </option>
                 ))}
               </SelectInput>
+              {docType === 'Other' ? (
+                <input
+                  className="ip-ep-input"
+                  style={{ maxWidth: '14rem' }}
+                  placeholder="Document name (required)"
+                  value={docLabel}
+                  onChange={(e) => setDocLabel(e.target.value)}
+                  aria-label="Other document name"
+                />
+              ) : null}
               <div className="ip-ep-upload-wrap">
                 <IpUploadButton
                   endpoint="/api/ip/employer/documents/upload"
                   accept={documentAcceptAttr()}
                   label="Upload File (PDF/Image)"
-                  extraFormData={{ docType }}
+                  disabled={docType === 'Other' && !String(docLabel || '').trim()}
+                  extraFormData={{
+                    docType,
+                    ...(docType === 'Other' ? { docLabel } : {}),
+                  }}
                   onUploaded={async () => {
-                    setMessage('Document uploaded.');
+                    setMessage('Document uploaded. Replacing a type resets review to Pending.');
+                    setDocLabel('');
                     await load();
                   }}
                 />

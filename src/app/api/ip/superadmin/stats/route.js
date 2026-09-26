@@ -2,12 +2,14 @@ import { query } from '@/lib/db';
 import { requireSession, jsonOk } from '@/lib/apiAuth';
 import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
 import { ensureIpFormRegistrationSchema } from '@/lib/ensureIpFormRegistrationSchema';
+import { ensureIpEmployerDocumentSlotsSchema } from '@/lib/ipEmployerDocuments';
 
 export async function GET() {
   const { session, error } = await requireSession(['superadmin']);
   if (error) return error;
   await ensureIpFormRegistrationSchema();
   await ensureIpEmployerApprovalSchema();
+  await ensureIpEmployerDocumentSlotsSchema();
 
   // Sequential queries — Supabase session pool (~15) cannot absorb Promise.all fan-out
   // when QA/scripts also hold short-lived clients.
@@ -23,7 +25,8 @@ export async function GET() {
   );
   const ideas = await query(`SELECT count(*)::int AS n FROM ip_feature_ideas WHERE status = 'Pending approval'`);
   const pendingDocs = await query(
-    `SELECT count(*)::int AS n FROM ip_employer_documents WHERE coalesce(review_status,'pending') = 'pending'`,
+    `SELECT count(*)::int AS n FROM ip_employer_documents
+     WHERE superseded_at IS NULL AND coalesce(review_status,'pending') = 'pending'`,
   );
   const pendingViral = await query(
     `SELECT count(*)::int AS n FROM ip_viral_shares
@@ -51,7 +54,7 @@ export async function GET() {
     ? await query(
         `SELECT employer_id, doc_type, review_status
          FROM ip_employer_documents
-         WHERE employer_id = ANY($1::text[])`,
+         WHERE employer_id = ANY($1::text[]) AND superseded_at IS NULL`,
         [pendingEmployerPreview.rows.map((r) => r.id)],
       )
     : { rows: [] };

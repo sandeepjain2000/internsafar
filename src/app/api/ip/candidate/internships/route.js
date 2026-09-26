@@ -176,7 +176,7 @@ export async function GET(request) {
     const docs = await query(
       `SELECT id, employer_id, doc_type, review_status, reviewed_at, created_at
        FROM ip_employer_documents
-       WHERE employer_id = ANY($1::text[])`,
+       WHERE employer_id = ANY($1::text[]) AND superseded_at IS NULL`,
       [employerIds],
     );
     for (const row of docs.rows) {

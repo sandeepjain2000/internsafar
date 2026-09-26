@@ -1,11 +1,13 @@
 import { query } from '@/lib/db';
 import { requireSession, jsonOk } from '@/lib/apiAuth';
 import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
+import { ensureIpEmployerDocumentSlotsSchema } from '@/lib/ipEmployerDocuments';
 
 export async function GET(request) {
   const { error } = await requireSession(['superadmin']);
   if (error) return error;
   await ensureIpEmployerApprovalSchema();
+  await ensureIpEmployerDocumentSlotsSchema();
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status') || '';
@@ -26,9 +28,9 @@ export async function GET(request) {
   let docsByEmployer = {};
   if (employerIds.length) {
     const docs = await query(
-      `SELECT id, employer_id, doc_type, file_name, url, review_status, created_at
+      `SELECT id, employer_id, doc_type, doc_label, file_name, url, review_status, created_at
        FROM ip_employer_documents
-       WHERE employer_id = ANY($1::text[])
+       WHERE employer_id = ANY($1::text[]) AND superseded_at IS NULL
        ORDER BY created_at DESC`,
       [employerIds],
     );

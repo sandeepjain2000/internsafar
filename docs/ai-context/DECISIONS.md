@@ -1,7 +1,7 @@
 # Stable project decisions (InternSafar)
 
 Only confirmed, durable decisions. Not a chat diary.  
-Last pack refresh: 2026-09-25.
+Last pack refresh: 2026-09-26.
 
 | Decision | Domain | Status | Evidence |
 |----------|--------|--------|----------|
@@ -37,6 +37,7 @@ Last pack refresh: 2026-09-25.
 | Form candidate path + manualRequest employer queue retired (410); drop `ip_employer_requests` + `form_approval_status` via bootstrap | Auth / SuperAdmin | Confirmed | `ensureIpRetireDeadQueuesSchema.js` |
 | QA/seed accounts must use realistic varied personas; do not pile scripted traffic onto core showcase inboxes | Testing | Confirmed | `ipQaRealisticPersonas.mjs`, workspace rule `qa-test-account-variety` |
 | AWS email-verify: ADD schema + one-time fill `email_verified_at=created_at` for existing employers; **no** `email_verify_required=false` grandfather (temp runner deleted after run) | Auth / Deploy | Confirmed | Applied AWS RDS 2026-09-23; `ensureIpEmployerEmailVerifySchema` schema-only |
+| Employer verification docs: **one active row per type** (Shop Act / LLP / Business PAN / Other+label); re-upload supersedes prior (`superseded_at`) and resets to pending; Final Approval / SA queues count **active** docs only | Employer / SuperAdmin | Confirmed | `ipEmployerDocuments.js` Hybrid E 2026-09-26 |
 
 ## Do Not Add Here
 

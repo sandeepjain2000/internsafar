@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { ensureIpDocumentAuditSchema, formatFileSize } from '@/lib/ensureIpDocumentAuditSchema';
+import { ensureIpEmployerDocumentSlotsSchema } from '@/lib/ipEmployerDocuments';
 import { notifyUser } from '@/lib/ipNotify';
 
 function normalizeStatus(s) {
@@ -54,12 +55,13 @@ export async function GET(request) {
   const { error } = await requireSession(['superadmin']);
   if (error) return error;
   await ensureIpDocumentAuditSchema();
+  await ensureIpEmployerDocumentSlotsSchema();
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status') || '';
   const withMeta = searchParams.get('meta') === '1';
   const params = [];
-  const where = ['1=1'];
+  const where = ['d.superseded_at IS NULL'];
   if (status && status !== 'all') {
     const st = normalizeStatus(status);
     params.push(st);
@@ -83,11 +85,21 @@ export async function GET(request) {
 
   if (!withMeta) return jsonOk({ items });
 
+  const active = `superseded_at IS NULL`;
   const [total, pending, approved, rejected] = await Promise.all([
-    query(`SELECT count(*)::int AS n FROM ip_employer_documents`),
-    query(`SELECT count(*)::int AS n FROM ip_employer_documents WHERE coalesce(review_status,'pending') = 'pending'`),
-    query(`SELECT count(*)::int AS n FROM ip_employer_documents WHERE review_status = 'approved'`),
-    query(`SELECT count(*)::int AS n FROM ip_employer_documents WHERE review_status = 'flagged'`),
+    query(`SELECT count(*)::int AS n FROM ip_employer_documents WHERE ${active}`),
+    query(
+      `SELECT count(*)::int AS n FROM ip_employer_documents
+       WHERE ${active} AND coalesce(review_status,'pending') = 'pending'`,
+    ),
+    query(
+      `SELECT count(*)::int AS n FROM ip_employer_documents
+       WHERE ${active} AND review_status = 'approved'`,
+    ),
+    query(
+      `SELECT count(*)::int AS n FROM ip_employer_documents
+       WHERE ${active} AND review_status = 'flagged'`,
+    ),
   ]);
 
   return jsonOk({
@@ -105,6 +117,7 @@ export async function PATCH(request) {
   const { session, error } = await requireSession(['superadmin']);
   if (error) return error;
   await ensureIpDocumentAuditSchema();
+  await ensureIpEmployerDocumentSlotsSchema();
   let body;
   try {
     body = await request.json();

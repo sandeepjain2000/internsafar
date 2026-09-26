@@ -116,7 +116,7 @@ export async function GET() {
        count(*) FILTER (WHERE lower(coalesce(review_status, 'pending')) = 'approved')::int AS approved,
        count(*) FILTER (WHERE lower(coalesce(review_status, 'pending')) = 'pending')::int AS pending
      FROM ip_employer_documents
-     WHERE employer_id = $1`,
+     WHERE employer_id = $1 AND superseded_at IS NULL`,
     [employer.id],
   );
 

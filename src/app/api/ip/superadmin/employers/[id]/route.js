@@ -3,6 +3,7 @@ import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { notifyUser } from '@/lib/ipNotify';
 import { sendMail } from '@/lib/mail';
 import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
+import { ensureIpEmployerDocumentSlotsSchema } from '@/lib/ipEmployerDocuments';
 
 const ALLOWED = ['approved', 'rejected', 'suspended', 'pending'];
 
@@ -12,10 +13,11 @@ const ALLOWED = ['approved', 'rejected', 'suspended', 'pending'];
  * Employers upload; SuperAdmin reviews in Documents — never implies SA uploads.
  */
 export async function assertDocumentsReadyForFinalApproval(employerId) {
+  await ensureIpEmployerDocumentSlotsSchema();
   const docs = await query(
     `SELECT coalesce(review_status, 'pending') AS review_status
      FROM ip_employer_documents
-     WHERE employer_id = $1`,
+     WHERE employer_id = $1 AND superseded_at IS NULL`,
     [employerId],
   );
   if (!docs.rows.length) {

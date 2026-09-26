@@ -5,6 +5,7 @@ import { newId } from '@/lib/ids';
 import { describeStorageError, isS3Configured, uploadIpBuffer } from '@/lib/s3';
 import { validateUploadBuffer, validateUploadMeta } from '@/lib/ipFileUpload';
 import { ensureIpDocumentAuditSchema } from '@/lib/ensureIpDocumentAuditSchema';
+import { replaceEmployerDocument } from '@/lib/ipEmployerDocuments';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -28,6 +29,7 @@ export async function POST(request) {
     const formData = await request.formData();
     const file = formData.get('file');
     const docType = String(formData.get('docType') || '').trim() || 'Other';
+    const docLabel = String(formData.get('docLabel') || '').trim();
     if (!file || typeof file === 'string') {
       return NextResponse.json({ error: 'No file selected.' }, { status: 400 });
     }
@@ -53,11 +55,18 @@ export async function POST(request) {
     });
 
     const id = newId('ip_doc');
-    await query(
-      `INSERT INTO ip_employer_documents (id, employer_id, doc_type, file_name, url, file_size)
-       VALUES ($1,$2,$3,$4,$5,$6)`,
-      [id, emp.rows[0].id, docType, file.name || null, uploaded.fileUrl, Number(file.size) || null],
-    );
+    const replaced = await replaceEmployerDocument({
+      employerId: emp.rows[0].id,
+      docType,
+      docLabel: docType === 'Other' ? docLabel : null,
+      fileName: file.name || null,
+      url: uploaded.fileUrl,
+      fileSize: Number(file.size) || null,
+      id,
+    });
+    if (!replaced.ok) {
+      return NextResponse.json({ error: replaced.error }, { status: 400 });
+    }
 
     return NextResponse.json({
       ok: true,
@@ -65,6 +74,8 @@ export async function POST(request) {
       url: uploaded.fileUrl,
       fileName: file.name,
       storage: 's3',
+      replaced: true,
+      reviewStatus: 'pending',
     });
   } catch (e) {
     console.error('[ip] document upload', e);
