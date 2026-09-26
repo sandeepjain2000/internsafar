@@ -80,7 +80,6 @@ export async function POST(request) {
   if (!Number.isFinite(delta) || !Number.isInteger(delta) || delta === 0) {
     return jsonError('delta must be a non-zero integer');
   }
-  if (!note) return jsonError('Note / reason is required');
 
   const user = await query(
     `SELECT id, email, name, role, points, active
@@ -109,7 +108,7 @@ export async function POST(request) {
     delta: applied,
     reason,
     meta: {
-      note,
+      ...(note ? { note } : {}),
       byUserId: session.user.id,
       byEmail: session.user.email || null,
       balanceBefore: before,

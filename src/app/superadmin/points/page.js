@@ -126,10 +126,6 @@ export default function SuperAdminAdjustPointsPage() {
       setError('Enter a positive whole number of points.');
       return;
     }
-    if (!String(note || '').trim()) {
-      setError('Note / reason is required.');
-      return;
-    }
     if (mode === 'deduct' && previewAfter != null && previewAfter < 0) {
       setError(`Cannot deduct ${parsedAmount} — balance is ${target.points}.`);
       return;
@@ -357,14 +353,14 @@ export default function SuperAdminAdjustPointsPage() {
 
               <label style={{ display: 'grid', gap: '0.35rem' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569' }}>
-                  Note / Reason (required)
+                  Note / Reason (optional)
                 </span>
                 <textarea
                   className="ip-saq-textarea"
                   rows={3}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder="Internal reason for this adjustment"
+                  placeholder="Internal note (optional)"
                   aria-label="Note or reason"
                 />
               </label>
@@ -411,7 +407,7 @@ export default function SuperAdminAdjustPointsPage() {
             <div className="ip-saq-modal-body">
               <p style={{ margin: 0, fontSize: '0.875rem', color: '#334155' }}>
                 Balance {target.points} → <strong>{previewAfter}</strong>. The user will get an in-app
-                notification only (no public “request points” feature).
+                notification.
               </p>
             </div>
             <div className="ip-saq-modal-foot">
