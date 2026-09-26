@@ -140,6 +140,16 @@ export function presentLedgerEntry(row, balanceAfter) {
     subtitle = 'Verified share bonus';
     category = 'Share Bonus';
     categoryKey = 'share';
+  } else if (reason === 'sa_manual_credit') {
+    title = 'Admin Added Points';
+    subtitle = 'Support adjustment credited to your balance';
+    category = 'Admin Adjustment';
+    categoryKey = 'admin';
+  } else if (reason === 'sa_manual_debit') {
+    title = 'Admin Removed Points';
+    subtitle = 'Support adjustment deducted from your balance';
+    category = 'Admin Adjustment';
+    categoryKey = 'admin';
   }
 
   subtitle = applyGoneEntityNote(row, meta, subtitle);

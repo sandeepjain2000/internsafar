@@ -38,6 +38,7 @@ Last pack refresh: 2026-09-26.
 | QA/seed accounts must use realistic varied personas; do not pile scripted traffic onto core showcase inboxes | Testing | Confirmed | `ipQaRealisticPersonas.mjs`, workspace rule `qa-test-account-variety` |
 | AWS email-verify: ADD schema + one-time fill `email_verified_at=created_at` for existing employers; **no** `email_verify_required=false` grandfather (temp runner deleted after run) | Auth / Deploy | Confirmed | Applied AWS RDS 2026-09-23; `ensureIpEmployerEmailVerifySchema` schema-only |
 | Employer verification docs: **one active row per type** (Shop Act / LLP / Business PAN / Other+label); re-upload supersedes prior (`superseded_at`) and resets to pending; Final Approval / SA queues count **active** docs only | Employer / SuperAdmin | Confirmed | `ipEmployerDocuments.js` Hybrid E 2026-09-26 |
+| SuperAdmin **Adjust Points** (`/superadmin/points`): manual add/deduct on candidate or employer `ip_users.points` (same currency, per-account balance); no cap; deduct cannot go below 0; required note; user gets in-app “Admin has added/removed X points” only — feature not advertised on candidate/employer UI | SuperAdmin / Points | Confirmed | `api/ip/superadmin/points` 2026-09-26 |
 
 ## Do Not Add Here
 

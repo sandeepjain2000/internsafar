@@ -24,6 +24,7 @@ Platform oversight: employer approvals, manual requests, documents, postings, po
 | `/superadmin/documents` | Documents |
 | `/superadmin/postings` | Postings oversight |
 | `/superadmin/promotions` | Posting Share Rewards (LinkedIn posting-share claims) |
+| `/superadmin/points` | Adjust Points (SA manual add/deduct; support-only; users get notification only) |
 | `/superadmin/login-report` | Login report (default **All time**; not wiped by core reset) |
 | `/superadmin/messages` | Messages |
 | `/superadmin/feature-ideas` | Feature ideas |

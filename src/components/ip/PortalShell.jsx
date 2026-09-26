@@ -27,6 +27,7 @@ import {
   Settings,
   Share2,
   ShieldCheck,
+  Coins,
   User,
   UserPlus,
 } from 'lucide-react';
@@ -43,6 +44,7 @@ const NAV_ICONS = {
   'folder-check': FolderCheck,
   briefcase: Briefcase,
   'share-2': Share2,
+  coins: Coins,
   activity: Activity,
   'clipboard-list': ClipboardList,
   mail: Mail,

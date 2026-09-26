@@ -33,6 +33,7 @@ export const SUPERADMIN_NAV = [
   { href: '/superadmin/documents', label: 'Documents', icon: 'folder-check' },
   { href: '/superadmin/postings', label: 'Postings', icon: 'briefcase' },
   { href: '/superadmin/promotions', label: 'Posting Share Rewards', icon: 'share-2' },
+  { href: '/superadmin/points', label: 'Adjust Points', icon: 'coins' },
   { href: '/superadmin/login-report', label: 'Login report', icon: 'clipboard-list' },
   { href: '/superadmin/listing-reports', label: 'Listing reports', icon: 'shield-check' },
   { href: '/superadmin/messages', label: 'Messages', icon: 'mail' },

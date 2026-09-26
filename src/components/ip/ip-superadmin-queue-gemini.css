@@ -361,6 +361,23 @@
   resize: vertical;
 }
 
+.ip-sa-q .ip-saq-field {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.75rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  font-size: 0.8125rem;
+  outline: none;
+  color: #0f172a;
+}
+
+.ip-sa-q .ip-saq-field:focus {
+  border-color: var(--ip-indigo);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
 .ip-sa-q .ip-saq-search input:focus,
 .ip-sa-q .ip-saq-select:focus,
 .ip-sa-q .ip-saq-textarea:focus {
