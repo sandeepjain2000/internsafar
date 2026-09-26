@@ -9,6 +9,7 @@ import {
   Clock,
   ExternalLink,
   FileSearch,
+  PauseCircle,
   Search,
   ShieldCheck,
   X,
@@ -37,7 +38,13 @@ export default function SuperAdminApprovalsPage() {
   const { data: session, status: sessionStatus } = useSession();
   const [filter, setFilter] = useState('pending');
   const [items, setItems] = useState([]);
-  const [meta, setMeta] = useState({ pending: 0, approvedThisWeek: 0, rejected: 0, avgTriageHours: null });
+  const [meta, setMeta] = useState({
+    pending: 0,
+    approvedThisWeek: 0,
+    rejected: 0,
+    suspended: 0,
+    avgTriageHours: null,
+  });
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -150,11 +157,14 @@ export default function SuperAdminApprovalsPage() {
       const data = await res.json();
       if (!res.ok) setError(data.error || 'Update failed');
       else {
-        setToast(
-          approvalStatus === 'approved'
-            ? `Approved ${data.processed || ids.length} employer(s)`
-            : `Rejected ${data.processed || ids.length} employer(s)`,
-        );
+        const n = data.processed || ids.length;
+        const toastByStatus = {
+          approved: `Approved ${n} employer(s)`,
+          rejected: `Rejected ${n} employer(s)`,
+          suspended: `Suspended ${n} employer(s)`,
+          pending: `Set ${n} employer(s) to Pending`,
+        };
+        setToast(toastByStatus[approvalStatus] || `Updated ${n} employer(s)`);
         setRejectRow(null);
         setAuditRow(null);
         setRejectNote('');
@@ -216,11 +226,32 @@ export default function SuperAdminApprovalsPage() {
   }
 
   function toggleAll(checked) {
-    setSelected(checked ? filtered.filter((e) => e.approval_status === 'pending').map((e) => e.id) : []);
+    const selectable = filtered.filter((e) =>
+      ['pending', 'approved', 'suspended'].includes(String(e.approval_status || '')),
+    );
+    setSelected(checked ? selectable.map((e) => e.id) : []);
   }
 
   function toggleOne(id, checked) {
     setSelected((prev) => (checked ? [...new Set([...prev, id])] : prev.filter((x) => x !== id)));
+  }
+
+  function openReject(row) {
+    setRejectRow(row);
+    setRejectPreset(REJECT_PRESETS[0]);
+    setRejectNote('');
+  }
+
+  function confirmSuspend(ids) {
+    if (!ids.length) return;
+    if (
+      !window.confirm(
+        `Suspend ${ids.length} employer account(s)? They will not be able to sign in or post until restored.`,
+      )
+    ) {
+      return;
+    }
+    patchStatus(ids, 'suspended');
   }
 
   function submitReject() {
@@ -239,6 +270,9 @@ export default function SuperAdminApprovalsPage() {
   }
 
   const pendingCount = meta.pending ?? enriched.filter((e) => e.approval_status === 'pending').length;
+  const selectableOnPage = pageItems.filter((e) =>
+    ['pending', 'approved', 'suspended'].includes(String(e.approval_status || '')),
+  );
 
   return (
     <div className="ip-sa-q ip-mobile-bleed">
@@ -261,24 +295,72 @@ export default function SuperAdminApprovalsPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className="ip-saq-btn ip-saq-btn--emerald"
-            disabled={!selected.length || busy || filter !== 'pending'}
-            onClick={() => patchStatus(selected, 'approved')}
-          >
-            <CheckCheck size={15} aria-hidden />
-            Approve Selected ({selected.length})
-          </button>
-          <button
-            type="button"
-            className="ip-saq-btn ip-saq-btn--rose"
-            disabled={!selected.length || busy || filter !== 'pending'}
-            onClick={() => patchStatus(selected, 'rejected', 'Bulk rejected by SuperAdmin')}
-          >
-            <X size={15} aria-hidden />
-            Reject Selected ({selected.length})
-          </button>
+          {filter === 'pending' ? (
+            <>
+              <button
+                type="button"
+                className="ip-saq-btn ip-saq-btn--emerald"
+                disabled={!selected.length || busy}
+                onClick={() => patchStatus(selected, 'approved')}
+              >
+                <CheckCheck size={15} aria-hidden />
+                Approve Selected ({selected.length})
+              </button>
+              <button
+                type="button"
+                className="ip-saq-btn ip-saq-btn--rose"
+                disabled={!selected.length || busy}
+                onClick={() => patchStatus(selected, 'rejected', 'Bulk rejected by SuperAdmin')}
+              >
+                <X size={15} aria-hidden />
+                Reject Selected ({selected.length})
+              </button>
+            </>
+          ) : null}
+          {filter === 'approved' ? (
+            <>
+              <button
+                type="button"
+                className="ip-saq-btn"
+                disabled={!selected.length || busy}
+                onClick={() => confirmSuspend(selected)}
+              >
+                <PauseCircle size={15} aria-hidden />
+                Suspend Selected ({selected.length})
+              </button>
+              <button
+                type="button"
+                className="ip-saq-btn ip-saq-btn--rose"
+                disabled={!selected.length || busy}
+                onClick={() => patchStatus(selected, 'rejected', 'Bulk rejected by SuperAdmin')}
+              >
+                <X size={15} aria-hidden />
+                Reject Selected ({selected.length})
+              </button>
+            </>
+          ) : null}
+          {filter === 'suspended' ? (
+            <>
+              <button
+                type="button"
+                className="ip-saq-btn ip-saq-btn--emerald"
+                disabled={!selected.length || busy}
+                onClick={() => patchStatus(selected, 'approved')}
+              >
+                <CheckCheck size={15} aria-hidden />
+                Restore Selected ({selected.length})
+              </button>
+              <button
+                type="button"
+                className="ip-saq-btn ip-saq-btn--rose"
+                disabled={!selected.length || busy}
+                onClick={() => patchStatus(selected, 'rejected', 'Bulk rejected by SuperAdmin')}
+              >
+                <X size={15} aria-hidden />
+                Reject Selected ({selected.length})
+              </button>
+            </>
+          ) : null}
           <button
             type="button"
             className="ip-saq-btn"
@@ -376,6 +458,7 @@ export default function SuperAdminApprovalsPage() {
             {[
               { id: 'pending', label: 'Pending', count: meta.pending },
               { id: 'approved', label: 'Approved', count: null },
+              { id: 'suspended', label: 'Suspended', count: meta.suspended },
               { id: 'rejected', label: 'Rejected', count: meta.rejected },
             ].map((t) => (
               <button
@@ -388,6 +471,7 @@ export default function SuperAdminApprovalsPage() {
               >
                 {t.id === 'pending' ? <Clock size={14} aria-hidden /> : null}
                 {t.id === 'approved' ? <Check size={14} aria-hidden /> : null}
+                {t.id === 'suspended' ? <PauseCircle size={14} aria-hidden /> : null}
                 {t.id === 'rejected' ? <X size={14} aria-hidden /> : null}
                 <span>
                   {t.label}
@@ -427,15 +511,13 @@ export default function SuperAdminApprovalsPage() {
               <thead>
                 <tr>
                   <th>
-                    {filter === 'pending' ? (
+                    {filter === 'pending' || filter === 'approved' || filter === 'suspended' ? (
                       <input
                         type="checkbox"
-                        aria-label="Select all pending"
+                        aria-label="Select all on this page"
                         checked={
-                          filtered.some((e) => e.approval_status === 'pending') &&
-                          filtered
-                            .filter((e) => e.approval_status === 'pending')
-                            .every((e) => selected.includes(e.id))
+                          selectableOnPage.length > 0 &&
+                          selectableOnPage.every((e) => selected.includes(e.id))
                         }
                         onChange={(e) => toggleAll(e.target.checked)}
                       />
@@ -453,7 +535,7 @@ export default function SuperAdminApprovalsPage() {
                 {pageItems.map((e) => (
                   <tr key={e.id}>
                     <td>
-                      {e.approval_status === 'pending' ? (
+                      {['pending', 'approved', 'suspended'].includes(String(e.approval_status || '')) ? (
                         <input
                           type="checkbox"
                           aria-label={`Select ${e.company_name}`}
@@ -544,11 +626,51 @@ export default function SuperAdminApprovalsPage() {
                               className="ip-saq-btn ip-saq-btn--icon ip-saq-btn--rose"
                               disabled={busy}
                               aria-label="Reject"
-                              onClick={() => {
-                                setRejectRow(e);
-                                setRejectPreset(REJECT_PRESETS[0]);
-                                setRejectNote('');
-                              }}
+                              onClick={() => openReject(e)}
+                            >
+                              <X size={14} />
+                            </button>
+                          </>
+                        ) : null}
+                        {e.approval_status === 'approved' ? (
+                          <>
+                            <button
+                              type="button"
+                              className="ip-saq-btn ip-saq-btn--sm"
+                              disabled={busy}
+                              onClick={() => confirmSuspend([e.id])}
+                            >
+                              <PauseCircle size={14} aria-hidden />
+                              Suspend
+                            </button>
+                            <button
+                              type="button"
+                              className="ip-saq-btn ip-saq-btn--icon ip-saq-btn--rose"
+                              disabled={busy}
+                              aria-label="Reject"
+                              onClick={() => openReject(e)}
+                            >
+                              <X size={14} />
+                            </button>
+                          </>
+                        ) : null}
+                        {e.approval_status === 'suspended' ? (
+                          <>
+                            <button
+                              type="button"
+                              className="ip-saq-btn ip-saq-btn--sm ip-saq-btn--emerald"
+                              disabled={busy}
+                              onClick={() => patchStatus([e.id], 'approved')}
+                            >
+                              <Check size={14} aria-hidden />
+                              Restore
+                            </button>
+                            <button
+                              type="button"
+                              className="ip-saq-btn ip-saq-btn--icon ip-saq-btn--rose"
+                              disabled={busy}
+                              aria-label="Reject"
+                              onClick={() => openReject(e)}
                             >
                               <X size={14} />
                             </button>
@@ -644,7 +766,7 @@ export default function SuperAdminApprovalsPage() {
                     className="ip-saq-btn ip-saq-btn--rose"
                     disabled={busy}
                     onClick={() => {
-                      setRejectRow(auditRow);
+                      openReject(auditRow);
                       setAuditRow(null);
                     }}
                   >
@@ -657,6 +779,52 @@ export default function SuperAdminApprovalsPage() {
                     onClick={() => patchStatus([auditRow.id], 'approved')}
                   >
                     Approve employer
+                  </button>
+                </>
+              ) : null}
+              {auditRow.approval_status === 'approved' ? (
+                <>
+                  <button
+                    type="button"
+                    className="ip-saq-btn"
+                    disabled={busy}
+                    onClick={() => confirmSuspend([auditRow.id])}
+                  >
+                    Suspend
+                  </button>
+                  <button
+                    type="button"
+                    className="ip-saq-btn ip-saq-btn--rose"
+                    disabled={busy}
+                    onClick={() => {
+                      openReject(auditRow);
+                      setAuditRow(null);
+                    }}
+                  >
+                    Reject…
+                  </button>
+                </>
+              ) : null}
+              {auditRow.approval_status === 'suspended' ? (
+                <>
+                  <button
+                    type="button"
+                    className="ip-saq-btn ip-saq-btn--rose"
+                    disabled={busy}
+                    onClick={() => {
+                      openReject(auditRow);
+                      setAuditRow(null);
+                    }}
+                  >
+                    Reject…
+                  </button>
+                  <button
+                    type="button"
+                    className="ip-saq-btn ip-saq-btn--emerald"
+                    disabled={busy}
+                    onClick={() => patchStatus([auditRow.id], 'approved')}
+                  >
+                    Restore employer
                   </button>
                 </>
               ) : null}

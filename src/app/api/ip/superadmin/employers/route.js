@@ -61,7 +61,7 @@ export async function GET(request) {
 
   if (!withMeta) return jsonOk({ items });
 
-  const [pending, approvedWeek, rejected] = await Promise.all([
+  const [pending, approvedWeek, rejected, suspended] = await Promise.all([
     query(`SELECT count(*)::int AS n FROM ip_employers WHERE approval_status = 'pending'`),
     query(
       `SELECT count(*)::int AS n FROM ip_employers
@@ -69,6 +69,7 @@ export async function GET(request) {
          AND coalesce(approval_reviewed_at, updated_at) >= now() - interval '7 days'`,
     ),
     query(`SELECT count(*)::int AS n FROM ip_employers WHERE approval_status = 'rejected'`),
+    query(`SELECT count(*)::int AS n FROM ip_employers WHERE approval_status = 'suspended'`),
   ]);
 
   const triage = await query(
@@ -85,6 +86,7 @@ export async function GET(request) {
       pending: pending.rows[0].n,
       approvedThisWeek: approvedWeek.rows[0].n,
       rejected: rejected.rows[0].n,
+      suspended: suspended.rows[0].n,
       avgTriageHours: triage.rows[0]?.hours != null ? Number(triage.rows[0].hours) : null,
     },
   });
