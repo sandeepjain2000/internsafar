@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import IpUploadButton from '@/components/ip/IpUploadButton';
-import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import SearchableSelect from '@/components/ip/SearchableSelect';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
 import useIpCountryCatalog from '@/hooks/useIpCountryCatalog';
@@ -546,16 +545,15 @@ export default function EmployerProfilePage() {
           <div className="ip-ep-stack">
             <div className="ip-ep-grid">
               <Field label="HQ Country">
-                <SearchableMultiSelect
+                <SearchableSelect
                   options={countryOptions}
-                  value={form.hq_country ? [form.hq_country] : ['India']}
-                  onChange={(next) => {
-                    const pick = next.length ? next[next.length - 1] : 'India';
+                  value={form.hq_country || 'India'}
+                  onChange={(pick) => {
+                    const next = String(pick || '').trim() || 'India';
                     setForm((f) => {
                       const prev = String(f.hq_country || 'India').trim();
-                      const changed = String(pick || '').trim() !== prev;
-                      if (!changed) return { ...f, hq_country: pick };
-                      return { ...f, hq_country: pick, hq_state: '', hq_city: '' };
+                      if (next === prev) return { ...f, hq_country: next };
+                      return { ...f, hq_country: next, hq_state: '', hq_city: '' };
                     });
                   }}
                   placeholder="Search countries…"
