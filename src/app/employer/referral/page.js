@@ -29,6 +29,9 @@ import {
   IpTableFiltersShell,
 } from '@/components/ip/IpTableFiltersShell';
 import { IpListLoading } from '@/components/ip/IpListStatus';
+import { PhoneOnlyNote, PhoneOnlyTag } from '@/components/ip/PhoneOnlyShare';
+import { isPhoneShareDevice, phoneOnlyShareMessage } from '@/lib/ipShareDevice';
+import { usePhoneShareDevice } from '@/hooks/usePhoneShareDevice';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { POINTS_PER_POST, REFERRAL_POINTS } from '@/lib/pointsEconomy';
 import '@/components/ip/ip-employer-referral-gemini.css';
@@ -121,6 +124,8 @@ export default function EmployerReferralPage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState('');
+  const [phoneNote, setPhoneNote] = useState('');
+  const onPhone = usePhoneShareDevice();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('All');
   const [cols, setCols] = useState(EMPTY_COLS);
@@ -227,6 +232,16 @@ export default function EmployerReferralPage() {
         `Join PlacementHub to post internships and hire verified talent: ${link}`,
       )}`
     : '#';
+
+  function guardPhoneShare(e, channel) {
+    if (isPhoneShareDevice()) {
+      setPhoneNote('');
+      if (link) showToast(`Opening ${channel}${channel === 'LinkedIn' ? ' share' : ''}…`);
+      return;
+    }
+    e.preventDefault();
+    setPhoneNote(phoneOnlyShareMessage(channel));
+  }
 
   function openInviteMail(e) {
     e?.preventDefault?.();
@@ -354,6 +369,9 @@ export default function EmployerReferralPage() {
         <p className="ip-er-card__intro">
           Share this URL to receive reward points automatically upon company sign up (
           {REFERRAL_POINTS} pts per verified referral).
+          {onPhone === false
+            ? ' LinkedIn and WhatsApp sharing works from your phone. On a laptop, copy the link or send a direct email.'
+            : null}
         </p>
 
         <div className="ip-er-link-row">
@@ -371,24 +389,28 @@ export default function EmployerReferralPage() {
           <span className="ip-er-share-label">Quick Share to Network:</span>
           <div className="ip-er-share">
             <a
-              className="ip-er-share--li"
+              className={`ip-er-share--li${onPhone === false ? ' ip-phone-only-off' : ''}`}
+              aria-disabled={onPhone === false || undefined}
               href={liHref}
               target="_blank"
               rel="noreferrer"
-              onClick={() => link && showToast('Opening LinkedIn share…')}
+              onClick={(e) => guardPhoneShare(e, 'LinkedIn')}
             >
               <Share2 size={14} aria-hidden />
               LinkedIn
+              {onPhone === false ? <PhoneOnlyTag /> : null}
             </a>
             <a
-              className="ip-er-share--wa"
+              className={`ip-er-share--wa${onPhone === false ? ' ip-phone-only-off' : ''}`}
+              aria-disabled={onPhone === false || undefined}
               href={waHref}
               target="_blank"
               rel="noreferrer"
-              onClick={() => link && showToast('Opening WhatsApp…')}
+              onClick={(e) => guardPhoneShare(e, 'WhatsApp')}
             >
               <MessageCircle size={14} aria-hidden />
               WhatsApp
+              {onPhone === false ? <PhoneOnlyTag /> : null}
             </a>
             <button type="button" className="ip-er-share--mail" onClick={() => setShowInvite(true)} disabled={!link}>
               <Mail size={14} aria-hidden />
@@ -396,6 +418,7 @@ export default function EmployerReferralPage() {
             </button>
           </div>
         </div>
+        <PhoneOnlyNote message={phoneNote} onClose={() => setPhoneNote('')} />
 
         <p className="ip-er-steps-label">How Referral Rewards Work</p>
         <div className="ip-er-steps">
@@ -404,7 +427,11 @@ export default function EmployerReferralPage() {
               <div className="ip-er-step__n">1</div>
               <h4>Send Invitation</h4>
             </div>
-            <p>Share your custom referral link via WhatsApp, LinkedIn, email, or direct messages.</p>
+            <p>
+              {onPhone === false
+                ? 'Copy your link or email it. To share on WhatsApp or LinkedIn, open this page on your phone.'
+                : 'Share your custom referral link via WhatsApp, LinkedIn, email, or direct messages.'}
+            </p>
           </div>
           <div className="ip-er-step">
             <div className="ip-er-step__head">

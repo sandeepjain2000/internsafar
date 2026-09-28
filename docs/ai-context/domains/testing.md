@@ -103,6 +103,8 @@ Specs under `qa/tests/`: `auth.spec.js`, `google-auth.spec.js`, `regression.spec
 
 **Baseline product notes (2026-09-25):** Posting Share Rewards (not LinkedIn promos / Viral SA UI); withdraw then re-apply allowed while posting open (IS-065/066; seeds employer posting when core candidate has no applied/pending); session-refresh in regression suite; SA dashboard metric labels are definitional (not one shared “pending”).
 
+**Workbook re-sync (2026-09-28):** `scripts/sync-internsafar-xlsx-2026-09-28.py` removed retired rows (candidate form path, employer manual requests / Google domain register, SA Form Registrations / Manual Requests queues, resume links, viral), rewrote stale rows (SA on `/`, core accounts, six candidate profile tabs + required phone, browse tabs Unapplied default, xlsx/zip exports, approvals tabs), added email-verify / Hybrid E / sticky approval / Suspend-Restore-Reject / Reset Ethics / ethics lock / Adjust Points / Publish-last-tab cases. Regression IS-067…IS-078 cover the automatable ones (mapping in `scripts/apply-playwright-regression-xlsx.mjs`). Audit: `reviews/excel-qa-tier-audit-2026-09-28.md`.
+
 AWS vs local: `qa/docs/AWS-QA-NOTES.txt`. Playbook: `qa/docs/internsafar-runner-playbook.md`.
 
 ## Prompts pack

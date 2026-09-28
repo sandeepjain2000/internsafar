@@ -40,6 +40,9 @@ import {
   IpTableFiltersShell,
 } from '@/components/ip/IpTableFiltersShell';
 import { IpListLoading } from '@/components/ip/IpListStatus';
+import { PhoneOnlyNote, PhoneOnlyTag } from '@/components/ip/PhoneOnlyShare';
+import { isPhoneShareDevice, phoneOnlyShareMessage } from '@/lib/ipShareDevice';
+import { usePhoneShareDevice } from '@/hooks/usePhoneShareDevice';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import '@/components/ip/ip-candidate-referral-gemini.css';
@@ -159,6 +162,8 @@ export default function CandidateReferralPage() {
   const [refFiltersOpen, setRefFiltersOpen] = useState(false);
   const [ledgerFiltersOpen, setLedgerFiltersOpen] = useState(false);
   const [modal, setModal] = useState(null);
+  const [phoneNote, setPhoneNote] = useState('');
+  const onPhone = usePhoneShareDevice();
 
   const snapshot = useMemo(
     () => ({ filters: { filter, refCols, ledgerCols }, sort: '' }),
@@ -328,6 +333,15 @@ export default function CandidateReferralPage() {
     window.setTimeout(() => setCopied(false), 2000);
   }
 
+  function guardPhoneShare(e, channel) {
+    if (isPhoneShareDevice()) {
+      setPhoneNote('');
+      return;
+    }
+    e.preventDefault();
+    setPhoneNote(phoneOnlyShareMessage(channel));
+  }
+
   function copyInvite() {
     if (!link) return;
     navigator.clipboard?.writeText(inviteBody(link));
@@ -437,6 +451,9 @@ export default function CandidateReferralPage() {
             <p>
               Share this link with eligible candidates. Gmail signups credit immediately. Form
               signups credit after SuperAdmin approval.
+              {onPhone === false
+                ? ' WhatsApp and LinkedIn sharing works from your phone. On a laptop, copy the link or share by email.'
+                : null}
             </p>
           </div>
           <span className="ip-cr-chip ip-cr-chip--brand">
@@ -470,13 +487,15 @@ export default function CandidateReferralPage() {
 
         <label className="ip-cr-label">Quick Share Options</label>
         <div className="ip-cr-share">
-          <a className="ip-cr-share--wa" href={waHref} target="_blank" rel="noreferrer">
+          <a className={`ip-cr-share--wa${onPhone === false ? ' ip-phone-only-off' : ''}`} aria-disabled={onPhone === false || undefined} href={waHref} target="_blank" rel="noreferrer" onClick={(e) => guardPhoneShare(e, 'WhatsApp')}>
             <MessageCircle size={16} aria-hidden />
             Share on WhatsApp
+            {onPhone === false ? <PhoneOnlyTag /> : null}
           </a>
-          <a className="ip-cr-share--li" href={liHref} target="_blank" rel="noreferrer">
+          <a className={`ip-cr-share--li${onPhone === false ? ' ip-phone-only-off' : ''}`} aria-disabled={onPhone === false || undefined} href={liHref} target="_blank" rel="noreferrer" onClick={(e) => guardPhoneShare(e, 'LinkedIn')}>
             <LinkedinMark />
             Share on LinkedIn
+            {onPhone === false ? <PhoneOnlyTag /> : null}
           </a>
           <a className="ip-cr-share--mail" href={mailHref}>
             <Mail size={16} aria-hidden />
@@ -487,6 +506,7 @@ export default function CandidateReferralPage() {
             Preview Invite Message
           </button>
         </div>
+        <PhoneOnlyNote message={phoneNote} onClose={() => setPhoneNote('')} />
       </div>
 
       <div className="ip-cr-split">
@@ -503,7 +523,11 @@ export default function CandidateReferralPage() {
               <div className="ip-cr-step__n">1</div>
               <div>
                 <h3>Share Invite Link</h3>
-                <p>Send your unique link via WhatsApp, LinkedIn, or email.</p>
+                <p>
+                  {onPhone === false
+                    ? 'Copy your link or email it. To share on WhatsApp or LinkedIn, open this page on your phone.'
+                    : 'Send your unique link via WhatsApp, LinkedIn, or email.'}
+                </p>
               </div>
               <em>Step 1</em>
             </div>
@@ -610,9 +634,8 @@ export default function CandidateReferralPage() {
             ))}
           </div>
         </div>
-        <ListPresetsBar {...prefs} />
-
         <IpTableFiltersShell
+          toolbar={<ListPresetsBar {...prefs} />}
           open={refFiltersOpen}
           onToggle={() => setRefFiltersOpen((v) => !v)}
           activeCount={refActive}
@@ -769,9 +792,8 @@ export default function CandidateReferralPage() {
           </div>
         </div>
 
-        <ListPresetsBar {...prefs} />
-
         <IpTableFiltersShell
+          toolbar={<ListPresetsBar {...prefs} />}
           open={ledgerFiltersOpen}
           onToggle={() => setLedgerFiltersOpen((v) => !v)}
           activeCount={ledgerActive}

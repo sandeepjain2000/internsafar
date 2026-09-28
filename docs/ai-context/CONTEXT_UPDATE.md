@@ -1,23 +1,34 @@
 # Context update policy
 
-## Update `docs/ai-context/**` when there is a confirmed change to
+The pack is tracked in git (pushed to GitHub with the app) and excluded from Vercel uploads via `.vercelignore`.
+The always-loaded entry point `AGENTS.md` (app root) makes updating it **mandatory in the same task** as the code change.
 
-- Major architecture or domain boundaries
-- Auth / session model
-- Database conventions or migrate gates
-- Deploy Path B/C rules
-- Stable product decisions
-- Project-wide agent conventions
-- Folder / route map when new top-level areas or role pages land
+## Update `docs/ai-context/**` when a change adds, removes, or changes
+
+- A feature or role behaviour (candidate / employer / superadmin flows, approvals, points, offers, messages)
+- A page route or `src/app/api/ip/**` endpoint (path, auth/role check, request/response contract)
+- DB schema: migration, table, column, status value, apply order (`scripts/MIGRATION_MANIFEST.txt`)
+- Auth / session / registration / verification / login rules
+- Env var **names** (never values), npm scripts, QA commands
+- Deploy Path B/C rules or AWS schema-gap status
+- Stable product decisions (→ `DECISIONS.md`)
+- Major architecture, domain boundaries, project-wide agent conventions
+- Folder / route map when new areas or role pages land
 - Related-folder map if workspace folders move/rename
 
 ## Do not update for
 
-- Isolated CSS / copy tweaks
-- Ordinary bug fixes
+- Pure CSS / copy tweaks
+- Bug fixes that do not change behaviour or contracts
 - Temporary debugging
 - Speculative ideas
-- Every PR or chat
+
+## Before any `git push` or Vercel deploy (user must have asked for it)
+
+1. Review the diff being shipped against the “update when” list above.
+2. If anything applies and the pack is not yet updated: update the affected file(s), bump dates, rebuild the zip.
+3. Ship pack + zip in the **same commit / push** as the code they describe.
+4. Report `AI context: updated <files>` or `AI context: no update needed (<reason>)`.
 
 ## How to update
 
@@ -50,7 +61,7 @@ When giving the zip to another AI:
 2. Tell the recipient: start at `README.md`, then `PROJECT_INDEX.md`, then `FOLDER_STRUCTURE.md`.
 3. Remind them the app source is **not** inside the zip — they need sibling `internship-portal/` to edit code.
 
-Last zip rebuild: **2026-09-26**.
+Last zip rebuild: **2026-09-28**.
 
 ## Skills
 

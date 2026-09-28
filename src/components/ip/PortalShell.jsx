@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { signOutAndEndSession } from '@/lib/ipClientSignOut';
 import { readResponseJson } from '@/lib/readResponseJson';
+import { NAV_BADGES_REFRESH_EVENT } from '@/lib/ipNavBadges';
 import {
   Activity,
   Award,
@@ -99,11 +100,16 @@ export default function PortalShell({
   }, []);
 
   useEffect(() => {
-    if (status !== 'authenticated') return;
-    fetch('/api/ip/nav-badges')
-      .then((r) => readResponseJson(r, {}))
-      .then((d) => setNavBadges(d.badges || {}))
-      .catch(() => {});
+    if (status !== 'authenticated') return undefined;
+    const loadBadges = () => {
+      fetch('/api/ip/nav-badges')
+        .then((r) => readResponseJson(r, {}))
+        .then((d) => setNavBadges(d.badges || {}))
+        .catch(() => {});
+    };
+    loadBadges();
+    window.addEventListener(NAV_BADGES_REFRESH_EVENT, loadBadges);
+    return () => window.removeEventListener(NAV_BADGES_REFRESH_EVENT, loadBadges);
   }, [status, pathname]);
 
   useEffect(() => {
@@ -304,11 +310,7 @@ export default function PortalShell({
                     <span
                       className={cn(
                         'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
-                        badgeHot
-                          ? 'bg-amber-100 text-amber-800'
-                          : /notif/i.test(item.label)
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted text-muted-foreground',
+                        badgeHot ? 'bg-amber-100 text-amber-800' : 'bg-primary text-primary-foreground',
                       )}
                     >
                       {badge}

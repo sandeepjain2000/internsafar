@@ -38,13 +38,15 @@ export async function GET(request) {
 
   if (!withMeta) return jsonOk({ items });
 
-  const unread = items.filter((n) => !n.read_at).length;
+  const inbox = items.filter((n) => !n.archived_at);
+  const unread = inbox.filter((n) => !n.read_at).length;
   return jsonOk({
     items,
     meta: {
-      total: items.length,
+      total: inbox.length,
       unresolved: unread,
-      resolved: items.length - unread,
+      resolved: inbox.length - unread,
+      archived: items.length - inbox.length,
     },
   });
 }
@@ -72,6 +74,21 @@ export async function PATCH(request) {
       : [];
   if (!ids.length) return jsonError('id, ids, or markAllRead is required');
 
+  if (typeof body.archive === 'boolean') {
+    await ensureIpNotificationCategorySchema();
+    const moved = await query(
+      body.archive
+        ? `UPDATE ip_notifications SET archived_at = now()
+           WHERE user_id = $1 AND id = ANY($2::text[]) AND archived_at IS NULL
+           RETURNING id`
+        : `UPDATE ip_notifications SET archived_at = NULL
+           WHERE user_id = $1 AND id = ANY($2::text[]) AND archived_at IS NOT NULL
+           RETURNING id`,
+      [session.user.id, ids],
+    );
+    return jsonOk({ ok: true, processed: moved.rows.length });
+  }
+
   const result = await query(
     `UPDATE ip_notifications
      SET read_at = now()
@@ -85,6 +102,9 @@ export async function PATCH(request) {
 export async function DELETE(request) {
   const { session, error } = await requireSession(['candidate', 'employer', 'superadmin']);
   if (error) return error;
+  if (session.user.role !== 'superadmin') {
+    return jsonError('Only SuperAdmin can delete notifications. Archive them instead.', 403);
+  }
   let body = {};
   try {
     body = await request.json();

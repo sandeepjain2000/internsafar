@@ -436,8 +436,8 @@ export default function EmployerInternshipsPage() {
           </div>
         </div>
         <div className="px-4 pb-3">
-          <ListPresetsBar {...prefs} />
           <IpTableFiltersShell
+            toolbar={<ListPresetsBar {...prefs} />}
             open={filtersOpen}
             onToggle={() => setFiltersOpen((v) => !v)}
             activeCount={colsActive}

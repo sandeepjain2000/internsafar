@@ -131,7 +131,7 @@ src/
 | Content | `/help`, `/ideas`, `/guidelines`, `/how-it-works` |
 | Candidate | `/candidate`, `/candidate/profile`, `/candidate/internships`, `/candidate/internships/[id]`, `/candidate/applications`, `/candidate/messages`, `/candidate/messages/[id]`, `/candidate/offers`, `/candidate/notifications`, `/candidate/referral` |
 | Employer | `/employer`, `/employer/profile`, `/employer/internships`, `/employer/internships/new`, `/employer/internships/[id]`, `/employer/internships/[id]/edit`, `/employer/candidates`, `/employer/candidates/[id]`, `/employer/messages`, `/employer/messages/[id]`, `/employer/offers`, `/employer/notifications`, `/employer/analytics`, `/employer/rejection-templates`, `/employer/referral`, `/employer/viral` (redirect → referral) |
-| SuperAdmin | `/superadmin`, `/superadmin/login`, `/superadmin/approvals`, `/superadmin/requests`, `/superadmin/documents`, `/superadmin/postings`, `/superadmin/promotions` (Posting Share Rewards), `/superadmin/points` (Adjust Points), `/superadmin/viral` (redirect → dashboard; UI removed), `/superadmin/login-report`, `/superadmin/messages`, `/superadmin/form-registrations`, `/superadmin/feature-ideas` |
+| SuperAdmin | `/superadmin`, `/superadmin/approvals`, `/superadmin/documents`, `/superadmin/postings`, `/superadmin/promotions` (Posting Share Rewards), `/superadmin/points` (Adjust Points), `/superadmin/login-report`, `/superadmin/listing-reports`, `/superadmin/messages`, `/superadmin/feature-ideas`. Redirect-only: `/superadmin/login` → `/`, `/superadmin/requests` + `/superadmin/form-registrations` → approvals, `/superadmin/viral` → dashboard |
 
 Nav labels/order: `src/lib/ipNav.js`.
 

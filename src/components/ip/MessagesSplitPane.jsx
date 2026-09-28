@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { compileSearch, matchesCompiledSearch } from '@/lib/ipWildcardSearch';
 import {
   Archive,
   Calendar,
@@ -333,6 +334,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
   const [tab, setTab] = useState('all');
   const [sort, setSort] = useState('newest');
   const [search, setSearch] = useState('');
+  const [searchMode, setSearchMode] = useState('all');
   const [selectedId, setSelectedId] = useState(threadFromUrl);
   const [thread, setThread] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -350,8 +352,8 @@ export default function MessagesSplitPane({ role = 'employer' }) {
   const [pickedIds, setPickedIds] = useState([]);
 
   const snapshot = useMemo(
-    () => ({ filters: { tab, search, cols }, sort }),
-    [tab, search, sort, cols],
+    () => ({ filters: { tab, search, searchMode, cols }, sort }),
+    [tab, search, searchMode, sort, cols],
   );
   const prefs = useListPrefsSync({
     tableKey: isEmployer ? 'employer.messages' : 'candidate.messages',
@@ -360,6 +362,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
       const f = s.filters || {};
       if (f.tab) setTab(f.tab);
       if (f.search != null) setSearch(f.search);
+      setSearchMode(f.searchMode === 'any' ? 'any' : 'all');
       if (s.sort) setSort(s.sort);
       // Older saved views may omit cols or still use employer key `candidate`.
       setCols(normalizeCols(f.cols));
@@ -438,7 +441,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
   }, [threadFromUrl]);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const terms = compileSearch(search);
     const rows = threads.filter((t) => {
       // 'archived' is filtered server-side via ?archived=1; the rest narrow here.
       if (tab === 'unread' && !(Number(t.unread_count) > 0)) return false;
@@ -459,15 +462,15 @@ export default function MessagesSplitPane({ role = 'employer' }) {
         }
       }
       if (!withinWhen(t.last_message_at || t.updated_at, cols.when)) return false;
-      if (!q) return true;
-      const hay = `${counterpartName(t, role)} ${t.internship_title || ''} ${t.subject || ''} ${t.last_message || ''} ${t.candidate_college || ''} ${t.employer_name || ''} ${t.company_name || ''}`.toLowerCase();
-      return hay.includes(q);
+      if (!terms.length) return true;
+      const hay = `${counterpartName(t, role)} ${roleLine(t)} ${t.internship_title || ''} ${t.subject || ''} ${t.last_message || ''} ${t.candidate_college || ''} ${t.employer_name || ''} ${t.company_name || ''}`;
+      return matchesCompiledSearch(hay, terms, searchMode);
     });
     if (sort === 'oldest') {
       return [...rows].reverse();
     }
     return rows;
-  }, [threads, search, tab, role, sort, cols]);
+  }, [threads, search, searchMode, tab, role, sort, cols]);
 
   const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(
     filtered,
@@ -475,11 +478,32 @@ export default function MessagesSplitPane({ role = 'employer' }) {
   );
   useEffect(() => {
     setPage(1);
-  }, [tab, search, sort, cols, setPage]);
+  }, [tab, search, searchMode, sort, cols, setPage]);
 
   useEffect(() => {
     setPickedIds([]);
-  }, [tab, search, sort, cols, page]);
+  }, [tab, search, searchMode, sort, cols, page]);
+
+  const searchModeToggle = (
+    <div className="ip-cm-match" role="group" aria-label="Match search words">
+      {[
+        ['all', 'All words', 'Show conversations that contain every word (AND)'],
+        ['any', 'Any word', 'Show conversations that contain at least one word (OR)'],
+      ].map(([key, label, hint]) => (
+        <button
+          key={key}
+          type="button"
+          className={`ip-cm-match__btn${searchMode === key ? ' is-on' : ''}`}
+          aria-pressed={searchMode === key}
+          title={hint}
+          onClick={() => setSearchMode(key)}
+          data-testid={`msg-search-mode-${key}`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
 
   const loadThread = useCallback(
     async (id) => {
@@ -674,15 +698,19 @@ export default function MessagesSplitPane({ role = 'employer' }) {
         <div className="ip-cm-split">
           <aside className="ip-cm-list">
             <div className="ip-cm-list-head">
-              <div className="ip-cm-search">
-                <Search aria-hidden />
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search conversations…"
-                  aria-label="Search conversations"
-                />
+              <div className="ip-cm-search-row">
+                <div className="ip-cm-search">
+                  <Search aria-hidden />
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search employer, internship… (use * as wildcard)"
+                    aria-label="Search conversations"
+                    title="Separate words with spaces. * matches anything, e.g. Nov* intern*. Use quotes for an exact phrase."
+                  />
+                </div>
+                {searchModeToggle}
               </div>
               <div className="ip-cm-tabs-row">
                 <div className="ip-cm-tabs">
@@ -713,9 +741,6 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                   <option value="oldest">Oldest</option>
                 </select>
               </div>
-              <div className="ip-cm-presets">
-                <ListPresetsBar {...prefs} />
-              </div>
               <div className="ip-cm-adv">
                 <button
                   type="button"
@@ -737,6 +762,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                     Clear
                   </button>
                 ) : null}
+                <ListPresetsBar {...prefs} />
               </div>
               {showFilters ? (
                 <div className="ip-cm-adv-grid">
@@ -1134,15 +1160,19 @@ export default function MessagesSplitPane({ role = 'employer' }) {
       <div className="ip-cm-split">
         <aside className="ip-cm-list">
           <div className="ip-cm-list-head">
-            <div className="ip-cm-search">
-              <Search aria-hidden />
-              <input
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search candidates or roles..."
-                aria-label="Search conversations"
-              />
+            <div className="ip-cm-search-row">
+              <div className="ip-cm-search">
+                <Search aria-hidden />
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search candidate, internship… (use * as wildcard)"
+                  aria-label="Search conversations"
+                  title="Separate words with spaces. * matches anything, e.g. Pri* intern*. Use quotes for an exact phrase."
+                />
+              </div>
+              {searchModeToggle}
             </div>
             <div className="ip-cm-tabs-row">
               <div className="ip-cm-tabs">
@@ -1195,6 +1225,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                   Clear
                 </button>
               ) : null}
+              <ListPresetsBar {...prefs} />
             </div>
 
             {showFilters ? (
@@ -1261,9 +1292,6 @@ export default function MessagesSplitPane({ role = 'employer' }) {
               </div>
             ) : null}
 
-            <div className="px-3 pb-2">
-              <ListPresetsBar {...prefs} />
-            </div>
             {filtered.length ? (
               <div className="ip-cm-bulk px-3 pb-2" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
                 <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', fontWeight: 700 }}>

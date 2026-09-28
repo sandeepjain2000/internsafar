@@ -428,8 +428,8 @@ export default function MyApplicationsPage() {
             </select>
           </label>
         </div>
-        <ListPresetsBar {...prefs} selectionResetKey={presetResetKey} />
         <IpTableFiltersShell
+          toolbar={<ListPresetsBar {...prefs} selectionResetKey={presetResetKey} />}
           open={filtersOpen}
           onToggle={() => setFiltersOpen((v) => !v)}
           activeCount={colsActive}

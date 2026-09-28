@@ -67,13 +67,16 @@ export async function PATCH(request, { params }) {
     const sets = [];
     const values = [];
     let notifyStatus = null;
+    const current = await query(`SELECT status, admin_note FROM ip_feature_ideas WHERE id = $1`, [id]);
+    if (!current.rows[0]) continue;
+    const prev = current.rows[0];
 
     if (body.status !== undefined) {
       const status = normalizeStatus(body.status);
       if (!status) return jsonError(`status must be one of ${ALLOWED.join(', ')}`);
       values.push(status);
       sets.push(`status = $${values.length}`);
-      notifyStatus = status;
+      if (status !== prev.status) notifyStatus = status;
     }
     if (body.priority !== undefined) {
       const priority = normalizePriority(body.priority);
@@ -98,7 +101,9 @@ export async function PATCH(request, { params }) {
     const row = result.rows[0];
     if (!row) continue;
     processed += 1;
-    const noteChanged = body.adminNote !== undefined || body.admin_note !== undefined;
+    const noteSent = body.adminNote !== undefined || body.admin_note !== undefined;
+    const nextNote = String(body.adminNote ?? body.admin_note ?? '').trim();
+    const noteChanged = noteSent && nextNote !== String(prev.admin_note ?? '').trim();
     const followers = await query(`SELECT user_id FROM ip_feature_idea_follows WHERE idea_id = $1`, [id]);
     const followerIds = new Set(followers.rows.map((f) => f.user_id));
     if (notifyStatus && row.author_user_id) {

@@ -65,16 +65,19 @@ function buildPoolConfig() {
   }
 }
 
-let pool;
+// Next dev bundles each route separately; one process-wide pool keeps the
+// session pooler under its client cap instead of one pool per route bundle.
+const POOL_KEY = Symbol.for('internship-portal.pgPool');
 
 function getPool() {
-  if (!pool) {
-    pool = new Pool(buildPoolConfig());
+  if (!globalThis[POOL_KEY]) {
+    const pool = new Pool(buildPoolConfig());
     pool.on('error', (err) => {
       console.error('Unexpected error on idle PostgreSQL client', err);
     });
+    globalThis[POOL_KEY] = pool;
   }
-  return pool;
+  return globalThis[POOL_KEY];
 }
 
 export async function query(text, params) {

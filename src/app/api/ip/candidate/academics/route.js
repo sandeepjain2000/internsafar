@@ -2,6 +2,7 @@ import { query, withClient } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { ensureIpCandidateProfileSchema } from '@/lib/ensureIpCandidateProfileSchema';
+import { academicYearError } from '@/lib/ipAcademicYear';
 
 /** ip_candidates.cgpa is NUMERIC(4,2) — first academic row is synced there. */
 const MAX_PROFILE_CGPA = 99.99;
@@ -48,6 +49,11 @@ export async function PUT(request) {
   const cand = await query(`SELECT id FROM ip_candidates WHERE user_id = $1`, [session.user.id]);
   if (!cand.rows[0]) return jsonError('Profile not found', 404);
   const candidateId = cand.rows[0].id;
+
+  for (let i = 0; i < items.length; i += 1) {
+    const yearError = academicYearError(items[i]?.graduation_year);
+    if (yearError) return jsonError(`Education row ${i + 1}: ${yearError}`, 400);
+  }
 
   // Pre-check primary CGPA so the candidate sees a clear message (not a generic catch-all).
   const firstNonEmpty = items.find((row) => {

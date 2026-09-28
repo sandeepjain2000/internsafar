@@ -11,5 +11,6 @@ coreaccountspass.json
 # Local Cursor AI context (not for deploy)
 .cursor/
 docs/ai-context/
+docs/internsafar-ai-context.zip
 # Local prompt libraries (not for deploy)
 prompts/

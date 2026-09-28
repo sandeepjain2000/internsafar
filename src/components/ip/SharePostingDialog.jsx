@@ -13,6 +13,9 @@ import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { PhoneOnlyTag } from '@/components/ip/PhoneOnlyShare';
+import { isPhoneShareDevice, phoneOnlyShareMessage } from '@/lib/ipShareDevice';
+import { usePhoneShareDevice } from '@/hooks/usePhoneShareDevice';
 
 function BrandIcon({ src, alt }) {
   return (
@@ -40,6 +43,8 @@ export default function SharePostingDialog({
   const [token, setToken] = useState('');
   const [claimUrl, setClaimUrl] = useState('');
   const [localError, setLocalError] = useState('');
+  const [phoneNote, setPhoneNote] = useState('');
+  const onPhone = usePhoneShareDevice();
 
   useEffect(() => {
     if (!open) {
@@ -47,11 +52,27 @@ export default function SharePostingDialog({
       setToken('');
       setClaimUrl('');
       setLocalError('');
+      setPhoneNote('');
     }
   }, [open]);
 
+  function blockedOnLaptop(channel) {
+    if (isPhoneShareDevice()) {
+      setPhoneNote('');
+      return false;
+    }
+    setPhoneNote(phoneOnlyShareMessage(channel, { canCopy: false }));
+    return true;
+  }
+
+  function handleWhatsApp() {
+    if (blockedOnLaptop('WhatsApp')) return;
+    onWhatsApp?.();
+  }
+
   async function handleLinkedIn() {
     setLocalError('');
+    if (blockedOnLaptop('LinkedIn')) return;
     try {
       const data = await onStartLinkedInPromo?.();
       if (!data?.token) return;
@@ -81,6 +102,7 @@ export default function SharePostingDialog({
               <DialogTitle>Share Posting</DialogTitle>
               <DialogDescription>
                 Choose a channel. LinkedIn uses a unique posting share link so SuperAdmin can verify your post for reward points.
+                {onPhone === false ? ' WhatsApp and LinkedIn sharing works from your phone or tablet.' : null}
               </DialogDescription>
             </DialogHeader>
 
@@ -91,17 +113,25 @@ export default function SharePostingDialog({
               </Alert>
             ) : null}
 
+            {phoneNote ? (
+              <Alert data-testid="phone-only-share-note">
+                <AlertTitle>Use Your Phone To Share</AlertTitle>
+                <AlertDescription>{phoneNote}</AlertDescription>
+              </Alert>
+            ) : null}
+
             <div className="flex flex-col gap-2">
               <Button
                 type="button"
                 variant="outline"
-                className="h-auto justify-start gap-3 px-3 py-3 text-left"
+                className={`h-auto justify-start gap-3 px-3 py-3 text-left whitespace-normal${onPhone === false ? ' ip-phone-only-off' : ''}`}
+                aria-disabled={onPhone === false || undefined}
                 disabled={busy}
-                onClick={() => onWhatsApp?.()}
+                onClick={handleWhatsApp}
               >
                 <BrandIcon src="/brand/whatsapp.svg" alt="" />
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="font-semibold">WhatsApp</span>
+                  <span className="font-semibold">WhatsApp{onPhone === false ? <PhoneOnlyTag /> : null}</span>
                   <span className="text-muted-foreground text-xs font-normal">
                     Share the internship directly. No verification or reward claim.
                   </span>
@@ -111,13 +141,14 @@ export default function SharePostingDialog({
               <Button
                 type="button"
                 variant="outline"
-                className="h-auto justify-start gap-3 px-3 py-3 text-left"
+                className={`h-auto justify-start gap-3 px-3 py-3 text-left whitespace-normal${onPhone === false ? ' ip-phone-only-off' : ''}`}
+                aria-disabled={onPhone === false || undefined}
                 disabled={busy}
                 onClick={handleLinkedIn}
               >
                 <BrandIcon src="/brand/linkedin.svg" alt="" />
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="font-semibold">LinkedIn — Earn Reward Points</span>
+                  <span className="font-semibold">LinkedIn — Earn Reward Points{onPhone === false ? <PhoneOnlyTag /> : null}</span>
                   <span className="text-muted-foreground text-xs font-normal">
                     Share the unique posting link, then submit your live LinkedIn post URL for SuperAdmin verification.
                   </span>

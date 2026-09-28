@@ -9,7 +9,7 @@ Postgres access for InternSafar, `ip_*` schema, SQL migrations, migrate safety g
 | Path | Role |
 |------|------|
 | `src/lib/db.js` | `pg` pool — app queries must use **`ip_*` only** |
-| `db/migrations/` | Numbered SQL (prefer `*ip*`; latest **`044_ip_internship_stipend_range.sql`**) |
+| `db/migrations/` | Numbered SQL (prefer `*ip*`; latest **`045_ip_notification_archive.sql`**) |
 | `scripts/MIGRATION_MANIFEST.txt` | Apply order for Path C / sql-only |
 | `docs/ip-er-diagram-notes.md` | ER notes (synced through **039**; also see **040–044**) |
 | `docs/ip-er-diagram.puml` | PlantUML diagram |
@@ -31,6 +31,7 @@ Useful npm scripts: `db:migrate:ip`, `db:migrate:sql-only`, `db:migrate:workbenc
 | `042_ip_country_region_fields.sql` | Candidate `country`, employer `hq_country` |
 | `043_ip_ref_countries.sql` | `ip_ref_countries` catalog |
 | `044_ip_internship_stipend_range.sql` | `ip_internships.stipend_inr_max` (+ CHECK) |
+| `045_ip_notification_archive.sql` + `ensureIpNotificationCategorySchema` | `ip_notifications.archived_at` (NULL = Inbox; no blank-fill needed) |
 | `ensureIpEmployerDocumentSlotsSchema` | `superseded_at`, `doc_label`, file_size; dedupe; active-type unique index |
 | `ensureIpEmployerEmailVerifySchema` | Verify table + `email_verify_required` (**schema only**) |
 

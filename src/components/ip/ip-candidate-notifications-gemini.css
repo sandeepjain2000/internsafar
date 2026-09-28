@@ -567,6 +567,15 @@
   opacity: 0.5;
 }
 
+.ip-cand-nf .ip-cn-btn--move {
+  cursor: pointer;
+}
+
+.ip-cand-nf .ip-cn-btn--move:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .ip-cand-nf .ip-cn-row {
   display: grid;
   grid-template-columns: auto 1fr;

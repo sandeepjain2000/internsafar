@@ -39,7 +39,6 @@ AUTOMATED_IDS = {
     "TC-IS-01-005",
     "TC-IS-01-007",
     "TC-IS-02-001",
-    "TC-IS-02-015",
     "TC-IS-02-024",
     "TC-IS-02-025",
     "TC-IS-02-026",
@@ -174,11 +173,11 @@ NEW_CASES = [
         "Module / Section": "09 Employer Postings Pipeline",
         "Feature": "Employer dashboard",
         "Type": "Regression",
-        "Issue Summary": "Employer dashboard Action center sections visible",
+        "Issue Summary": "Employer dashboard Action center shows one priority action with count and link",
         "Description": "1. Sign in as core employer.\n2. Open `/employer`.\n3. Locate Action center.",
         "Suggestion / Expected Behaviour": (
-            "Action center shows Action required / Upcoming style sections "
-            "(data-testid=employer-action-center)."
+            "Action center card (data-testid=employer-action-center) shows a count and one priority hint "
+            "linking to /employer/profile or /employer/internships."
         ),
         "Role(s)": "Employer",
         "Preconditions": "Core employer",

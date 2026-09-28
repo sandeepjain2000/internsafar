@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
+  Archive,
+  ArchiveRestore,
   Check,
   CheckCheck,
   Inbox,
@@ -11,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import { refreshNavBadges } from '@/lib/ipNavBadges';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import IpListPager from '@/components/ip/IpListPager';
@@ -165,6 +168,8 @@ export default function CandidateNotificationsPage() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [markAllBusy, setMarkAllBusy] = useState(false);
   const [presetResetKey, setPresetResetKey] = useState(0);
+  const [folder, setFolder] = useState('inbox');
+  const toastTimerRef = useRef(null);
 
   const snapshot = useMemo(
     () => ({ filters: { search, cols }, sort: '' }),
@@ -197,21 +202,26 @@ export default function CandidateNotificationsPage() {
 
   function showToast(msg) {
     setToast(msg);
-    window.setTimeout(() => setToast(''), 2800);
+    window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(''), 2800);
   }
 
-  async function load() {
+  async function load({ badges = false } = {}) {
     const res = await fetch('/api/ip/notifications');
     const data = await res.json().catch(() => null);
     setItems(data?.items || []);
     setLoading(false);
+    if (badges) refreshNavBadges();
   }
 
   useEffect(() => {
     load();
   }, []);
 
-  const unreadCount = items.filter(isNotificationUnread).length;
+  const inboxItems = useMemo(() => items.filter((n) => !n.archived_at), [items]);
+  const archivedItems = useMemo(() => items.filter((n) => n.archived_at), [items]);
+  const folderItems = folder === 'archived' ? archivedItems : inboxItems;
+  const unreadCount = inboxItems.filter(isNotificationUnread).length;
   const colsActive = countActiveCols(cols);
 
   async function markAllRead() {
@@ -232,7 +242,7 @@ export default function CandidateNotificationsPage() {
         showToast(data.error || 'Could not mark notifications as read');
         return;
       }
-      await load();
+      await load({ badges: true });
       showToast('All notifications marked as read.');
     } finally {
       setMarkAllBusy(false);
@@ -245,12 +255,12 @@ export default function CandidateNotificationsPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     });
-    await load();
+    await load({ badges: true });
   }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return items.filter((n) => {
+    return folderItems.filter((n) => {
       if (cols.category && String(n.bucket || '') !== cols.category) return false;
       const unread = isNotificationUnread(n);
       if (cols.read === 'unread' && !unread) return false;
@@ -261,12 +271,19 @@ export default function CandidateNotificationsPage() {
       if (!q) return true;
       return `${n.title || ''} ${n.body || ''} ${n.company || ''} ${n.bucket || ''}`.toLowerCase().includes(q);
     });
-  }, [items, search, cols]);
+  }, [folderItems, search, cols]);
 
   const { page, setPage, totalPages, total, pageItems, pageSize, serialOffset } = useClientPagination(filtered, PAGE_SIZE);
   useEffect(() => {
     setPage(1);
-  }, [search, cols, setPage]);
+  }, [search, cols, folder, setPage]);
+
+  function switchFolder(next) {
+    if (next === folder) return;
+    setFolder(next);
+    setSelected(new Set());
+    setExpandedId(null);
+  }
 
   function resetFilters() {
     setCols(EMPTY_COLS);
@@ -294,24 +311,26 @@ export default function CandidateNotificationsPage() {
     });
   }
 
-  async function deleteSelected() {
+  async function moveSelected() {
     const ids = [...selected];
     if (!ids.length) return;
+    const archive = folder === 'inbox';
     setBulkBusy(true);
     try {
       const res = await fetch('/api/ip/notifications', {
-        method: 'DELETE',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids }),
+        body: JSON.stringify({ ids, archive }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showToast(data.error || 'Could not delete notifications');
+        showToast(data.error || (archive ? 'Could not archive notifications' : 'Could not move notifications'));
         return;
       }
       setSelected(new Set());
-      await load();
-      showToast(`Deleted ${data.deleted ?? ids.length} notification(s).`);
+      await load({ badges: true });
+      const n = data.processed ?? ids.length;
+      showToast(archive ? `Archived ${n} notification(s).` : `Moved ${n} notification(s) to Inbox.`);
     } finally {
       setBulkBusy(false);
     }
@@ -330,6 +349,9 @@ export default function CandidateNotificationsPage() {
   if (search || colsActive) {
     emptyTitle = 'No notifications found';
     emptyDesc = 'There are no notifications matching this search or filter.';
+  } else if (folder === 'archived') {
+    emptyTitle = 'No archived notifications';
+    emptyDesc = 'Select notifications in your Inbox and choose Archive selected to keep them here.';
   }
 
   return (
@@ -384,15 +406,15 @@ export default function CandidateNotificationsPage() {
             Showing:{' '}
             <strong style={{ color: '#0f172a' }}>
               {total
-                ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${items.length}`
-                : `0 of ${items.length}`}{' '}
-              notifications
+                ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${folderItems.length}`
+                : `0 of ${folderItems.length}`}{' '}
+              {folder === 'archived' ? 'archived' : 'notifications'}
             </strong>
           </div>
         </div>
 
-        <ListPresetsBar {...prefs} selectionResetKey={presetResetKey} />
         <IpTableFiltersShell
+          toolbar={<ListPresetsBar {...prefs} selectionResetKey={presetResetKey} />}
           open={filtersOpen}
           onToggle={() => setFiltersOpen((v) => !v)}
           activeCount={colsActive}
@@ -434,7 +456,60 @@ export default function CandidateNotificationsPage() {
             onTo={(dateTo) => setCols((c) => ({ ...c, dateTo }))}
           />
         </IpTableFiltersShell>
+        <div className="ip-cn-tabs" role="tablist" aria-label="Notification folders">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={folder === 'inbox'}
+            className={folder === 'inbox' ? 'is-on' : undefined}
+            onClick={() => switchFolder('inbox')}
+            data-testid="notif-folder-inbox"
+          >
+            <Inbox size={14} aria-hidden />
+            Inbox
+            <span className="ip-cn-tab-count">{inboxItems.length}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={folder === 'archived'}
+            className={folder === 'archived' ? 'is-on' : undefined}
+            onClick={() => switchFolder('archived')}
+            data-testid="notif-folder-archived"
+          >
+            <Archive size={14} aria-hidden />
+            Archived
+            <span className="ip-cn-tab-count">{archivedItems.length}</span>
+          </button>
+        </div>
       </div>
+
+      {!loading ? (
+        <div className="ip-cn-bulk">
+          <label className="ip-cn-bulk__all">
+            <input
+              type="checkbox"
+              checked={pageItems.length > 0 && pageItems.every((n) => selected.has(n.id))}
+              onChange={toggleSelectAllPage}
+              disabled={!pageItems.length}
+              aria-label="Select all on this page"
+            />
+            Select all
+          </label>
+          <button
+            type="button"
+            className="ip-cn-btn ip-cn-btn--move"
+            disabled={!selected.size || bulkBusy}
+            onClick={moveSelected}
+            data-testid="notif-bulk-move"
+          >
+            {folder === 'inbox' ? <Archive aria-hidden /> : <ArchiveRestore aria-hidden />}
+            {folder === 'inbox'
+              ? (bulkBusy ? 'Archiving…' : `Archive selected (${selected.size})`)
+              : (bulkBusy ? 'Moving…' : `Move to Inbox (${selected.size})`)}
+          </button>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="ip-cn-empty">
@@ -442,26 +517,6 @@ export default function CandidateNotificationsPage() {
         </div>
       ) : filtered.length ? (
         <>
-          <div className="ip-cn-bulk">
-            <label className="ip-cn-bulk__all">
-              <input
-                type="checkbox"
-                checked={pageItems.length > 0 && pageItems.every((n) => selected.has(n.id))}
-                onChange={toggleSelectAllPage}
-                aria-label="Select all on this page"
-              />
-              Select all
-            </label>
-            <button
-              type="button"
-              className="ip-cn-btn ip-cn-btn--danger"
-              disabled={!selected.size || bulkBusy}
-              onClick={deleteSelected}
-            >
-              {bulkBusy ? 'Deleting…' : `Delete selected (${selected.size})`}
-            </button>
-          </div>
-
           <div className="ip-ph-list-wrap ip-cn-table-wrap">
               <table className="ip-ph-list">
                 <thead>

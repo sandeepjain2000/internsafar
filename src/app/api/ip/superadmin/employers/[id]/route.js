@@ -54,7 +54,16 @@ function statusTitle(status) {
 }
 
 async function setOneStatus(id, status, rejectionReason) {
-  if (status === 'approved') {
+  const cur = await query(`SELECT approval_status FROM ip_employers WHERE id = $1`, [id]);
+  if (!cur.rows[0]) return { ok: false, error: 'not_found' };
+  const current = String(cur.rows[0].approval_status || '');
+
+  // Suspend only applies to approved employers, so a suspended employer has already passed Final Approval.
+  if (status === 'suspended' && current !== 'approved' && current !== 'suspended') {
+    return { ok: false, error: 'Only approved employers can be suspended.' };
+  }
+  // Restore (suspended → approved) keeps the earlier Final Approval; new pending documents don't block it.
+  if (status === 'approved' && current !== 'suspended') {
     const gate = await assertDocumentsReadyForFinalApproval(id);
     if (!gate.ok) return { ok: false, error: gate.error };
   }
@@ -77,9 +86,11 @@ async function setOneStatus(id, status, rejectionReason) {
       ? `<p><strong>Reason:</strong> ${String(rejectionReason).replace(/</g, '&lt;')}</p>`
       : '';
 
-  const title = statusTitle(status);
-  const body =
-    status === 'approved'
+  const restored = status === 'approved' && current === 'suspended';
+  const title = restored ? 'Employer Account Restored' : statusTitle(status);
+  const body = restored
+    ? `${row.company_name}: Your Employer Account Has Been Restored. You Can Sign In And Post Again.`
+    : status === 'approved'
       ? `${row.company_name}: Final Employer Approval Is Complete. You Can Sign In And Post When Your Profile And Email Are Ready.`
       : rejectionReason
         ? `${row.company_name}: ${rejectionReason}`

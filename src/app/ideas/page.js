@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import {
   Bell,
@@ -88,6 +88,8 @@ export default function FeatureIdeasPage() {
   const [submitting, setSubmitting] = useState(false);
   const [detail, setDetail] = useState(null);
   const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const commentsReqRef = useRef(0);
   const [commentDraft, setCommentDraft] = useState('');
   const [commentBusy, setCommentBusy] = useState(false);
 
@@ -211,12 +213,22 @@ export default function FeatureIdeasPage() {
     showToast(data.following ? 'Following. You will be notified of team updates.' : 'Unfollowed.');
   }
 
+  /** Only the newest request may set the thread, so a slow earlier load cannot duplicate or drop a comment. */
+  async function loadComments(ideaId, { quiet = false } = {}) {
+    const req = ++commentsReqRef.current;
+    if (!quiet) setCommentsLoading(true);
+    const res = await fetch(`/api/ip/ideas/${ideaId}/comments`);
+    const data = await res.json().catch(() => ({}));
+    if (req !== commentsReqRef.current) return;
+    setComments(data.items || []);
+    setCommentsLoading(false);
+  }
+
   async function openDetail(idea) {
     setDetail(idea);
     setCommentDraft('');
-    const res = await fetch(`/api/ip/ideas/${idea.id}/comments`);
-    const data = await res.json().catch(() => ({}));
-    setComments(data.items || []);
+    setComments([]);
+    await loadComments(idea.id);
   }
 
   async function postComment() {
@@ -233,9 +245,8 @@ export default function FeatureIdeasPage() {
         showToast(data.error || 'Could not post comment.');
         return;
       }
-      setComments((prev) => [...prev, data.item]);
       setCommentDraft('');
-      await load();
+      await Promise.all([loadComments(detail.id, { quiet: true }), load()]);
       showToast('Comment posted.');
     } finally {
       setCommentBusy(false);
@@ -619,9 +630,11 @@ export default function FeatureIdeasPage() {
               ) : null}
               <div className="ip-ci-thread">
                 <h4 style={{ margin: 0, fontSize: '0.6875rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  Discussion ({comments.length})
+                  Discussion ({commentsLoading ? '…' : comments.length})
                 </h4>
-                {comments.length ? (
+                {commentsLoading ? (
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>Loading…</p>
+                ) : comments.length ? (
                   comments.map((c) => (
                     <div
                       key={c.id}

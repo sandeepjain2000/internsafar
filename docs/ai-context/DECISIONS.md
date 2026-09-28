@@ -1,7 +1,7 @@
 # Stable project decisions (InternSafar)
 
 Only confirmed, durable decisions. Not a chat diary.  
-Last pack refresh: 2026-09-26.
+Last pack refresh: 2026-09-28.
 
 | Decision | Domain | Status | Evidence |
 |----------|--------|--------|----------|
@@ -44,6 +44,7 @@ Last pack refresh: 2026-09-26.
 | Employer **HQ Country** = single-select (aligned with State), not multi-select chips | Employer / UI | Confirmed | `employer/profile` + `SearchableSelect` 2026-09-26 |
 | Internship stipend **range**: `stipend_inr` floor/fixed + optional `stipend_inr_max` (NULL = single amount); migration `044_*` | Employer / Database | Confirmed | `044_ip_internship_stipend_range.sql`, posting new/edit 2026-09-26 |
 | Posting gate requires approved + email verified + ethics saved (current ack IDs) + profile_complete | Employer | Confirmed | `ipEmployerPostingGate.js` 2026-09-26 |
+| Notifications: candidate/employer **archive** (Inbox / Archived via `archived_at`), never delete; `DELETE /api/ip/notifications` is SuperAdmin-only | Workflow / SuperAdmin | Confirmed | `045_ip_notification_archive.sql`, notifications API 2026-09-28 |
 | Latest sibling product on Vercel Production as of 2026-09-26: commit `82ead1b` | Deploy | Confirmed | `vercel ls` Ready |
 
 ## Do Not Add Here

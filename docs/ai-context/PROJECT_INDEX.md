@@ -1,7 +1,7 @@
 # InternSafar — Project Context Index (Level 1)
 
 Compact map for AI agents. **Not** a full README of the product.  
-**Inspected from live sibling app:** 2026-09-26 (Hybrid E docs, SA Reject/Suspend + Adjust Points, HQ Country single-select, stipend range, posting ethics gate; Vercel `82ead1b`).
+**Inspected from live sibling app:** 2026-09-28 (notification Inbox/Archived folders, SA-only delete, applications badge; QA workbook + regression re-sync; SuperAdmin login on `/`). Prior: 2026-09-26 (Hybrid E docs, SA Reject/Suspend + Adjust Points, HQ Country single-select, stipend range, posting ethics gate; Vercel `82ead1b`).
 
 After this file: open `FOLDER_STRUCTURE.md` to locate paths, then **one** `domains/*.md`, then live source.
 
@@ -21,7 +21,7 @@ All paths below are relative to app root: `internship-portal/` unless marked oth
 
 Public/marketing and auth surfaces: `/` (landing + **email/password** sign-in), `/login`, `/register`, `/register/candidate`, `/register/employer`, `/forgot-password`, `/help`, `/ideas`, `/guidelines`, `/how-it-works`, `/account`, referral short links `/r/[code]`, email unsubscribe `/unsubscribe?token=…` (token only — email not in URL). Google OAuth is used for **registration verify** only, not home login.
 
-SuperAdmin has a **separate** login at `/superadmin/login` (not the public landing).
+SuperAdmin signs in on the **same** home form `/` as candidate/employer. `/superadmin/login` is a redirect-only route to `/` (kept for old bookmarks); every role signs out to `/`.
 
 Product DB tables use the **`ip_*`** prefix only on shared Postgres. Do **not** invent or mutate Placement Hub / `ism_*` tables.
 
@@ -45,7 +45,7 @@ If a task says “Internship Portal / InternSafar / IP”, it means the **siblin
 | App | Next.js `^16.3.0` (`src/app`), React `19.2.4`, **JavaScript** (not TypeScript app code) |
 | UI | Tailwind 4, shadcn / Base UI (`components.json`, `src/components/ui`) |
 | Auth | NextAuth (`src/lib/auth.js`). **No** `middleware.js`. APIs enforce auth. |
-| DB | Postgres via `pg` (`src/lib/db.js`). Migrations: `db/migrations/` (prefer `*ip*`; latest numbered `044_ip_internship_stipend_range.sql`; apply order in `scripts/MIGRATION_MANIFEST.txt`) |
+| DB | Postgres via `pg` (`src/lib/db.js`). Migrations: `db/migrations/` (prefer `*ip*`; latest numbered `045_ip_notification_archive.sql`; apply order in `scripts/MIGRATION_MANIFEST.txt`) |
 | Files | AWS S3 (`src/lib/s3.js`), object prefix `internship-portal/…`; download authz helper `src/lib/ipFileAccess.js` |
 | Mail | ZeptoMail / SMTP (`src/lib/mail.js`, `zeptomail.js`); outbound footers can append unsubscribe via `src/lib/ipEmailUnsubscribe.js` |
 | Help chat LLM | NVIDIA NIM helpers (`src/lib/nvidiaLlm.js`, `/api/ip/help-chat`) |
@@ -105,8 +105,9 @@ Full route/API inventory (large): `ISM_ROUTE_INVENTORY.md` — open only when yo
 5. Open the real page / API / lib / migration involved
 6. If the change crosses auth, DB, or another role — inspect those contracts too
 7. Implement the smallest change that fits existing architecture
-8. Verify (lint/build/tests as appropriate)
-9. Update this ai-context pack only if stable project knowledge changed
+8. Verify (lint/build/tests as appropriate — see AGENTS.md “Post-change validation”)
+9. Update this ai-context pack in the same task if a feature, route, API, schema, auth rule,
+   script, or decision changed (CONTEXT_UPDATE.md) — and always re-check before push/deploy
 ```
 
 ---
@@ -130,9 +131,8 @@ Full route/API inventory (large): `ISM_ROUTE_INVENTORY.md` — open only when yo
 | Item | Status |
 |------|--------|
 | `PRODUCT.md` / `DESIGN.md` | Named in `AGENTS.md`, **not present** in app root |
-| `docs/README.md` | Named in `AGENTS.md` documentation layout, **not present** |
-| `docs/ai-context/` | Local-only (gitignored). Zip this folder for offline AI briefing; keep it next to a full app checkout to edit code |
+| `docs/ai-context/` | **Tracked in git** (pushed to GitHub with the app); excluded from Vercel uploads via `.vercelignore`. `AGENTS.md` requires updating it with feature changes. Zip for offline AI briefing; keep it next to a full app checkout to edit code |
 | Handoff-WITH-SECRETS workspace folder | May contain secrets — never paste secret values into chat or into these docs |
 | ER notes last full sync | `docs/ip-er-diagram-notes.md` synced through migration **039**; also **040–044** (help-chat analytics, unsubscribe, country/region, `ip_ref_countries`, stipend range) + runtime Hybrid E `superseded_at`/`doc_label` — re-check ER notes when changing schema |
-| AWS vs local/Vercel schema | Production RDS is separate; as of 2026-09-26 still missing `superseded_at`, `doc_label`, `stipend_inr_max` until planned ADD/fill — do not Path B those features without the plan |
+| AWS vs local/Vercel schema | Production RDS is separate; as of 2026-09-26 still missing `superseded_at`, `doc_label`, `stipend_inr_max` until planned ADD/fill — do not Path B those features without the plan. `ip_notifications.archived_at` (045) is added by runtime ensure on first request; NULL keeps today's behaviour, so no fill |
 | Code-review remediation (2026-09-18) | Valid **Critical** + Valid **High** (non-a11y) from GPT triage applied on sibling + Vercel preview; **Medium/Low** and all **Accessibility** still open — see `DECISIONS.md` |

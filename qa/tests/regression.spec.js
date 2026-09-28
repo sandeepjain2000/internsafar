@@ -32,6 +32,7 @@ async function apiWithSession(request, email, method, url, options = {}) {
   if (m === 'GET') return request.get(url, { ...options, headers });
   if (m === 'POST') return request.post(url, { ...options, headers });
   if (m === 'PATCH') return request.patch(url, { ...options, headers });
+  if (m === 'PUT') return request.put(url, { ...options, headers });
   throw new Error(`unsupported ${method}`);
 }
 
@@ -41,6 +42,9 @@ test.describe('InternSafar regression', () => {
     await expect(page.locator('#email')).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('#password')).toBeVisible();
     await expect(page.locator('#login-email')).toHaveCount(0);
+    const learnMore = page.getByRole('navigation', { name: 'Learn more' });
+    await expect(learnMore.getByRole('link', { name: 'How it works' })).toBeVisible();
+    await expect(learnMore.getByRole('link', { name: 'Help Center' })).toBeVisible();
   });
 
   test('IS-002 legacy /login redirects to home', async ({ page }) => {
@@ -307,10 +311,12 @@ test.describe('InternSafar regression', () => {
     await expect(page).toHaveURL(/\/employer\/?$/, { timeout: 25_000 });
     const center = page.locator('[data-testid="employer-action-center"]');
     await expect(center).toBeVisible({ timeout: 30_000 });
-    await expect(center.getByText(/Action required/i).first()).toBeVisible();
-    await expect(center.getByText(/Upcoming/i).first()).toBeVisible();
-    await expect(center.getByText(/pending review for 3\+ days/i).first()).toBeVisible();
-    await expect(center.getByText(/interview/i).first()).toBeVisible();
+    await expect(center.getByText('Action center')).toBeVisible();
+    await expect(center.locator('.ip-ed-action-score__value')).toHaveText(/^\d+$/);
+    await expect(center.locator('.ip-ed-action-score__link')).toHaveText(
+      /Upload verification documents|Finish your company profile|Applications waiting for your review|No applications waiting for review|Waiting for Final Approval|No tasks right now/,
+    );
+    await expect(center).toHaveAttribute('href', /\/employer\/(profile|internships)$/);
   });
 
   test('IS-064 browse filters include start date', async ({ page }) => {
@@ -467,5 +473,182 @@ test.describe('InternSafar regression', () => {
     expect([200, 201], `reapply failed: ${again.status()}`).toContain(again.status());
     const againBody = await again.json().catch(() => ({}));
     expect(againBody.ok || againBody.id).toBeTruthy();
+  });
+
+  test('IS-067 candidate form-path register API returns 410', async ({ request }) => {
+    const res = await request.post('/api/ip/auth/register-candidate', {
+      data: { path: 'form', email: 'qa.formpath.retired@gmail.com', password: 'Password1!' },
+    });
+    expect(res.status()).toBe(410);
+    const body = await res.json().catch(() => ({}));
+    expect(String(body.error || '')).toMatch(/no longer available/i);
+  });
+
+  test('IS-068 employer manualRequest register API returns 410', async ({ request }) => {
+    const res = await request.post('/api/ip/auth/register-employer', {
+      data: { manualRequest: true, email: 'qa.manual.retired@example.com', companyName: 'QA Retired' },
+    });
+    expect(res.status()).toBe(410);
+    const body = await res.json().catch(() => ({}));
+    expect(String(body.error || '')).toMatch(/no longer accepted/i);
+  });
+
+  test('IS-069 employer register rejects missing company and short password', async ({ request }) => {
+    const base = {
+      path: 'free_email',
+      email: `qa.reg.validation.${Date.now()}@example.com`,
+      companyName: 'QA Validation Co',
+      contactName: 'QA Person',
+      designation: 'HR',
+      password: 'Password1!',
+    };
+    const noCompany = await request.post('/api/ip/auth/register-employer', {
+      data: { ...base, companyName: '' },
+    });
+    expect(noCompany.status()).toBe(400);
+    expect(String((await noCompany.json()).error || '')).toMatch(/Company name is required/i);
+
+    const shortPw = await request.post('/api/ip/auth/register-employer', {
+      data: { ...base, password: 'Short12' },
+    });
+    expect(shortPw.status()).toBe(400);
+    expect(String((await shortPw.json()).error || '')).toMatch(/at least 8 characters/i);
+  });
+
+  test('IS-070 employer register offers Domain-based and Free-email-based paths without Google', async ({ page }) => {
+    await page.goto('/register/employer');
+    await expect(page.getByRole('heading', { name: /Employer Registration/i })).toBeVisible({
+      timeout: 45_000,
+    });
+    await expect(page.getByRole('button', { name: 'Domain-based' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Free-email-based' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /google/i })).toHaveCount(0);
+  });
+
+  test('IS-071 retired SuperAdmin queues redirect and their APIs return 410', async ({ page, request }) => {
+    await openWithSession(page, superadmin.email, '/superadmin/form-registrations');
+    await expect(page).toHaveURL(/\/superadmin\/approvals/, { timeout: 25_000 });
+    await page.goto('/superadmin/requests', { waitUntil: 'domcontentloaded' });
+    await expect(page).toHaveURL(/\/superadmin\/approvals/, { timeout: 25_000 });
+    await page.goto('/superadmin/viral', { waitUntil: 'domcontentloaded' });
+    await expect(page).toHaveURL(/\/superadmin\/?$/, { timeout: 25_000 });
+
+    for (const url of ['/api/ip/superadmin/form-registrations', '/api/ip/superadmin/requests']) {
+      const res = await apiWithSession(request, superadmin.email, 'GET', url);
+      expect(res.status(), url).toBe(410);
+    }
+  });
+
+  test('IS-072 Adjust Points page loads and API rejects bad delta and non-SuperAdmin', async ({ page, request }) => {
+    await openWithSession(page, superadmin.email, '/superadmin/points');
+    await expect(page.getByRole('heading', { name: 'Adjust Points' })).toBeVisible({ timeout: 30_000 });
+
+    for (const delta of [0, 1.5]) {
+      const res = await apiWithSession(request, superadmin.email, 'POST', '/api/ip/superadmin/points', {
+        data: { userId: 'ip_user_qa_not_real', delta },
+      });
+      expect(res.status(), `delta ${delta}`).toBe(400);
+      expect(String((await res.json()).error || '')).toMatch(/non-zero integer/i);
+    }
+
+    const asCandidate = await apiWithSession(request, candidate.email, 'POST', '/api/ip/superadmin/points', {
+      data: { userId: 'ip_user_qa_not_real', delta: 1 },
+    });
+    expect(asCandidate.status()).toBe(403);
+  });
+
+  test('IS-073 approvals page tabs expose tab-specific bulk actions', async ({ page }) => {
+    await openWithSession(page, superadmin.email, '/superadmin/approvals');
+    await expect(page.getByRole('heading', { name: /Final Employer Approvals/i })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByRole('button', { name: /Approve Selected/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Reject Selected/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Reset Ethics/i })).toBeVisible();
+
+    await page.getByRole('tab', { name: /^Approved/ }).click();
+    await expect(page.getByRole('button', { name: /Suspend Selected/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Reject Selected/i })).toBeVisible();
+
+    await page.getByRole('tab', { name: /^Suspended/ }).click();
+    await expect(page.getByRole('button', { name: /Restore Selected/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Reject Selected/i })).toBeVisible();
+
+    await expect(page.getByRole('tab', { name: /^Rejected/ })).toBeVisible();
+  });
+
+  test('IS-074 employer profile five tabs and Contact & Location field order', async ({ page }) => {
+    await openWithSession(page, employer.email, '/employer/profile');
+    const tablist = page.getByRole('tablist', { name: 'Employer profile sections' });
+    await expect(tablist).toBeVisible({ timeout: 30_000 });
+    for (const name of [
+      'Company Details',
+      'Contact & Location',
+      'About & Visibility',
+      'Guidelines & Ethics',
+      'Verification Documents',
+    ]) {
+      await expect(tablist.getByRole('tab', { name })).toBeVisible();
+    }
+    await tablist.getByRole('tab', { name: 'Contact & Location' }).click();
+    const panel = page.getByRole('tabpanel').filter({ hasText: 'HQ City' }).first();
+    await expect(panel).toBeVisible({ timeout: 10_000 });
+    const text = await panel.innerText();
+    const positions = ['HQ Country', 'HQ State / Province', 'HQ City', 'Contact Phone', 'Work Email'].map(
+      (label) => text.indexOf(label),
+    );
+    expect(positions.every((p) => p >= 0), `labels missing: ${positions}`).toBeTruthy();
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+  });
+
+  test('IS-075 locked ethics acknowledgements cannot be revoked via API', async ({ request }) => {
+    const profRes = await apiWithSession(request, employer.email, 'GET', '/api/ip/employer/profile');
+    expect(profRes.ok()).toBeTruthy();
+    const body = await profRes.json();
+    const profile = body.profile || {};
+    const acks = profile.ethics_acks || {};
+    const items = Array.isArray(body.ethicsItems) ? body.ethicsItems : [];
+    const locked =
+      Boolean(profile.ethics_accepted_at) && items.length > 0 && items.every((i) => acks[i.id] === true);
+    test.skip(!locked, 'Core employer ethics are not locked in this environment');
+
+    const res = await apiWithSession(request, employer.email, 'PUT', '/api/ip/employer/profile', {
+      data: { ethics_acks: {} },
+    });
+    expect(res.status()).toBe(403);
+    expect(String((await res.json()).error || '')).toMatch(/locked after save/i);
+  });
+
+  test('IS-076 new posting shows Publish Now only on the last tab', async ({ page }) => {
+    await openWithSession(page, employer.email, '/employer/internships/new');
+    await expect(page.getByRole('tab', { name: 'Details' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Back to Postings').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Publish Now' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Next Tab/i })).toBeVisible();
+    await page.getByRole('tab', { name: 'Screening' }).click();
+    await expect(page.getByRole('button', { name: 'Publish Now' })).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('IS-077 list Filters button toggles Show and Hide', async ({ page }) => {
+    await openWithSession(page, candidate.email, '/candidate/internships');
+    const btn = page.locator('button.ip-tf__btn').filter({ hasText: /Filters/i }).first();
+    await expect(btn).toBeVisible({ timeout: 25_000 });
+    await expect(btn).toHaveAttribute('aria-expanded', 'false');
+    await expect(btn.locator('.ip-tf__state')).toHaveText('Show');
+    await btn.click();
+    await expect(btn).toHaveAttribute('aria-expanded', 'true');
+    await expect(btn.locator('.ip-tf__state')).toHaveText('Hide');
+    await expect(page.locator('.ip-tf__panel')).toBeVisible();
+    await btn.click();
+    await expect(btn.locator('.ip-tf__state')).toHaveText('Show');
+    await expect(page.locator('.ip-tf__panel')).toHaveCount(0);
+  });
+
+  test('IS-078 browse opens on Unapplied tab by default', async ({ page }) => {
+    await openWithSession(page, candidate.email, '/candidate/internships');
+    const selected = page
+      .getByRole('tablist', { name: 'Browse views' })
+      .getByRole('tab', { selected: true });
+    await expect(selected).toContainText(/Unapplied/, { timeout: 25_000 });
   });
 });

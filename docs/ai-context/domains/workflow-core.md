@@ -22,6 +22,13 @@ Cross-role hire pipeline: applications, messaging threads, offers/onboarding, no
 
 Outbound mail may append an unsubscribe footer (`src/lib/mail.js` → `ipEmailUnsubscribe*`). Clicking `/unsubscribe?token=…` records a **PENDING** request only — delivery continues until SuperAdmin processes it. Token URLs must not embed the recipient email.
 
+## Notifications folders + nav badges (2026-09-28)
+
+- Candidate/employer notifications have **Inbox** and **Archived** folders (`ip_notifications.archived_at`; NULL = Inbox). Users **archive / move back**; they cannot delete.
+- `PATCH /api/ip/notifications` with `{ ids, archive: true|false }` moves rows between folders. `DELETE` is **SuperAdmin only** (403 for candidate/employer). No SuperAdmin screen deletes other users' notifications yet.
+- Notifications unread badge counts **Inbox only**. Candidate **My applications** badge = in-progress apps: `shortlisted`/`interviewing` always; `applied`/`pending` only while posting not `closed` and `apply_ends_at` not passed.
+- Pages call `refreshNavBadges()` (`src/lib/ipNavBadges.js`) after mutations; `PortalShell` refetches on that event and on route change.
+
 ## Constraints
 
 - Changes often cross candidate ↔ employer — inspect both UIs and APIs.

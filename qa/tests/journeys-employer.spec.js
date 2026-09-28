@@ -29,7 +29,7 @@ test.describe('InternSafar journeys — employer', () => {
     await expect(page).toHaveURL(/\/employer\/?$/, { timeout: 25_000 });
     const center = page.locator('[data-testid="employer-action-center"]');
     await expect(center).toBeVisible({ timeout: 30_000 });
-    await expect(center.getByText(/Action required/i).first()).toBeVisible();
+    await expect(center.getByText('Action center')).toBeVisible();
   });
 
   test('JOURNEY-EMP-02 postings list loads with create affordance', async ({ page }) => {

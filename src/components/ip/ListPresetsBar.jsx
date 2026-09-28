@@ -65,9 +65,9 @@ export default function ListPresetsBar({
   const selected = presets.find((p) => p.id === selectedId);
 
   return (
-    <div className="ip-presets-bar flex flex-wrap items-center gap-2 text-sm">
+    <div className="ip-presets-bar flex flex-wrap items-center gap-1.5 text-sm">
       <select
-        className="h-9 rounded-md border border-slate-200 bg-white px-2 min-w-[9rem] text-xs font-semibold text-slate-700"
+        className="h-8 rounded-md border border-slate-200 bg-white px-2 w-[8.5rem] text-xs font-semibold text-slate-700"
         value={selectedId}
         aria-label="Load preset"
         onChange={(e) => {
@@ -86,16 +86,17 @@ export default function ListPresetsBar({
         ))}
       </select>
       <input
-        className="h-9 rounded-md border border-slate-200 bg-white px-2 min-w-[8rem] flex-1 text-xs text-slate-700"
+        className="h-8 rounded-md border border-slate-200 bg-white px-2 w-[10rem] text-xs text-slate-700"
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="New preset name"
         aria-label="New preset name"
+        title="Save filters as a preset to reuse them later."
         maxLength={80}
       />
       <button
         type="button"
-        className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 disabled:opacity-50"
+        className="h-8 rounded-md border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 disabled:opacity-50"
         disabled={busy || !name.trim() || presets.length >= 5}
         onClick={() => onSave(false)}
       >
@@ -103,7 +104,7 @@ export default function ListPresetsBar({
       </button>
       <button
         type="button"
-        className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 disabled:opacity-50"
+        className="h-8 rounded-md border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 disabled:opacity-50"
         disabled={busy || !name.trim() || presets.length >= 5}
         onClick={() => onSave(true)}
         title="Save and make default"
@@ -114,7 +115,7 @@ export default function ListPresetsBar({
         <>
           <button
             type="button"
-            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600"
+            className="h-8 rounded-md border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600"
             disabled={busy}
             onClick={() => toggleDefault(selected)}
           >
@@ -122,18 +123,13 @@ export default function ListPresetsBar({
           </button>
           <button
             type="button"
-            className="h-9 rounded-md border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700 disabled:opacity-50 active:scale-[0.98]"
+            className="h-8 rounded-md border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700 disabled:opacity-50 active:scale-[0.98]"
             disabled={busy}
             onClick={onDelete}
           >
             {busy ? 'Deleting…' : 'Delete'}
           </button>
         </>
-      ) : null}
-      {presets.length === 0 ? (
-        <span className="text-[11px] font-medium text-slate-500">
-          Save filters as a preset to reuse them later.
-        </span>
       ) : null}
       {feedback ? (
         <span className="text-xs font-semibold text-emerald-700" role="status">

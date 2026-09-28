@@ -12,20 +12,21 @@ Platform oversight: employer approvals (incl. Reject/Suspend), documents, Adjust
 | `src/app/api/ip/superadmin/**` | SuperAdmin APIs (incl. `points`, `employers`, `documents`) |
 | `src/app/api/ip/bootstrap/` | Demo/bootstrap ensure |
 | `src/lib/ensureIpBootstrap.js` | Bootstrap helper |
-| Login page | `/superadmin/login` (not public `/`) |
+| Login | Home `/` (same form as other roles); `/superadmin/login` redirects to `/` |
 
 ## Pages (confirmed)
 
 | Route | Purpose |
 |-------|---------|
 | `/superadmin` | Dashboard |
-| `/superadmin/login` | SuperAdmin login |
+| `/superadmin/login` | Redirect-only → `/` (no SA form) |
 | `/superadmin/approvals` | **Only** employer approval queue (Domain + Free-email). Path column on rows. **Reject** and **Suspend** available for approved employers (not only pending). |
 | `/superadmin/documents` | Documents (active rows only: `superseded_at IS NULL`) |
 | `/superadmin/postings` | Postings oversight |
 | `/superadmin/promotions` | Posting Share Rewards (LinkedIn posting-share claims) |
 | `/superadmin/points` | **Adjust Points** — manual add/deduct on candidate or employer `ip_users.points`; floor 0; no cap; optional note; in-app notify user only (not advertised on user UIs) |
 | `/superadmin/login-report` | Login report (default **All time**; not wiped by core reset) |
+| `/superadmin/listing-reports` | Candidate listing reports (status open / reviewed / dismissed) |
 | `/superadmin/messages` | Messages |
 | `/superadmin/feature-ideas` | Feature ideas |
 
@@ -58,7 +59,8 @@ Do not invent alternate admin roles. Do not reset password hashes for existing S
 
 ## Constraints
 
-- Separate login path from candidate/employer landing.
+- SuperAdmin shares the home login `/`; SuperAdmin layout `loginHref` is `/`.
+- Restore (Suspended → approved) keeps the earlier Final Approval and skips the document check (sticky approval); the API only allows Suspend from approved, so every suspended employer already passed Final Approval.
 - Treat approval/document/points flows as sensitive; inspect API auth checks before changes.
 - Migration `036_ip_single_superadmin.sql` encodes single-superadmin data repair — read before changing admin user model.
 - Final Approval still needs ≥1 approved active doc and no pending active docs (`assertDocumentsReadyForFinalApproval`).

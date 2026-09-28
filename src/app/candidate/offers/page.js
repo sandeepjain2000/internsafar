@@ -19,6 +19,9 @@ import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import IpListPager from '@/components/ip/IpListPager';
 import { IpListLoading } from '@/components/ip/IpListStatus';
+import { PhoneOnlyNote, PhoneOnlyTag } from '@/components/ip/PhoneOnlyShare';
+import { isPhoneShareDevice, phoneOnlyShareMessage } from '@/lib/ipShareDevice';
+import { usePhoneShareDevice } from '@/hooks/usePhoneShareDevice';
 import {
   IpDateRangeFilter,
   IpSearchableMultiFilter,
@@ -110,6 +113,8 @@ export default function CandidateOffersPage() {
   const [tab, setTab] = useState('all');
   const [confirm, setConfirm] = useState(null);
   const [shareFor, setShareFor] = useState(null);
+  const [phoneNote, setPhoneNote] = useState('');
+  const onPhone = usePhoneShareDevice();
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [cols, setCols] = useState(EMPTY_COLS);
@@ -265,6 +270,11 @@ export default function CandidateOffersPage() {
   }
 
   function shareLinkedIn() {
+    if (!isPhoneShareDevice()) {
+      setPhoneNote(phoneOnlyShareMessage('LinkedIn'));
+      return;
+    }
+    setPhoneNote('');
     window.open(
       `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl())}`,
       '_blank',
@@ -325,8 +335,8 @@ export default function CandidateOffersPage() {
       </div>
 
       <div className="ip-of-presets">
-        <ListPresetsBar {...prefs} />
         <IpTableFiltersShell
+          toolbar={<ListPresetsBar {...prefs} />}
           open={colFiltersOpen}
           onToggle={() => setColFiltersOpen((v) => !v)}
           activeCount={colsActive}
@@ -507,7 +517,7 @@ export default function CandidateOffersPage() {
                         </a>
                       </>
                     ) : null}
-                    <button type="button" className="ip-of-btn ip-of-btn--ghost" onClick={() => setShareFor(o)}>
+                    <button type="button" className="ip-of-btn ip-of-btn--ghost" onClick={() => { setPhoneNote(''); setShareFor(o); }}>
                       <Share2 className="size-3.5" />
                       Share Offer
                     </button>
@@ -703,10 +713,17 @@ export default function CandidateOffersPage() {
               <button type="button" className="ip-of-btn ip-of-btn--outline" onClick={copyShareLink}>
                 Copy link
               </button>
-              <button type="button" className="ip-of-btn ip-of-btn--primary" onClick={shareLinkedIn}>
+              <button
+                type="button"
+                className={`ip-of-btn ip-of-btn--primary${onPhone === false ? ' ip-phone-only-off' : ''}`}
+                aria-disabled={onPhone === false || undefined}
+                onClick={shareLinkedIn}
+              >
                 Share on LinkedIn
+                {onPhone === false ? <PhoneOnlyTag /> : null}
               </button>
             </div>
+            <PhoneOnlyNote message={phoneNote} onClose={() => setPhoneNote('')} />
           </div>
         </div>
       ) : null}

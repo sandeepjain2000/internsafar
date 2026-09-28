@@ -506,8 +506,8 @@ export default function EmployerOffersPage() {
           </div>
         </div>
         <div className="ip-eo-presets px-4 pb-3">
-          <ListPresetsBar {...prefs} />
           <IpTableFiltersShell
+            toolbar={<ListPresetsBar {...prefs} />}
             open={colFiltersOpen}
             onToggle={() => setColFiltersOpen((v) => !v)}
             activeCount={colsActive}

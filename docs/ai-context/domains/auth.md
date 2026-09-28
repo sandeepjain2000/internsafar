@@ -18,7 +18,7 @@ Sign-in, registration, sessions, role homes, Google auth helpers, 2FA, account s
 | `src/app/api/auth/[...nextauth]/` | NextAuth handler |
 | `src/app/api/ip/account/` | Profile, 2FA, sessions, phone-change, password-reset, notification prefs |
 | `src/app/page.js`, `login/`, `register/`, `forgot-password/`, `account/` | Public/auth UI |
-| `src/app/superadmin/login/` | SuperAdmin login (separate from public `/`) |
+| `src/app/superadmin/login/` | Redirect-only → `/` (SuperAdmin uses the home form) |
 | `src/components/ip/PortalShell.jsx` | Client role guard |
 | `src/lib/ipNav.js`, `src/lib/roleHome.js` | Nav + role homes |
 

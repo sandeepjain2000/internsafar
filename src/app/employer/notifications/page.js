@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
+  Archive,
+  ArchiveRestore,
   Award,
   BellOff,
   Building2,
@@ -12,6 +14,7 @@ import {
   Coins,
   FileText,
   Gift,
+  Inbox,
   Search,
   SearchX,
   ShieldCheck,
@@ -20,6 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import { refreshNavBadges } from '@/lib/ipNavBadges';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import IpListPager from '@/components/ip/IpListPager';
@@ -222,6 +226,10 @@ export default function EmployerNotificationsPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [presetResetKey, setPresetResetKey] = useState(0);
+  const [folder, setFolder] = useState('inbox');
+  const [selected, setSelected] = useState(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const toastTimerRef = useRef(null);
 
   const snapshot = useMemo(
     () => ({ filters: { search, cols }, sort: '' }),
@@ -248,7 +256,7 @@ export default function EmployerNotificationsPage() {
     },
   });
 
-  async function load() {
+  async function load({ badges = false } = {}) {
     const [notifRes, refRes] = await Promise.all([
       fetch('/api/ip/notifications'),
       fetch('/api/ip/referral').catch(() => null),
@@ -260,6 +268,7 @@ export default function EmployerNotificationsPage() {
       if (typeof refData.points === 'number') setPoints(refData.points);
     }
     setLoading(false);
+    if (badges) refreshNavBadges();
   }
 
   useEffect(() => {
@@ -270,7 +279,8 @@ export default function EmployerNotificationsPage() {
 
   function showToast(msg) {
     setToastMsg(msg);
-    window.setTimeout(() => setToastMsg(null), 3000);
+    window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToastMsg(null), 3000);
   }
 
   async function markAllRead() {
@@ -279,7 +289,7 @@ export default function EmployerNotificationsPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ markAllRead: true }),
     });
-    await load();
+    await load({ badges: true });
     showToast('All notifications marked as read.');
   }
 
@@ -289,14 +299,17 @@ export default function EmployerNotificationsPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     });
-    await load();
+    await load({ badges: true });
   }
 
-  const unreadCount = items.filter((n) => !n.read_at).length;
+  const inboxItems = useMemo(() => items.filter((n) => !n.archived_at), [items]);
+  const archivedItems = useMemo(() => items.filter((n) => n.archived_at), [items]);
+  const folderItems = folder === 'archived' ? archivedItems : inboxItems;
+  const unreadCount = inboxItems.filter((n) => !n.read_at).length;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return items.filter((n) => {
+    return folderItems.filter((n) => {
       const bucket = resolveBucket(n);
       if (cols.category && bucket !== cols.category) return false;
       const unread = !n.read_at;
@@ -308,7 +321,7 @@ export default function EmployerNotificationsPage() {
       if (!q) return true;
       return `${n.title || ''} ${n.body || ''} ${bucket}`.toLowerCase().includes(q);
     });
-  }, [items, search, cols]);
+  }, [folderItems, search, cols]);
 
   const { page, setPage, totalPages, total, pageItems, pageSize, serialOffset } = useClientPagination(
     filtered,
@@ -316,7 +329,59 @@ export default function EmployerNotificationsPage() {
   );
   useEffect(() => {
     setPage(1);
-  }, [search, cols, setPage]);
+  }, [search, cols, folder, setPage]);
+
+  function switchFolder(next) {
+    if (next === folder) return;
+    setFolder(next);
+    setSelected(new Set());
+    setExpandedId(null);
+  }
+
+  function toggleSelect(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAllPage() {
+    const ids = pageItems.map((n) => n.id);
+    const allOn = ids.length > 0 && ids.every((id) => selected.has(id));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allOn) ids.forEach((id) => next.delete(id));
+      else ids.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+
+  async function moveSelected() {
+    const ids = [...selected];
+    if (!ids.length) return;
+    const archive = folder === 'inbox';
+    setBulkBusy(true);
+    try {
+      const res = await fetch('/api/ip/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, archive }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data.error || (archive ? 'Could not archive notifications' : 'Could not move notifications'));
+        return;
+      }
+      setSelected(new Set());
+      await load({ badges: true });
+      const n = data.processed ?? ids.length;
+      showToast(archive ? `Archived ${n} notification(s).` : `Moved ${n} notification(s) to Inbox.`);
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   function resetFilters() {
     setCols(EMPTY_COLS);
@@ -387,8 +452,8 @@ export default function EmployerNotificationsPage() {
             </button>
           ) : null}
         </div>
-        <ListPresetsBar {...prefs} selectionResetKey={presetResetKey} />
         <IpTableFiltersShell
+          toolbar={<ListPresetsBar {...prefs} selectionResetKey={presetResetKey} />}
           open={filtersOpen}
           onToggle={() => setFiltersOpen((v) => !v)}
           activeCount={colsActive}
@@ -430,17 +495,79 @@ export default function EmployerNotificationsPage() {
             onTo={(dateTo) => setCols((c) => ({ ...c, dateTo }))}
           />
         </IpTableFiltersShell>
+        <div className="ip-en-folders" role="tablist" aria-label="Notification folders">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={folder === 'inbox'}
+            className={folder === 'inbox' ? 'is-on' : undefined}
+            onClick={() => switchFolder('inbox')}
+            data-testid="notif-folder-inbox"
+          >
+            <Inbox size={14} aria-hidden />
+            Inbox
+            <span className="ip-en-folder-count">{inboxItems.length}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={folder === 'archived'}
+            className={folder === 'archived' ? 'is-on' : undefined}
+            onClick={() => switchFolder('archived')}
+            data-testid="notif-folder-archived"
+          >
+            <Archive size={14} aria-hidden />
+            Archived
+            <span className="ip-en-folder-count">{archivedItems.length}</span>
+          </button>
+        </div>
       </div>
+
+      {!loading ? (
+        <div className="ip-en-bulk">
+          <label className="ip-en-bulk__all">
+            <input
+              type="checkbox"
+              checked={pageItems.length > 0 && pageItems.every((n) => selected.has(n.id))}
+              onChange={toggleSelectAllPage}
+              disabled={!pageItems.length}
+              aria-label="Select all on this page"
+            />
+            Select all
+          </label>
+          <button
+            type="button"
+            className="ip-en-mark"
+            disabled={!selected.size || bulkBusy}
+            onClick={moveSelected}
+            data-testid="notif-bulk-move"
+          >
+            {folder === 'inbox' ? <Archive size={15} aria-hidden /> : <ArchiveRestore size={15} aria-hidden />}
+            {folder === 'inbox'
+              ? (bulkBusy ? 'Archiving…' : `Archive selected (${selected.size})`)
+              : (bulkBusy ? 'Moving…' : `Move to Inbox (${selected.size})`)}
+          </button>
+        </div>
+      ) : null}
 
       {loading ? (
         <IpListLoading label="Please Wait…" />
-      ) : !items.length ? (
+      ) : !folderItems.length ? (
         <div className="ip-en-empty ip-en-empty--dash">
           <div className="ip-en-empty__icon">
-            <BellOff size={22} aria-hidden />
+            {folder === 'archived' ? <Archive size={22} aria-hidden /> : <BellOff size={22} aria-hidden />}
           </div>
-          <h3>You&apos;re all caught up</h3>
-          <p>New applications, offer responses, and reward updates will show up here.</p>
+          {folder === 'archived' ? (
+            <>
+              <h3>No archived notifications</h3>
+              <p>Select notifications in your Inbox and choose Archive selected to keep them here.</p>
+            </>
+          ) : (
+            <>
+              <h3>You&apos;re all caught up</h3>
+              <p>New applications, offer responses, and reward updates will show up here.</p>
+            </>
+          )}
         </div>
       ) : filtered.length ? (
         <>
@@ -448,6 +575,9 @@ export default function EmployerNotificationsPage() {
               <table className="ip-ph-list">
                 <thead>
                   <tr>
+                    <th className="ip-en-th-check">
+                      <span className="sr-only">Select</span>
+                    </th>
                     <th>#</th>
                     <th>Title</th>
                     <th>Category</th>
@@ -467,6 +597,14 @@ export default function EmployerNotificationsPage() {
                     const context = employerContextLine(n);
                     return (
                       <tr key={n.id} className={unread ? 'is-unread' : undefined}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selected.has(n.id)}
+                            onChange={() => toggleSelect(n.id)}
+                            aria-label={`Select notification ${sr}`}
+                          />
+                        </td>
                         <td>{sr}</td>
                         <td>
                           <div className="ip-en-table-title-block">
@@ -504,8 +642,8 @@ export default function EmployerNotificationsPage() {
             </div>
           <div className="ip-en-footer">
             <span>
-              Showing {total ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)}` : 0} of {items.length}{' '}
-              notifications
+              Showing {total ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)}` : 0} of {folderItems.length}{' '}
+              {folder === 'archived' ? 'archived' : 'notifications'}
             </span>
             <span>Updated when you open this page</span>
           </div>

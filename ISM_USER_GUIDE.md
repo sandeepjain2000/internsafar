@@ -614,10 +614,12 @@ like "QA Automation Intern" must pass.
 `node scripts/IP_Reset_Core_Sample.js` does the following:
 
 1. Deletes every user except the three core logins.
-2. Refreshes the three core logins in place (name, password, active, role) - **they are never
-   deleted**.
+2. Refreshes the three core logins in place (name, active, role) - **they are never
+   deleted**, and their existing passwords are not changed. A core login that is missing is
+   created with the config password.
 3. Clears transactional data owned by the cores (applications, offers, threads, messages,
-   notifications, ratings, endorsements, login events, sessions).
+   notifications, ratings, endorsements, viral shares, points ledger, sessions). Core login
+   events are kept; failed sign-ins with no account attached are removed.
 4. Deletes all feature ideas and employer requests.
 5. Re-seeds the baseline catalog, then runs `fill-core-coverage.mjs` to top every list to 11.
 

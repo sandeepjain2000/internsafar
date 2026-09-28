@@ -1,7 +1,9 @@
-# InternSafar AI context pack (“cortex”)
+# InternSafar AI context pack
 
-This folder is the **local AI project-context pack** for **InternSafar** (npm package `internship-portal`).  
-Cursor workspace rules also call it the InternSafar / internship-portal context pack.
+This folder is the **AI project-context pack** for **InternSafar** (npm package `internship-portal`).  
+Cursor workspace rules also call it the InternSafar / internship-portal context pack. It is plain markdown in
+the repo — not a third-party “Cortex”-style memory tool. Entry point for agents is `AGENTS.md` at app root,
+which also makes keeping this pack current mandatory (see `CONTEXT_UPDATE.md`).
 
 It is **not** the application source. It is a map so an AI (or human) can orient quickly, then open the real files.
 
@@ -12,8 +14,8 @@ It is **not** the application source. It is a map so an AI (or human) can orient
 | Git | **Tracked in git** (folder + zip) — pushed to GitHub with the app repo |
 | App to edit | Sibling folder `internship-portal/` (same repo root as this `docs/` tree) |
 | Do not edit | `campus-placement-multiuser/internship-portal/` (frozen nested copy) |
-| Last pack refresh | 2026-09-26 |
-| Last zip rebuild | 2026-09-26 |
+| Last pack refresh | 2026-09-28 |
+| Last zip rebuild | 2026-09-28 |
 
 ## If you only received a zip of this folder
 

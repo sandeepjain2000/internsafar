@@ -564,12 +564,12 @@ export default function FeatureIdeasTriagePage() {
               </div>
               <div>
                 <label className="ip-saq-label" htmlFor="idea-note">
-                  Admin note
+                  Response shown to users
                 </label>
                 <textarea
                   id="idea-note"
                   className="ip-saq-textarea"
-                  placeholder="Internal triage note…"
+                  placeholder="Candidates and employers see this as “Product team response” on Feature Ideas."
                   value={adminNote}
                   onChange={(e) => setAdminNote(e.target.value)}
                 />

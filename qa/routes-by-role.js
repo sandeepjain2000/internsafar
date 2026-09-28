@@ -44,13 +44,13 @@ const EMPLOYER = [
 
 const SUPERADMIN = [
   { label: 'Dashboard', href: '/superadmin' },
-  { label: 'Form registrations', href: '/superadmin/form-registrations' },
   { label: 'Employer approvals', href: '/superadmin/approvals' },
-  { label: 'Manual requests', href: '/superadmin/requests' },
   { label: 'Documents', href: '/superadmin/documents' },
   { label: 'Postings', href: '/superadmin/postings' },
   { label: 'Posting Share Rewards', href: '/superadmin/promotions' },
+  { label: 'Adjust Points', href: '/superadmin/points' },
   { label: 'Login report', href: '/superadmin/login-report' },
+  { label: 'Listing reports', href: '/superadmin/listing-reports' },
   { label: 'Messages', href: '/superadmin/messages' },
   { label: 'Feature ideas', href: '/superadmin/feature-ideas' },
   { label: 'Account', href: '/account' },

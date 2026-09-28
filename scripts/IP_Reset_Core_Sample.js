@@ -10,7 +10,7 @@
  * Re-seeding (baseline catalog + fill-core-coverage) is TEMPORARILY COMMENTED OUT.
  * Re-enable later when a reseed path is re-implemented.
  *
- * Cores (passwords from local coreaccountspass.json — gitignored):
+ * Cores (existing passwords are never changed; the config password is used only if a core login row is missing and must be created):
  *   Candidate   lawsonlclintern+1@gmail.com
  *   Employer    placementhubsupport@gmail.com
  *   SuperAdmin  support@placementhub.online
@@ -341,19 +341,18 @@ async function demoteStraySuperadmins(client) {
 }
 
 async function ensureSuperadmin(client, bcrypt) {
-  const saPw = CONFIG.passwordFor(CONFIG.superadminEmail, 'superadmin');
-  const hash = await bcrypt.hash(saPw, 10);
   const target = await client.query(`SELECT id FROM ip_users WHERE lower(email)=lower($1)`, [CONFIG.superadminEmail]);
   const legacy = await client.query(`SELECT id FROM ip_users WHERE lower(email)=lower($1)`, [CONFIG.legacySuperadminEmail]);
   if (target.rows[0]) {
-    await client.query(`UPDATE ip_users SET role='superadmin',password_hash=$2,name=COALESCE(NULLIF(name,''),'Portal SuperAdmin'),active=true,updated_at=now() WHERE id=$1`, [target.rows[0].id, hash]);
+    await client.query(`UPDATE ip_users SET role='superadmin',name=COALESCE(NULLIF(name,''),'Portal SuperAdmin'),active=true,updated_at=now() WHERE id=$1`, [target.rows[0].id]);
     if (legacy.rows[0] && legacy.rows[0].id !== target.rows[0].id) await client.query(`UPDATE ip_users SET active=false,updated_at=now() WHERE id=$1`, [legacy.rows[0].id]);
     return target.rows[0].id;
   }
   if (legacy.rows[0]) {
-    await client.query(`UPDATE ip_users SET email=$2,role='superadmin',password_hash=$3,name='Portal SuperAdmin',active=true,updated_at=now() WHERE id=$1`, [legacy.rows[0].id, CONFIG.superadminEmail, hash]);
+    await client.query(`UPDATE ip_users SET email=$2,role='superadmin',name='Portal SuperAdmin',active=true,updated_at=now() WHERE id=$1`, [legacy.rows[0].id, CONFIG.superadminEmail]);
     return legacy.rows[0].id;
   }
+  const saPw = CONFIG.passwordFor(CONFIG.superadminEmail, 'superadmin');
   return ensureUser(client, bcrypt, { email: CONFIG.superadminEmail, role: 'superadmin', name: 'Portal SuperAdmin', points: 0, password: saPw });
 }
 
@@ -405,6 +404,8 @@ async function clearCoreOwnedData(client, { candidateUserId, employerUserId, can
     await runDelete(client, `DELETE FROM ip_message_threads WHERE candidate_user_id = ANY($1::text[]) OR employer_user_id = ANY($1::text[])`, [coreUserIds]);
     await runDelete(client, `DELETE FROM ip_ratings WHERE from_user_id = ANY($1::text[]) OR to_user_id = ANY($1::text[])`, [coreUserIds]);
     await runDelete(client, `DELETE FROM ip_notifications WHERE user_id = ANY($1::text[])`, [coreUserIds]);
+    await runDelete(client, `DELETE FROM ip_viral_shares WHERE user_id = ANY($1::text[])`, [coreUserIds]);
+    await runDelete(client, `DELETE FROM ip_points_ledger WHERE user_id = ANY($1::text[])`, [coreUserIds]);
     await runDelete(client, `DELETE FROM ip_auth_sessions WHERE user_id = ANY($1::text[])`, [coreUserIds]);
     // Keep ip_login_events — Login Report needs durable auth history across resets.
     await runDelete(client, `DELETE FROM ip_password_resets WHERE user_id = ANY($1::text[])`, [coreUserIds]);
@@ -506,7 +507,7 @@ async function main() {
     const superadminId = await ensureSuperadmin(client, bcrypt);
     const candPw = CONFIG.passwordFor(CONFIG.candidateBase.email, 'candidate');
     const empPw = CONFIG.passwordFor(CONFIG.employerBase.email, 'employer');
-    // Ensure core login rows exist / password restored (do not delete them)
+    // Ensure core login rows exist (do not delete them). Existing passwords stay as they are.
     const candUserId = await ensureUser(client, bcrypt, {
       email: CONFIG.candidateBase.email,
       role: 'candidate',
@@ -515,8 +516,8 @@ async function main() {
       password: candPw,
     });
     await client.query(
-      `UPDATE ip_users SET password_hash=$2, name=$3, active=true, role='candidate', updated_at=now() WHERE id=$1`,
-      [candUserId, await bcrypt.hash(candPw, 10), CONFIG.candidateBase.name],
+      `UPDATE ip_users SET name=$2, active=true, role='candidate', updated_at=now() WHERE id=$1`,
+      [candUserId, CONFIG.candidateBase.name],
     );
     const empUserId = await ensureUser(client, bcrypt, {
       email: CONFIG.employerBase.email,
@@ -526,8 +527,8 @@ async function main() {
       password: empPw,
     });
     await client.query(
-      `UPDATE ip_users SET password_hash=$2, name=$3, active=true, role='employer', updated_at=now() WHERE id=$1`,
-      [empUserId, await bcrypt.hash(empPw, 10), CONFIG.employerBase.company],
+      `UPDATE ip_users SET name=$2, active=true, role='employer', updated_at=now() WHERE id=$1`,
+      [empUserId, CONFIG.employerBase.company],
     );
 
     const candRow = await client.query(`SELECT id FROM ip_candidates WHERE user_id=$1`, [candUserId]);
@@ -541,6 +542,13 @@ async function main() {
       employerId: empRow.rows[0]?.id || null,
       superadminId,
     });
+    // Failed sign-ins with no account attached (unknown or deleted emails). Core login history stays.
+    const orphanLogins = await runDelete(
+      client,
+      `DELETE FROM ip_login_events WHERE user_id IS NULL AND lower(email) <> ALL($1::text[])`,
+      [[...preserve]],
+    );
+    console.log(`  cleared unattached ip_login_events: ${orphanLogins}`);
 
     for (const table of [
       'ip_feature_idea_votes',
@@ -561,9 +569,9 @@ async function main() {
 
     await demoteStraySuperadmins(client);
     console.log('Reset complete. Three cores preserved; non-cores deleted; core transactions cleaned; no reseed.');
-    console.log(`  Candidate  ${CONFIG.candidateBase.email}  (password from coreaccountspass.json)`);
-    console.log(`  Employer   ${CONFIG.employerBase.email}  (password from coreaccountspass.json)`);
-    console.log(`  SuperAdmin ${CONFIG.superadminEmail}  (password from coreaccountspass.json)`);
+    console.log(`  Candidate  ${CONFIG.candidateBase.email}  (password unchanged)`);
+    console.log(`  Employer   ${CONFIG.employerBase.email}  (password unchanged)`);
+    console.log(`  SuperAdmin ${CONFIG.superadminEmail}  (password unchanged)`);
   } finally {
     await client.end();
   }

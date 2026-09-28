@@ -10,8 +10,79 @@
  * displayed verbatim and only parsed on a best-effort basis for the experience filter.
  */
 import { parseExperienceEntries } from '@/lib/ipPostingBody';
+import { ACADEMIC_YEAR_MIN, academicYearMax } from '@/lib/ipAcademicYear';
 
 const PRESENT = /^(present|current|now|ongoing)$/i;
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+/**
+ * Reads the date shapes the editor suggests — "Jun 2025", "June 2025", "2025-06",
+ * "06/2025", "2025", "Present". Returns { present } or { year, month }; null for anything
+ * else, which stays valid free text. Deliberately not Date.parse, whose output differs by browser.
+ */
+function parseExperienceMonth(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (!text) return null;
+  if (PRESENT.test(text)) return { present: true };
+  let m = text.match(/^(\d{4})[-/.](\d{1,2})$/);
+  if (m) return monthOf(Number(m[1]), Number(m[2]));
+  m = text.match(/^(\d{1,2})[-/.](\d{4})$/);
+  if (m) return monthOf(Number(m[2]), Number(m[1]));
+  m = text.match(/^([a-z]{3,9})\.?[\s,'-]*(\d{4})$/);
+  if (m) {
+    const idx = MONTHS.indexOf(m[1].slice(0, 3));
+    return idx === -1 ? null : { year: Number(m[2]), month: idx + 1 };
+  }
+  m = text.match(/^(\d{4})$/);
+  if (m) return { year: Number(m[1]), month: 0 };
+  return null;
+}
+
+function monthOf(year, month) {
+  return month >= 1 && month <= 12 ? { year, month } : null;
+}
+
+function monthKey(value) {
+  const p = parseExperienceMonth(value);
+  if (!p) return null;
+  return p.present ? Infinity : p.year * 12 + p.month;
+}
+
+/**
+ * Most recent first: by end date ("Present" on top), then start date when the end is
+ * blank or unreadable. Entries with no readable date go last; ties keep entered order.
+ */
+export function sortExperiencesByDate(rows) {
+  return rows
+    .map((row, i) => {
+      const end = monthKey(row?.end);
+      const start = monthKey(row?.start);
+      return { row, i, primary: end ?? start, secondary: start };
+    })
+    .sort((a, b) => {
+      if (a.primary !== b.primary) {
+        if (a.primary === null) return 1;
+        if (b.primary === null) return -1;
+        return b.primary - a.primary;
+      }
+      if (a.secondary !== b.secondary && a.secondary !== null && b.secondary !== null) {
+        return b.secondary - a.secondary;
+      }
+      return a.i - b.i;
+    })
+    .map(({ row }) => row);
+}
+
+/** Message for a readable start/end date whose year is out of range; '' otherwise. */
+export function experienceDateError(value, now = new Date()) {
+  const p = parseExperienceMonth(value);
+  if (!p || p.present) return '';
+  const max = academicYearMax(now);
+  if (p.year < ACADEMIC_YEAR_MIN || p.year > max) {
+    return `Use a year between ${ACADEMIC_YEAR_MIN} and ${max}.`;
+  }
+  return '';
+}
 
 /**
  * Filled entries only — [] when the candidate has not written anything.

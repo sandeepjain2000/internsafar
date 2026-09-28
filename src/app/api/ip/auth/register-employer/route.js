@@ -235,9 +235,9 @@ export async function POST(request) {
         subject: ackSubject,
         html: `<p>Hi ${name},</p>
           <p>Your employer account for <strong>${companyForDb}</strong> was created and is pending SuperAdmin approval.</p>
-          <p>Please confirm ownership of this inbox using the separate verification email we sent. You can sign in after SuperAdmin approval; posting also requires a verified email.</p>
+          <p>Please confirm ownership of this inbox using the separate verification email we sent. Once your email is verified you can sign in and upload your verification documents. Posting internships unlocks after SuperAdmin approval.</p>
           <p>— InternSafar</p>`,
-        text: `Hi ${name},\nYour employer account for ${companyForDb} is pending SuperAdmin approval. Confirm your email via the verification link we sent.\n`,
+        text: `Hi ${name},\nYour employer account for ${companyForDb} is pending SuperAdmin approval. Confirm your email via the verification link we sent, then sign in and upload your verification documents. Posting internships unlocks after SuperAdmin approval.\n`,
       });
       ackMailOk = true;
     } catch (mailErr) {

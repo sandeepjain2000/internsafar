@@ -57,16 +57,71 @@ Also useful when already present: `impeccable`, `ui-ux-pro-max`, `ckm-ui-styling
 <!-- END:skills-auto-fetch -->
 
 <!-- BEGIN:ai-context-pack -->
-# InternSafar AI context pack (Cursor — load on startup)
+# InternSafar AI context pack (load on startup)
 
-Workspace rule `.cursor/rules/internsafar-ai-context-pack.mdc` is `alwaysApply: true`.
+**InternSafar** (npm package `internship-portal`) is a Next.js internship marketplace with three roles:
+candidate (`/candidate`), employer (`/employer`), superadmin (`/superadmin`). JavaScript (not TypeScript),
+Postgres via `pg` (`ip_*` tables only), NextAuth, Tailwind 4 + shadcn, S3, Vercel preview + AWS EC2 production.
 
-**On the first agent turn of a chat (and before any IP edit/search):** Read  
-`docs/ai-context/PROJECT_INDEX.md`  
-then continue with `FOLDER_STRUCTURE.md` / one `domains/*.md` as needed.
+This file is the always-loaded entry point. The detailed project map lives in **`docs/ai-context/`** and is
+loaded on demand — do not paste pack content into this file.
 
-Do not orient from memory or broad greps first. Sibling app only — never edit nested `campus-placement-multiuser/internship-portal`.
+## Session startup (every chat, before any edit or search)
+
+1. Read `docs/ai-context/PROJECT_INDEX.md` (product, stack, hard constraints, domain map).
+2. Read `docs/ai-context/FOLDER_STRUCTURE.md` to locate files/routes.
+3. Read **only** the matching `docs/ai-context/domains/*.md` for the task.
+4. Open live source. Live source beats the pack; if they disagree, fix the stale side.
+
+Do not orient from memory or broad greps first. Sibling app only — never edit nested
+`campus-placement-multiuser/internship-portal`. Cursor mirror of this block:
+workspace rule `.cursor/rules/internsafar-ai-context-pack.mdc` (`alwaysApply: true`).
+
+## Keep the AI context pack current (mandatory)
+
+The pack is tracked in git and pushed to GitHub with the app. It must describe the **current** product,
+so it is updated **in the same task** as the code — not later, not "when someone remembers".
+
+**Update the matching pack file whenever a change adds, removes, or changes:**
+
+- A feature or role behaviour (candidate / employer / superadmin flows, approvals, points, offers, messages)
+- A page route or `src/app/api/ip/**` endpoint (path, auth/role check, request/response contract)
+- DB schema: new migration, table, column, status value, or apply-order change (`scripts/MIGRATION_MANIFEST.txt`)
+- Auth / session / registration / verification / login rules
+- Env var **names** (never values), npm scripts, QA commands, deploy Path B/C steps
+- A stable product decision (→ `DECISIONS.md`)
+
+**Skip the update** for pure CSS/copy tweaks and bug fixes that do not change behaviour or contracts.
+
+**How:** follow `docs/ai-context/CONTEXT_UPDATE.md` — edit only the affected file(s), write concrete paths
+(no guesses), bump the inspect/refresh dates, then rebuild `docs/internsafar-ai-context.zip`.
+
+**Before any `git push` or Vercel deploy** (only ever when the user explicitly asks):
+
+1. Review the diff being shipped against the list above.
+2. If any item applies and the pack was not updated yet, update it + rebuild the zip first.
+3. Ship pack + zip changes in the **same commit / push** as the code they describe.
+
+**Always report** at the end of a feature task one line: `AI context: updated <files>` or
+`AI context: no update needed (<reason>)`.
 <!-- END:ai-context-pack -->
+
+<!-- BEGIN:post-change-validation -->
+# Post-change validation (every code change, including small ones)
+
+Do not report a task complete just because the code compiles.
+
+1. Re-read the changed code for bugs, regressions, and unintended side effects.
+2. Check callers and consumers of anything you touched (API contracts, shared components, libs, other roles).
+3. Run `npm run lint` (at least on changed files). Run `npm run build` before reporting a feature complete
+   and always before a push/deploy. New migration SQL → `npm run db:check-migration-safety`.
+4. Run relevant QA when the area has it (see `docs/ai-context/domains/testing.md` for `npm run qa:*`).
+5. Fix errors caused by the change, then re-validate. Do not suppress or ignore errors.
+6. UI changes: check desktop and mobile layout and the affected user flow.
+   API/DB changes: check input validation, error handling, auth/role checks, existing rows, and existing consumers.
+7. If something could not be run, say so. Report separately: passed, failures caused by this change,
+   pre-existing failures, and checks that could not run.
+<!-- END:post-change-validation -->
 
 <!-- BEGIN:aws-db-script-routing -->
 # AWS / RDS database scripts (Cursor — read before running any migrate)
@@ -126,15 +181,16 @@ ALL frontend work in this project MUST meet production-grade, v0-level design qu
 - `PRODUCT.md` — product purpose, users, tone, anti-references
 - `DESIGN.md` — color system, typography, component patterns, layout rules
 
-Read both before writing any significant UI code.
+Both are **not created yet**. Until the user asks for them, follow this block, the UI skills above, and
+`docs/ai-context/domains/ui-ux.md` — do not invent these files.
 <!-- END:ui-quality-standard -->
 
 ## Documentation layout
 
 | Path | Contents |
 |------|----------|
-| [`docs/README.md`](docs/README.md) | Master doc index |
-| [`docs/product/placementhub-functionality.md`](docs/product/placementhub-functionality.md) | Features & flows |
-| [`docs/help/`](docs/help/) | In-app help export |
+| [`docs/ai-context/`](docs/ai-context/) | AI context pack — start at `PROJECT_INDEX.md` (keep current, see above) |
+| [`docs/internsafar-ai-context.zip`](docs/internsafar-ai-context.zip) | Zip of the pack for handing to another AI (rebuild after pack edits) |
+| [`InternSafar_Business_Requirements.txt`](InternSafar_Business_Requirements.txt) | BRD |
 | [`qa/docs/`](qa/docs/) | Guided runner & manual QA playbooks ([InternSafar runner playbook](qa/docs/internsafar-runner-playbook.md)) |
 | [`qa/runners/`](qa/runners/) | Runner scripts — use `run-internsafar.mjs` (not markdown) |

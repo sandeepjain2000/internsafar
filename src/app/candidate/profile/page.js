@@ -37,6 +37,8 @@ import {
   writeProfileDraft,
 } from '@/lib/ipCandidateProfileDraft';
 import { preferredRolesToText } from '@/lib/ipPreferredRoles';
+import { academicYearError } from '@/lib/ipAcademicYear';
+import { experienceDateError, sortExperiencesByDate } from '@/lib/ipCandidateExperience';
 import '@/components/ip/ip-candidate-profile-gemini.css';
 
 const PROFILE_TABS = [
@@ -84,6 +86,27 @@ function resumeDisplayName(url, fallbackName = '') {
 
 function emptyAcademicRow() {
   return { row_label: '', college: '', degree: '', specialization: '', study_status: '', graduation_year: '', cgpa: '' };
+}
+
+function academicYear(row) {
+  const raw = String(row?.graduation_year ?? '').trim();
+  const n = Number(raw);
+  return raw && Number.isFinite(n) ? n : null;
+}
+
+/** Latest graduation year first; rows without a year go last. Equal years keep their entered order. */
+function sortAcademicsByYear(rows) {
+  return rows
+    .map((row, i) => ({ row, i }))
+    .sort((a, b) => {
+      const ya = academicYear(a.row);
+      const yb = academicYear(b.row);
+      if (ya === yb) return a.i - b.i;
+      if (ya === null) return 1;
+      if (yb === null) return -1;
+      return yb - ya;
+    })
+    .map(({ row }) => row);
 }
 
 function skillList(form) {
@@ -194,8 +217,8 @@ export default function CandidateProfilePage() {
         graduation_year: a.graduation_year || '',
         cgpa: a.cgpa || '',
       }));
-      if (!nextAcademics.length) nextAcademics = [emptyAcademicRow()];
-      let nextExperiences = parseExperienceEntries(d.profile?.prior_experience);
+      nextAcademics = nextAcademics.length ? sortAcademicsByYear(nextAcademics) : [emptyAcademicRow()];
+      let nextExperiences = sortExperiencesByDate(parseExperienceEntries(d.profile?.prior_experience));
       serverFingerprintRef.current = profileDraftFingerprint(
         d.profile,
         nextAcademics,
@@ -215,8 +238,8 @@ export default function CandidateProfilePage() {
         if (!String(draftForm.profile_picture_url || '').trim()) delete draftForm.profile_picture_url;
         if (!String(draftForm.resume_url || '').trim()) delete draftForm.resume_url;
         nextForm = { ...nextForm, ...draftForm };
-        if (Array.isArray(draft.academics) && draft.academics.length) nextAcademics = draft.academics;
-        if (Array.isArray(draft.experiences) && draft.experiences.length) nextExperiences = draft.experiences;
+        if (Array.isArray(draft.academics) && draft.academics.length) nextAcademics = sortAcademicsByYear(draft.academics);
+        if (Array.isArray(draft.experiences) && draft.experiences.length) nextExperiences = sortExperiencesByDate(draft.experiences);
         setDraftNotOnAccount(true);
         setMessage(PROFILE_DRAFT_RESTORE_MESSAGE);
       } else {
@@ -298,7 +321,7 @@ export default function CandidateProfilePage() {
     set('skills', skills.filter((s) => s !== tag));
   }
 
-  async function saveProfileBody() {
+  async function saveProfileBody(orderedExperiences = experiences) {
     const dial = form.phone_country_code || '+91';
     // Draft (local) may omit phone; account Save always requires a valid phone.
     const phoneCheck = validateRequiredPhone(form.phone, dial);
@@ -320,7 +343,7 @@ export default function CandidateProfilePage() {
         ? form.preferred_locations.split(',').map((s) => s.trim()).filter(Boolean)
         : form.preferred_locations,
       preferred_roles: preferredRolesToText(form.preferred_roles),
-      prior_experience: serializeExperienceEntries(experiences),
+      prior_experience: serializeExperienceEntries(orderedExperiences),
       // Empty date inputs must be null — "" breaks Postgres DATE columns and blocks Save & Next
       availability_date: String(form.availability_date || '').trim() || null,
     };
@@ -366,11 +389,26 @@ export default function CandidateProfilePage() {
     try {
       let data = {};
       let academicsForFingerprint = academics;
+      const orderedExperiences = sortExperiencesByDate(experiences);
+      setExperiences(orderedExperiences);
+      const badExpIdx = orderedExperiences.findIndex((r) => experienceDateError(r.start) || experienceDateError(r.end));
+      if (badExpIdx !== -1) {
+        const bad = orderedExperiences[badExpIdx];
+        const which = experienceDateError(bad.start) ? 'Start' : 'End';
+        throw new Error(`Experience ${badExpIdx + 1} (${which}): ${experienceDateError(bad.start) || experienceDateError(bad.end)}`);
+      }
       if (profileTab === 'academic') {
+        const orderedAcademics = sortAcademicsByYear(academics);
+        academicsForFingerprint = orderedAcademics;
+        setAcademics(orderedAcademics);
+        const badYearIdx = orderedAcademics.findIndex((r) => academicYearError(r.graduation_year));
+        if (badYearIdx !== -1) {
+          throw new Error(`Education row ${badYearIdx + 1}: ${academicYearError(orderedAcademics[badYearIdx].graduation_year)}`);
+        }
         const res = await fetch('/api/ip/candidate/academics', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: academics }),
+          body: JSON.stringify({ items: orderedAcademics }),
         });
         data = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -391,9 +429,9 @@ export default function CandidateProfilePage() {
           }));
           setAcademics(academicsForFingerprint);
         }
-        data = await saveProfileBody();
+        data = await saveProfileBody(orderedExperiences);
       } else {
-        data = await saveProfileBody();
+        data = await saveProfileBody(orderedExperiences);
       }
       setForm((current) => (current ? { ...current, profile_complete: data.profileComplete } : current));
       if (data.profileComplete) {
@@ -401,7 +439,7 @@ export default function CandidateProfilePage() {
       }
       clearProfileDraft(form?.user_id);
       setDraftNotOnAccount(false);
-      serverFingerprintRef.current = profileDraftFingerprint(form, academicsForFingerprint, experiences);
+      serverFingerprintRef.current = profileDraftFingerprint(form, academicsForFingerprint, orderedExperiences);
       setMessage(
         data.profileComplete
           ? 'Profile saved — applications unlocked. All profile tabs stay open.'
@@ -961,7 +999,7 @@ export default function CandidateProfilePage() {
               <div className="ip-cp-sec-head">
                 <div>
                   <h3>Academic Education History</h3>
-                  <p className="ip-cp-hint">Academic history is flexible. You can add extra degrees or certifications.</p>
+                  <p className="ip-cp-hint">Academic history is flexible. You can add extra degrees or certifications. Rows are ordered by graduation year, latest first.</p>
                 </div>
                 <button type="button" className="ip-cp-btn ip-cp-btn--soft" onClick={addAcademicRow}>
                   <Plus />
@@ -973,7 +1011,7 @@ export default function CandidateProfilePage() {
                   <div key={row.id || idx} className="ip-cp-edu">
                     <div className="ip-cp-edu__head">
                       <span className={`ip-cp-pill${idx === 0 ? '' : ' is-outline'}`}>
-                        {row.row_label || (idx === 0 ? 'Primary education' : `Education ${idx + 1}`)}
+                        {`${idx + 1}. ${row.row_label || (idx === 0 ? 'Primary education' : 'Education')}`}
                       </span>
                       {academics.length > 1 ? (
                         <button type="button" className="ip-cp-btn ip-cp-btn--ghost" onClick={() => removeAcademicRow(idx)} aria-label="Remove row">
@@ -998,7 +1036,10 @@ export default function CandidateProfilePage() {
                         <input className="ip-cp-input" value={row.study_status} onChange={(e) => setAcademicField(idx, 'study_status', e.target.value)} placeholder="Studying / Graduated" />
                       </Field>
                       <Field label="Graduation year">
-                        <input className="ip-cp-input" type="number" value={row.graduation_year} onChange={(e) => setAcademicField(idx, 'graduation_year', e.target.value)} />
+                        <input className="ip-cp-input" type="number" value={row.graduation_year} onChange={(e) => setAcademicField(idx, 'graduation_year', e.target.value)} onBlur={() => setAcademics(sortAcademicsByYear)} aria-invalid={Boolean(academicYearError(row.graduation_year))} />
+                        {academicYearError(row.graduation_year) ? (
+                          <p className="ip-cp-error" role="alert">{academicYearError(row.graduation_year)}</p>
+                        ) : null}
                       </Field>
                       <Field label="CGPA / percentage">
                         <input className="ip-cp-input" value={row.cgpa} onChange={(e) => setAcademicField(idx, 'cgpa', e.target.value)} />
@@ -1052,7 +1093,7 @@ export default function CandidateProfilePage() {
               <div className="ip-cp-sec-head">
                 <div>
                   <h3>Experience <span className="ip-cp-opt">(optional)</span></h3>
-                  <p className="ip-cp-hint">Add internships, projects, or jobs as separate cards — clearer than one long paragraph.</p>
+                  <p className="ip-cp-hint">Add internships, projects, or jobs as separate cards — clearer than one long paragraph. Cards are ordered by date, most recent first.</p>
                 </div>
                 <button type="button" className="ip-cp-btn ip-cp-btn--soft" onClick={addExperienceRow}>
                   <Plus />
@@ -1064,7 +1105,7 @@ export default function CandidateProfilePage() {
                   <div key={row.id || idx} className="ip-cp-edu ip-cp-exp">
                     <div className="ip-cp-edu__head">
                       <span className={`ip-cp-pill${idx === 0 ? '' : ' is-outline'}`}>
-                        Experience {idx + 1}
+                        {`${idx + 1}. ${row.title?.trim() || 'Experience'}`}
                       </span>
                       {experiences.length > 1 ? (
                         <button type="button" className="ip-cp-btn ip-cp-btn--ghost" onClick={() => removeExperienceRow(idx)} aria-label="Remove experience">
@@ -1080,10 +1121,16 @@ export default function CandidateProfilePage() {
                         <input className="ip-cp-input" value={row.organization} onChange={(e) => setExperienceField(idx, 'organization', e.target.value)} placeholder="Company or project" />
                       </Field>
                       <Field label="Start">
-                        <input className="ip-cp-input" value={row.start} onChange={(e) => setExperienceField(idx, 'start', e.target.value)} placeholder="Jun 2025" />
+                        <input className="ip-cp-input" value={row.start} onChange={(e) => setExperienceField(idx, 'start', e.target.value)} onBlur={() => setExperiences(sortExperiencesByDate)} aria-invalid={Boolean(experienceDateError(row.start))} placeholder="Jun 2025" />
+                        {experienceDateError(row.start) ? (
+                          <p className="ip-cp-error" role="alert">{experienceDateError(row.start)}</p>
+                        ) : null}
                       </Field>
                       <Field label="End">
-                        <input className="ip-cp-input" value={row.end} onChange={(e) => setExperienceField(idx, 'end', e.target.value)} placeholder="Aug 2025 or Present" />
+                        <input className="ip-cp-input" value={row.end} onChange={(e) => setExperienceField(idx, 'end', e.target.value)} onBlur={() => setExperiences(sortExperiencesByDate)} aria-invalid={Boolean(experienceDateError(row.end))} placeholder="Aug 2025 or Present" />
+                        {experienceDateError(row.end) ? (
+                          <p className="ip-cp-error" role="alert">{experienceDateError(row.end)}</p>
+                        ) : null}
                       </Field>
                       <Field label="What you did" optional span={2}>
                         <textarea
@@ -1128,7 +1175,7 @@ export default function CandidateProfilePage() {
               <div className="ip-cp-sec-head"><h3>Setup &amp; hours</h3></div>
               <p className="ip-cp-hint">All questions below are optional — answer only what you are comfortable sharing.</p>
               <div className="ip-cp-grid">
-                <Field label="Wired or Wi-Fi broadband?" hint="Not mobile 4G/5G hotspot only.">
+                <Field label={<>Wired or Wi-Fi broadband? <span className="ip-cp-opt">(not just a mobile 4G/5G hotspot)</span></>}>
                   <select
                     className="ip-cp-input"
                     value={form.has_wired_broadband === true ? 'yes' : form.has_wired_broadband === false ? 'no' : ''}
@@ -1139,7 +1186,7 @@ export default function CandidateProfilePage() {
                     <option value="no">No</option>
                   </select>
                 </Field>
-                <Field label="Dedicated laptop available?" hint="A laptop that is regularly available for your work.">
+                <Field label={<>Dedicated laptop available? <span className="ip-cp-opt">(regularly available for your work)</span></>}>
                   <select
                     className="ip-cp-input"
                     value={form.has_dedicated_laptop === true ? 'yes' : form.has_dedicated_laptop === false ? 'no' : ''}
@@ -1388,11 +1435,13 @@ export default function CandidateProfilePage() {
               >
                 Save draft &amp; exit
               </button>
-              {hasNextStep ? null : (
-                <button type="submit" className="ip-cp-btn ip-cp-btn--primary" disabled={saving}>
-                  {saving ? 'Saving...' : activeTab?.saveLabel || 'Save profile'}
-                </button>
-              )}
+              <button
+                type="submit"
+                className={`ip-cp-btn ${hasNextStep ? 'ip-cp-btn--outline' : 'ip-cp-btn--primary'}`}
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : hasNextStep ? 'Save' : activeTab?.saveLabel || 'Save profile'}
+              </button>
               {hasNextStep ? (
                 <button
                   type="button"

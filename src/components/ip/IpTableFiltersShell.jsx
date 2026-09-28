@@ -5,12 +5,14 @@ import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 
 /**
  * Toolbar Filters button + expandable panel above a table (does not cover rows).
+ * `toolbar` (e.g. ListPresetsBar) renders on the same row as the Filters button.
  */
 export function IpTableFiltersShell({
   open,
   onToggle,
   activeCount = 0,
   onClear,
+  toolbar = null,
   children,
   className = '',
 }) {
@@ -35,6 +37,7 @@ export function IpTableFiltersShell({
             Clear
           </button>
         ) : null}
+        {toolbar ? <div className="ip-tf__toolbar">{toolbar}</div> : null}
       </div>
       {open ? <div className="ip-tf__panel">{children}</div> : null}
     </div>
