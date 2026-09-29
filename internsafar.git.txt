@@ -1,0 +1,7 @@
+TEMP MARKER — InternSafar (internship-portal)
+
+Local folder : C:\Users\place\Work\UIUX Migration\internship-portal
+GitHub remote: https://github.com/sandeepjain2000/internsafar.git
+Branch       : main
+
+This file only confirms which GitHub repo this folder pushes to. Safe to delete.
