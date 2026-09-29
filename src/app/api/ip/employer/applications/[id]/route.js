@@ -7,6 +7,7 @@ import { parseInterviewMeetUrl } from '@/lib/ipInterviewMeetUrl';
 import { newId } from '@/lib/ids';
 import { linkThreadToApplicationIfPresent } from '@/lib/ipLinkThreadApplication';
 import { ensureIpMessageInboxSchema } from '@/lib/ipMessageThreadQuery';
+import { closePendingOfferForApplication } from '@/lib/ipOfferLifecycle';
 
 /** Same closed set as ip_applications_status_check (all writers, not only this PATCH). */
 const ALLOWED = [
@@ -81,6 +82,7 @@ export async function PATCH(request, { params }) {
       [id, status],
     );
   }
+  await closePendingOfferForApplication(id, status);
 
   let threadId = null;
   if (status === 'interviewing') {

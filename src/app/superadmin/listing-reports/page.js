@@ -9,8 +9,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import '@/components/ip/ip-list-pager.css';
 import IpListPager from '@/components/ip/IpListPager';
 import { useClientPagination } from '@/hooks/useClientPagination';
+import { useLatestRequest } from '@/hooks/useLatestRequest';
 import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
 import { toTitleCaseLabel } from '@/lib/ipTitleCase';
+import { listingReportReasonLabel } from '@/lib/ipListingReportReasons';
 
 export default function ListingReportsPage() {
   const [items, setItems] = useState([]);
@@ -27,12 +29,21 @@ export default function ListingReportsPage() {
     setPage(1);
   }, [status, setPage]);
 
+  const beginLoad = useLatestRequest();
+
   async function load(nextStatus = status) {
+    const isCurrent = beginLoad();
     setLoading(true);
-    const res = await fetch(`/api/ip/superadmin/listing-reports?status=${encodeURIComponent(nextStatus)}`);
-    const data = await res.json();
-    setItems(data.items || []);
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/ip/superadmin/listing-reports?status=${encodeURIComponent(nextStatus)}`);
+      const data = await res.json().catch(() => ({}));
+      if (!isCurrent()) return;
+      setItems(data.items || []);
+    } catch {
+      if (isCurrent()) setItems([]);
+    } finally {
+      if (isCurrent()) setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -74,7 +85,10 @@ export default function ListingReportsPage() {
             key={s}
             size="sm"
             variant={status === s ? 'default' : 'outline'}
-            onClick={() => setStatus(s)}
+            onClick={() => {
+              if (s !== status) setLoading(true);
+              setStatus(s);
+            }}
           >
             {s}
           </Button>
@@ -92,10 +106,10 @@ export default function ListingReportsPage() {
           {!loading && !items.length ? (
             <p className="text-sm text-muted-foreground">No reports in this view.</p>
           ) : null}
-          {pageItems.map((r) => (
+          {(loading ? [] : pageItems).map((r) => (
             <div key={r.id} className="rounded-md border p-3 text-sm space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge>{toTitleCaseLabel(r.reason) || r.reason}</Badge>
+                <Badge>{listingReportReasonLabel(r.reason) || toTitleCaseLabel(r.reason) || r.reason}</Badge>
                 <Badge variant="outline">{toTitleCaseLabel(r.status) || r.status}</Badge>
                 <span className="text-muted-foreground">{new Date(r.created_at).toLocaleString()}</span>
               </div>

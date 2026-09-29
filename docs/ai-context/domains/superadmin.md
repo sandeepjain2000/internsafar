@@ -60,7 +60,7 @@ Do not invent alternate admin roles. Do not reset password hashes for existing S
 ## Constraints
 
 - SuperAdmin shares the home login `/`; SuperAdmin layout `loginHref` is `/`.
-- Restore (Suspended → approved) keeps the earlier Final Approval and skips the document check (sticky approval); the API only allows Suspend from approved, so every suspended employer already passed Final Approval.
+- Restore (Suspended → approved) keeps the earlier Final Approval (no ≥1-approved re-check) but is blocked while any active document is pending review: "Cannot restore <Company>: N document(s) still waiting for review…" (`assertNoPendingDocumentsForRestore`, 2026-09-29). Approving **or rejecting** the doc unblocks it — a suspended employer cannot sign in to replace a bad doc, so approve-only would be a dead end. The API only allows Suspend from approved. Approvals page shows the error (and bulk Restore Selected partial failures) on the page and inside Audit & Docs, with an Open Documents link.
 - Treat approval/document/points flows as sensitive; inspect API auth checks before changes.
 - Migration `036_ip_single_superadmin.sql` encodes single-superadmin data repair — read before changing admin user model.
 - Final Approval still needs ≥1 approved active doc and no pending active docs (`assertDocumentsReadyForFinalApproval`).

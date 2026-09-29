@@ -103,10 +103,39 @@ export function applicationClosedLabel(row) {
   return 'Closed on';
 }
 
+/**
+ * In-progress = still waiting on the employer. Must match the sidebar badge SQL in
+ * `api/ip/nav-badges`: Awaiting Review stops counting once the posting is closed or past its last date.
+ */
+export function isApplicationInProgress(row) {
+  const s = String(row?.status || '').toLowerCase();
+  if (s === 'shortlisted' || s === 'interviewing') return true;
+  if (s !== 'applied' && s !== 'pending') return false;
+  if (String(row?.internship_status || '').toLowerCase() === 'closed') return false;
+  if (row?.apply_ends_at) {
+    const end = new Date(row.apply_ends_at).getTime();
+    if (!Number.isNaN(end) && end <= Date.now()) return false;
+  }
+  return true;
+}
+
+export const APPLICATION_STATUS_GUIDE = [
+  { status: 'applied', label: 'Awaiting Review', desc: 'Sent to the employer. They have not opened or screened it yet.' },
+  { status: 'shortlisted', label: 'Under Review', desc: 'The employer shortlisted you and is screening your application.' },
+  { status: 'interviewing', label: 'Interview Scheduled', desc: 'An interview is booked. Check Messages for the time and link.' },
+  { status: 'offered', label: 'Offer Received', desc: 'The employer sent an offer. Accept or decline it on the Offers page.' },
+  { status: 'hired', label: 'Hired', desc: 'You accepted the offer and are onboarding with the employer.' },
+  { status: 'completed', label: 'Completed', desc: 'The internship has finished.' },
+  { status: 'rejected', label: 'Rejected', desc: 'The employer did not take this application forward.' },
+  { status: 'withdrawn', label: 'Withdrawn', desc: 'You withdrew it. You can re-apply while the posting is open (points are charged again).' },
+  { status: 'declined_offer', label: 'Offer Declined', desc: 'You declined the offer from this employer.' },
+];
+
 export function decorateCandidateApplication(row) {
   const closedAt = applicationClosedAt(row);
   return {
     ...row,
+    in_progress: isApplicationInProgress(row),
     employer_verified: String(row.approval_status || '').toLowerCase() === 'approved',
     display_status: applicationDisplayStatus(row.status),
     status_tab: applicationStatusTab(row.status),

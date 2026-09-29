@@ -29,6 +29,13 @@ Outbound mail may append an unsubscribe footer (`src/lib/mail.js` → `ipEmailUn
 - Notifications unread badge counts **Inbox only**. Candidate **My applications** badge = in-progress apps: `shortlisted`/`interviewing` always; `applied`/`pending` only while posting not `closed` and `apply_ends_at` not passed.
 - Pages call `refreshNavBadges()` (`src/lib/ipNavBadges.js`) after mutations; `PortalShell` refetches on that event and on route change.
 
+## Offer lifecycle (2026-09-29)
+
+- `ip_offers` is **one row per application** (`UNIQUE (application_id)`); status check is `pending|accepted|declined|expired|withdrawn` (`withdrawn` added by migration **046**; `expired` = deadline passed, `withdrawn` = employer changed the application).
+- `POST /api/ip/offers`: allowed only when the application status is in `OFFERABLE_APPLICATION_STATUSES` (`src/lib/ipOfferPresentation.js`: applied, pending, shortlisted, interviewing, offered, declined_offer). 409 if the existing offer is `accepted` or still pending (not past `valid_until`). A **declined, expired or withdrawn** offer is **reused**: same row reset to `pending` with the new terms, `responded_at`/`last_reminded_at` cleared, `created_at = now()`.
+- Employer status change away from `offered` (single PATCH or bulk shortlist/reject) closes a pending offer as `withdrawn` (`closePendingOfferForApplication` in `src/lib/ipOfferLifecycle.js`; falls back to `expired` on a DB without migration 046; Supabase and AWS both have it since 2026-09-29). Candidate accept/decline requires application still `offered`.
+- Expiry everywhere uses `offerIsExpired` (end of `valid_until` day). Accept/decline emails go to candidate and employer **separately**; remind email link is absolute (`resolveAppOrigin`).
+
 ## Constraints
 
 - Changes often cross candidate ↔ employer — inspect both UIs and APIs.

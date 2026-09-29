@@ -101,6 +101,7 @@ const TABS = [
   { id: 'accepted', label: 'Accepted', dot: 'ok' },
   { id: 'declined', label: 'Declined', dot: 'bad' },
   { id: 'expired', label: 'Expired', dot: 'muted' },
+  { id: 'withdrawn', label: 'Withdrawn', dot: 'muted' },
 ];
 
 export default function CandidateOffersPage() {
@@ -116,6 +117,7 @@ export default function CandidateOffersPage() {
   const [phoneNote, setPhoneNote] = useState('');
   const onPhone = usePhoneShareDevice();
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [toast, setToast] = useState('');
   const [cols, setCols] = useState(EMPTY_COLS);
   const [colFiltersOpen, setColFiltersOpen] = useState(false);
@@ -154,10 +156,17 @@ export default function CandidateOffersPage() {
 
   async function load() {
     setLoading(true);
+    setLoadError('');
     try {
       const res = await fetch('/api/ip/offers');
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setLoadError(data.error || 'Could not load your offers.');
+        return;
+      }
       setItems(data.items || []);
+    } catch {
+      setLoadError('Could not load your offers. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -168,7 +177,7 @@ export default function CandidateOffersPage() {
   }, []);
 
   const counts = useMemo(() => {
-    const c = { all: items.length, action_required: 0, accepted: 0, declined: 0, expired: 0 };
+    const c = { all: items.length, action_required: 0, accepted: 0, declined: 0, expired: 0, withdrawn: 0 };
     items.forEach((o) => {
       const t = o.display_tab || 'all';
       if (c[t] != null) c[t] += 1;
@@ -239,8 +248,9 @@ export default function CandidateOffersPage() {
   async function submitRating() {
     if (!rateFor?.employer_user_id) return;
     setBusyId(rateFor.id);
+    setError('');
     try {
-      await fetch('/api/ip/ratings', {
+      const res = await fetch('/api/ip/ratings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -249,8 +259,12 @@ export default function CandidateOffersPage() {
           internshipId: rateFor.internship_id,
         }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not submit rating');
       setRateFor(null);
       showToast('Rating submitted');
+    } catch (e) {
+      setError(e.message || 'Could not submit rating');
     } finally {
       setBusyId('');
     }
@@ -384,6 +398,13 @@ export default function CandidateOffersPage() {
 
       {loading ? (
         <IpListLoading label="Loading Offers…" />
+      ) : loadError ? (
+        <div className="ip-of-alert ip-mobile-inset" role="alert" data-testid="candidate-offers-load-error">
+          {loadError}{' '}
+          <button type="button" className="ip-of-btn" onClick={load}>
+            Try again
+          </button>
+        </div>
       ) : !filtered.length ? (
         <div className="ip-of-empty ip-mobile-inset">
           <Inbox strokeWidth={1.5} className="size-10" style={{ margin: '0 auto', color: '#4f46e5' }} />
@@ -652,6 +673,15 @@ export default function CandidateOffersPage() {
                   <span className="ip-of-badge ip-of-badge--muted">Expired</span>
                 </div>
               ) : null}
+
+              {o.display_status === 'withdrawn' ? (
+                <div className="ip-of-foot">
+                  <p className="ip-of-hint">
+                    The employer withdrew this offer after updating your application. Accept/Decline actions are disabled.
+                  </p>
+                  <span className="ip-of-badge ip-of-badge--muted">Withdrawn</span>
+                </div>
+              ) : null}
             </article>
           );
         })
@@ -746,6 +776,7 @@ export default function CandidateOffersPage() {
                 </button>
               ))}
             </div>
+            {error ? <div className="ip-of-alert" style={{ marginTop: '0.75rem' }}>{error}</div> : null}
             <div className="ip-of-modal-actions">
               <button type="button" className="ip-of-btn ip-of-btn--ghost" onClick={() => setRateFor(null)}>
                 Cancel

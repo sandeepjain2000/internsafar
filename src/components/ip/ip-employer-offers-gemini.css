@@ -505,6 +505,12 @@
   cursor: pointer;
 }
 
+.ip-emp-offers a.ip-eo-btn-remind {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
 .ip-emp-offers .ip-eo-btn-remind:hover:not(:disabled) {
   background: #e2e8f0;
 }

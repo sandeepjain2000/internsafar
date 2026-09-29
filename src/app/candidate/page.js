@@ -181,7 +181,7 @@ export default function CandidateDashboard() {
   }, []);
 
   const points = Number(profile?.points ?? 0);
-  const used = apps.length;
+  const activeApps = apps.filter((a) => a.in_progress).length;
   const appsLeft = Math.max(0, Math.floor(points / POINTS_PER_APPLICATION));
   const readiness = useMemo(() => profileReadiness(profile), [profile]);
 
@@ -344,16 +344,19 @@ export default function CandidateDashboard() {
         </div>
         <div className="ip-cd-card ip-cd-stat">
           <div className="ip-cd-stat__top">
-            <p className="ip-cd-stat__label">Applications sent</p>
+            <p className="ip-cd-stat__label">Active applications</p>
             <div className="ip-cd-stat__ico ip-cd-stat__ico--indigo">
               <FileText size={14} aria-hidden />
             </div>
           </div>
           <div className="ip-cd-stat__row">
-            <p className="ip-cd-stat__value">{dashReady ? used : '—'}</p>
-            <span className="ip-cd-pill ip-cd-pill--brand">Submitted</span>
+            <p className="ip-cd-stat__value" data-testid="dash-active-apps">{dashReady ? activeApps : '—'}</p>
+            <span className="ip-cd-pill ip-cd-pill--brand">In progress</span>
           </div>
-          <p className="ip-cd-stat__sub">Active role submissions under review.</p>
+          <p className="ip-cd-stat__sub">
+            Awaiting review, under review, or interview
+            {dashReady ? ` · ${apps.length} sent in total` : ''}.
+          </p>
         </div>
         <Link href="/candidate/profile" className="ip-cd-card ip-cd-stat ip-cd-stat--link">
           <div className="ip-cd-stat__top">

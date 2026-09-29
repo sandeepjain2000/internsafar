@@ -259,7 +259,7 @@ export default function CandidateSearchPage() {
           ...offerExtras,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setStatusMsg(data.error || 'Could not send offer');
         return;
@@ -267,6 +267,8 @@ export default function CandidateSearchPage() {
       showToast(`Offer sent to ${offerTarget.name}!`);
       setOfferTarget(null);
       await load();
+    } catch {
+      setStatusMsg('Could not send offer. Check your connection and try again.');
     } finally {
       setBusy(false);
     }

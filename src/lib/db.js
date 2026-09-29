@@ -80,10 +80,43 @@ function getPool() {
   return globalThis[POOL_KEY];
 }
 
+// The shared session pooler caps clients across every process (local dev, QA, Vercel).
+// Hitting the cap fails while opening a connection, before any SQL runs, so only the
+// connect step is retried — queries are never re-executed.
+const CONN_LIMIT_RE = /EMAXCONNSESSION|max clients reached|too many clients|remaining connection slots/i;
+const CONNECT_RETRY_DELAYS_MS = [250, 750, 1500, 3000];
+
+function isConnectionLimitError(err) {
+  return err?.code === '53300' || CONN_LIMIT_RE.test(String(err?.message || ''));
+}
+
+async function connectWithRetry() {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await getPool().connect();
+    } catch (err) {
+      if (!isConnectionLimitError(err) || attempt >= CONNECT_RETRY_DELAYS_MS.length) throw err;
+      await new Promise((resolve) => setTimeout(resolve, CONNECT_RETRY_DELAYS_MS[attempt]));
+    }
+  }
+}
+
+async function runQuery(text, params) {
+  const client = await connectWithRetry();
+  try {
+    const res = await client.query(text, params);
+    client.release();
+    return res;
+  } catch (err) {
+    client.release(err);
+    throw err;
+  }
+}
+
 export async function query(text, params) {
   const start = Date.now();
   try {
-    const res = await getPool().query(text, params);
+    const res = await runQuery(text, params);
     if (process.env.NODE_ENV === 'development') {
       console.log('Executed query', {
         text: text.substring(0, 80),
@@ -99,7 +132,7 @@ export async function query(text, params) {
 }
 
 export async function withClient(fn) {
-  const client = await getPool().connect();
+  const client = await connectWithRetry();
   try {
     return await fn(client);
   } finally {

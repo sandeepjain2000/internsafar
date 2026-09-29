@@ -1006,3 +1006,109 @@
     margin-right: -1.5rem;
   }
 }
+
+/* —— Apply confirmation, new-row highlight, status guide —— */
+.ip-apps .ip-ap-applied {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #a7f3d0;
+  border-radius: 0.75rem;
+  background: #ecfdf5;
+  color: #065f46;
+}
+.ip-apps .ip-ap-applied__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  color: #059669;
+}
+.ip-apps .ip-ap-applied__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.ip-apps .ip-ap-applied__body strong { font-size: 0.875rem; font-weight: 700; color: #064e3b; }
+.ip-apps .ip-ap-applied__body p { font-size: 0.8125rem; line-height: 1.45; }
+.ip-apps .ip-ap-applied__link {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #047857;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.ip-apps .ip-ap-applied__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: #047857;
+  cursor: pointer;
+}
+.ip-apps .ip-ap-applied__close:hover { background: #d1fae5; }
+.ip-apps .ip-ap-applied__close svg { width: 1rem; height: 1rem; }
+
+.ip-apps tr.is-just-applied > td { background: #f0fdf4; }
+.ip-apps tr.is-just-applied > td:first-child { box-shadow: inset 3px 0 0 #10b981; }
+.ip-apps .ip-ap-card.is-just-applied { border-color: #6ee7b7; box-shadow: 0 0 0 2px #d1fae5; }
+
+.ip-apps .ip-ap-guide {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.ip-apps .ip-ap-guide h2 { font-size: 0.875rem; font-weight: 700; color: #0f172a; }
+.ip-apps .ip-ap-guide__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.6rem 1.25rem;
+  margin: 0;
+}
+.ip-apps .ip-ap-guide__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+.ip-apps .ip-ap-guide__item dt,
+.ip-apps .ip-ap-guide__item dd { margin: 0; }
+.ip-apps .ip-ap-guide__item dd { font-size: 0.75rem; line-height: 1.45; color: #64748b; }
+.ip-apps .ip-ap-guide__note {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #64748b;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 0.65rem;
+}
+.ip-apps .ip-ap-guide__note strong { color: #334155; }
+
+@media (min-width: 640px) {
+  .ip-apps .ip-ap-guide__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1024px) {
+  .ip-apps .ip-ap-guide__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767px) {
+  .ip-apps .ip-ap-applied { order: 1; margin: 0 1rem; }
+  .ip-apps .ip-ap-guide { order: 5; margin: 0 1rem; }
+}

@@ -1,5 +1,15 @@
 /** Candidate/employer offer labels from live rows. Never invent letter text or Unsplash logos. */
 
+/** Application statuses that may receive a (new) offer. Rejected, withdrawn, hired, completed may not. */
+export const OFFERABLE_APPLICATION_STATUSES = [
+  'applied',
+  'pending',
+  'shortlisted',
+  'interviewing',
+  'offered',
+  'declined_offer',
+];
+
 export function offerDeadlineEnd(validUntil) {
   if (!validUntil) return null;
   const d = new Date(validUntil);
@@ -29,6 +39,7 @@ export function offerDisplayStatus(row) {
   if (s === 'accepted') return { key: 'accepted', tab: 'accepted', label: 'Offer Accepted' };
   if (s === 'declined') return { key: 'declined', tab: 'declined', label: 'Offer Declined' };
   if (s === 'expired') return { key: 'expired', tab: 'expired', label: 'Expired' };
+  if (s === 'withdrawn') return { key: 'withdrawn', tab: 'withdrawn', label: 'Withdrawn' };
   return { key: s || 'other', tab: s || 'all', label: s || '—' };
 }
 
@@ -51,6 +62,7 @@ export function offerDaysRemainingLabel(row) {
   const end = offerDeadlineEnd(row?.valid_until);
   if (!end) return null;
   if (disp.key === 'expired') {
+    if (end.getTime() > Date.now()) return null;
     const days = Math.max(1, Math.ceil((Date.now() - end.getTime()) / (24 * 60 * 60 * 1000)));
     return `Expired ${days} day${days === 1 ? '' : 's'} ago`;
   }

@@ -45,6 +45,30 @@ export async function assertDocumentsReadyForFinalApproval(employerId) {
   return { ok: true, approvedCount: approved.length };
 }
 
+/**
+ * Restore (Suspended → approved) keeps the earlier Final Approval but waits for SuperAdmin
+ * to review any document still pending. Rejecting also clears it: a suspended employer
+ * cannot sign in to replace a bad document, so requiring approval alone could never unblock.
+ */
+async function assertNoPendingDocumentsForRestore(employerId, companyName) {
+  await ensureIpEmployerDocumentSlotsSchema();
+  const pending = await query(
+    `SELECT count(*)::int AS n FROM ip_employer_documents
+     WHERE employer_id = $1 AND superseded_at IS NULL
+       AND coalesce(review_status, 'pending') = 'pending'`,
+    [employerId],
+  );
+  const n = pending.rows[0]?.n || 0;
+  if (!n) return { ok: true };
+  const who = companyName || 'This employer';
+  const docs = n === 1 ? '1 document' : `${n} documents`;
+  const them = n === 1 ? 'it' : 'them';
+  return {
+    ok: false,
+    error: `Cannot restore ${who}: ${docs} still waiting for review. Open the Documents tab and approve ${them} (or reject if invalid), then return here and Restore.`,
+  };
+}
+
 function statusTitle(status) {
   if (status === 'approved') return 'Final Employer Approval Granted';
   if (status === 'rejected') return 'Employer Account Rejected';
@@ -54,7 +78,7 @@ function statusTitle(status) {
 }
 
 async function setOneStatus(id, status, rejectionReason) {
-  const cur = await query(`SELECT approval_status FROM ip_employers WHERE id = $1`, [id]);
+  const cur = await query(`SELECT approval_status, company_name FROM ip_employers WHERE id = $1`, [id]);
   if (!cur.rows[0]) return { ok: false, error: 'not_found' };
   const current = String(cur.rows[0].approval_status || '');
 
@@ -62,8 +86,10 @@ async function setOneStatus(id, status, rejectionReason) {
   if (status === 'suspended' && current !== 'approved' && current !== 'suspended') {
     return { ok: false, error: 'Only approved employers can be suspended.' };
   }
-  // Restore (suspended → approved) keeps the earlier Final Approval; new pending documents don't block it.
-  if (status === 'approved' && current !== 'suspended') {
+  if (status === 'approved' && current === 'suspended') {
+    const gate = await assertNoPendingDocumentsForRestore(id, cur.rows[0].company_name);
+    if (!gate.ok) return { ok: false, error: gate.error };
+  } else if (status === 'approved') {
     const gate = await assertDocumentsReadyForFinalApproval(id);
     if (!gate.ok) return { ok: false, error: gate.error };
   }

@@ -378,10 +378,18 @@ export default function CandidateReferralPage() {
             ({POINTS_PER_APPLICATION} pts / app).
           </p>
         </div>
-        <button type="button" className="ip-cr-btn" onClick={() => setModal('rules')}>
-          <ShieldAlert aria-hidden />
-          Program Rules & Terms
-        </button>
+        <div className="ip-cr-header-actions">
+          <div className="ip-cr-pts-pill" data-testid="cand-ref-points-pill">
+            <span className="ip-cr-pts-pill__dot" aria-hidden>
+              <Coins size={12} />
+            </span>
+            <span>{data ? `${points} Reward Points` : '— Reward Points'}</span>
+          </div>
+          <button type="button" className="ip-cr-btn" onClick={() => setModal('rules')}>
+            <ShieldAlert aria-hidden />
+            Program Rules & Terms
+          </button>
+        </div>
       </div>
 
       <div className="ip-cr-metrics">

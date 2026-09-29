@@ -5,15 +5,17 @@ import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
 import { personalizeMessageBody } from '@/lib/ipMessageResponseState';
 import { notifyUser } from '@/lib/ipNotify';
 import { linkThreadToApplicationIfPresent } from '@/lib/ipLinkThreadApplication';
+import { closePendingOfferForApplication } from '@/lib/ipOfferLifecycle';
 
 async function ownedApps(employerId, internshipId, applicationIds) {
   const result = await query(
     `SELECT a.id, a.candidate_id, a.status, a.match_score, a.screening_disabled, a.created_at, a.answers,
             c.name, c.email, c.college, c.degree, c.city, c.skills, c.user_id as candidate_user_id,
-            i.title, i.employer_id
+            i.title, i.employer_id, e.company_name
      FROM ip_applications a
      JOIN ip_candidates c ON c.id = a.candidate_id
      JOIN ip_internships i ON i.id = a.internship_id
+     LEFT JOIN ip_employers e ON e.id = i.employer_id
      WHERE i.employer_id = $1 AND a.internship_id = $2 AND a.id = ANY($3::text[])`,
     [employerId, internshipId, applicationIds],
   );
@@ -88,6 +90,7 @@ export async function POST(request, { params }) {
           action === 'reject' && template ? template.version : null,
         ],
       );
+      await closePendingOfferForApplication(row.id, nextStatus);
       await query(
         `INSERT INTO ip_application_events (id, application_id, actor_user_id, event_type, payload)
          VALUES ($1,$2,$3,$4,$5::jsonb)`,
@@ -111,6 +114,21 @@ export async function POST(request, { params }) {
           candidateUserId: row.candidate_user_id,
           body: personalized,
           applicationId: row.id,
+        });
+      }
+      if (String(row.status || '').toLowerCase() !== nextStatus && row.candidate_user_id) {
+        await notifyUser({
+          userId: row.candidate_user_id,
+          title: `Application ${nextStatus}`,
+          body: row.title,
+          link: `/candidate/applications?id=${encodeURIComponent(row.id)}`,
+          category: 'application',
+          meta: {
+            applicationId: row.id,
+            company: row.company_name || null,
+            internshipTitle: row.title,
+            bulk: true,
+          },
         });
       }
       updated += 1;

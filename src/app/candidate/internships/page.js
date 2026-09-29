@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bookmark, CalendarDays, LayoutGrid, Search, Sparkles, Star } from 'lucide-react';
+import { AlertTriangle, Bookmark, CalendarDays, CheckCircle2, LayoutGrid, LogIn, Search, Sparkles, Star } from 'lucide-react';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
@@ -20,6 +21,14 @@ import '@/components/ip/ip-table-filters.css';
 import '@/components/ip/ip-list-pager.css';
 import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
 import { readResponseJson } from '@/lib/readResponseJson';
+import { fetchErrorMessage as loadErrorMessage, fetchJsonWithRetry } from '@/lib/fetchJsonWithRetry';
+import { signOutAndEndSession } from '@/lib/ipClientSignOut';
+import {
+  BROWSE_DEFAULT_STATE,
+  BROWSE_TABLE_KEY,
+  browseQueryString,
+  browseStateFromSaved,
+} from '@/lib/ipBrowseFilters';
 
 const PAGE_SIZE = 10;
 const BROWSE_TAB_SESSION_KEY = 'ip_browse_tab';
@@ -48,6 +57,23 @@ function writeSessionBrowseTab(tabId) {
   } catch {
     /* ignore */
   }
+}
+
+function initialBrowseTab() {
+  try {
+    if (new URLSearchParams(window.location.search).get('saved') === '1') return 'saved';
+  } catch {
+    return 'unapplied';
+  }
+  return readSessionBrowseTab();
+}
+
+function createGate() {
+  let resolve;
+  const promise = new Promise((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
 }
 
 const WORK_MODES = [
@@ -157,105 +183,121 @@ export default function BrowseInternshipsPage() {
   const [tab, setTab] = useState('unapplied');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(null);
   const [points, setPoints] = useState(null);
   const [viewMode, setViewMode] = useViewMode('ip_browse_view', 'list');
   const [presetResetKey, setPresetResetKey] = useState(0);
   const reqRef = useRef(0);
+  const initialRequestRef = useRef(false);
+  // Query already answered by the initial one-trip load; the first ready-triggered load skips it.
+  const initialQueryRef = useRef(null);
+  const [shownQuery, setShownQuery] = useState(null);
+  const [serverViewGate] = useState(createGate);
   const { page, setPage, totalPages, total, pageItems, pageSize, serialOffset } = useClientPagination(items, PAGE_SIZE);
 
-  const snapshot = useMemo(() => ({
-    filters: {
-      q, minStipend, maxDuration, workMode, startDate, selectedRegions, selectedCities, minMatch, minValidation,
-    },
-    sort,
+  const filterState = useMemo(() => ({
+    q, minStipend, maxDuration, workMode, startDate, selectedRegions, selectedCities, minMatch, minValidation, sort,
   }), [q, minStipend, maxDuration, workMode, startDate, selectedRegions, selectedCities, minMatch, minValidation, sort]);
+  const snapshot = useMemo(() => {
+    const { sort: s, ...filters } = filterState;
+    return { filters, sort: s };
+  }, [filterState]);
   const prefs = useListPrefsSync({
-    tableKey: 'candidate.internships',
+    tableKey: BROWSE_TABLE_KEY,
     snapshot,
-    applySnapshot: (s) => {
-      const f = s.filters || {};
-      if (f.q != null) setQ(f.q);
-      if (f.minStipend != null) setMinStipend(String(f.minStipend));
-      if (f.maxDuration != null) setMaxDuration(String(f.maxDuration));
-      if (f.workMode != null) setWorkMode(f.workMode);
-      if (f.startDate != null) setStartDate(f.startDate);
-      if (Array.isArray(f.selectedRegions)) setSelectedRegions(f.selectedRegions);
-      if (Array.isArray(f.selectedCities)) setSelectedCities(f.selectedCities);
-      if (f.minMatch != null) setMinMatch(String(f.minMatch));
-      if (f.minValidation != null) setMinValidation(f.minValidation);
-      if (s.sort) setSort(s.sort);
+    serverView: serverViewGate.promise,
+    applySnapshot: (s, { hydrate = false } = {}) => {
+      // Saved view arrives after first paint: never overwrite filters the candidate already changed.
+      if (hydrate && browseQueryString(filterState, 'all') !== browseQueryString(BROWSE_DEFAULT_STATE, 'all')) return;
+      const next = browseStateFromSaved(s, filterState);
+      setQ(next.q);
+      setMinStipend(next.minStipend);
+      setMaxDuration(next.maxDuration);
+      setWorkMode(next.workMode);
+      setStartDate(next.startDate);
+      setSelectedRegions(next.selectedRegions);
+      setSelectedCities(next.selectedCities);
+      setMinMatch(next.minMatch);
+      setMinValidation(next.minValidation);
+      setSort(next.sort);
     },
   });
 
-  useEffect(() => {
+  function applyListResult(result) {
+    if (result.ok && Array.isArray(result.data.items)) {
+      setItems(result.data.items);
+      if (result.data.counts) setCounts(result.data.counts);
+      setHasLoaded(true);
+      setLoadError(null);
+      return true;
+    }
+    setLoadError({ kind: result.ok ? 'server' : result.kind });
+    return false;
+  }
+
+  async function loadInitial() {
+    const initialTab = initialBrowseTab();
+    const id = ++reqRef.current;
+    setLoading(true);
+    let view = null;
     try {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('saved') === '1') {
-        setTab('saved');
-        writeSessionBrowseTab('saved');
-      } else {
-        const next = readSessionBrowseTab();
-        setTab(next);
+      const result = await fetchJsonWithRetry(
+        `/api/ip/candidate/internships?useSaved=1&tab=${encodeURIComponent(initialTab)}`,
+      );
+      const applied = id === reqRef.current && applyListResult(result);
+      if (applied) {
+        setShownQuery(result.data.appliedQuery ?? browseQueryString(BROWSE_DEFAULT_STATE, initialTab));
       }
-    } catch {
-      setTab('unapplied');
+      if (applied && result.data.savedView) {
+        view = result.data.savedView;
+        initialQueryRef.current = result.data.appliedQuery || null;
+      } else {
+        initialQueryRef.current = browseQueryString(BROWSE_DEFAULT_STATE, initialTab);
+      }
+    } finally {
+      if (id === reqRef.current) setLoading(false);
+      serverViewGate.resolve(view);
+    }
+  }
+
+  useEffect(() => {
+    const next = initialBrowseTab();
+    setTab(next);
+    writeSessionBrowseTab(next);
+    if (!initialRequestRef.current) {
+      initialRequestRef.current = true;
+      loadInitial();
     }
     fetch('/api/ip/candidate/profile')
       .then((r) => readResponseJson(r, {}))
       .then((d) => setPoints(d.profile?.points ?? null))
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    writeSessionBrowseTab(tab);
-  }, [tab]);
 
   function selectTab(nextTab) {
     setTab(nextTab);
     writeSessionBrowseTab(nextTab);
   }
 
-  async function load(next = {}) {
-    const nextQ = next.q !== undefined ? next.q : q;
-    const nextStipend = next.minStipend !== undefined ? next.minStipend : minStipend;
-    const nextDuration = next.maxDuration !== undefined ? next.maxDuration : maxDuration;
-    const nextMode = next.workMode !== undefined ? next.workMode : workMode;
-    const nextStart = next.startDate !== undefined ? next.startDate : startDate;
-    const nextCities = next.selectedCities !== undefined ? next.selectedCities : selectedCities;
-    const nextRegions = next.selectedRegions !== undefined ? next.selectedRegions : selectedRegions;
-    const nextMatch = next.minMatch !== undefined ? next.minMatch : minMatch;
-    const nextValid = next.minValidation !== undefined ? next.minValidation : minValidation;
-    const nextSort = next.sort !== undefined ? next.sort : sort;
-    const nextTab = next.tab !== undefined ? next.tab : tab;
+  async function load({ fromEffect = false } = {}) {
+    const listQuery = browseQueryString(filterState, tab);
+    if (fromEffect && initialQueryRef.current !== null) {
+      const alreadyAnswered = initialQueryRef.current === listQuery;
+      initialQueryRef.current = null;
+      if (alreadyAnswered) return;
+    }
 
     const id = ++reqRef.current;
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (nextQ) params.set('q', nextQ);
-      if (nextStipend === 'unpaid') params.set('stipendType', 'unpaid');
-      else if (Number(nextStipend)) params.set('minStipend', nextStipend);
-      if (Number(nextDuration)) params.set('maxDuration', nextDuration);
-      if (nextMode && nextMode !== 'all') params.set('workMode', nextMode);
-      if (nextStart && nextStart !== 'any') params.set('startDate', nextStart);
-      if (nextCities?.length) params.set('location', nextCities.join(','));
-      if (nextRegions?.length) params.set('region', nextRegions.join(','));
-      if (Number(nextMatch)) params.set('minMatch', nextMatch);
-      if (nextValid) params.set('minValidation', nextValid);
-      params.set('sort', nextSort);
-      if (nextTab === 'saved') params.set('savedOnly', '1');
-      if (nextTab === 'recommended') params.set('recommended', '1');
-      if (nextTab === 'unapplied' || nextTab === 'starting-soon') {
-        params.set('chip', nextTab);
-      }
-      const res = await fetch(`/api/ip/candidate/internships?${params.toString()}`);
-      const data = await readResponseJson(res, {});
+      const result = await fetchJsonWithRetry(`/api/ip/candidate/internships?${listQuery}`);
       if (id !== reqRef.current) return;
-      setItems(Array.isArray(data.items) ? data.items : []);
-      if (data.counts) setCounts(data.counts);
+      if (applyListResult(result)) setShownQuery(listQuery);
     } catch {
       if (id !== reqRef.current) return;
-      setItems([]);
+      setLoadError({ kind: 'server' });
     } finally {
       if (id === reqRef.current) setLoading(false);
     }
@@ -264,11 +306,19 @@ export default function BrowseInternshipsPage() {
   useEffect(() => {
     if (!prefs.ready) return undefined;
     const t = setTimeout(() => {
-      load();
+      load({ fromEffect: true });
     }, q ? 250 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefs.ready, q, minStipend, maxDuration, workMode, startDate, selectedRegions, selectedCities, minMatch, minValidation, sort, tab]);
+
+  useEffect(() => {
+    if (loadError?.kind !== 'network') return undefined;
+    const onOnline = () => load();
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadError]);
 
   useEffect(() => {
     setPage(1);
@@ -321,6 +371,165 @@ export default function BrowseInternshipsPage() {
   }, [placeCityOptions, catalogCities]);
 
   const pointsLabel = points == null ? '—' : `${points} Pts Available`;
+  const countText = (n) => (hasLoaded ? n : loading ? '…' : '—');
+  const anyFilterActive = Boolean(q.trim()) || filtersActiveCount > 0;
+  const failed = Boolean(loadError) && !loading;
+  const showErrorPanel = failed && (!hasLoaded || items.length === 0);
+  const showRefreshNotice = failed && hasLoaded && items.length > 0;
+
+  function resultLineText() {
+    const tabTotal = browseTabCount(counts, tab);
+    const noun = (n) => `internship${n === 1 ? '' : 's'}`;
+    if (!anyFilterActive) return `Showing all ${tabTotal} ${noun(tabTotal)}`;
+    const what = q.trim() && filtersActiveCount > 0
+      ? 'your search and filters'
+      : q.trim() ? 'your search' : 'your filters';
+    return `Showing ${total} of ${tabTotal} ${noun(tabTotal)} matching ${what}`;
+  }
+
+  function renderEmptyState() {
+    if (anyFilterActive) {
+      return (
+        <div className="ip-br-empty" data-testid="browse-empty-filtered">
+          <div className="ip-br-empty__icon" aria-hidden>
+            <Search />
+          </div>
+          <h3>No matching internships found</h3>
+          <p>We couldn&apos;t find any opportunities matching your current search or filter criteria.</p>
+          <div className="ip-br-empty__tips">
+            <strong>Suggestions to find more roles:</strong>
+            <ul>
+              <li>Try broadening your keyword search terms</li>
+              <li>Switch Work Mode to &quot;All Modes&quot;</li>
+              <li>Lower the minimum stipend threshold</li>
+              <li>Clear active search filters</li>
+            </ul>
+          </div>
+          <button type="button" className="ip-br-btn ip-br-btn--primary" onClick={resetFilters}>
+            Reset All Filters &amp; Search
+          </button>
+        </div>
+      );
+    }
+    if (!counts.all) {
+      return (
+        <div className="ip-br-empty" data-testid="browse-empty-none-open">
+          <div className="ip-br-empty__icon" aria-hidden>
+            <LayoutGrid />
+          </div>
+          <h3>No internships are open right now</h3>
+          <p>New internships appear here as soon as employers publish them. Check back soon.</p>
+        </div>
+      );
+    }
+    const viewAll = (
+      <button type="button" className="ip-br-btn ip-br-btn--primary" onClick={() => selectTab('all')}>
+        View all internships
+      </button>
+    );
+    if (tab === 'unapplied') {
+      return (
+        <div className="ip-br-empty" data-testid="browse-empty-all-applied">
+          <div className="ip-br-empty__icon is-good" aria-hidden>
+            <CheckCircle2 />
+          </div>
+          <h3>You&apos;ve applied to every open internship</h3>
+          <p>
+            New internships will show up here when employers publish them. Track your applications in{' '}
+            <Link href="/candidate/applications">My applications</Link>.
+          </p>
+          {viewAll}
+        </div>
+      );
+    }
+    if (tab === 'saved') {
+      return (
+        <div className="ip-br-empty" data-testid="browse-empty-saved">
+          <div className="ip-br-empty__icon" aria-hidden>
+            <Bookmark />
+          </div>
+          <h3>No saved internships yet</h3>
+          <p>Use the bookmark on any internship card to save it for later.</p>
+          {viewAll}
+        </div>
+      );
+    }
+    if (tab === 'starting-soon') {
+      return (
+        <div className="ip-br-empty" data-testid="browse-empty-starting-soon">
+          <div className="ip-br-empty__icon" aria-hidden>
+            <CalendarDays />
+          </div>
+          <h3>No internships start in the next 3 weeks</h3>
+          <p>Internships with a start date in the next 21 days appear here.</p>
+          {viewAll}
+        </div>
+      );
+    }
+    if (tab === 'recommended') {
+      return (
+        <div className="ip-br-empty" data-testid="browse-empty-recommended">
+          <div className="ip-br-empty__icon" aria-hidden>
+            <Star />
+          </div>
+          <h3>No recommendations yet</h3>
+          <p>
+            Add skills and preferred roles in <Link href="/candidate/profile">your profile</Link> to get matched
+            internships.
+          </p>
+          {viewAll}
+        </div>
+      );
+    }
+    return (
+      <div className="ip-br-empty" data-testid="browse-empty-filtered">
+        <div className="ip-br-empty__icon" aria-hidden>
+          <Search />
+        </div>
+        <h3>No matching internships found</h3>
+        <p>Try another tab or reset your filters.</p>
+        <button type="button" className="ip-br-btn ip-br-btn--primary" onClick={resetFilters}>
+          Reset All Filters &amp; Search
+        </button>
+      </div>
+    );
+  }
+
+  function renderErrorPanel() {
+    if (loadError?.kind === 'auth') {
+      return (
+        <div className="ip-br-empty ip-br-error" role="alert" data-testid="browse-session-expired">
+          <div className="ip-br-empty__icon ip-br-error__icon" aria-hidden>
+            <LogIn />
+          </div>
+          <h3>Your session has expired</h3>
+          <p>Sign in again to keep browsing internships.</p>
+          <button
+            type="button"
+            className="ip-br-btn ip-br-btn--primary"
+            onClick={() => signOutAndEndSession({ callbackUrl: '/' })}
+          >
+            Sign in again
+          </button>
+        </div>
+      );
+    }
+    return (
+      <div className="ip-br-empty ip-br-error" role="alert" data-testid="browse-load-error">
+        <div className="ip-br-empty__icon ip-br-error__icon" aria-hidden>
+          <AlertTriangle />
+        </div>
+        <h3>We couldn&apos;t load internships</h3>
+        <p>
+          {loadErrorMessage(loadError?.kind)} This is a loading problem, not a lack of internships. Please try
+          again.
+        </p>
+        <button type="button" className="ip-br-btn ip-br-btn--primary" onClick={() => load()} data-testid="browse-retry">
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="ip-browse">
@@ -329,7 +538,7 @@ export default function BrowseInternshipsPage() {
           <div className="ip-br-hero__title">
             <h1>Browse Internships</h1>
             <span className="ip-br-chip ip-br-chip--desk">Marketplace</span>
-            <span className="ip-br-chip ip-br-chip--mob">{loading ? '…' : counts.all} open</span>
+            <span className="ip-br-chip ip-br-chip--mob">{countText(counts.all)} open</span>
             <button
               type="button"
               className="ip-br-m-saved"
@@ -342,7 +551,7 @@ export default function BrowseInternshipsPage() {
             </button>
           </div>
           <p className="ip-br-hero__desk">Discover verified internship opportunities. Submitting an application uses {POINTS_PER_APPLICATION} points.</p>
-          <p className="ip-br-hero__mob">Explore {counts.all} openings · {POINTS_PER_APPLICATION} pts per application · {pointsLabel}</p>
+          <p className="ip-br-hero__mob">Explore {countText(counts.all)} openings · {POINTS_PER_APPLICATION} pts per application · {pointsLabel}</p>
         </div>
         <div className="ip-br-cost">
           <div className="ip-br-cost__icon" aria-hidden>{POINTS_PER_APPLICATION}</div>
@@ -474,7 +683,7 @@ export default function BrowseInternshipsPage() {
                 >
                   {browseTabIcon(t.icon)}
                   <span>{t.label}</span>
-                  {count != null ? <span className="ip-br-tab-count">{count}</span> : null}
+                  {count != null ? <span className="ip-br-tab-count">{countText(count)}</span> : null}
                 </button>
               );
             })}
@@ -485,7 +694,7 @@ export default function BrowseInternshipsPage() {
       </div>
 
       <div className="ip-br-mcount">
-        <span><b>{loading ? '…' : total}</b> roles matching{total > PAGE_SIZE ? ` · page ${page}` : ''}</span>
+        <span><b>{loading ? '…' : countText(total)}</b> roles matching{total > PAGE_SIZE ? ` · page ${page}` : ''}</span>
         <label className="ip-br-sort">
           <span>Sort by:</span>
           <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort internships">
@@ -495,6 +704,33 @@ export default function BrowseInternshipsPage() {
           </select>
         </label>
       </div>
+
+      {showRefreshNotice ? (
+        <div className="ip-br-refresh-error" role="alert" data-testid="browse-refresh-error">
+          <AlertTriangle aria-hidden />
+          {loadError.kind === 'auth' ? (
+            <>
+              <span>Your session has expired. Sign in again to update this list.</span>
+              <button type="button" onClick={() => signOutAndEndSession({ callbackUrl: '/' })}>
+                Sign in again
+              </button>
+            </>
+          ) : (
+            <>
+              <span>Couldn&apos;t refresh internships. {loadErrorMessage(loadError.kind)} Showing your last results.</span>
+              <button type="button" onClick={() => load()} data-testid="browse-refresh-retry">
+                Try again
+              </button>
+            </>
+          )}
+        </div>
+      ) : null}
+
+      {hasLoaded && !showErrorPanel && !showRefreshNotice && items.length ? (
+        <p className="ip-br-resultline" role="status" data-testid="browse-result-line">
+          {browseQueryString(filterState, tab) === shownQuery ? resultLineText() : 'Updating results…'}
+        </p>
+      ) : null}
 
       {items.length ? (
         viewMode === 'list' ? (
@@ -668,28 +904,25 @@ export default function BrowseInternshipsPage() {
           ))}
         </div>
         )
-      ) : !loading ? (
-        <div className="ip-br-empty">
-          <div className="ip-br-empty__icon" aria-hidden>
-            <Search />
+      ) : loading ? (
+        <div className="ip-br-loading-wrap">
+          <p className="ip-br-loading" role="status">Loading internships…</p>
+          <div className="ip-br-skeleton" aria-hidden>
+            {[0, 1, 2].map((k) => (
+              <div key={k} className="ip-br-skeleton__row">
+                <span className="ip-br-skeleton__avatar" />
+                <span className="ip-br-skeleton__lines">
+                  <span />
+                  <span />
+                </span>
+              </div>
+            ))}
           </div>
-          <h3>No matching internships found</h3>
-          <p>We couldn&apos;t find any opportunities matching your current search or filter criteria.</p>
-          <div className="ip-br-empty__tips">
-            <strong>Suggestions to find more roles:</strong>
-            <ul>
-              <li>Try broadening your keyword search terms</li>
-              <li>Switch Work Mode to &quot;All Modes&quot;</li>
-              <li>Lower the minimum stipend threshold</li>
-              <li>Clear active search filters</li>
-            </ul>
-          </div>
-          <button type="button" className="ip-br-btn ip-br-btn--primary" onClick={resetFilters}>
-            Reset All Filters &amp; Search
-          </button>
         </div>
+      ) : showErrorPanel ? (
+        renderErrorPanel()
       ) : (
-        <p className="ip-br-loading">Loading internships…</p>
+        renderEmptyState()
       )}
 
       {!loading && total > 0 ? (

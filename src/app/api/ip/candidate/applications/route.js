@@ -80,6 +80,7 @@ export async function GET(request) {
     const result = await query(
       `SELECT a.id, a.internship_id, a.candidate_id, a.status, a.match_score, a.created_at, a.updated_at,
               i.title, i.stipend_inr, i.stipend_inr_max, i.stipend_type, i.work_mode, i.location, i.show_employer_identity,
+              i.status AS internship_status, i.apply_ends_at,
               e.id AS employer_id, e.company_name, e.approval_status, e.user_id AS employer_user_id
        FROM ip_applications a
        LEFT JOIN ip_internships i ON i.id = a.internship_id

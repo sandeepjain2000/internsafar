@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { compileSearch, matchesCompiledSearch } from '@/lib/ipWildcardSearch';
+import { useLatestRequest } from '@/hooks/useLatestRequest';
 import {
   Archive,
   Calendar,
@@ -410,12 +411,15 @@ export default function MessagesSplitPane({ role = 'employer' }) {
     setTimeout(() => setToast(''), 2800);
   }
 
+  const beginThreadsLoad = useLatestRequest();
   const loadThreads = useCallback(async () => {
+    const isCurrent = beginThreadsLoad();
     setLoadingList(true);
     try {
       const qs = tab === 'archived' ? '?archived=1' : '';
       const res = await fetch(`/api/ip/messages/threads${qs}`);
       const data = await readResponseJson(res, {});
+      if (!isCurrent()) return;
       const items = data.items || [];
       setThreads(items);
       if (tab !== 'archived') {
@@ -425,11 +429,11 @@ export default function MessagesSplitPane({ role = 'employer' }) {
         });
       }
     } catch {
-      setThreads([]);
+      if (isCurrent()) setThreads([]);
     } finally {
-      setLoadingList(false);
+      if (isCurrent()) setLoadingList(false);
     }
-  }, [tab]);
+  }, [tab, beginThreadsLoad]);
 
   useEffect(() => {
     if (!prefs.ready) return;

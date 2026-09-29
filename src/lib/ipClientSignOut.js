@@ -13,6 +13,7 @@ export async function signOutAndEndSession({ callbackUrl } = {}) {
       method: 'DELETE',
       credentials: 'include',
       cache: 'no-store',
+      signal: AbortSignal.timeout(4000),
     });
   } catch {
     /* best-effort — NextAuth signOut event still attempts revoke */

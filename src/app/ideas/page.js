@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import {
+  AlertTriangle,
   Bell,
   BellOff,
   Check,
@@ -10,6 +11,7 @@ import {
   Info,
   Lightbulb,
   LightbulbOff,
+  LogIn,
   Plus,
   RotateCcw,
   Search,
@@ -18,8 +20,15 @@ import {
   X,
 } from 'lucide-react';
 import '@/components/ip/ip-candidate-ideas-gemini.css';
+import '@/components/ip/ip-list-pager.css';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
+import { useClientPagination } from '@/hooks/useClientPagination';
+import IpListPager from '@/components/ip/IpListPager';
+import { fetchErrorMessage, fetchJsonWithRetry } from '@/lib/fetchJsonWithRetry';
+import { signOutAndEndSession } from '@/lib/ipClientSignOut';
+
+const PAGE_SIZE = 10;
 
 const STATUS_TABS = [
   { id: 'all', label: 'All Ideas' },
@@ -74,6 +83,9 @@ export default function FeatureIdeasPage() {
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const loadReqRef = useRef(0);
   const [viewMode, setViewMode] = useViewMode('ip_ideas_view', 'cards');
   const [filter, setFilter] = useState('all');
   const [categoryId, setCategoryId] = useState('all');
@@ -98,17 +110,25 @@ export default function FeatureIdeasPage() {
     window.setTimeout(() => setToast(''), 2800);
   }
 
+  /** Never throws; a failed refresh keeps the ideas already on screen. */
   async function load() {
-    const res = await fetch('/api/ip/ideas');
-    const data = await res.json().catch(() => null);
-    setItems(data?.items || []);
+    const req = ++loadReqRef.current;
+    setLoading(true);
+    const result = await fetchJsonWithRetry('/api/ip/ideas');
+    if (req !== loadReqRef.current) return;
+    if (result.ok && Array.isArray(result.data.items)) {
+      setItems(result.data.items);
+      setHasLoaded(true);
+      setLoadError(null);
+    } else {
+      setLoadError({ kind: result.ok ? 'server' : result.kind });
+    }
     setLoading(false);
   }
 
   async function loadCategories() {
-    const res = await fetch('/api/ip/idea-categories');
-    const data = await res.json().catch(() => null);
-    setCategories(data?.items || []);
+    const result = await fetchJsonWithRetry('/api/ip/idea-categories');
+    if (result.ok) setCategories(result.data.items || []);
   }
 
   useEffect(() => {
@@ -147,6 +167,11 @@ export default function FeatureIdeasPage() {
     });
     return list;
   }, [items, filter, categoryId, search, sortBy]);
+
+  const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(filtered, PAGE_SIZE);
+  useEffect(() => {
+    setPage(1);
+  }, [filter, categoryId, search, sortBy, setPage]);
 
   const duplicates = useMemo(() => similarIdeas(title, items), [title, items]);
 
@@ -253,18 +278,15 @@ export default function FeatureIdeasPage() {
     }
   }
 
-  function resetFilters() {
-    setFilter('all');
-    setCategoryId('all');
-    setSearch('');
-    setSortBy('most_voted');
-  }
-
   if (status === 'loading' || status === 'unauthenticated') {
     return <div className="ip-cand-ideas">Loading…</div>;
   }
 
   const liveDetail = detail ? items.find((i) => i.id === detail.id) || detail : null;
+  const failed = Boolean(loadError) && !loading;
+  const showErrorPanel = failed && !hasLoaded;
+  const showRefreshNotice = failed && hasLoaded;
+  const countText = (n) => (hasLoaded ? n : loading ? '…' : '—');
 
   return (
     <div className="ip-cand-ideas">
@@ -341,7 +363,7 @@ export default function FeatureIdeasPage() {
             >
               {tab.dot ? <span className={`ip-ci-dot ip-ci-dot--${tab.dot}`} aria-hidden /> : null}
               <span>{tab.label}</span>
-              <span className="ip-ci-tab-count">{counts[tab.id] || 0}</span>
+              <span className="ip-ci-tab-count">{countText(counts[tab.id] || 0)}</span>
             </button>
           ))}
         </div>
@@ -358,39 +380,137 @@ export default function FeatureIdeasPage() {
         <em>1 vote per account</em>
       </div>
 
-      {loading ? (
-        <div className="ip-ci-empty">
-          <p>Loading ideas…</p>
+      {showRefreshNotice ? (
+        <div className="ip-ci-refresh-error" role="alert" data-testid="ideas-refresh-error">
+          <AlertTriangle aria-hidden />
+          <span>Couldn&apos;t refresh ideas. {fetchErrorMessage(loadError.kind)} Showing your last results.</span>
+          <button type="button" onClick={() => load()}>Try again</button>
+        </div>
+      ) : null}
+
+      {!hasLoaded && loading ? (
+        <div className="ip-ci-skeleton" aria-busy="true" data-testid="ideas-loading">
+          <p className="ip-ci-sr">Loading ideas…</p>
+          {[0, 1, 2].map((k) => (
+            <div key={k} className="ip-ci-skeleton__row" aria-hidden>
+              <span className="ip-ci-skeleton__vote" />
+              <span className="ip-ci-skeleton__lines"><span /><span /></span>
+            </div>
+          ))}
+        </div>
+      ) : showErrorPanel && loadError.kind === 'auth' ? (
+        <div className="ip-ci-empty ip-ci-error" role="alert" data-testid="ideas-session-expired">
+          <div className="ip-ci-empty__icon"><LogIn size={26} aria-hidden /></div>
+          <h3>Your session has expired</h3>
+          <p>Sign in again to see feature ideas.</p>
+          <div className="ip-ci-empty__actions">
+            <button
+              type="button"
+              className="ip-ci-btn ip-ci-btn--primary"
+              onClick={() => signOutAndEndSession({ callbackUrl: '/' })}
+            >
+              Sign in again
+            </button>
+          </div>
+        </div>
+      ) : showErrorPanel ? (
+        <div className="ip-ci-empty ip-ci-error" role="alert" data-testid="ideas-load-error">
+          <div className="ip-ci-empty__icon"><AlertTriangle size={26} aria-hidden /></div>
+          <h3>We couldn&apos;t load feature ideas</h3>
+          <p>{fetchErrorMessage(loadError.kind)} This is a loading problem, not a lack of ideas. Please try again.</p>
+          <div className="ip-ci-empty__actions">
+            <button type="button" className="ip-ci-btn ip-ci-btn--primary" onClick={() => load()} data-testid="ideas-retry">
+              <RotateCcw size={14} aria-hidden />
+              Try again
+            </button>
+          </div>
+        </div>
+      ) : !items.length ? (
+        <div className="ip-ci-empty" data-testid="ideas-empty-none">
+          <div className="ip-ci-empty__icon">
+            <Lightbulb size={28} aria-hidden />
+          </div>
+          <h3>No ideas yet</h3>
+          <p>
+            {canSubmit
+              ? 'Nobody has suggested a feature yet. Share the first idea and others can vote on it.'
+              : 'Nobody has suggested a feature yet.'}
+          </p>
+          {canSubmit ? (
+            <div className="ip-ci-empty__actions">
+              <button type="button" className="ip-ci-btn ip-ci-btn--primary" onClick={() => setFormOpen(true)}>
+                <Plus size={14} aria-hidden />
+                Suggest First Idea
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : filtered.length ? (
-        viewMode === 'list' ? (
-          <div className="ip-ph-list-wrap">
-            <table className="ip-ph-list">
+        <>
+        {viewMode === 'list' ? (
+          <div className="ip-ph-list-wrap ip-ci-list-wrap" data-testid="ideas-list-table">
+            <table className="ip-ph-list ip-ci-table">
               <thead>
-                <tr className="border-b text-left text-slate-500">
-                  <th className="p-3">Idea</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3">Votes</th>
+                <tr>
+                  <th>Idea</th>
+                  <th>Category</th>
+                  <th>Status</th>
+                  <th>Votes</th>
+                  <th>Comments</th>
+                  <th>Suggested by</th>
+                  <th>Date</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((idea) => (
-                  <tr key={idea.id} className="border-b">
-                    <td className="p-3">
-                      <button type="button" className="font-medium text-indigo-700" onClick={() => openDetail(idea)}>
-                        {idea.title}
-                      </button>
-                    </td>
-                    <td className="p-3">{statusLabel(roadmapBucket(idea.status))}</td>
-                    <td className="p-3">{idea.vote_count || 0}</td>
-                  </tr>
-                ))}
+                {pageItems.map((idea) => {
+                  const bucket = roadmapBucket(idea.status);
+                  const voted = !!idea.voted_by_me;
+                  const following = !!idea.followed_by_me;
+                  return (
+                    <tr key={idea.id}>
+                      <td>
+                        <button type="button" className="ip-ci-list-title" onClick={() => openDetail(idea)}>
+                          {idea.title}
+                        </button>
+                        {idea.problem ? <div className="ip-ci-list-sub">{idea.problem}</div> : null}
+                      </td>
+                      <td>{idea.category_name || '—'}</td>
+                      <td>
+                        <span className={`ip-ci-status ip-ci-status--${bucket}`}>{statusLabel(bucket)}</span>
+                      </td>
+                      <td>{idea.vote_count || 0}</td>
+                      <td>{idea.comment_count || 0}</td>
+                      <td>{idea.author_name || 'Unknown'}</td>
+                      <td>{formatWhen(idea.created_at)}</td>
+                      <td>
+                        <div className="ip-ci-list-actions">
+                          <button
+                            type="button"
+                            className={`ip-ci-follow${voted ? ' is-on' : ''}`}
+                            onClick={() => vote(idea.id)}
+                            aria-pressed={voted}
+                          >
+                            {voted ? 'Voted' : 'Vote'}
+                          </button>
+                          <button
+                            type="button"
+                            className={`ip-ci-follow${following ? ' is-on' : ''}`}
+                            onClick={() => follow(idea.id)}
+                          >
+                            {following ? 'Following' : 'Follow'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         ) : (
         <ul className="ip-ci-list">
-          {filtered.map((idea) => {
+          {pageItems.map((idea) => {
             const bucket = roadmapBucket(idea.status);
             const voted = !!idea.voted_by_me;
             const following = !!idea.followed_by_me;
@@ -444,28 +564,32 @@ export default function FeatureIdeasPage() {
             );
           })}
         </ul>
-        )
+        )}
+        <IpListPager
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
+        </>
       ) : (
-        <div className="ip-ci-empty">
+        <div className="ip-ci-empty" data-testid="ideas-empty-filtered">
           <div className="ip-ci-empty__icon">
             <LightbulbOff size={28} aria-hidden />
           </div>
           <h3>No suggestions found</h3>
           <p>
-            There are no feature ideas matching your current filter selection or search terms.
+            There are no feature ideas matching your search, category, or status tab.
           </p>
-          <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
-            <button type="button" className="ip-ci-btn" onClick={resetFilters}>
-              <RotateCcw size={14} aria-hidden />
-              Reset Filters
-            </button>
-            {canSubmit ? (
+          {canSubmit ? (
+            <div className="ip-ci-empty__actions">
               <button type="button" className="ip-ci-btn ip-ci-btn--primary" onClick={() => setFormOpen(true)}>
                 <Plus size={14} aria-hidden />
-                Suggest First Idea
+                Suggest an Idea
               </button>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
       )}
 

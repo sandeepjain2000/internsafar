@@ -19,7 +19,7 @@ import path from 'path';
  */
 
 export const NVIDIA_MODEL =
-  process.env.NVIDIA_MODEL || 'mistralai/mistral-nemotron';
+  process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-super-120b-a12b';
 
 const NVIDIA_BASE_URL = (
   process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1'

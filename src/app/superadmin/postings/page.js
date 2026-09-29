@@ -17,6 +17,7 @@ import '@/components/ip/ip-list-pager.css';
 import IpListPager from '@/components/ip/IpListPager';
 import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 import { useClientPagination } from '@/hooks/useClientPagination';
+import { useLatestRequest } from '@/hooks/useLatestRequest';
 import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
 import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
 import { toTitleCaseLabel } from '@/lib/ipTitleCase';
@@ -56,7 +57,10 @@ export default function SuperAdminPostingsPage() {
   const [takedown, setTakedown] = useState(null);
   const [reason, setReason] = useState('');
 
+  const beginLoad = useLatestRequest();
+
   async function load() {
+    const isCurrent = beginLoad();
     setLoading(true);
     setError('');
     try {
@@ -64,6 +68,7 @@ export default function SuperAdminPostingsPage() {
         tab === 'all' ? '' : `status=${tab === 'live' ? 'published' : tab === 'takedown' ? 'closed' : tab}&`;
       const res = await fetch(`/api/ip/superadmin/postings?${statusQ}meta=1`);
       const data = await res.json();
+      if (!isCurrent()) return;
       if (!res.ok) {
         setError(data.error || 'Failed to load');
         setItems([]);
@@ -73,10 +78,11 @@ export default function SuperAdminPostingsPage() {
       if (data.meta) setMeta(data.meta);
       setSelected([]);
     } catch (e) {
+      if (!isCurrent()) return;
       setError(e.message || 'Failed to load');
       setItems([]);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }
 
@@ -247,7 +253,10 @@ export default function SuperAdminPostingsPage() {
                 key={t.id}
                 type="button"
                 className={`ip-saq-tab${tab === t.id ? ' ip-saq-tab--on' : ''}`}
-                onClick={() => setTab(t.id)}
+                onClick={() => {
+                  if (t.id !== tab) setLoading(true);
+                  setTab(t.id);
+                }}
               >
                 {t.label}
               </button>

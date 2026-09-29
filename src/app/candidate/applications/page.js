@@ -3,7 +3,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { CalendarDays, ClipboardList, Hourglass, MessageSquare, Search, Target, XCircle } from 'lucide-react';
+import {
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  Hourglass,
+  MessageSquare,
+  Search,
+  Target,
+  X,
+  XCircle,
+} from 'lucide-react';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import {
@@ -18,6 +28,7 @@ import { useViewMode } from '@/hooks/useViewMode';
 import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
 import {
   APPLICATION_NEXT_STEP_OPTIONS,
+  APPLICATION_STATUS_GUIDE,
   applicationNextStepFilterMatch,
 } from '@/lib/ipApplicationPresentation';
 import '@/components/ip/ip-applications-gemini.css';
@@ -130,6 +141,9 @@ export default function MyApplicationsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const highlightId = searchParams.get('id') || searchParams.get('highlight') || '';
+  const appliedId = searchParams.get('applied') || '';
+  const appliedSpent = Number(searchParams.get('spent')) || 0;
+  const appliedBonus = Number(searchParams.get('bonus')) || 0;
   const [items, setItems] = useState([]);
   const [totalServer, setTotalServer] = useState(0);
   const [threadByInternship, setThreadByInternship] = useState({});
@@ -182,7 +196,7 @@ export default function MyApplicationsPage() {
 
   const metrics = useMemo(() => {
     const total = items.length;
-    const review = items.filter((a) => ['applied', 'pending', 'shortlisted'].includes(String(a.status || '').toLowerCase())).length;
+    const review = items.filter((a) => a.in_progress && String(a.status || '').toLowerCase() !== 'interviewing').length;
     const interview = items.filter((a) => String(a.status || '').toLowerCase() === 'interviewing').length;
     const offers = items.filter((a) => ['offered', 'hired'].includes(String(a.status || '').toLowerCase())).length;
     return { total, review, interview, offers };
@@ -232,6 +246,18 @@ export default function MyApplicationsPage() {
 
   const { page, setPage, totalPages, total, pageItems, serialOffset } = useClientPagination(filtered, PAGE_SIZE);
   const colsActive = countActiveCols(cols);
+  const appliedApp = appliedId ? items.find((a) => String(a.id) === appliedId) || null : null;
+  const appliedHidden = Boolean(appliedApp) && !filtered.some((a) => a.id === appliedApp.id);
+
+  function dismissApplied() {
+    router.replace('/candidate/applications', { scroll: false });
+  }
+
+  function clearListFilters() {
+    setTab('all');
+    setQ('');
+    setCols(EMPTY_COLS);
+  }
 
   useEffect(() => {
     setPage(1);
@@ -374,6 +400,36 @@ export default function MyApplicationsPage() {
 
       {loadError ? <p className="ip-ap-empty" style={{ margin: '0.75rem 0' }}>{loadError}</p> : null}
 
+      {appliedId ? (
+        <div className="ip-ap-applied" role="status" data-testid="apply-confirmation">
+          <CheckCircle2 className="ip-ap-applied__icon" aria-hidden />
+          <div className="ip-ap-applied__body">
+            <strong>
+              Application submitted
+              {appliedApp ? ` — ${appliedApp.title || 'Internship'}${appliedApp.company_name ? ` at ${appliedApp.company_name}` : ''}` : ''}
+            </strong>
+            <p>
+              {appliedSpent ? `${appliedSpent} points spent. ` : ''}
+              {appliedBonus ? `First application bonus: +${appliedBonus} points. ` : ''}
+              The employer has been notified. You will get a notification when its status changes.
+            </p>
+            {appliedHidden ? (
+              <button type="button" className="ip-ap-applied__link" onClick={clearListFilters}>
+                It is hidden by your current filters — show all applications
+              </button>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className="ip-ap-applied__close"
+            aria-label="Dismiss confirmation"
+            onClick={dismissApplied}
+          >
+            <X aria-hidden />
+          </button>
+        </div>
+      ) : null}
+
       {/* METRICS ALWAYS AT TOP — do not move below the list (UI rule 2026-09-23) */}
       <div className="ip-ap-metrics">
         <div className="ip-ap-metric">
@@ -510,7 +566,7 @@ export default function MyApplicationsPage() {
         {displayMode === 'cards' ? (
           <div className="ip-ap-cards">
             {pageItems.map((a) => (
-              <article key={a.id} className="ip-ap-card">
+              <article key={a.id} className={`ip-ap-card${String(a.id) === appliedId ? ' is-just-applied' : ''}`}>
                 <div className="ip-ap-card__row">
                   <Link href={`/candidate/internships/${a.internship_id}`} className="ip-ap-card__title">
                     {a.title || 'Internship'}
@@ -575,7 +631,7 @@ export default function MyApplicationsPage() {
             </thead>
             <tbody>
               {pageItems.map((a, idx) => (
-                <tr key={a.id}>
+                <tr key={a.id} className={String(a.id) === appliedId ? 'is-just-applied' : undefined}>
                   <td className="ip-ap-num">{serialOffset + idx + 1}</td>
                   <td>
                     <div className="ip-ap-cell-stack">
@@ -663,11 +719,7 @@ export default function MyApplicationsPage() {
               <button
                 type="button"
                 className="ip-ap-btn ip-ap-btn--primary"
-                onClick={() => {
-                  setTab('all');
-                  setQ('');
-                  setCols(EMPTY_COLS);
-                }}
+                onClick={clearListFilters}
               >
                 Clear Status Filters
               </button>
@@ -690,6 +742,23 @@ export default function MyApplicationsPage() {
           </>
         )}
       </div>
+
+      <section className="ip-ap-guide" aria-labelledby="ip-ap-guide-title" data-testid="application-status-guide">
+        <h2 id="ip-ap-guide-title">What each status means</h2>
+        <dl className="ip-ap-guide__grid">
+          {APPLICATION_STATUS_GUIDE.map((g) => (
+            <div key={g.status} className="ip-ap-guide__item">
+              <dt><span className={`ip-ap-badge ${statusClass(g.status)}`}>{g.label}</span></dt>
+              <dd>{g.desc}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="ip-ap-guide__note">
+          <strong>In Review</strong> counts Under Review applications, plus Awaiting Review ones whose posting is
+          still open (they stop counting once the posting closes or its last date passes). The sidebar badge and
+          the dashboard&apos;s Active applications use the same rule and also include interviews.
+        </p>
+      </section>
 
       {detail ? (
         <div className="ip-ap-modal" role="dialog" aria-modal="true" aria-labelledby="ip-ap-detail-title">

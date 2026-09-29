@@ -3,11 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { readResponseJson } from '@/lib/readResponseJson';
 
+const HYDRATE_TIMEOUT_MS = 8000;
+
 /**
  * Hydrate last-used filters/sort (and optional default preset) for a tableKey,
  * then debounce-persist changes. Default preset wins over last-used prefs.
+ *
+ * `serverView` (optional, stable promise): resolves to the saved view `{ filters, sort }`
+ * already resolved by the page's list API, or null to fall back to fetching it here.
  */
-export function useListPrefsSync({ tableKey, snapshot, applySnapshot }) {
+export function useListPrefsSync({ tableKey, snapshot, applySnapshot, serverView }) {
   const [ready, setReady] = useState(!tableKey);
   const [presets, setPresets] = useState([]);
   const [presetError, setPresetError] = useState('');
@@ -17,9 +22,9 @@ export function useListPrefsSync({ tableKey, snapshot, applySnapshot }) {
   snapshotRef.current = snapshot;
   const skipPersist = useRef(true);
 
-  const loadPresets = useCallback(async () => {
+  const loadPresets = useCallback(async (init) => {
     if (!tableKey) return [];
-    const res = await fetch(`/api/ip/list-presets?tableKey=${encodeURIComponent(tableKey)}`);
+    const res = await fetch(`/api/ip/list-presets?tableKey=${encodeURIComponent(tableKey)}`, init);
     const data = await readResponseJson(res, {});
     const raw = Array.isArray(data.items) ? data.items : [];
     const items = raw.map((p) => {
@@ -47,18 +52,32 @@ export function useListPrefsSync({ tableKey, snapshot, applySnapshot }) {
     skipPersist.current = true;
     setReady(false);
     (async () => {
+      if (serverView) {
+        const view = await serverView;
+        if (cancelled) return;
+        if (view) {
+          loadPresets().catch(() => {});
+          applyRef.current({ filters: view.filters || {}, sort: view.sort ?? '' }, { hydrate: true });
+          skipPersist.current = true;
+          setReady(true);
+          return;
+        }
+      }
+      const signal = AbortSignal.timeout(HYDRATE_TIMEOUT_MS);
       try {
         const [prefRes, items] = await Promise.all([
-          fetch(`/api/ip/table-filter-prefs?tableKey=${encodeURIComponent(tableKey)}`)
+          fetch(`/api/ip/table-filter-prefs?tableKey=${encodeURIComponent(tableKey)}`, { signal })
             .then((r) => readResponseJson(r, {})),
-          loadPresets(),
+          loadPresets({ signal }),
         ]);
         if (cancelled) return;
         const def = items.find((p) => p.is_default);
         applyRef.current({
           filters: (def ? def.filters : prefRes.filters) || {},
           sort: def ? (def.sort ?? '') : (prefRes.sort ?? ''),
-        });
+        }, { hydrate: true });
+      } catch {
+        // Saved filters are optional: a slow or failed lookup must not block the list.
       } finally {
         if (!cancelled) {
           skipPersist.current = true;
@@ -69,7 +88,7 @@ export function useListPrefsSync({ tableKey, snapshot, applySnapshot }) {
     return () => {
       cancelled = true;
     };
-  }, [tableKey, loadPresets]);
+  }, [tableKey, loadPresets, serverView]);
 
   useEffect(() => {
     if (!ready || !tableKey) return undefined;

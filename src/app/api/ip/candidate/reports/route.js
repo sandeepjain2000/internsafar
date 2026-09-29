@@ -2,15 +2,7 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { ensureIpStudentDiscoveryFeatures } from '@/lib/ensureIpStudentDiscoveryFeatures';
 import { newId } from '@/lib/ids';
-
-const REASONS = new Set([
-  'spam',
-  'misleading',
-  'scam',
-  'offensive',
-  'duplicate',
-  'other',
-]);
+import { LISTING_REPORT_REASON_VALUES } from '@/lib/ipListingReportReasons';
 
 /** Candidate reports a listing or employer. Never blocks apply. */
 export async function POST(request) {
@@ -26,7 +18,7 @@ export async function POST(request) {
   }
 
   const reason = String(body.reason || '').trim().toLowerCase();
-  if (!REASONS.has(reason)) {
+  if (!LISTING_REPORT_REASON_VALUES.has(reason)) {
     return jsonError('Pick a valid report reason', 400);
   }
   const details = String(body.details || '').trim().slice(0, 2000);

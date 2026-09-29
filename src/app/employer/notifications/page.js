@@ -11,7 +11,6 @@ import {
   Check,
   CheckCheck,
   ChevronRight,
-  Coins,
   FileText,
   Gift,
   Inbox,
@@ -218,7 +217,6 @@ function actionFor(n, bucket) {
 
 export default function EmployerNotificationsPage() {
   const [items, setItems] = useState([]);
-  const [points, setPoints] = useState(null);
   const [search, setSearch] = useState('');
   const [cols, setCols] = useState(EMPTY_COLS);
   const [toastMsg, setToastMsg] = useState(null);
@@ -257,16 +255,9 @@ export default function EmployerNotificationsPage() {
   });
 
   async function load({ badges = false } = {}) {
-    const [notifRes, refRes] = await Promise.all([
-      fetch('/api/ip/notifications'),
-      fetch('/api/ip/referral').catch(() => null),
-    ]);
+    const notifRes = await fetch('/api/ip/notifications');
     const notifData = await notifRes.json().catch(() => ({}));
     setItems(notifData.items || []);
-    if (refRes?.ok) {
-      const refData = await refRes.json().catch(() => ({}));
-      if (typeof refData.points === 'number') setPoints(refData.points);
-    }
     setLoading(false);
     if (badges) refreshNavBadges();
   }
@@ -413,12 +404,6 @@ export default function EmployerNotificationsPage() {
           <strong>Notifications</strong>
         </div>
         <div className="ip-en-toolbar-actions">
-          <Link className="ip-en-pts-pill" href="/employer/referral">
-            <span className="ip-en-pts-pill__dot" aria-hidden>
-              <Coins size={12} />
-            </span>
-            <span>{points == null ? '— Reward Points' : `${points} Reward Points`}</span>
-          </Link>
           <button type="button" className="ip-en-mark" onClick={markAllRead} disabled={!unreadCount}>
             <CheckCheck size={15} aria-hidden />
             Mark All Read

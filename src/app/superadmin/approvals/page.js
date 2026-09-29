@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import {
   AlertTriangle,
@@ -21,6 +22,7 @@ import '@/components/ip/ip-list-pager.css';
 import IpListPager from '@/components/ip/IpListPager';
 import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 import { useClientPagination } from '@/hooks/useClientPagination';
+import { useLatestRequest } from '@/hooks/useLatestRequest';
 import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
 import { employerDomainRisk, REJECT_PRESETS } from '@/lib/ipDomainRisk';
 import { registrationPathLabel } from '@/lib/ipRegistrationPathLabel';
@@ -55,8 +57,10 @@ export default function SuperAdminApprovalsPage() {
   const [rejectRow, setRejectRow] = useState(null);
   const [rejectPreset, setRejectPreset] = useState(REJECT_PRESETS[0]);
   const [rejectNote, setRejectNote] = useState('');
+  const beginLoad = useLatestRequest();
 
   async function load() {
+    const isCurrent = beginLoad();
     setLoading(true);
     setError('');
     try {
@@ -64,6 +68,7 @@ export default function SuperAdminApprovalsPage() {
         credentials: 'same-origin',
       });
       const data = await res.json().catch(() => ({}));
+      if (!isCurrent()) return;
       if (!res.ok) {
         setError(data.error || `Failed To Load (${res.status})`);
         setItems([]);
@@ -73,27 +78,29 @@ export default function SuperAdminApprovalsPage() {
       if (data.meta) setMeta(data.meta);
       setSelected([]);
     } catch (e) {
+      if (!isCurrent()) return;
       setError(e.message || 'Failed To Load');
       setItems([]);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }
 
+  const sessionRole = session?.user?.role;
   useEffect(() => {
     if (sessionStatus === 'loading') return;
-    if (session?.user?.role === 'superadmin') {
+    if (sessionRole === 'superadmin') {
       load();
       return;
     }
     setLoading(false);
     if (sessionStatus === 'authenticated') {
       setError(
-        `Forbidden — Approvals requires SuperAdmin. Your session role is “${session?.user?.role || 'unknown'}”. Sign out, then sign in at /superadmin/login as support@placementhub.online.`,
+        `Forbidden — Approvals requires SuperAdmin. Your session role is “${sessionRole || 'unknown'}”. Sign out, then sign in at /superadmin/login as support@placementhub.online.`,
       );
       setItems([]);
     }
-  }, [session, sessionStatus, filter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionRole, sessionStatus, filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -165,6 +172,15 @@ export default function SuperAdminApprovalsPage() {
           pending: `Set ${n} employer(s) to Pending`,
         };
         setToast(toastByStatus[approvalStatus] || `Updated ${n} employer(s)`);
+        const failures = Array.isArray(data.failures) ? data.failures : [];
+        if (failures.length) {
+          const first = failures[0].error || 'Update failed';
+          setError(
+            failures.length === 1
+              ? `1 employer not updated. ${first}`
+              : `${failures.length} employers not updated. First: ${first}`,
+          );
+        }
         setRejectRow(null);
         setAuditRow(null);
         setRejectNote('');
@@ -387,13 +403,26 @@ export default function SuperAdminApprovalsPage() {
           <AlertTitle>
             {/forbidden|unauthorized|role|sign in|sign out/i.test(error)
               ? 'Could not load Approvals'
-              : /has not uploaded any verification documents/i.test(error)
-                ? 'Employer must upload documents first'
-                : /Documents tab/i.test(error)
-                  ? 'Approve documents in Documents first'
-                  : 'Cannot complete this approval'}
+              : /Cannot restore/i.test(error)
+                ? 'Review pending documents before Restore'
+                : /has not uploaded any verification documents/i.test(error)
+                  ? 'Employer must upload documents first'
+                  : /Documents tab/i.test(error)
+                    ? 'Approve documents in Documents first'
+                    : 'Cannot complete this approval'}
           </AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            {error}
+            {/Documents tab/i.test(error) ? (
+              <Link
+                href="/superadmin/documents"
+                className="mt-1 block font-semibold underline"
+                data-testid="approvals-open-documents"
+              >
+                Open Documents
+              </Link>
+            ) : null}
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -467,7 +496,10 @@ export default function SuperAdminApprovalsPage() {
                 role="tab"
                 aria-selected={filter === t.id}
                 className={`ip-saq-tab${filter === t.id ? ' ip-saq-tab--on' : ''}`}
-                onClick={() => setFilter(t.id)}
+                onClick={() => {
+                  if (t.id !== filter) setLoading(true);
+                  setFilter(t.id);
+                }}
               >
                 {t.id === 'pending' ? <Clock size={14} aria-hidden /> : null}
                 {t.id === 'approved' ? <Check size={14} aria-hidden /> : null}
@@ -605,7 +637,10 @@ export default function SuperAdminApprovalsPage() {
                         <button
                           type="button"
                           className="ip-saq-btn ip-saq-btn--sm"
-                          onClick={() => setAuditRow(e)}
+                          onClick={() => {
+                            setError('');
+                            setAuditRow(e);
+                          }}
                         >
                           <FileSearch size={14} aria-hidden />
                           Audit &amp; Docs
@@ -715,6 +750,19 @@ export default function SuperAdminApprovalsPage() {
               </button>
             </div>
             <div className="ip-saq-modal-body">
+              {error ? (
+                <Alert variant="destructive" role="alert" data-testid="approvals-audit-error">
+                  <AlertTriangle className="size-4" aria-hidden />
+                  <AlertDescription>
+                    {error}
+                    {/Documents tab/i.test(error) ? (
+                      <Link href="/superadmin/documents" className="mt-1 block font-semibold underline">
+                        Open Documents
+                      </Link>
+                    ) : null}
+                  </AlertDescription>
+                </Alert>
+              ) : null}
               <div className="ip-saq-modal-row">
                 <span>Contact</span>
                 <strong>

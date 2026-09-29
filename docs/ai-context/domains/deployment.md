@@ -48,6 +48,9 @@ Path B does **not** mean “never touch RDS.” It means do not run the full mig
 ## Constraints
 
 - Deploy Vercel **from sibling** only; never from nested mono folder.
+- `vercel.json` pins Vercel functions to `regions: ["hnd1"]` (Tokyo) so they sit next to the Tokyo database pooler (2026-09-29; was default `iad1`).
+- Help chatbot model: Vercel and AWS `.env` `NVIDIA_MODEL` = `nvidia/nemotron-3-super-120b-a12b` (code default matches; AWS updated 2026-09-29).
+- Latest AWS Path B: 2026-09-29, tar `internship-portal-aws-deploy-20260929-1736` (built by `scripts/build-aws-handoff.ps1`, which now also skips `.tmp*` folders and `tmp-*.mjs/cjs`). Rollback copy on EC2: `~/internship-portal-old-20260929-120735`; JSON DB backup in `~/db-backups/`. EC2 has no AWS CLI / `pg_dump` — take RDS snapshots from the AWS console. `mistralai/mistral-nemotron` and most older NIM models return HTTP 410 (retired 2026-09-28).
 - Do not commit or chat-dump PEM/secret values.
 - Laptop/Vercel migrate refuses AWS RDS hostnames (`assert-db-migrate-target.js`); Path C on EC2 is the empty-RDS path.
 - Prefer RDS snapshot before production DDL when rollback is hard.

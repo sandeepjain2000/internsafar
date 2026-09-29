@@ -35,6 +35,12 @@ Restyle InternSafar pages **in place**; apply Gemini HTML / mobile handoffs; kee
 - `AGENTS.md` UI quality block applies. `PRODUCT.md` / `DESIGN.md` are **missing** — use `AGENTS.md` + skills, do not invent those files unless asked.
 - Deploy to Vercel only when the user asks, and only from the sibling folder.
 
+## Shared shell + load-state patterns (inspected 2026-09-29)
+
+- **Sidebar collapse (`PortalShell.jsx`):** one desktop control only — `sidebar-collapse-toggle` at the bottom of the sidebar (above the profile link), label "Collapse menu" + `Ctrl/⌘+B` hint; icon-only with tooltip when collapsed. Keyboard `Ctrl/⌘+B` toggles (ignored while typing in inputs). No collapse button in the top bar; mobile keeps the hamburger drawer. Native buttons in the shell need `border-0 bg-transparent` (no global button reset).
+- **Sign out:** `handleSignOut` shows "Signing out…" + spinner and disables both sign-out buttons (`portal-sign-out`) immediately; `signOutAndEndSession` caps the session-DELETE call at 4s.
+- **List/data pages load states** (Browse internships, Feature ideas `/ideas`, Employer analytics): use `fetchJsonWithRetry` + `fetchErrorMessage` (`src/lib/fetchJsonWithRetry.js`) with a latest-request guard. Show skeleton while loading (counts `…`), an error panel with **Try again** (no page reload) when the first load fails (counts `—`), a session-expired panel on 401, and keep stale data with a refresh notice on later failures. Distinguish true empty ("No ideas yet") from filtered empty ("No suggestions found"). Test IDs: `ideas-loading|ideas-load-error|ideas-retry|ideas-session-expired|ideas-empty-none|ideas-empty-filtered|ideas-refresh-error`, `analytics-loading|analytics-load-error|analytics-retry|analytics-session-expired`. Other tables have not all been audited for this pattern.
+
 ## Related domains
 
 Candidate / Employer / SuperAdmin / Auth pages being restyled.

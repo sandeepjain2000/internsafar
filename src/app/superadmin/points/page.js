@@ -9,6 +9,7 @@ import '@/components/ip/ip-list-pager.css';
 import IpListPager from '@/components/ip/IpListPager';
 import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 import { useClientPagination } from '@/hooks/useClientPagination';
+import { useLatestRequest } from '@/hooks/useLatestRequest';
 import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
 import { toTitleCaseLabel } from '@/lib/ipTitleCase';
 
@@ -37,7 +38,10 @@ export default function SuperAdminAdjustPointsPage() {
     return () => clearTimeout(t);
   }, [search]);
 
+  const beginLoad = useLatestRequest();
+
   async function load() {
+    const isCurrent = beginLoad();
     setLoading(true);
     setError('');
     try {
@@ -46,6 +50,7 @@ export default function SuperAdminAdjustPointsPage() {
       if (roleFilter) params.set('role', roleFilter);
       const res = await fetch(`/api/ip/superadmin/points?${params}`, { credentials: 'same-origin' });
       const data = await res.json().catch(() => ({}));
+      if (!isCurrent()) return;
       if (!res.ok) {
         setError(data.error || `Failed To Load (${res.status})`);
         setItems([]);
@@ -53,16 +58,18 @@ export default function SuperAdminAdjustPointsPage() {
       }
       setItems(Array.isArray(data.items) ? data.items : []);
     } catch (e) {
+      if (!isCurrent()) return;
       setError(e.message || 'Failed To Load');
       setItems([]);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }
 
+  const sessionRole = session?.user?.role;
   useEffect(() => {
     if (sessionStatus === 'loading') return;
-    if (session?.user?.role === 'superadmin') {
+    if (sessionRole === 'superadmin') {
       load();
       return;
     }
@@ -71,7 +78,7 @@ export default function SuperAdminAdjustPointsPage() {
       setError('Forbidden — Adjust Points requires SuperAdmin.');
       setItems([]);
     }
-  }, [session, sessionStatus, qDebounced, roleFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionRole, sessionStatus, qDebounced, roleFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!toast) return undefined;

@@ -21,6 +21,7 @@ import { IpTableFiltersShell } from '@/components/ip/IpTableFiltersShell';
 import { StandardTableIconAction } from '@/components/ui/StandardTableIconAction';
 import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 import { toTitleCaseLabel } from '@/lib/ipTitleCase';
+import { OFFERABLE_APPLICATION_STATUSES } from '@/lib/ipOfferPresentation';
 import '@/components/ip/ip-table-filters.css';
 
 const STATUS_OPTIONS = ['applied', 'shortlisted', 'interviewing', 'rejected', 'hired', 'completed'];
@@ -76,6 +77,8 @@ export default function ApplicantsPipelinePage() {
   const [rejectWithMessage, setRejectWithMessage] = useState(true);
   const [compareIds, setCompareIds] = useState([]);
   const [offerFor, setOfferFor] = useState(null);
+  const [offerBusy, setOfferBusy] = useState(false);
+  const [offerError, setOfferError] = useState('');
   const [offerForm, setOfferForm] = useState({
     roleTitle: '', stipendInr: '', startDate: '', validUntil: '', letterUrl: '', message: '',
     endDate: '', onboardingInstructions: '', mentorName: '', hrContactEmail: '', hrContactPhone: '',
@@ -373,6 +376,7 @@ export default function ApplicantsPipelinePage() {
   }
 
   function openOffer(a) {
+    setOfferError('');
     setOfferFor(a);
     setOfferForm({
       roleTitle: internship?.title || '',
@@ -385,16 +389,30 @@ export default function ApplicantsPipelinePage() {
   }
 
   async function sendOffer() {
-    await fetch('/api/ip/offers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        applicationId: offerFor.id, ...offerForm,
-        stipendInr: offerForm.stipendInr ? Number(offerForm.stipendInr) : null,
-      }),
-    });
-    setOfferFor(null);
-    await load();
+    if (!offerFor || offerBusy) return;
+    setOfferBusy(true);
+    setOfferError('');
+    try {
+      const res = await fetch('/api/ip/offers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          applicationId: offerFor.id, ...offerForm,
+          stipendInr: offerForm.stipendInr ? Number(offerForm.stipendInr) : null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setOfferError(data.error || 'Could not send the offer. Please try again.');
+        return;
+      }
+      setOfferFor(null);
+      await load();
+    } catch {
+      setOfferError('Could not send the offer. Check your connection and try again.');
+    } finally {
+      setOfferBusy(false);
+    }
   }
 
   const personalizedPreview = useMemo(() => {
@@ -517,7 +535,9 @@ export default function ApplicantsPipelinePage() {
         {STATUS_OPTIONS.filter((s) => s !== a.status && s !== 'completed').map((s) => (
           <StandardTableIconAction key={s} action={STATUS_ACTIONS[s] || 'edit'} tooltip={`Move to ${s}`} onClick={() => setStatus(a.id, s)} />
         ))}
-        <StandardTableIconAction action="offer" onClick={() => openOffer(a)} />
+        {OFFERABLE_APPLICATION_STATUSES.includes(String(a.status || '').toLowerCase()) ? (
+          <StandardTableIconAction action="offer" onClick={() => openOffer(a)} />
+        ) : null}
         <Button
           size="sm"
           variant="ghost"
@@ -968,8 +988,13 @@ export default function ApplicantsPipelinePage() {
             <Field><FieldLabel>Role title</FieldLabel><Input value={offerForm.roleTitle} onChange={(e) => setOfferForm((f) => ({ ...f, roleTitle: e.target.value }))} /></Field>
             <Field><FieldLabel>Stipend (INR/mo)</FieldLabel><Input type="number" value={offerForm.stipendInr} onChange={(e) => setOfferForm((f) => ({ ...f, stipendInr: e.target.value }))} /></Field>
             <Field><FieldLabel>Message</FieldLabel><Textarea rows={3} value={offerForm.message} onChange={(e) => setOfferForm((f) => ({ ...f, message: e.target.value }))} /></Field>
+            {offerError ? (
+              <Alert variant="destructive" data-testid="offer-send-error">
+                <AlertDescription>{offerError}</AlertDescription>
+              </Alert>
+            ) : null}
           </div>
-          <DialogFooter><Button onClick={sendOffer}>Send offer</Button></DialogFooter>
+          <DialogFooter><Button onClick={sendOffer} disabled={offerBusy}>{offerBusy ? 'Sending…' : 'Send offer'}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 

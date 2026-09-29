@@ -6,7 +6,7 @@ import { sendMail } from '@/lib/mail';
 import { getNotifyChannels } from '@/lib/ipNotificationPreferences';
 import { ensureIpOfferRemindSchema } from '@/lib/ensureIpOfferRemindSchema';
 import { ensureIpOfferOnboardingSchema } from '@/lib/ensureIpOfferOnboardingSchema';
-import { decorateCandidateOffer } from '@/lib/ipOfferPresentation';
+import { decorateCandidateOffer, offerIsExpired, OFFERABLE_APPLICATION_STATUSES } from '@/lib/ipOfferPresentation';
 import { maskEmployerName } from '@/lib/ipEmployerIdentity';
 
 function trimOrNull(value) {
@@ -101,7 +101,8 @@ export async function POST(request) {
   let row;
   if (applicationId) {
     const app = await query(
-      `SELECT a.candidate_id, a.internship_id, i.employer_id, i.title, c.user_id as candidate_user_id, c.name as candidate_name
+      `SELECT a.status as application_status, a.candidate_id, a.internship_id, i.employer_id, i.title,
+              c.user_id as candidate_user_id, c.name as candidate_name
        FROM ip_applications a
        JOIN ip_internships i ON i.id = a.internship_id
        JOIN ip_candidates c ON c.id = a.candidate_id
@@ -112,7 +113,7 @@ export async function POST(request) {
     if (!row || row.employer_id !== emp.rows[0].id) return jsonError('Application not found', 404);
   } else {
     const existingApp = await query(
-      `SELECT a.id, a.candidate_id, a.internship_id, i.employer_id, i.title,
+      `SELECT a.id, a.status as application_status, a.candidate_id, a.internship_id, i.employer_id, i.title,
               c.user_id as candidate_user_id, c.name as candidate_name
        FROM ip_applications a
        JOIN ip_internships i ON i.id = a.internship_id
@@ -126,39 +127,62 @@ export async function POST(request) {
     row = { ...existingApp.rows[0], application_id: existingApp.rows[0].id };
   }
 
+  const appStatus = String(row.application_status || '').toLowerCase();
+  if (!OFFERABLE_APPLICATION_STATUSES.includes(appStatus)) {
+    return jsonError(`An offer can't be sent while this application is "${appStatus || 'unknown'}".`, 409);
+  }
+
   const resolvedApplicationId = applicationId || row.application_id;
-  const existingOffer = await query(`SELECT id FROM ip_offers WHERE application_id = $1 LIMIT 1`, [
+  // ip_offers allows one row per application, so a new offer after decline/expiry reuses that row.
+  await ensureIpOfferRemindSchema();
+  const existingOffer = await query(`SELECT id, status, valid_until FROM ip_offers WHERE application_id = $1 LIMIT 1`, [
     resolvedApplicationId,
   ]);
-  if (existingOffer.rows[0]) {
-    return jsonError('This application already has an offer', 409);
+  const prior = existingOffer.rows[0];
+  if (prior) {
+    const priorStatus = String(prior.status || '').toLowerCase();
+    if (priorStatus === 'accepted') {
+      return jsonError('The candidate has already accepted an offer for this application', 409);
+    }
+    if (priorStatus === 'pending' && !offerIsExpired(prior)) {
+      return jsonError('This application already has a pending offer. Remind the candidate instead.', 409);
+    }
   }
-  const id = newId('ip_offer');
-  await query(
-    `INSERT INTO ip_offers (
-       id, internship_id, candidate_id, employer_id, application_id, role_title, stipend_inr, start_date, valid_until, letter_url, message,
-       end_date, onboarding_instructions, mentor_name, hr_contact_email, hr_contact_phone
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
-    [
-      id,
-      row.internship_id,
-      row.candidate_id,
-      row.employer_id,
-      resolvedApplicationId,
-      roleTitle || row.title,
-      stipendInr || null,
-      startParsed?.value || null,
-      untilParsed?.value || null,
-      trimOrNull(letterUrl),
-      trimOrNull(message),
-      endParsed?.value || null,
-      trimOrNull(onboardingInstructions),
-      trimOrNull(mentorName),
-      trimOrNull(hrContactEmail),
-      trimOrNull(hrContactPhone),
-    ],
-  );
-  await query(`UPDATE ip_applications SET status = 'offered', updated_at = now() WHERE id = $1`, [applicationId || row.application_id]);
+  const offerValues = [
+    roleTitle || row.title,
+    stipendInr || null,
+    startParsed?.value || null,
+    untilParsed?.value || null,
+    trimOrNull(letterUrl),
+    trimOrNull(message),
+    endParsed?.value || null,
+    trimOrNull(onboardingInstructions),
+    trimOrNull(mentorName),
+    trimOrNull(hrContactEmail),
+    trimOrNull(hrContactPhone),
+  ];
+  let id;
+  if (prior) {
+    id = prior.id;
+    await query(
+      `UPDATE ip_offers SET
+         role_title = $2, stipend_inr = $3, start_date = $4, valid_until = $5, letter_url = $6, message = $7,
+         end_date = $8, onboarding_instructions = $9, mentor_name = $10, hr_contact_email = $11, hr_contact_phone = $12,
+         status = 'pending', responded_at = NULL, last_reminded_at = NULL, created_at = now()
+       WHERE id = $1`,
+      [id, ...offerValues],
+    );
+  } else {
+    id = newId('ip_offer');
+    await query(
+      `INSERT INTO ip_offers (
+         id, internship_id, candidate_id, employer_id, application_id, role_title, stipend_inr, start_date, valid_until, letter_url, message,
+         end_date, onboarding_instructions, mentor_name, hr_contact_email, hr_contact_phone
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+      [id, row.internship_id, row.candidate_id, row.employer_id, resolvedApplicationId, ...offerValues],
+    );
+  }
+  await query(`UPDATE ip_applications SET status = 'offered', updated_at = now() WHERE id = $1`, [resolvedApplicationId]);
 
   await notifyUser({
     userId: row.candidate_user_id,

@@ -49,3 +49,4 @@
 043_ip_ref_countries.sql
 044_ip_internship_stipend_range.sql
 045_ip_notification_archive.sql
+046_ip_offer_withdrawn_status.sql

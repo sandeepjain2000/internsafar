@@ -4,6 +4,8 @@ import { notifyUser } from '@/lib/ipNotify';
 import { sendMail } from '@/lib/mail';
 import { getNotifyChannels } from '@/lib/ipNotificationPreferences';
 import { ensureIpOfferRemindSchema } from '@/lib/ensureIpOfferRemindSchema';
+import { resolveAppOrigin } from '@/lib/ipAppOrigin';
+import { offerIsExpired } from '@/lib/ipOfferPresentation';
 
 const REMIND_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
@@ -36,11 +38,8 @@ export async function POST(_request, { params }) {
     return jsonError(`Remind only applies to pending offers (current status: ${row.status})`, 400);
   }
 
-  if (row.valid_until) {
-    const until = new Date(row.valid_until);
-    if (!Number.isNaN(until.getTime()) && until.getTime() < Date.now()) {
-      return jsonError('This offer has expired — extend or send a new offer instead of reminding', 400);
-    }
+  if (offerIsExpired(row)) {
+    return jsonError('This offer has expired — send a new offer from the applicant list instead of reminding', 400);
   }
 
   if (row.last_reminded_at) {
@@ -76,13 +75,14 @@ export async function POST(_request, { params }) {
     const emailRow = await query(`SELECT email FROM ip_users WHERE id = $1`, [row.candidate_user_id]);
     const to = emailRow.rows[0]?.email;
     if (channels.email && to) {
+      const offersUrl = `${resolveAppOrigin(_request.url)}/candidate/offers`;
       await sendMail({
         to,
         subject: `Reminder: offer for ${roleLabel}`,
         html: `<p>Hi ${row.candidate_name || 'there'},</p>
 <p>${company} is reminding you that your internship offer for <strong>${roleLabel}</strong> is still awaiting your response.</p>
-<p><a href="/candidate/offers">Review your offer</a> in Internship Portal to accept or decline.</p>`,
-        text: `${company} is reminding you that your offer for ${roleLabel} is still awaiting your response. Sign in to Internship Portal → Offers to respond.`,
+<p><a href="${offersUrl}">Review your offer</a> in Internship Portal to accept or decline.</p>`,
+        text: `${company} is reminding you that your offer for ${roleLabel} is still awaiting your response. Respond here: ${offersUrl}`,
       });
     }
   } catch (e) {

@@ -23,6 +23,7 @@ import {
   IP_RECEIVED_WINDOW_OPTIONS,
   inReceivedWindow,
 } from '@/components/ip/IpTableFiltersShell';
+import { offerDeadlineEnd, offerIsExpired } from '@/lib/ipOfferPresentation';
 import '@/components/ip/ip-employer-offers-gemini.css';
 import '@/components/ip/ip-table-filters.css';
 import '@/components/ip/ip-list-pager.css';
@@ -82,9 +83,7 @@ function initials(name) {
 }
 
 function isExpiredPending(o) {
-  if (String(o.status || '').toLowerCase() !== 'pending' || !o.valid_until) return false;
-  const until = new Date(o.valid_until);
-  return !Number.isNaN(until.getTime()) && until.getTime() < Date.now();
+  return offerIsExpired(o);
 }
 
 function displayStatus(o) {
@@ -92,6 +91,7 @@ function displayStatus(o) {
   if (isExpiredPending(o)) return { key: 'expired', label: 'Expired', className: 'ip-eo-badge--muted' };
   if (s === 'accepted') return { key: 'accepted', label: 'Accepted', className: 'ip-eo-badge--ok' };
   if (s === 'declined') return { key: 'declined', label: 'Declined', className: 'ip-eo-badge--bad' };
+  if (s === 'withdrawn') return { key: 'withdrawn', label: 'Withdrawn', className: 'ip-eo-badge--muted' };
   if (s === 'pending') return { key: 'pending', label: 'Pending Acceptance', className: 'ip-eo-badge--warn' };
   return { key: s || 'other', label: o.status || '—', className: 'ip-eo-badge--muted' };
 }
@@ -111,10 +111,9 @@ function startLabel(o) {
 }
 
 function daysUntil(dateVal) {
-  if (!dateVal) return null;
-  const t = new Date(dateVal).getTime();
-  if (Number.isNaN(t)) return null;
-  return Math.ceil((t - Date.now()) / (24 * 60 * 60 * 1000));
+  const end = offerDeadlineEnd(dateVal);
+  if (!end) return null;
+  return Math.floor((end.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
 }
 
 function sentRelative(dateVal) {
@@ -162,6 +161,7 @@ function weekStartMs() {
 export default function EmployerOffersPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [tab, setTab] = useState('All');
   const [q, setQ] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
@@ -191,10 +191,17 @@ export default function EmployerOffersPage() {
 
   async function load() {
     setLoading(true);
+    setLoadError('');
     try {
       const res = await fetch('/api/ip/offers');
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setLoadError(data.error || 'Could not load offers.');
+        return;
+      }
       setItems(data.items || []);
+    } catch {
+      setLoadError('Could not load offers. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -222,9 +229,11 @@ export default function EmployerOffersPage() {
         .filter((d) => d != null && d >= 0)
         .sort((a, b) => a - b)[0];
       pendingHint =
-        soonest != null
-          ? `Expires in ${soonest} day${soonest === 1 ? '' : 's'}`
-          : `${pendingLive.length} awaiting response`;
+        soonest == null
+          ? `${pendingLive.length} awaiting response`
+          : soonest === 0
+            ? 'Expires today'
+            : `Expires in ${soonest} day${soonest === 1 ? '' : 's'}`;
     }
     return {
       total,
@@ -326,6 +335,9 @@ export default function EmployerOffersPage() {
       setStatusMsg(`Endorsement saved for ${endorseFor.candidate_name}`);
       setEndorseFor(null);
       setEndorseForm({ periodLabel: '', skillsEndorsed: '' });
+    } catch {
+      setStatusOk(false);
+      setStatusMsg('Endorsement failed. Check your connection and try again.');
     } finally {
       setBusyId('');
     }
@@ -353,6 +365,9 @@ export default function EmployerOffersPage() {
       setStatusOk(true);
       setStatusMsg(`Rating submitted for ${rateFor.candidate_name}`);
       setRateFor(null);
+    } catch {
+      setStatusOk(false);
+      setStatusMsg('Rating failed. Check your connection and try again.');
     } finally {
       setBusyId('');
     }
@@ -387,6 +402,15 @@ export default function EmployerOffersPage() {
           >
             {busyId === o.id ? 'Sending…' : 'Remind'}
           </button>
+        ) : null}
+        {(st.key === 'expired' || st.key === 'declined' || st.key === 'withdrawn') && o.internship_id ? (
+          <Link
+            className="ip-eo-btn-remind"
+            href={`/employer/internships/${encodeURIComponent(o.internship_id)}`}
+            title="Open this posting's applicant list to send a new offer"
+          >
+            Send New Offer
+          </Link>
         ) : null}
         {st.key === 'accepted' ? (
           <>
@@ -546,6 +570,13 @@ export default function EmployerOffersPage() {
 
         {loading ? (
           <IpListLoading label="Loading Offers…" />
+        ) : loadError ? (
+          <div className="ip-eo-alert ip-eo-alert--err m-4" role="alert" data-testid="employer-offers-load-error">
+            {loadError}{' '}
+            <button type="button" className="ip-eo-btn-ghost" onClick={load}>
+              Try again
+            </button>
+          </div>
         ) : !filtered.length ? (
           <IpListEmpty
             title={items.length ? 'No Matching Offers' : 'No Offers Yet'}

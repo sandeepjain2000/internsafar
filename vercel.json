@@ -2,6 +2,7 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "installCommand": "npm install --legacy-peer-deps",
+  "regions": ["hnd1"],
   "crons": [
     {
       "path": "/api/ip/cron/auto-reject-expired",

@@ -21,6 +21,7 @@ import IpListPager from '@/components/ip/IpListPager';
 import { toTitleCaseLabel } from '@/lib/ipTitleCase';
 import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 import { useClientPagination } from '@/hooks/useClientPagination';
+import { useLatestRequest } from '@/hooks/useLatestRequest';
 import { employerDomainRisk, REJECT_PRESETS } from '@/lib/ipDomainRisk';
 import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
 
@@ -56,7 +57,10 @@ export default function SuperAdminDocumentsPage() {
   const [rejectPreset, setRejectPreset] = useState(REJECT_PRESETS[0]);
   const [rejectNote, setRejectNote] = useState('');
 
+  const beginLoad = useLatestRequest();
+
   async function load() {
+    const isCurrent = beginLoad();
     setLoading(true);
     setError('');
     try {
@@ -65,6 +69,7 @@ export default function SuperAdminDocumentsPage() {
         credentials: 'same-origin',
       });
       const data = await res.json().catch(() => ({}));
+      if (!isCurrent()) return;
       if (!res.ok) {
         setError(data.error || `Failed to load documents (${res.status})`);
         setItems([]);
@@ -74,27 +79,29 @@ export default function SuperAdminDocumentsPage() {
       if (data.meta) setMeta(data.meta);
       setSelected([]);
     } catch (e) {
+      if (!isCurrent()) return;
       setError(e.message || 'Failed to load');
       setItems([]);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }
 
+  const sessionRole = session?.user?.role;
   useEffect(() => {
     if (sessionStatus === 'loading') return;
-    if (session?.user?.role === 'superadmin') {
+    if (sessionRole === 'superadmin') {
       load();
       return;
     }
     setLoading(false);
     if (sessionStatus === 'authenticated') {
       setError(
-        `Forbidden — Documents requires SuperAdmin. Your session role is “${session?.user?.role || 'unknown'}”. Sign out, then sign in at /superadmin/login as support@placementhub.online.`,
+        `Forbidden — Documents requires SuperAdmin. Your session role is “${sessionRole || 'unknown'}”. Sign out, then sign in at /superadmin/login as support@placementhub.online.`,
       );
       setItems([]);
     }
-  }, [session, sessionStatus, tab]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionRole, sessionStatus, tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -284,7 +291,10 @@ export default function SuperAdminDocumentsPage() {
                 key={t.id}
                 type="button"
                 className={`ip-saq-tab${tab === t.id ? ' ip-saq-tab--on' : ''}`}
-                onClick={() => setTab(t.id)}
+                onClick={() => {
+                  if (t.id !== tab) setLoading(true);
+                  setTab(t.id);
+                }}
               >
                 {t.label}
               </button>

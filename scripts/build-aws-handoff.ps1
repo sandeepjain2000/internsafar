@@ -14,12 +14,13 @@ $ExcludeDirNames = @(
     'node_modules', '.next', '.vercel', '.git', 'test-results', 'tmp-screenshots',
     '.local-qa-2fa-bypass-backup', '.local', '.cursor', 'ai-context', 'prompts', 'coverage', 'playwright-report',
     '.turbo', 'out', 'build', '.netlify', '.cache', 'aws-migration', '__pycache__',
-    'nvidia_keys', 'nvidia keys', '_local-backups-internship-portal', 'reviews'
+    'nvidia_keys', 'nvidia keys', '_local-backups-internship-portal', 'reviews',
+    '.tmp', '.tmp-prompt-extract'
 )
 
 $ExcludeFilePatterns = @(
     '.env', '.env.local', '.env.*.local', '.env.development.local', '.env.production.local',
-    'coreaccountspass.json',
+    'coreaccountspass.json', '.tmp-*', 'tmp-*.mjs', 'tmp-*.cjs', '*.pyc',
     'client_secret*.json', '*.pem', '*.key', '*.p12', '*.pfx', '*.crt', '*.cer',
     'migrate-and-seed.mjs',
     '001_ism_schema.sql', '002_ism_portal_features.sql', '003_notifications_mailbox.sql',

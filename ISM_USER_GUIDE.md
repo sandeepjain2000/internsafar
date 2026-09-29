@@ -552,7 +552,7 @@ Transport: ZeptoMail first when configured, SMTP as backup, otherwise `MAIL_NOT_
 | `ip_applications.status` | `applied`, `shortlisted`, `interviewing`, `offered`, `hired`, `completed`, `rejected`, `declined_offer`, `withdrawn` (DB CHECK) |
 | `ip_internships.status` | `draft`, `published`, `paused`, `closed` (`closed` displays as "takedown") |
 | Posting lifecycle labels | Draft, Paused, Closed, Expired, Archived, Scheduled, Closing soon, Live |
-| `ip_offers.status` | `pending`, `accepted`, `declined`, `expired` |
+| `ip_offers.status` | `pending`, `accepted`, `declined`, `expired`, `withdrawn` |
 | `ip_employers.approval_status` | `pending`, `approved`, `rejected`, `suspended` |
 | `ip_employer_requests.status` | `pending`, `approved`, `rejected` |
 | `ip_employer_documents.review_status` | `pending`, `approved`, `flagged` (UI: "rejected") |

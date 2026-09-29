@@ -4,6 +4,7 @@ import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { notifyUser } from '@/lib/ipNotify';
 import { sendMail } from '@/lib/mail';
 import { offerIsExpired } from '@/lib/ipOfferPresentation';
+import { maskEmployerName } from '@/lib/ipEmployerIdentity';
 
 export async function PATCH(request, { params }) {
   const { session, error } = await requireSession(['candidate']);
@@ -20,9 +21,12 @@ export async function PATCH(request, { params }) {
 
   const cand = await query(`SELECT id FROM ip_candidates WHERE user_id = $1`, [session.user.id]);
   const offer = await query(
-    `SELECT o.*, i.title, e.user_id as employer_user_id, e.company_name FROM ip_offers o
+    `SELECT o.*, i.title, i.show_employer_identity, e.user_id as employer_user_id, e.company_name,
+            a.status as application_status
+     FROM ip_offers o
      JOIN ip_internships i ON i.id = o.internship_id
      JOIN ip_employers e ON e.id = o.employer_id
+     LEFT JOIN ip_applications a ON a.id = o.application_id
      WHERE o.id = $1 AND o.candidate_id = $2`,
     [id, cand.rows[0]?.id],
   );
@@ -32,10 +36,19 @@ export async function PATCH(request, { params }) {
   if (String(row.status || '').toLowerCase() !== 'pending') {
     return jsonError('This offer can no longer be accepted or declined');
   }
+  if (row.application_id && row.application_status !== 'offered') {
+    return jsonError('This offer is no longer active — the employer has updated your application.', 409);
+  }
 
   const nextAppStatus = status === 'accepted' ? 'hired' : 'declined_offer';
+  let responded = false;
   await transaction(async (client) => {
-    await client.query(`UPDATE ip_offers SET status = $2, responded_at = now() WHERE id = $1`, [id, status]);
+    const upd = await client.query(
+      `UPDATE ip_offers SET status = $2, responded_at = now() WHERE id = $1 AND status = 'pending' RETURNING id`,
+      [id, status],
+    );
+    if (!upd.rows[0]) return;
+    responded = true;
     if (row.application_id) {
       await client.query(`UPDATE ip_applications SET status = $2, updated_at = now() WHERE id = $1`, [
         row.application_id,
@@ -48,6 +61,7 @@ export async function PATCH(request, { params }) {
       );
     }
   });
+  if (!responded) return jsonError('This offer can no longer be accepted or declined', 409);
 
   await notifyUser({
     userId: row.employer_user_id,
@@ -63,12 +77,25 @@ export async function PATCH(request, { params }) {
       query(`SELECT email FROM ip_users WHERE id = $1`, [row.employer_user_id]),
     ]);
     const [candEmail, empEmail] = emails.map((r) => r.rows[0]?.email);
-    await sendMail({
-      to: [candEmail, empEmail].filter(Boolean).join(','),
-      subject: `Offer ${status} — ${row.title}`,
-      html: `<p>The offer for <strong>${row.title}</strong> at ${row.company_name} was <strong>${status}</strong> by the candidate.</p>`,
-      text: `Offer ${status} for ${row.title}`,
-    });
+    const company = maskEmployerName(row.company_name, row.show_employer_identity !== false);
+    const atCompany = company ? ` at ${company}` : '';
+    // Separate sends: one shared "To" line would show each party the other's address.
+    if (candEmail) {
+      await sendMail({
+        to: candEmail,
+        subject: `Offer ${status} — ${row.title}`,
+        html: `<p>You <strong>${status}</strong> the offer for <strong>${row.title}</strong>${atCompany}.</p>`,
+        text: `You ${status} the offer for ${row.title}${atCompany}.`,
+      });
+    }
+    if (empEmail) {
+      await sendMail({
+        to: empEmail,
+        subject: `Offer ${status} — ${row.title}`,
+        html: `<p>The offer for <strong>${row.title}</strong> was <strong>${status}</strong> by the candidate.</p>`,
+        text: `The offer for ${row.title} was ${status} by the candidate.`,
+      });
+    }
   } catch (e) {
     console.error('[offer respond] email failed', e.message);
   }

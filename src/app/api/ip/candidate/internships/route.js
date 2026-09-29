@@ -10,6 +10,13 @@ import { maskEmployerName } from '@/lib/ipEmployerIdentity';
 import { matchesRegionValue } from '@/lib/ipRegions';
 import { ensureIpInternshipStipendRangeSchema } from '@/lib/ensureIpInternshipStipendRangeSchema';
 import { ensureIpEmployerDocumentSlotsSchema } from '@/lib/ipEmployerDocuments';
+import { loadSavedListView } from '@/lib/ipListPrefs';
+import {
+  BROWSE_TABLE_KEY,
+  BROWSE_TAB_IDS,
+  browseQueryString,
+  browseStateFromSaved,
+} from '@/lib/ipBrowseFilters';
 import {
   internshipMatchesPreferredRoles,
   preferredRolesMatchTokens,
@@ -129,7 +136,19 @@ export async function GET(request) {
   await ensureIpEmployerDocumentSlotsSchema();
   // preferred_roles is selected below — ensure column exists before browse (profile may not have run yet)
   await ensureIpStudentDiscoveryFeatures();
-  const { searchParams } = new URL(request.url);
+  const requestParams = new URL(request.url).searchParams;
+  // useSaved=1: apply the user's saved browse view here so the page needs one round trip.
+  const useSaved = requestParams.get('useSaved') === '1';
+  let searchParams = requestParams;
+  let savedView = null;
+  let appliedQuery = null;
+  if (useSaved) {
+    savedView = await loadSavedListView(session.user.id, BROWSE_TABLE_KEY);
+    const requestedTab = requestParams.get('tab') || '';
+    const tab = BROWSE_TAB_IDS.includes(requestedTab) ? requestedTab : 'unapplied';
+    appliedQuery = browseQueryString(browseStateFromSaved(savedView), tab);
+    searchParams = new URLSearchParams(appliedQuery);
+  }
   const q = (searchParams.get('q') || '').trim().toLowerCase();
   const minStipend = Number(searchParams.get('minStipend') || 0);
   const stipendType = (searchParams.get('stipendType') || '').trim().toLowerCase();
@@ -342,7 +361,12 @@ export async function GET(request) {
   }
   const availableCities = [...citySet.values()].sort((a, b) => a.localeCompare(b));
 
-  return jsonOk({ items, counts, availableCities });
+  return jsonOk({
+    items,
+    counts,
+    availableCities,
+    ...(useSaved ? { savedView, appliedQuery } : {}),
+  });
   } catch (e) {
     console.error('[candidate/internships]', e);
     return jsonError(e?.message || 'Failed to load internships', 500);

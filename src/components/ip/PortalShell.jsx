@@ -19,6 +19,7 @@ import {
   Home,
   LayoutDashboard,
   Lightbulb,
+  Loader2,
   LogOut,
   Mail,
   Menu,
@@ -32,6 +33,7 @@ import {
   Coins,
   User,
   UserPlus,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -88,6 +90,7 @@ export default function PortalShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [modKey, setModKey] = useState('Ctrl');
   const [navBadges, setNavBadges] = useState({});
   const homePath = ROLE_HOME[role] || '/';
 
@@ -121,6 +124,29 @@ export default function PortalShell({
   }, [sidebarCollapsed]);
 
   useEffect(() => {
+    if (/Mac|iPhone|iPad/.test(navigator.platform || '')) setModKey('⌘');
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== 'b') return;
+      const el = e.target;
+      if (el?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el?.tagName || '')) return;
+      e.preventDefault();
+      setSidebarCollapsed((v) => !v);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  async function handleSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await signOutAndEndSession({ callbackUrl: loginHref });
+    } catch {
+      setSigningOut(false);
+    }
+  }
+
+  useEffect(() => {
     if (status === 'unauthenticated') router.replace(loginHref);
     if (status === 'authenticated' && session?.user?.role && session.user.role !== role) {
       router.replace(loginHref);
@@ -130,6 +156,15 @@ export default function PortalShell({
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setMobileOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileOpen]);
 
   if (status === 'loading' || status === 'unauthenticated') {
     return (
@@ -151,15 +186,9 @@ export default function PortalShell({
             ({session?.user?.email || 'no email'}). Sign out, then sign in with the correct account
             {role === 'superadmin' ? ' at /superadmin/login' : ''}.
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setSigningOut(true);
-              signOutAndEndSession({ callbackUrl: loginHref });
-            }}
-          >
-            Sign out
+          <Button type="button" variant="outline" onClick={handleSignOut} disabled={signingOut} aria-busy={signingOut}>
+            {signingOut ? <Loader2 data-icon="inline-start" className="animate-spin" aria-hidden /> : null}
+            {signingOut ? 'Signing out…' : 'Sign out'}
           </Button>
         </div>
       </div>
@@ -180,7 +209,8 @@ export default function PortalShell({
         <button
           type="button"
           className="fixed inset-0 z-40 bg-black/40 md:hidden"
-          aria-label="Close menu"
+          aria-hidden="true"
+          tabIndex={-1}
           onClick={() => setMobileOpen(false)}
         />
       ) : null}
@@ -195,12 +225,7 @@ export default function PortalShell({
         )}
         data-state={sidebarCollapsed ? 'collapsed' : 'expanded'}
       >
-        <div
-          className={cn(
-            'flex h-16 shrink-0 items-center gap-2 px-2',
-            sidebarCollapsed && 'md:flex-col md:h-auto md:py-2 md:gap-1',
-          )}
-        >
+        <div className={cn('flex h-16 shrink-0 items-center gap-2 px-2', sidebarCollapsed && 'md:justify-center')}>
           <Link
             href={homePath}
             className={cn(
@@ -231,12 +256,13 @@ export default function PortalShell({
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="shrink-0 max-md:hidden"
-            onClick={() => setSidebarCollapsed((v) => !v)}
-            title={sidebarCollapsed ? 'Expand menu' : 'Collapse menu'}
-            aria-label={sidebarCollapsed ? 'Expand menu' : 'Collapse menu'}
+            className="shrink-0 md:hidden"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close menu"
+            title="Close menu"
+            data-testid="mobile-menu-close"
           >
-            {sidebarCollapsed ? <PanelLeft aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
+            <X aria-hidden="true" />
           </Button>
         </div>
         <Separator />
@@ -322,7 +348,40 @@ export default function PortalShell({
         </nav>
 
         <Separator />
-        <div className="shrink-0 p-2">
+        <div className="flex shrink-0 flex-col gap-1 p-2">
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed((v) => !v)}
+            className={cn(
+              'hidden h-8 w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2 text-sm font-medium text-sidebar-foreground/70 outline-none transition-colors md:flex',
+              'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring',
+              sidebarCollapsed && 'md:justify-center md:px-0',
+            )}
+            title={`${sidebarCollapsed ? 'Expand menu' : 'Collapse menu'} (${modKey}+B)`}
+            aria-label={sidebarCollapsed ? 'Expand menu' : 'Collapse menu'}
+            aria-expanded={!sidebarCollapsed}
+            data-testid="sidebar-collapse-toggle"
+          >
+            <span className="flex size-5 shrink-0 items-center justify-center">
+              {sidebarCollapsed ? (
+                <PanelLeft aria-hidden="true" className="size-4" />
+              ) : (
+                <PanelLeftClose aria-hidden="true" className="size-4" />
+              )}
+            </span>
+            <span className={cn('min-w-0 flex-1 truncate text-left', sidebarCollapsed && 'md:hidden')}>
+              Collapse menu
+            </span>
+            <kbd
+              className={cn(
+                'shrink-0 rounded border border-sidebar-border bg-background px-1.5 py-0.5 font-sans text-[10px] font-medium text-sidebar-foreground/50',
+                sidebarCollapsed && 'md:hidden',
+              )}
+              aria-hidden="true"
+            >
+              {modKey}+B
+            </kbd>
+          </button>
           <Link
             href={
               role === 'employer'
@@ -369,36 +428,11 @@ export default function PortalShell({
                 className="md:hidden"
                 onClick={() => setMobileOpen((v) => !v)}
                 aria-label="Toggle navigation menu"
+                aria-expanded={mobileOpen}
               >
                 <Menu aria-hidden="true" />
               </Button>
-              {sidebarCollapsed ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="hidden md:inline-flex"
-                  onClick={() => setSidebarCollapsed(false)}
-                  title="Expand sidebar"
-                  aria-label="Expand sidebar"
-                >
-                  <PanelLeft data-icon="inline-start" aria-hidden="true" />
-                  Expand menu
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  className="hidden md:inline-flex"
-                  onClick={() => setSidebarCollapsed(true)}
-                  title="Collapse sidebar"
-                  aria-label="Collapse sidebar"
-                >
-                  <PanelLeftClose aria-hidden="true" />
-                </Button>
-              )}
-              <Separator orientation="vertical" className="mx-1 hidden h-5! data-vertical:self-center sm:block" />
+              <Separator orientation="vertical" className="mx-1 hidden h-5! data-vertical:self-center sm:block md:hidden" />
               <div className="min-w-0">
                 <h2 className="truncate text-sm font-semibold leading-tight sm:text-base">{title}</h2>
                 <p className="truncate text-xs text-muted-foreground">{ROLE_SUBTITLE[role]}</p>
@@ -414,13 +448,17 @@ export default function PortalShell({
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  setSigningOut(true);
-                  signOutAndEndSession({ callbackUrl: loginHref });
-                }}
+                onClick={handleSignOut}
+                disabled={signingOut}
+                aria-busy={signingOut}
+                data-testid="portal-sign-out"
               >
-                <LogOut data-icon="inline-start" className="size-4" />
-                Sign out
+                {signingOut ? (
+                  <Loader2 data-icon="inline-start" className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  <LogOut data-icon="inline-start" className="size-4" aria-hidden />
+                )}
+                {signingOut ? 'Signing out…' : 'Sign out'}
               </Button>
             </div>
           </div>

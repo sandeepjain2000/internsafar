@@ -9,7 +9,7 @@ Postgres access for InternSafar, `ip_*` schema, SQL migrations, migrate safety g
 | Path | Role |
 |------|------|
 | `src/lib/db.js` | `pg` pool — app queries must use **`ip_*` only** |
-| `db/migrations/` | Numbered SQL (prefer `*ip*`; latest **`045_ip_notification_archive.sql`**) |
+| `db/migrations/` | Numbered SQL (prefer `*ip*`; latest **`046_ip_offer_withdrawn_status.sql`**) |
 | `scripts/MIGRATION_MANIFEST.txt` | Apply order for Path C / sql-only |
 | `docs/ip-er-diagram-notes.md` | ER notes (synced through **039**; also see **040–044**) |
 | `docs/ip-er-diagram.puml` | PlantUML diagram |
@@ -32,6 +32,7 @@ Useful npm scripts: `db:migrate:ip`, `db:migrate:sql-only`, `db:migrate:workbenc
 | `043_ip_ref_countries.sql` | `ip_ref_countries` catalog |
 | `044_ip_internship_stipend_range.sql` | `ip_internships.stipend_inr_max` (+ CHECK) |
 | `045_ip_notification_archive.sql` + `ensureIpNotificationCategorySchema` | `ip_notifications.archived_at` (NULL = Inbox; no blank-fill needed) |
+| `046_ip_offer_withdrawn_status.sql` | Widens `ip_offers_status_check` with `withdrawn` (applied to Supabase and AWS 2026-09-29; no blank-fill; app falls back to `expired` on any DB still missing it) |
 | `ensureIpEmployerDocumentSlotsSchema` | `superseded_at`, `doc_label`, file_size; dedupe; active-type unique index |
 | `ensureIpEmployerEmailVerifySchema` | Verify table + `email_verify_required` (**schema only**) |
 
@@ -51,9 +52,11 @@ Workspace plan for next AWS push (outside app tree): `aws deploy/AWS-PUSH-PLAN-S
 
 | Host | Database |
 |------|----------|
-| Local | Shared Neon / `DATABASE_URL` from `.env.local` |
-| Vercel (this sibling project) | **Same DB as local** |
-| Production (`internsafar.com` / AWS) | **Separate** DB only |
+| Local | Shared Supabase Postgres / `DATABASE_URL` from `.env.local` — **transaction pooler, port 6543** (switched 2026-09-29) |
+| Vercel (this sibling project) | **Same DB as local**; Vercel `DATABASE_URL` should also use port 6543 (session pooler 5432 caps all processes at 15 → `EMAXCONNSESSION`) |
+| Production (`internsafar.com` / AWS) | **Separate** RDS only — no Supabase pooler; unaffected |
+
+Transaction-mode safe: app uses no session features (no session `SET`, temp tables, LISTEN/NOTIFY, named prepared statements). Apply capacity lock is `pg_advisory_xact_lock` inside `BEGIN` (transaction-scoped — OK). `src/lib/db.js` still retries connect on connection-limit errors.
 
 ## Constraints
 

@@ -14,15 +14,7 @@ import ValidationScoreButton from '@/components/ip/ValidationScoreButton';
 import { POINTS_PER_APPLICATION } from '@/lib/pointsEconomy';
 import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
 import { formatInternshipLocations } from '@/lib/ipInternshipLocations';
-
-const REPORT_REASONS = [
-  { value: 'spam', label: 'Spam' },
-  { value: 'misleading', label: 'Misleading details' },
-  { value: 'scam', label: 'Suspected scam' },
-  { value: 'offensive', label: 'Offensive content' },
-  { value: 'duplicate', label: 'Duplicate listing' },
-  { value: 'other', label: 'Other' },
-];
+import { LISTING_REPORT_REASONS } from '@/lib/ipListingReportReasons';
 
 const APPLY_DRAFT_PREFIX = 'ip_apply_draft_';
 
@@ -163,8 +155,11 @@ export default function InternshipDetailPage() {
       }
       setDraftHint('');
       setAlreadyApplied(true);
-      setMessage(`Applied successfully! Spent ${data.payment?.cost ?? POINTS_PER_APPLICATION} points.`);
-      setTimeout(() => router.push('/candidate/applications'), 1000);
+      const spent = data.payment?.cost ?? POINTS_PER_APPLICATION;
+      setMessage(`Applied successfully! Spent ${spent} points.`);
+      const next = new URLSearchParams({ applied: String(data.id || ''), spent: String(spent) });
+      if (data.firstApplicationBonus) next.set('bonus', String(data.firstApplicationBonus));
+      setTimeout(() => router.push(`/candidate/applications?${next.toString()}`), 1000);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -268,7 +263,7 @@ export default function InternshipDetailPage() {
                   value={reportReason}
                   onChange={(e) => setReportReason(e.target.value)}
                 >
-                  {REPORT_REASONS.map((r) => (
+                  {LISTING_REPORT_REASONS.map((r) => (
                     <option key={r.value} value={r.value}>{r.label}</option>
                   ))}
                 </select>

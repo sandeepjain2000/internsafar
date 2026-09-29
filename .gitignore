@@ -85,6 +85,9 @@ _tmp_*
 .local/
 .tmp/
 .tmp/**
+.tmp-*
+__pycache__/
+*.pyc
 coreaccountspass.json
 **/coreaccountspass.json
 *.bak
@@ -104,4 +107,7 @@ prompts/
 
 # Secrets live outside the app tree
 ../.local-secrets/
+
+# Placeholder-only env template — safe to track
+!.env.example
 
