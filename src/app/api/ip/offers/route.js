@@ -162,10 +162,35 @@ export async function POST(request) {
     trimOrNull(hrContactEmail),
     trimOrNull(hrContactPhone),
   ];
-  const id = prior ? prior.id : newId('ip_offer');
+  let id = prior ? prior.id : newId('ip_offer');
+  let conflict = null;
   try {
     await transaction(async (client) => {
-      if (prior) {
+      // Re-check under a row lock: an employer status change or a second send may have landed since the pre-check.
+      const lockedApp = await client.query(`SELECT status FROM ip_applications WHERE id = $1 FOR UPDATE`, [
+        resolvedApplicationId,
+      ]);
+      const lockedStatus = String(lockedApp.rows[0]?.status || '').toLowerCase();
+      if (!OFFERABLE_APPLICATION_STATUSES.includes(lockedStatus)) {
+        conflict = `An offer can't be sent while this application is "${lockedStatus || 'unknown'}".`;
+        return;
+      }
+      const lockedOffer = await client.query(
+        `SELECT id, status, valid_until FROM ip_offers WHERE application_id = $1 FOR UPDATE`,
+        [resolvedApplicationId],
+      );
+      const current = lockedOffer.rows[0];
+      const currentStatus = String(current?.status || '').toLowerCase();
+      if (current && currentStatus === 'accepted') {
+        conflict = 'The candidate has already accepted an offer for this application';
+        return;
+      }
+      if (current && currentStatus === 'pending' && !offerIsExpired(current)) {
+        conflict = 'This application already has a pending offer. Remind the candidate instead.';
+        return;
+      }
+      if (current) {
+        id = current.id;
         await client.query(
           `UPDATE ip_offers SET
              role_title = $2, stipend_inr = $3, start_date = $4, valid_until = $5, letter_url = $6, message = $7,
@@ -193,6 +218,7 @@ export async function POST(request) {
     }
     throw e;
   }
+  if (conflict) return jsonError(conflict, 409);
 
   await notifyUser({
     userId: row.candidate_user_id,

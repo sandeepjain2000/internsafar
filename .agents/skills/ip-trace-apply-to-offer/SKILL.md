@@ -33,9 +33,9 @@ Read first (app root `internship-portal/`):
 3. **Capacity lock + bonus** — `src/lib/ipApplicationCapacity.js` (`MAX_ACTIVE_APPLICATIONS_PER_POSTING`, `withApplicationCapacityLock`); first-application bonus `maybeAwardFirstApplicationBonus` → `awardPointsOnce` in `src/lib/ipReferralCredit.js`.
 4. **Employer workbench** — `src/app/employer/internships/[id]/page.js` (shows offer button only for offerable statuses).
 5. **Single status change** — `PATCH` `src/app/api/ip/employer/applications/[id]/route.js`: update status (interview fields for `interviewing`) → `closePendingOfferForApplication` → interview thread/message → `notifyUser` to candidate.
-6. **Bulk shortlist/reject** — `src/app/api/ip/employer/internships/[id]/applicants/bulk/route.js` (same offer close + notify-on-change).
-7. **Offer send / re-offer** — `POST` `src/app/api/ip/offers/route.js` → offer insert-or-reuse **and** application `offered` in one `transaction()` (a concurrent duplicate hitting `UNIQUE(application_id)` returns 409, not 500) → notify + email (per candidate prefs).
-8. **Offer respond** — `PATCH` `src/app/api/ip/offers/[id]/route.js` (uses `transaction()` from `src/lib/transaction.js`); remind: `src/app/api/ip/offers/[id]/remind/route.js`.
+6. **Bulk shortlist/reject/schedule_interview** — `src/app/api/ip/employer/internships/[id]/applicants/bulk/route.js` (all three close a pending offer; shortlist/reject notify-on-change).
+7. **Offer send / re-offer** — `POST` `src/app/api/ip/offers/route.js` → inside one `transaction()`: `SELECT … FOR UPDATE` the application (must still be offerable) and the offer row (re-check accepted / live pending), then insert-or-reuse the offer and set application `offered` (duplicate hitting `UNIQUE(application_id)` → 409) → notify + email (per candidate prefs).
+8. **Offer respond** — `PATCH` `src/app/api/ip/offers/[id]/route.js`: inside `transaction()` locks the application `FOR UPDATE` and requires `offered` before writing (concurrent employer change → 409 "no longer active"); remind: `src/app/api/ip/offers/[id]/remind/route.js`.
 9. **Offer helpers** — `src/lib/ipOfferPresentation.js` (`OFFERABLE_APPLICATION_STATUSES`, `offerDeadlineEnd`, `offerIsExpired`, `offerDisplayStatus`), `src/lib/ipOfferLifecycle.js`.
 10. **Surfaces** — `src/app/candidate/applications/page.js`, `src/app/candidate/offers/page.js`, `src/app/employer/offers/page.js`, `src/app/api/ip/notifications/route.js`, `src/app/api/ip/nav-badges/route.js`, `src/lib/ipNavBadges.js`, `src/lib/ipCandidateNotificationPresentation.js`.
 

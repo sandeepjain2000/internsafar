@@ -332,6 +332,7 @@ export async function POST(request, { params }) {
          WHERE id = $1`,
         [row.id, interviewAt, body.interviewMeetUrl || null],
       );
+      await closePendingOfferForApplication(row.id, 'interviewing');
       n += 1;
     }
     return jsonOk({ ok: true, updated: n });

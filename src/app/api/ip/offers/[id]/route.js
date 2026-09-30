@@ -42,7 +42,16 @@ export async function PATCH(request, { params }) {
 
   const nextAppStatus = status === 'accepted' ? 'hired' : 'declined_offer';
   let responded = false;
+  let appMoved = false;
   await transaction(async (client) => {
+    // Lock the application so a concurrent employer status change cannot land between check and write.
+    if (row.application_id) {
+      const app = await client.query(`SELECT status FROM ip_applications WHERE id = $1 FOR UPDATE`, [row.application_id]);
+      if (app.rows[0]?.status !== 'offered') {
+        appMoved = true;
+        return;
+      }
+    }
     const upd = await client.query(
       `UPDATE ip_offers SET status = $2, responded_at = now() WHERE id = $1 AND status = 'pending' RETURNING id`,
       [id, status],
@@ -61,6 +70,9 @@ export async function PATCH(request, { params }) {
       );
     }
   });
+  if (appMoved) {
+    return jsonError('This offer is no longer active — the employer has updated your application.', 409);
+  }
   if (!responded) return jsonError('This offer can no longer be accepted or declined', 409);
 
   await notifyUser({
