@@ -1,4 +1,5 @@
 import { query } from '@/lib/db';
+import { transaction } from '@/lib/transaction';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { notifyUser } from '@/lib/ipNotify';
@@ -161,28 +162,37 @@ export async function POST(request) {
     trimOrNull(hrContactEmail),
     trimOrNull(hrContactPhone),
   ];
-  let id;
-  if (prior) {
-    id = prior.id;
-    await query(
-      `UPDATE ip_offers SET
-         role_title = $2, stipend_inr = $3, start_date = $4, valid_until = $5, letter_url = $6, message = $7,
-         end_date = $8, onboarding_instructions = $9, mentor_name = $10, hr_contact_email = $11, hr_contact_phone = $12,
-         status = 'pending', responded_at = NULL, last_reminded_at = NULL, created_at = now()
-       WHERE id = $1`,
-      [id, ...offerValues],
-    );
-  } else {
-    id = newId('ip_offer');
-    await query(
-      `INSERT INTO ip_offers (
-         id, internship_id, candidate_id, employer_id, application_id, role_title, stipend_inr, start_date, valid_until, letter_url, message,
-         end_date, onboarding_instructions, mentor_name, hr_contact_email, hr_contact_phone
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
-      [id, row.internship_id, row.candidate_id, row.employer_id, resolvedApplicationId, ...offerValues],
-    );
+  const id = prior ? prior.id : newId('ip_offer');
+  try {
+    await transaction(async (client) => {
+      if (prior) {
+        await client.query(
+          `UPDATE ip_offers SET
+             role_title = $2, stipend_inr = $3, start_date = $4, valid_until = $5, letter_url = $6, message = $7,
+             end_date = $8, onboarding_instructions = $9, mentor_name = $10, hr_contact_email = $11, hr_contact_phone = $12,
+             status = 'pending', responded_at = NULL, last_reminded_at = NULL, created_at = now()
+           WHERE id = $1`,
+          [id, ...offerValues],
+        );
+      } else {
+        await client.query(
+          `INSERT INTO ip_offers (
+             id, internship_id, candidate_id, employer_id, application_id, role_title, stipend_inr, start_date, valid_until, letter_url, message,
+             end_date, onboarding_instructions, mentor_name, hr_contact_email, hr_contact_phone
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+          [id, row.internship_id, row.candidate_id, row.employer_id, resolvedApplicationId, ...offerValues],
+        );
+      }
+      await client.query(`UPDATE ip_applications SET status = 'offered', updated_at = now() WHERE id = $1`, [
+        resolvedApplicationId,
+      ]);
+    });
+  } catch (e) {
+    if (e?.code === '23505') {
+      return jsonError('This application already has a pending offer. Remind the candidate instead.', 409);
+    }
+    throw e;
   }
-  await query(`UPDATE ip_applications SET status = 'offered', updated_at = now() WHERE id = $1`, [resolvedApplicationId]);
 
   await notifyUser({
     userId: row.candidate_user_id,

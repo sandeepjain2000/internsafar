@@ -18,7 +18,20 @@ Paths below are relative to `internship-portal/` unless marked as workspace path
 | Regression / update checklist | `domains/testing.md` | Boarders xlsx = format reference only |
 | Frontend / backend QA prompt packs | `prompts/Testing/` PDFs | From prompts library |
 | DOCX / XLSX / PDF artifacts | `docx`, `xlsx`, `pdf` | Docs only |
-| AWS / Path B–C / migrate | **No separate skill** — use Cursor rules + `domains/deployment.md` + handoff txt | Always-on: Path B + no-wipe migration rules |
+| AWS / Path B–C / migrate | `ip-trace-aws-path-b-schema-gap` + Cursor rules + `domains/deployment.md` + handoff txt | Always-on: Path B + no-wipe migration rules |
+
+## InternSafar flow-trace skills (project-specific, added 2026-09-30)
+
+Written for this app (not from skills.sh). Each lists invariants, files to trace in order, state layers, edge cases, known risks, and out-of-scope. Load the one that matches the flow you are changing or debugging.
+
+| Flow | Skill |
+|------|-------|
+| Employer register → email verify → pending login → docs → SA Final Approval / Suspend / Restore → posting gate | `.agents/skills/ip-trace-employer-onboarding/SKILL.md` |
+| Candidate apply → employer shortlist/reject/interview → notifications/badges → offer send / re-offer / withdraw / accept | `.agents/skills/ip-trace-apply-to-offer/SKILL.md` |
+| Employer documents Hybrid E (`superseded_at`, `doc_label`, one active per type, SA review) | `.agents/skills/ip-trace-employer-documents-hybrid-e/SKILL.md` |
+| AWS Path B with a schema gap + one-time blank-fill (fingerprint → plan → DDL/fill → tar → swap → smoke) | `.agents/skills/ip-trace-aws-path-b-schema-gap/SKILL.md` |
+
+If a flow's live behaviour changes, update the matching trace skill in the same task (see `CONTEXT_UPDATE.md` → Skills).
 
 ## Standing human prompts (workspace, not skills)
 

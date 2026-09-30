@@ -1,7 +1,7 @@
 # InternSafar — Project Context Index (Level 1)
 
 Compact map for AI agents. **Not** a full README of the product.  
-**Inspected from live sibling app:** 2026-09-29 (Browse one-trip load `useSaved=1` + loading/empty/error states; local DB on Supabase transaction pooler 6543; shared in-progress rule for dashboard/sidebar, applications status guide + apply confirmation, `outdated` report reason, bulk shortlist/reject notifications; sidebar single collapse control + Ctrl/⌘+B, sign-out feedback, Feature ideas + Employer analytics load/error/empty states — see `domains/ui-ux.md`; offer lifecycle: re-offer after decline/expiry, offer closes as `withdrawn` on employer status change (migration 046) — see `domains/workflow-core.md`; AWS production aligned 2026-09-29 (045 + 046 SQL, Path B tar `20260929-1736`, AWS `NVIDIA_MODEL` updated)). Prior: 2026-09-28 (notification Inbox/Archived folders, SA-only delete, applications badge; QA workbook + regression re-sync; SuperAdmin login on `/`). Earlier: 2026-09-26 (Hybrid E docs, SA Reject/Suspend + Adjust Points, HQ Country single-select, stipend range, posting ethics gate; Vercel `82ead1b`).
+**Inspected from live sibling app:** 2026-09-30 (flow-trace skills `.agents/skills/ip-trace-*` listed in `SKILLS_MAP.md`; `POST /api/ip/offers` offer write + application `offered` now one transaction, duplicate race → 409; candidate offers list view shows status labels). Prior: 2026-09-29 (Browse one-trip load `useSaved=1` + loading/empty/error states; local DB on Supabase transaction pooler 6543; shared in-progress rule for dashboard/sidebar, applications status guide + apply confirmation, `outdated` report reason, bulk shortlist/reject notifications; sidebar single collapse control + Ctrl/⌘+B, sign-out feedback, Feature ideas + Employer analytics load/error/empty states — see `domains/ui-ux.md`; offer lifecycle: re-offer after decline/expiry, offer closes as `withdrawn` on employer status change (migration 046) — see `domains/workflow-core.md`; AWS production aligned 2026-09-29 (045 + 046 SQL, Path B tar `20260929-1736`, AWS `NVIDIA_MODEL` updated)). Prior: 2026-09-28 (notification Inbox/Archived folders, SA-only delete, applications badge; QA workbook + regression re-sync; SuperAdmin login on `/`). Earlier: 2026-09-26 (Hybrid E docs, SA Reject/Suspend + Adjust Points, HQ Country single-select, stipend range, posting ethics gate; Vercel `82ead1b`).
 
 After this file: open `FOLDER_STRUCTURE.md` to locate paths, then **one** `domains/*.md`, then live source.
 
@@ -122,6 +122,7 @@ Full route/API inventory (large): `ISM_ROUTE_INVENTORY.md` — open only when yo
 | Plan / build / verify standing prompts | workspace `Development prompts for cursor to use/` (filenames are swapped vs contents — go by file content) |
 | Code review HTML report (self-contained prompt) | `CODE_REVIEW_REPORT_PROMPT.md` — includes full CSS/JS + HTML skeleton; no external `report.html` needed |
 | Skills discovery | `SKILLS_MAP.md` |
+| Flow-trace skills (employer onboarding, apply→offer, Hybrid E docs, AWS Path B schema gap) | `.agents/skills/ip-trace-*/SKILL.md` — listed in `SKILLS_MAP.md` (added 2026-09-30) |
 | Stable decisions | `DECISIONS.md` |
 
 ---

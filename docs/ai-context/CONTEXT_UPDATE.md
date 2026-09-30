@@ -61,8 +61,10 @@ When giving the zip to another AI:
 2. Tell the recipient: start at `README.md`, then `PROJECT_INDEX.md`, then `FOLDER_STRUCTURE.md`.
 3. Remind them the app source is **not** inside the zip — they need sibling `internship-portal/` to edit code.
 
-Last zip rebuild: **2026-09-28**.
+Last zip rebuild: **2026-09-30**.
 
 ## Skills
 
 Update a skill only if the **workflow itself** changed. Do not copy skill text into domain docs.
+
+Exception — InternSafar flow-trace skills (`.agents/skills/ip-trace-*`, listed in `SKILLS_MAP.md`): they name concrete files, invariants and known risks, so update the matching one in the same task when that flow's behaviour, files, or contracts change (or when a listed known risk is fixed).

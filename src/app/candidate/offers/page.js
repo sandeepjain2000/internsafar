@@ -443,7 +443,7 @@ export default function CandidateOffersPage() {
                 <tr key={o.id} className="border-b">
                   <td className="p-3">{o.role_title || o.title}</td>
                   <td className="p-3">{o.company_name}</td>
-                  <td className="p-3">{o.display_status}</td>
+                  <td className="p-3">{o.display_status_label}</td>
                 </tr>
               ))}
             </tbody>
