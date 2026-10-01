@@ -7,6 +7,12 @@ import {
   experienceRangeLabel,
   experienceEntryLabel,
 } from '@/lib/ipCandidateExperience';
+import {
+  commitmentLabel,
+  dayString,
+  resumeLinkList,
+  textList,
+} from '@/lib/ipCandidateProfileDisplay';
 
 const PROFILE_HEADERS = {
   name: '',
@@ -23,15 +29,21 @@ const PROFILE_HEADERS = {
   cgpa: '',
   preferred_hours: '',
   preferred_work_mode: '',
+  preferred_locations: '',
+  preferred_roles: '',
+  availability_date: '',
+  immediate_start: '',
+  ongoing_commitment: '',
   has_wired_broadband: '',
   has_dedicated_laptop: '',
   prior_experience: '',
-  immediate_start: '',
   willing_to_relocate: '',
   hide_phone_until_shortlist: '',
   linkedin_url: '',
   github_url: '',
   portfolio_url: '',
+  personal_website: '',
+  extra_cv_links: '',
 };
 
 const ACADEMICS_HEADERS = {
@@ -119,15 +131,23 @@ function profileSheetRow(c, { includePhone = true } = {}) {
     cgpa: c.cgpa ?? '',
     preferred_hours: `${c.preferred_hours_start || ''}–${c.preferred_hours_end || ''}`,
     preferred_work_mode: c.preferred_work_mode || '',
+    preferred_locations: textList(c.preferred_locations).join('; '),
+    preferred_roles: textList(c.preferred_roles).join('; '),
+    availability_date: dayString(c.availability_date),
+    immediate_start: c.immediate_start,
+    ongoing_commitment: commitmentLabel(c),
     has_wired_broadband: c.has_wired_broadband,
     has_dedicated_laptop: c.has_dedicated_laptop,
     prior_experience: experienceExportText(c.prior_experience),
-    immediate_start: c.immediate_start,
     willing_to_relocate: c.willing_to_relocate,
     hide_phone_until_shortlist: c.hide_phone_until_shortlist,
     linkedin_url: c.linkedin_url || '',
     github_url: c.github_url || '',
     portfolio_url: c.portfolio_url || '',
+    personal_website: c.personal_website || '',
+    extra_cv_links: resumeLinkList(c.resume_links)
+      .map((l) => (l.title ? `${l.title}: ${l.url}` : l.url))
+      .join('; '),
   };
 }
 
@@ -317,6 +337,20 @@ export async function buildCandidateExportSheets(candidateUserIdOrId) {
     offersRows,
     endorsementsRows,
   });
+}
+
+/**
+ * Same sections as the employer Excel, for the on-screen employer profile.
+ * Applications/offers/endorsements only when the candidate applied to this employer.
+ */
+export async function loadEmployerCandidateSections(candidateId, employerId, { hasApplication = false } = {}) {
+  const [academics, applications, offers, endorsements] = await Promise.all([
+    loadAcademics(candidateId),
+    hasApplication ? loadApplications(candidateId, { employerId }) : [],
+    hasApplication ? loadOffers(candidateId, { employerId }) : [],
+    hasApplication ? loadEndorsements(candidateId) : [],
+  ]);
+  return { academics, applications, offers, endorsements };
 }
 
 /**

@@ -23,6 +23,20 @@
   gap: 0.35rem;
 }
 
+.ip-emp-cand-detail ul {
+  list-style: none;
+}
+
+.ip-emp-cand-detail .ip-ecd-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+}
+
+.ip-emp-cand-detail .ip-ecd-dl dd {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 767px) {
   .ip-emp-cand-detail {
     padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));

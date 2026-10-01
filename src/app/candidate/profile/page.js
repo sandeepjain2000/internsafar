@@ -21,6 +21,7 @@ import { validateRequiredPhone, phoneDialOptionsFor } from '@/lib/ipPhoneValidat
 import IpUploadButton from '@/components/ip/IpUploadButton';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import SearchableSelect from '@/components/ip/SearchableSelect';
+import CitySelectWithOther from '@/components/ip/CitySelectWithOther';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
 import useIpCountryCatalog from '@/hooks/useIpCountryCatalog';
 import {
@@ -658,6 +659,8 @@ export default function CandidateProfilePage() {
   const hasNextStep = isWizardTab && wizardIndex < WIZARD_ORDER.length - 1;
   const missingRequired = showMissing && profileTab === 'basics' ? missingBasics(form) : [];
   const isMissing = (key) => missingRequired.some((f) => f.key === key);
+  /** City/state catalog is India-only; other countries type their own place. */
+  const inIndia = (form?.country || 'India') === 'India';
 
   return (
     <div className="ip-cand-profile">
@@ -837,7 +840,11 @@ export default function CandidateProfilePage() {
                     value={form.country ? [form.country] : ['India']}
                     onChange={(next) => {
                       const pick = next.length ? next[next.length - 1] : 'India';
-                      set('country', pick);
+                      setForm((f) => (
+                        (f.country || 'India') === pick
+                          ? { ...f, country: pick }
+                          : { ...f, country: pick, state: '', city: '' }
+                      ));
                     }}
                     placeholder="Search countries…"
                     ariaLabel="Country"
@@ -845,12 +852,36 @@ export default function CandidateProfilePage() {
                     loading={countriesLoading && !(countryOptions || []).length}
                   />
                 </Field>
+                {!inIndia ? (
+                  <>
+                    <Field label="Current City" required invalid={isMissing('city')}>
+                      <input
+                        className="ip-cp-input"
+                        value={form.city || ''}
+                        onChange={(e) => set('city', e.target.value)}
+                        placeholder={`City in ${form.country}`}
+                        aria-label="Current city"
+                      />
+                    </Field>
+                    <Field label="State / Province" required invalid={isMissing('state')}>
+                      <input
+                        className="ip-cp-input"
+                        value={form.state || ''}
+                        onChange={(e) => set('state', e.target.value)}
+                        placeholder={`State or province in ${form.country}`}
+                        aria-label="State or province"
+                      />
+                    </Field>
+                  </>
+                ) : (
+                <>
                 <Field label="Current City" required invalid={isMissing('city')}>
-                  <SearchableSelect
+                  <CitySelectWithOther
                     options={cityChoices}
                     value={form.city || ''}
-                    loading={citiesLoading && !(cityChoices || []).length}
-                    onChange={(city) => {
+                    isKnownCity={(city) => Boolean(findCity(city))}
+                    loading={citiesLoading}
+                    onPick={(city) => {
                       const hit = findCity(city);
                       setForm((f) => ({
                         ...f,
@@ -858,6 +889,8 @@ export default function CandidateProfilePage() {
                         state: hit?.state && !/^work mode$/i.test(hit.state) ? hit.state : f.state,
                       }));
                     }}
+                    onCustom={(city) => set('city', city)}
+                    inputClassName="ip-cp-input"
                     placeholder="Search cities…"
                     ariaLabel="Current city"
                   />
@@ -881,6 +914,8 @@ export default function CandidateProfilePage() {
                     ariaLabel="State or union territory"
                   />
                 </Field>
+                </>
+                )}
               </div>
             </section>
 

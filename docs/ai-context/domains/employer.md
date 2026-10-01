@@ -23,7 +23,9 @@ Employer dashboard, profile/docs, internship postings, candidate search/workbenc
 | `/employer/internships` | Postings list |
 | `/employer/internships/new` | Create posting (stipend min–max via `stipend_inr` + `stipend_inr_max`; Back to Postings) |
 | `/employer/internships/[id]` | Posting detail / workbench |
-| `/employer/internships/[id]/edit` | Edit posting |
+| `/employer/internships/[id]/edit` | Edit posting — same tabs as create (Details incl. Show company identity, Schedule, Hours & engagement, Compensation, Eligibility, Screening); Eligibility saves `eligibility` JSON `{ skills[], degree, degrees[], minCgpa }` via `PUT`, keeping other stored keys (2026-10-01) |
+
+Posting working hours (new + edit, "Hours & Engagement" tab): 12-hour time box (type `9:30`, `930`, `6:45 pm` or `18:45` — 24-hour input flips to PM) + AM/PM toggle + clock popover (hour / 5-minute grid) in `src/components/ip/WorkTime12hInput.jsx`; invalid text shows red and sends blank. Still stored as 24-hour `HH:MM` text in `work_hours_start` / `work_hours_end` (no schema change); candidate internship page and employer Excel export show 12-hour via `src/lib/ipWorkHours.js` (2026-10-01).
 | `/employer/candidates`, `/employer/candidates/[id]` | Search / detail |
 | `/employer/messages`, `/employer/messages/[id]` | Messaging |
 | `/employer/offers` | Offers |
@@ -56,7 +58,7 @@ Login after email verify is allowed while **pending** approval (docs upload). Re
 ## Profile / location (confirmed)
 
 - **HQ Country** = single-select (`SearchableSelect`), aligned with State — **not** multi-select chips. Same catalog as Region filters (`ip_ref_countries` / `ipRegions.js`).
-- Country → State → City → Phone.
+- Country → State → City → Phone. HQ City (India) has **Other (not listed)** free-text fallback; posting Work cities accept typed custom cities — see `domains/candidate.md` "City Other".
 - Logo URL field hidden when logo image is set.
 - Ethics: Accept/Reject per item; lock after all Accepted + save; SA can `resetEthics`.
 
@@ -65,6 +67,18 @@ Login after email verify is allowed while **pending** approval (docs upload). Re
 Offers, notifications, and message panes use shared `IpListPager`. Prefer it over a one-off pager.
 
 Candidate search (`/employer/candidates`) filters include **Region** (UI label; query `region`; matches candidate `country`) ahead of city.
+
+## Dashboard Action center (confirmed 2026-10-01)
+
+`/employer` builds every open task in priority order — upload docs (not approved, 0 active docs) → finish profile (`profile_complete`, which already requires saved Guidelines & Ethics) → stale applications 3+ days (can post) → interviews today (can post) → waiting for Final Approval — and shows the **first two** as side-by-side tiles (`data-testid` `employer-action-center` / `employer-action-center-2`; "+N more" when over two). Empty state: one tile with 0. Data from `GET /api/ip/employer/dashboard` → `actionCenter`.
+
+## Candidate detail = Excel parity (confirmed 2026-10-01)
+
+`GET /api/ip/employer/candidates/[id]` (page `/employer/candidates/[id]`) returns the same candidate fields as **Download Excel + CV** (`buildEmployerCandidateExportSheets` in `ipCandidateFullExport.js`), including country, preferred locations/roles, availability (`availability_date` as plain `YYYY-MM-DD`), commitment label, relocate/broadband/laptop booleans, LinkedIn/GitHub/portfolio/website, academics rows.
+
+- **Gate:** email, `resume_url`, extra CV links, applications/offers (this employer only) and endorsements only when the candidate has an application with this employer (`contact_gated: false`) — same gate as the download. Phone keeps `employerCanSeeCandidatePhone`. WhatsApp/Telegram never exposed.
+- Sections loader: `loadEmployerCandidateSections`; display helpers: `src/lib/ipCandidateProfileDisplay.js` (also used by both Excel exports).
+- Candidate row read with `SELECT c.*` so an older DB missing a column shows blank instead of 500.
 
 ## Constraints
 

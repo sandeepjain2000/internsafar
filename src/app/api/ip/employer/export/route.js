@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import { requireSession, jsonError } from '@/lib/apiAuth';
 import { workbookToBuffer } from '@/lib/ipXlsxWorkbook';
+import { formatWorkTime12h } from '@/lib/ipWorkHours';
 
 function safeFilePart(name) {
   return String(name || 'data')
@@ -71,8 +72,8 @@ export async function GET() {
     stipend_type: p.stipend_type,
     engagement_type: p.engagement_type,
     weekly_hours: p.weekly_hours,
-    hours_start: p.work_hours_start,
-    hours_end: p.work_hours_end,
+    hours_start: p.work_hours_start ? formatWorkTime12h(p.work_hours_start) : '',
+    hours_end: p.work_hours_end ? formatWorkTime12h(p.work_hours_end) : '',
     applicants: p.applicants,
     created_at: p.created_at,
   }));

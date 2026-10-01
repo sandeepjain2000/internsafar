@@ -78,7 +78,7 @@ export default function SearchableSelect({
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return optionsWithValue.filter((o) => {
-      if (!needle) return true;
+      if (!needle || o.pinned) return true;
       return String(o.label || o.value).toLowerCase().includes(needle);
     });
   }, [optionsWithValue, q]);

@@ -27,6 +27,44 @@ import {
 } from '@/lib/ipCandidateExperience';
 import '@/components/ip/ip-employer-candidate-detail-gemini.css';
 
+function formatDay(value) {
+  if (!value) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
+  const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function matchLabel(value) {
+  if (value === '' || value == null) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? `${Math.round(n)}%` : null;
+}
+
+function yesNo(value) {
+  if (value === true) return 'Yes';
+  if (value === false) return 'No';
+  return '—';
+}
+
+/** Candidate-entered URLs: only http(s) or our file route; bare domains get https://. */
+function safeHref(raw) {
+  const url = String(raw || '').trim();
+  if (!url) return null;
+  if (/^https?:\/\//i.test(url) || url.startsWith('/api/ip/files?')) return url;
+  if (/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(url)) return `https://${url}`;
+  return null;
+}
+
+function Row({ label, children }) {
+  return (
+    <div>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd>{children}</dd>
+    </div>
+  );
+}
+
 export default function EmployerCandidateProfilePage() {
   const { id } = useParams();
   const router = useRouter();
@@ -190,6 +228,26 @@ export default function EmployerCandidateProfilePage() {
   const experienceIsText = experienceIsFreeText(c?.prior_experience);
   const backHref = from.startsWith('/') ? from : '/employer/candidates';
   const skills = Array.isArray(c?.skills) ? c.skills : [];
+  const location = c ? [c.city, c.state, c.country].filter(Boolean).join(', ') : '';
+  const availability = c?.immediate_start ? 'Immediate' : (formatDay(c?.availability_date) || '—');
+  const links = c
+    ? [
+        { key: 'linkedin', label: 'LinkedIn', href: safeHref(c.linkedin_url) },
+        { key: 'github', label: 'GitHub', href: safeHref(c.github_url) },
+        { key: 'portfolio', label: 'Portfolio', href: safeHref(c.portfolio_url) },
+        { key: 'website', label: 'Website', href: safeHref(c.personal_website) },
+        { key: 'cv', label: 'View CV', href: safeHref(c.resume_url) },
+        ...(c.resume_links || []).map((l, i) => ({
+          key: `cv-link-${i}`,
+          label: l.title || `CV link ${i + 1}`,
+          href: safeHref(l.url),
+        })),
+      ].filter((l) => l.href)
+    : [];
+  const academics = c?.academics || [];
+  const companyApps = c?.applications || [];
+  const offers = c?.offers || [];
+  const endorsements = c?.endorsements || [];
 
   const actionButtons = (
     <div className="ip-ecd-actions">
@@ -248,24 +306,40 @@ export default function EmployerCandidateProfilePage() {
                   <img src={c.profile_picture_url} alt="" className="h-20 w-20 rounded-full object-cover" />
                 ) : null}
                 <div className="text-muted-foreground">
-                  {[c.degree, c.specialization, c.college, c.city, c.state].filter(Boolean).join(' · ') || '—'}
+                  {[c.degree, c.specialization, c.college].filter(Boolean).join(' · ') || '—'}
                 </div>
-                <dl className="grid gap-2 sm:grid-cols-2">
-                  <div><dt className="text-xs text-muted-foreground">CGPA</dt><dd>{c.cgpa != null ? c.cgpa : '—'}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Study status</dt><dd>{c.study_status || '—'}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Graduation</dt><dd>{c.graduation_year || '—'}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Work preference</dt><dd>{c.preferred_work_mode || '—'}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Availability</dt><dd>{c.immediate_start ? 'Immediate' : (c.availability_date || '—')}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Experience</dt><dd>{experience.length ? experienceSummaryLabel(c.prior_experience) : '—'}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Relocate</dt><dd>{c.willing_to_relocate ? 'Yes' : '—'}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Ongoing commitment</dt><dd>{c.ongoing_commitment || '—'}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Hours</dt><dd>{[c.preferred_hours_start, c.preferred_hours_end].filter(Boolean).join('–') || '—'}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Setup</dt><dd>{[c.has_wired_broadband ? 'Broadband' : null, c.has_dedicated_laptop ? 'Laptop' : null].filter(Boolean).join(' · ') || '—'}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Phone</dt><dd>{c.phone || (c.phone_hidden ? 'Hidden until shortlist/interview' : '—')}</dd></div>
-                  {c.linkedin_url ? (
-                    <div><dt className="text-xs text-muted-foreground">LinkedIn</dt><dd><a className="underline" href={c.linkedin_url} target="_blank" rel="noreferrer">Profile</a></dd></div>
-                  ) : null}
+                <dl className="ip-ecd-dl grid grid-cols-2 gap-x-4 gap-y-2" data-testid="employer-candidate-fields">
+                  <Row label="Email">
+                    {c.email ? <a className="underline" href={`mailto:${c.email}`}>{c.email}</a> : (c.contact_gated ? 'Shown after they apply to your company' : '—')}
+                  </Row>
+                  <Row label="Phone">{c.phone || (c.phone_hidden ? 'Hidden until shortlist/interview' : '—')}</Row>
+                  <Row label="Location">{location || '—'}</Row>
+                  <Row label="CGPA">{c.cgpa != null ? c.cgpa : '—'}</Row>
+                  <Row label="Study status">{c.study_status || '—'}</Row>
+                  <Row label="Graduation">{c.graduation_year || '—'}</Row>
+                  <Row label="Work preference">{c.preferred_work_mode || '—'}</Row>
+                  <Row label="Preferred locations">{c.preferred_locations?.length ? c.preferred_locations.join(', ') : '—'}</Row>
+                  <Row label="Preferred roles">{c.preferred_roles?.length ? c.preferred_roles.join(', ') : '—'}</Row>
+                  <Row label="Availability">{availability}</Row>
+                  <Row label="Hours">{[c.preferred_hours_start, c.preferred_hours_end].filter(Boolean).join('–') || '—'}</Row>
+                  <Row label="Ongoing commitment">{c.ongoing_commitment_label || '—'}</Row>
+                  <Row label="Willing to relocate">{yesNo(c.willing_to_relocate)}</Row>
+                  <Row label="Wired broadband">{yesNo(c.has_wired_broadband)}</Row>
+                  <Row label="Dedicated laptop">{yesNo(c.has_dedicated_laptop)}</Row>
+                  <Row label="Experience">{experience.length ? experienceSummaryLabel(c.prior_experience) : '—'}</Row>
                 </dl>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Links</div>
+                  {links.length ? (
+                    <div className="ip-ecd-links" data-testid="employer-candidate-links">
+                      {links.map((l) => (
+                        <a key={l.key} className="underline" href={l.href} target="_blank" rel="noreferrer noopener">{l.label}</a>
+                      ))}
+                    </div>
+                  ) : (
+                    <div>—</div>
+                  )}
+                </div>
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Skills</div>
                   {skills.length ? (
@@ -301,6 +375,29 @@ export default function EmployerCandidateProfilePage() {
                     )}
                   </div>
                 ) : null}
+                {academics.length ? (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Academics</div>
+                    <ul className="space-y-2 border-l pl-3">
+                      {academics.map((row, idx) => (
+                        <li key={`${row.row_label}-${idx}`} className="space-y-0.5">
+                          <div className="font-medium">
+                            {[row.degree, row.specialization].filter(Boolean).join(' · ') || row.row_label || 'Academic record'}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {[
+                              row.row_label && (row.degree || row.specialization) ? row.row_label : null,
+                              row.college,
+                              row.study_status,
+                              row.graduation_year ? `Graduation ${row.graduation_year}` : null,
+                              row.cgpa !== '' && row.cgpa != null ? `CGPA ${row.cgpa}` : null,
+                            ].filter(Boolean).join(' · ') || '—'}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 {hist ? (
                   <div>
                     <div className="text-xs text-muted-foreground mb-1">Internship history</div>
@@ -311,7 +408,11 @@ export default function EmployerCandidateProfilePage() {
                     </div>
                   </div>
                 ) : null}
-                <p className="text-xs text-muted-foreground">Email and resume are not shown in this view.</p>
+                <p className="text-xs text-muted-foreground">
+                  {c.contact_gated
+                    ? 'Email, CV, offers and endorsements appear once this candidate applies to your company. Phone follows the candidate’s shortlist setting.'
+                    : 'Same details as “Download Excel + CV”. Phone follows the candidate’s shortlist setting.'}
+                </p>
               </CardContent>
             </Card>
             <div className="space-y-4">
@@ -325,7 +426,8 @@ export default function EmployerCandidateProfilePage() {
                   <CardContent className="space-y-2 text-sm">
                     <div>{a.internship_title || 'Internship'}</div>
                     <Badge variant="outline">{toTitleCaseLabel(a.status) || a.status}</Badge>
-                    <div>Match {a.match_score != null ? `${a.match_score}%` : '—'}</div>
+                    <div>Match {matchLabel(a.match_score) || '—'}</div>
+                    {a.created_at ? <div className="text-muted-foreground">Applied {formatDay(a.created_at)}</div> : null}
                     {a.screening_disabled ? <div className="text-muted-foreground">Screening disabled</div> : null}
                     <div className="pt-2">
                       <div className="font-medium mb-1">Screening answers</div>
@@ -342,6 +444,71 @@ export default function EmployerCandidateProfilePage() {
               ) : (
                 <Card><CardContent className="pt-6 text-sm text-muted-foreground">No application with your company yet.</CardContent></Card>
               )}
+              {companyApps.length > 1 ? (
+                <Card data-testid="employer-candidate-applications">
+                  <CardHeader><CardTitle className="text-base">All applications to your company</CardTitle></CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2 text-sm">
+                      {companyApps.map((row, idx) => (
+                        <li key={`${row.title}-${row.created_at}-${idx}`}>
+                          <div className="font-medium">{row.title || 'Internship'}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {[
+                              toTitleCaseLabel(row.status) || row.status,
+                              matchLabel(row.match_score) ? `Match ${matchLabel(row.match_score)}` : null,
+                              row.created_at ? `Applied ${formatDay(row.created_at)}` : null,
+                            ].filter(Boolean).join(' · ')}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              ) : null}
+              {a ? (
+                <Card data-testid="employer-candidate-offers">
+                  <CardHeader><CardTitle className="text-base">Offers from your company</CardTitle></CardHeader>
+                  <CardContent>
+                    {offers.length ? (
+                      <ul className="space-y-2 text-sm">
+                        {offers.map((row, idx) => (
+                          <li key={`${row.role_title}-${idx}`}>
+                            <div className="font-medium">{row.role_title || row.title || 'Offer'}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {[
+                                toTitleCaseLabel(row.status) || row.status,
+                                row.stipend_inr !== '' && row.stipend_inr != null ? `₹${Number(row.stipend_inr).toLocaleString('en-IN')}/mo` : null,
+                                row.start_date ? `Starts ${formatDay(row.start_date)}` : null,
+                              ].filter(Boolean).join(' · ')}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : <div className="text-sm text-muted-foreground">No offers yet</div>}
+                  </CardContent>
+                </Card>
+              ) : null}
+              {a ? (
+                <Card data-testid="employer-candidate-endorsements">
+                  <CardHeader><CardTitle className="text-base">Endorsements</CardTitle></CardHeader>
+                  <CardContent>
+                    {endorsements.length ? (
+                      <ul className="space-y-2 text-sm">
+                        {endorsements.map((row, idx) => (
+                          <li key={`${row.company_name}-${row.created_at}-${idx}`}>
+                            <div className="font-medium">
+                              {[row.role_title, row.company_name].filter(Boolean).join(' · ') || 'Endorsement'}
+                            </div>
+                            {row.period_label ? <div className="text-xs text-muted-foreground">{row.period_label}</div> : null}
+                            {row.skills_endorsed ? <div className="text-xs">Skills: {row.skills_endorsed}</div> : null}
+                            {row.rating_excerpt ? <p className="text-xs text-muted-foreground whitespace-pre-line">{row.rating_excerpt}</p> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : <div className="text-sm text-muted-foreground">No endorsements yet</div>}
+                  </CardContent>
+                </Card>
+              ) : null}
               {a ? (
                 <Card>
                   <CardHeader><CardTitle className="text-base">Private notes</CardTitle></CardHeader>
@@ -361,7 +528,11 @@ export default function EmployerCandidateProfilePage() {
                   <CardContent>
                     <ul className="space-y-1 text-xs text-muted-foreground">
                       {timeline.map((ev) => (
-                        <li key={ev.id}>{new Date(ev.created_at).toLocaleString()} — {ev.event_type}</li>
+                        <li key={ev.id}>
+                          {new Date(ev.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                          {' — '}
+                          {toTitleCaseLabel(ev.event_type) || ev.event_type}
+                        </li>
                       ))}
                       {!timeline.length ? <li>No events yet</li> : null}
                     </ul>

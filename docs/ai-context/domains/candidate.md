@@ -36,6 +36,10 @@ Several candidate list surfaces use shared `IpListPager` (`src/components/ip/IpL
 
 Internship browse filters include **Region** (UI label; query `region`; matches employer `hq_country`) ahead of city — see `src/lib/ipRegions.js`. Profile **Country** uses searchable single-value control.
 
+**Location rules (confirmed 2026-10-01):** changing Country clears State + City. City/State catalog (`ip_ref_cities` / `IP_REF_CITIES`) is India-only, so non-India countries get free-text City + "State / Province". `PUT /api/ip/candidate/profile` rejects a non-India country with an Indian state (`locationMismatchError` in `ipCandidateProfileUpdate.js`; Punjab excluded — also a Pakistani province). `GET` returns `availability_date` as plain `YYYY-MM-DD` (avoids previous-day shift on IST-timezone servers).
+
+**City "Other" (2026-10-01):** India city pickers (candidate City, employer HQ City) use `src/components/ip/CitySelectWithOther.jsx` — catalog list plus a pinned **Other (not listed)** option that reveals a free-text city box (saved as-is). Posting Work cities (`PostingLocationsFields.jsx`, new + edit) allow typed custom cities (Enter / Add; exact/first match preferred over half-typed text). Catalog gained **Navi Mumbai (Maharashtra)**. `GET /api/ip/ref/cities` merges DB rows with any missing static `IP_REF_CITIES` entries and sorts by static order; `ensureIpRefCatalog()` upserts the new static city into `ip_ref_cities` on first ref call (reference data only).
+
 Stipend display/sort may use `stipend_inr_max` when present (NULL = single/`stipend_inr` only). Browse/detail doc validation uses **active** employer docs (`superseded_at IS NULL`).
 
 ### Browse load (confirmed 2026-09-29)

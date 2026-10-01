@@ -6,7 +6,8 @@ import { ensureIpStudentDiscoveryFeatures } from '@/lib/ensureIpStudentDiscovery
 import { maybeAwardProfileCompleteBonus } from '@/lib/ipReferralCredit';
 import { PROFILE_COMPLETE_POINTS } from '@/lib/pointsEconomy';
 import { validateRequiredPhone } from '@/lib/ipPhoneValidation';
-import { buildCandidateProfileUpdate } from '@/lib/ipCandidateProfileUpdate';
+import { buildCandidateProfileUpdate, locationMismatchError } from '@/lib/ipCandidateProfileUpdate';
+import { dayString } from '@/lib/ipCandidateProfileDisplay';
 
 /** Phone is required for account Save / apply unlock; local draft may still omit it. */
 const REQUIRED_FOR_COMPLETE = ['name', 'phone', 'college', 'degree', 'city', 'country', 'resume_url'];
@@ -99,6 +100,8 @@ export async function GET() {
   profile.immediate_start = Boolean(profile.immediate_start);
   profile.willing_to_relocate = Boolean(profile.willing_to_relocate);
   if (!Array.isArray(profile.resume_links)) profile.resume_links = [];
+  // DATE → Date at server-local midnight; JSON would turn it into the previous UTC day on IST servers.
+  profile.availability_date = dayString(profile.availability_date) || null;
   const bonus = await maybeAwardProfileCompleteBonus(session.user.id);
   if (bonus.awarded) {
     profile.points = Number(profile.points || 0) + PROFILE_COMPLETE_POINTS;
@@ -137,10 +140,17 @@ async function putProfile(request) {
   let nextCode = null;
   {
     const currentPhone = await query(
-      `SELECT phone, phone_country_code FROM ip_candidates WHERE user_id = $1`,
+      `SELECT phone, phone_country_code, country, state FROM ip_candidates WHERE user_id = $1`,
       [session.user.id],
     );
     phonePrev = currentPhone.rows[0] || {};
+    if (body.country !== undefined || body.state !== undefined) {
+      const mismatch = locationMismatchError(
+        body.country !== undefined ? body.country : phonePrev.country,
+        body.state !== undefined ? body.state : phonePrev.state,
+      );
+      if (mismatch) return jsonError(mismatch, 400);
+    }
     nextPhone =
       body.phone !== undefined ? String(body.phone || '').trim() : String(phonePrev.phone || '').trim();
     nextCode =

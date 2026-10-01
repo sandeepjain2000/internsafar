@@ -23,6 +23,18 @@ function staticItems() {
   }));
 }
 
+/** DB rows first; code-list cities missing from an older table still appear (no DB write needed). */
+function mergeWithStatic(rows) {
+  const items = mapRows(rows);
+  const seen = new Set(items.map((i) => String(i.city).toLowerCase()));
+  for (const item of staticItems()) {
+    if (!seen.has(String(item.city).toLowerCase())) items.push(item);
+  }
+  const order = new Map(IP_REF_CITIES.map(([city], i) => [city.toLowerCase(), i]));
+  const rank = (i) => order.get(String(i.city).toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
+  return items.sort((a, b) => rank(a) - rank(b));
+}
+
 function withCache(res) {
   res.headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
   return res;
@@ -35,7 +47,7 @@ export async function GET() {
       `SELECT city, state_ut FROM ip_ref_cities ORDER BY sort_order ASC, city ASC`,
     );
     if (existing.rows.length) {
-      return withCache(jsonOk({ items: mapRows(existing.rows) }));
+      return withCache(jsonOk({ items: mergeWithStatic(existing.rows) }));
     }
   } catch {
     // Table may not exist yet — fall through to ensure + seed.
@@ -45,6 +57,6 @@ export async function GET() {
   const result = await query(
     `SELECT city, state_ut FROM ip_ref_cities ORDER BY sort_order ASC, city ASC`,
   );
-  const items = result.rows.length ? mapRows(result.rows) : staticItems();
+  const items = result.rows.length ? mergeWithStatic(result.rows) : staticItems();
   return withCache(jsonOk({ items }));
 }

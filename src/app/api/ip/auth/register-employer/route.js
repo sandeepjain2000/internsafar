@@ -6,7 +6,7 @@ import { sendMail } from '@/lib/mail';
 import { notifyRole, notifyUser } from '@/lib/ipNotify';
 import { referrerRewardsForRole } from '@/lib/pointsEconomy';
 import { domainFromWebsite, normalizeEmail } from '@/lib/authRegisterRules';
-import { verifyLoginCaptcha } from '@/lib/simpleCaptcha';
+import { captchaFailureMessage, explainCaptchaFailure } from '@/lib/simpleCaptcha';
 import { ensureIpFormRegistrationSchema } from '@/lib/ensureIpFormRegistrationSchema';
 import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
 import { isValidBusinessEntityType } from '@/lib/employerBusinessEntity';
@@ -76,8 +76,9 @@ export async function POST(request) {
     if (passwordPlain.length < 8) {
       return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
     }
-    if (!verifyLoginCaptcha(body.captchaToken, body.captchaAnswer)) {
-      return NextResponse.json({ error: 'Captcha verification failed' }, { status: 400 });
+    const captchaCode = explainCaptchaFailure(body.captchaToken, body.captchaAnswer);
+    if (captchaCode) {
+      return NextResponse.json({ error: captchaFailureMessage(captchaCode), code: captchaCode }, { status: 400 });
     }
     if (registrationPath === 'domain' && !website) {
       return NextResponse.json({ error: 'Company domain / website is required for Domain-based registration' }, { status: 400 });

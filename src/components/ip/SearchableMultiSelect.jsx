@@ -79,10 +79,13 @@ export default function SearchableMultiSelect({
     onChange?.(next);
   }
 
+  /** Enter/Add: a listed match wins over the half-typed text; free text only when nothing matches. */
   function addCustom() {
     const raw = q.trim();
     if (!raw || !allowCustom) return;
-    toggle(raw);
+    const exact = (options || []).find((o) => String(o.value).toLowerCase() === raw.toLowerCase());
+    const pick = exact ? exact.value : filtered[0]?.value || raw;
+    if (!selected.some((s) => String(s).toLowerCase() === String(pick).toLowerCase())) toggle(pick);
     setQ('');
   }
 

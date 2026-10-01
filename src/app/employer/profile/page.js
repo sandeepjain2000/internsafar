@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import IpUploadButton from '@/components/ip/IpUploadButton';
 import SearchableSelect from '@/components/ip/SearchableSelect';
+import CitySelectWithOther from '@/components/ip/CitySelectWithOther';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
 import useIpCountryCatalog from '@/hooks/useIpCountryCatalog';
 import { documentAcceptAttr, imageAcceptAttr } from '@/lib/ipFileUpload';
@@ -504,12 +505,13 @@ export default function EmployerProfilePage() {
                 />
               </Field>
               <Field label="HQ City" required>
-                <SearchableSelect
+                <CitySelectWithOther
                   options={hqCityChoices}
                   value={form.hq_city || ''}
-                  loading={citiesLoading && !(hqCityChoices || []).length}
+                  isKnownCity={(city) => Boolean(findCity(city))}
+                  loading={citiesLoading}
                   emptyHint="No cities available"
-                  onChange={(city) => {
+                  onPick={(city) => {
                     const hit = findCity(city);
                     setForm((f) => ({
                       ...f,
@@ -517,6 +519,8 @@ export default function EmployerProfilePage() {
                       hq_state: hit?.state && !/^work mode$/i.test(hit.state) ? hit.state : f.hq_state,
                     }));
                   }}
+                  onCustom={(city) => set('hq_city', city)}
+                  inputClassName="ip-ep-input"
                   placeholder="Search cities…"
                   ariaLabel="HQ city"
                 />

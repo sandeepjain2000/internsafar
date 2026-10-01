@@ -2,6 +2,7 @@
 
 export const IP_REF_CITIES = [
   ['Mumbai', 'Maharashtra'],
+  ['Navi Mumbai', 'Maharashtra'],
   ['Delhi', 'Delhi'],
   ['Bengaluru', 'Karnataka'],
   ['Hyderabad', 'Telangana'],

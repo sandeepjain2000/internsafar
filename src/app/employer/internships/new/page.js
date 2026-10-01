@@ -17,6 +17,7 @@ import InternshipCandidatePreview from '@/components/ip/InternshipCandidatePrevi
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import PostingLocationsFields from '@/components/ip/PostingLocationsFields';
 import WorkModeRadios from '@/components/ip/WorkModeRadios';
+import WorkTime12hInput from '@/components/ip/WorkTime12hInput';
 import { internshipDurationMonths } from '@/lib/internshipDurationMonths';
 import '@/components/ip/ip-post-internship.css';
 
@@ -277,7 +278,7 @@ export default function NewInternshipPage() {
         <CardHeader>
           <p className="ip-post-section-label">Your Content</p>
           <CardTitle className="text-base">Posting Details</CardTitle>
-          <CardDescription>Tabbed form to keep the page compact. Publish is available on the last tab.</CardDescription>
+          <CardDescription>Publish is available on the last tab.</CardDescription>
         </CardHeader>
         <CardContent className="overflow-visible">
           <form onSubmit={(e) => {
@@ -399,9 +400,9 @@ export default function NewInternshipPage() {
                 <Field className="sm:col-span-2">
                   <FieldLabel>Working Hours Range (Optional)</FieldLabel>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <Input type="time" className="w-36" value={form.workHoursStart} onChange={(e) => set('workHoursStart', e.target.value)} />
+                    <WorkTime12hInput label="Start time" value={form.workHoursStart} onChange={(v) => set('workHoursStart', v)} />
                     <span className="text-muted-foreground text-sm">to</span>
-                    <Input type="time" className="w-36" value={form.workHoursEnd} onChange={(e) => set('workHoursEnd', e.target.value)} />
+                    <WorkTime12hInput label="End time" defaultPeriod="PM" value={form.workHoursEnd} onChange={(v) => set('workHoursEnd', v)} />
                   </div>
                 </Field>
                 <Field>

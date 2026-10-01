@@ -7,6 +7,25 @@
 
 import { normalizeCountry } from '@/lib/ipRegions';
 import { normalizePreferredRolesInput } from '@/lib/ipPreferredRoles';
+import { IP_REF_CITIES } from '@/lib/ipRefCitiesDegrees';
+
+/** Punjab is also a Pakistani province, so it never counts as India-only. */
+const SHARED_STATE_NAMES = new Set(['punjab']);
+
+const INDIA_ONLY_STATES = new Set(
+  IP_REF_CITIES
+    .map(([, state]) => String(state || '').trim().toLowerCase())
+    .filter((s) => s && s !== 'work mode' && !SHARED_STATE_NAMES.has(s)),
+);
+
+/** Error text when a non-India country is saved with an Indian state (city/state catalog is India-only). */
+export function locationMismatchError(country, state) {
+  const nextCountry = normalizeCountry(country);
+  if (nextCountry === 'India') return null;
+  const s = String(state || '').trim();
+  if (!s || !INDIA_ONLY_STATES.has(s.toLowerCase())) return null;
+  return `${s} is in India, but Country is ${nextCountry}. Change Country to India, or enter your ${nextCountry} state and city.`;
+}
 
 export const EDITABLE_FIELDS = [
   'name', 'first_name', 'middle_name', 'last_name', 'phone', 'phone_country_code',

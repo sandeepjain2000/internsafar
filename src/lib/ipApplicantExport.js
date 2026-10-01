@@ -7,6 +7,7 @@ import { shouldUseBackgroundJob, SYNC_EXPORT_THRESHOLD } from '@/lib/ipApplicant
 import { employerCanSeeCandidatePhone } from '@/lib/ipCandidatePhonePrivacy';
 import { experienceExportText } from '@/lib/ipCandidateExperience';
 import { workbookToBuffer } from '@/lib/ipXlsxWorkbook';
+import { commitmentLabel, dayString, textList } from '@/lib/ipCandidateProfileDisplay';
 
 export { shouldUseBackgroundJob, SYNC_EXPORT_THRESHOLD };
 
@@ -108,7 +109,9 @@ export async function loadAppsForExport(employerId, internshipId, applicationIds
             c.graduation_year, c.cgpa, c.city, c.state, c.country, c.skills, c.resume_url,
             c.preferred_work_mode, c.preferred_hours_start, c.preferred_hours_end,
             c.availability_date, c.prior_experience, c.immediate_start, c.willing_to_relocate,
-            c.ongoing_commitment, c.linkedin_url, c.github_url, c.portfolio_url,
+            c.ongoing_commitment, c.ongoing_commitment_choice, c.ongoing_commitment_note,
+            c.preferred_locations, to_jsonb(c) -> 'preferred_roles' AS preferred_roles, c.personal_website,
+            c.linkedin_url, c.github_url, c.portfolio_url,
             c.has_wired_broadband, c.has_dedicated_laptop,
             c.hide_phone_until_shortlist, c.phone
      FROM ip_applications a
@@ -165,14 +168,17 @@ function applicantSheetRows(rows) {
     preferred_work_mode: r.preferred_work_mode || '',
     preferred_hours_start: r.preferred_hours_start || '',
     preferred_hours_end: r.preferred_hours_end || '',
-    availability_date: r.availability_date || '',
+    preferred_locations: textList(r.preferred_locations).join('; '),
+    preferred_roles: textList(r.preferred_roles).join('; '),
+    availability_date: dayString(r.availability_date),
     prior_experience: experienceExportText(r.prior_experience) || r.prior_experience || '',
     immediate_start: yn(r.immediate_start),
     willing_to_relocate: yn(r.willing_to_relocate),
-    ongoing_commitment: r.ongoing_commitment || '',
+    ongoing_commitment: commitmentLabel(r),
     linkedin_url: r.linkedin_url || '',
     github_url: r.github_url || '',
     portfolio_url: r.portfolio_url || '',
+    personal_website: r.personal_website || '',
     has_wired_broadband: yn(r.has_wired_broadband),
     has_dedicated_laptop: yn(r.has_dedicated_laptop),
     match_score: r.match_score ?? '',

@@ -14,6 +14,7 @@ import ValidationScoreButton from '@/components/ip/ValidationScoreButton';
 import { POINTS_PER_APPLICATION } from '@/lib/pointsEconomy';
 import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
 import { formatInternshipLocations } from '@/lib/ipInternshipLocations';
+import { formatWorkHoursRange } from '@/lib/ipWorkHours';
 import { LISTING_REPORT_REASONS } from '@/lib/ipListingReportReasons';
 
 const APPLY_DRAFT_PREFIX = 'ip_apply_draft_';
@@ -294,7 +295,7 @@ export default function InternshipDetailPage() {
               <Badge variant="secondary">Part-time{internship.weekly_hours ? ` · ${internship.weekly_hours}h/wk` : ''}</Badge>
             ) : null}
             {internship.work_hours_start && internship.work_hours_end ? (
-              <Badge variant="outline">Hours: {internship.work_hours_start}–{internship.work_hours_end}</Badge>
+              <Badge variant="outline">Hours: {formatWorkHoursRange(internship.work_hours_start, internship.work_hours_end)}</Badge>
             ) : null}
             {internship.application_volume_label ? (
               <Badge variant="secondary" title="Historical applications (range)">

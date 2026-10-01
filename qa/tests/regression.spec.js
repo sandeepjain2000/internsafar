@@ -314,7 +314,7 @@ test.describe('InternSafar regression', () => {
     await expect(center.getByText('Action center')).toBeVisible();
     await expect(center.locator('.ip-ed-action-score__value')).toHaveText(/^\d+$/);
     await expect(center.locator('.ip-ed-action-score__link')).toHaveText(
-      /Upload verification documents|Finish your company profile|Applications waiting for your review|No applications waiting for review|Waiting for Final Approval|No tasks right now/,
+      /Upload verification documents|Finish your company profile|Applications waiting for your review|Interviews scheduled today|No applications waiting for review|Waiting for Final Approval|No tasks right now/,
     );
     await expect(center).toHaveAttribute('href', /\/employer\/(profile|internships)$/);
   });

@@ -52,45 +52,40 @@ export default function EmployerDashboard() {
   const finalApproved = employer?.approvalStatus === 'approved';
   const canPost = finalApproved && employer?.emailVerified !== false;
   const profileComplete = Boolean(employer?.profileComplete);
-  // Action center priority (first matching wins):
-  // 1) Upload docs (no uploads yet, still awaiting Final Approval)
-  // 2) Complete profile (after docs uploaded, or anytime profile incomplete once docs are done)
-  // 3) Stale applications (can post)
-  // 4) Waiting for Final Approval (docs + profile done, not approved yet)
-  let primaryAction = null;
+  const interviewsToday = Number(actionCenter.interviewsToday || 0);
+  // Action center: every open task in priority order; the first two render as tiles.
+  // profileComplete already requires saved Guidelines & Ethics (see employer profile PUT).
+  const actionItems = [];
   if (!finalApproved && documentsUploaded === 0) {
-    primaryAction = 'upload_docs';
-  } else if (!profileComplete) {
-    primaryAction = 'complete_profile';
-  } else if (canPost) {
-    primaryAction = 'stale_apps';
-  } else if (!finalApproved) {
-    primaryAction = 'await_approval';
+    actionItems.push({ key: 'upload_docs', value: 1, href: '/employer/profile', hint: 'Upload verification documents' });
   }
-
-  const actionScore = (() => {
-    if (primaryAction === 'upload_docs') {
-      return { value: 1, href: '/employer/profile', hint: 'Upload verification documents', needs: true };
-    }
-    if (primaryAction === 'complete_profile') {
-      return { value: 1, href: '/employer/profile', hint: 'Finish your company profile', needs: true };
-    }
-    if (primaryAction === 'stale_apps') {
-      return {
-        value: stalePending,
+  if (!profileComplete) {
+    actionItems.push({ key: 'complete_profile', value: 1, href: '/employer/profile', hint: 'Finish your company profile' });
+  }
+  if (canPost && stalePending > 0) {
+    actionItems.push({
+      key: 'stale_apps',
+      value: stalePending,
+      href: '/employer/internships',
+      hint: 'Applications waiting for your review (3+ days)',
+    });
+  }
+  if (canPost && interviewsToday > 0) {
+    actionItems.push({ key: 'interviews_today', value: interviewsToday, href: '/employer/internships', hint: 'Interviews scheduled today' });
+  }
+  if (!finalApproved && documentsUploaded > 0 && profileComplete) {
+    actionItems.push({ key: 'await_approval', value: 1, href: '/employer/profile', hint: 'Waiting for Final Approval' });
+  }
+  const actionTiles = actionItems.length
+    ? actionItems.slice(0, 2).map((item) => ({ ...item, needs: true }))
+    : [{
+        key: 'none',
+        value: 0,
         href: '/employer/internships',
-        hint:
-          stalePending > 0
-            ? 'Applications waiting for your review (3+ days)'
-            : 'No applications waiting for review',
-        needs: stalePending > 0,
-      };
-    }
-    if (primaryAction === 'await_approval') {
-      return { value: 1, href: '/employer/profile', hint: 'Waiting for Final Approval', needs: true };
-    }
-    return { value: 0, href: '/employer/internships', hint: 'No tasks right now', needs: false };
-  })();
+        hint: canPost ? 'No applications waiting for review' : 'No tasks right now',
+        needs: false,
+      }];
+  const moreActions = Math.max(0, actionItems.length - actionTiles.length);
 
   const company = employer?.companyName || 'Employer';
   const avg = Number(stats.avgRating || 0);
@@ -150,17 +145,25 @@ export default function EmployerDashboard() {
         </div>
       </div>
 
-      <Link
-        className={`ip-ed-action-score${actionScore.needs ? ' is-warn' : ''}`}
-        href={actionScore.href}
-        data-testid="employer-action-center"
-      >
-        <span className="ip-ed-action-score__label">Action center</span>
-        <span className="ip-ed-action-score__row">
-          <strong className="ip-ed-action-score__value">{actionScore.value}</strong>
-          <span className="ip-ed-action-score__link">{actionScore.hint}</span>
-        </span>
-      </Link>
+      <div className="ip-ed-action-row">
+        {actionTiles.map((tile, idx) => (
+          <Link
+            key={tile.key}
+            className={`ip-ed-action-score${tile.needs ? ' is-warn' : ''}`}
+            href={tile.href}
+            data-testid={idx === 0 ? 'employer-action-center' : 'employer-action-center-2'}
+          >
+            <span className="ip-ed-action-score__label">
+              {idx === 0 ? 'Action center' : 'Next action'}
+              {idx === actionTiles.length - 1 && moreActions > 0 ? ` · +${moreActions} more` : ''}
+            </span>
+            <span className="ip-ed-action-score__row">
+              <strong className="ip-ed-action-score__value">{tile.value}</strong>
+              <span className="ip-ed-action-score__link">{tile.hint}</span>
+            </span>
+          </Link>
+        ))}
+      </div>
 
       <div className="ip-ed-stats">
         <div className="ip-ed-stat">

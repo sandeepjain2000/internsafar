@@ -13,8 +13,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PageHeader from '@/components/ip/PageHeader';
 import ScreeningQuestionsEditor from '@/components/ip/ScreeningQuestionsEditor';
 import InternshipCandidatePreview from '@/components/ip/InternshipCandidatePreview';
+import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import PostingLocationsFields from '@/components/ip/PostingLocationsFields';
 import WorkModeRadios from '@/components/ip/WorkModeRadios';
+import WorkTime12hInput from '@/components/ip/WorkTime12hInput';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
 import { internshipDurationMonths } from '@/lib/internshipDurationMonths';
 import { normalizeScreeningQuestions } from '@/lib/ipScreeningQuestions';
@@ -36,6 +38,44 @@ function locationCitiesFromForm(internship) {
   return [];
 }
 
+function eligibilityObject(raw) {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+    } catch {
+      /* fall through */
+    }
+  }
+  return {};
+}
+
+function skillList(text) {
+  return String(text || '').split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+/** Same shape as the create page, keeping any other keys already stored on the posting. */
+function buildEligibility(form) {
+  const degrees = form.eligDegrees || [];
+  return {
+    ...eligibilityObject(form.eligibility),
+    skills: skillList(form.eligSkills),
+    degree: degrees.join(', ') || undefined,
+    degrees,
+    minCgpa: String(form.eligMinCgpa || '').trim() || undefined,
+  };
+}
+
+function eligibilityFormFields(raw) {
+  const e = eligibilityObject(raw);
+  const degrees = Array.isArray(e.degrees) && e.degrees.length
+    ? e.degrees.map(String)
+    : String(e.degree || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const skills = Array.isArray(e.skills) ? e.skills.join(', ') : String(e.skills || '');
+  return { degrees, minCgpa: e.minCgpa != null ? String(e.minCgpa) : '', skills };
+}
+
 export default function EditInternshipPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -45,6 +85,17 @@ export default function EditInternshipPage() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [degreeOptions, setDegreeOptions] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/ip/ref/degrees')
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'Degrees failed to load');
+        setDegreeOptions(d.items || []);
+      })
+      .catch(() => setDegreeOptions([]));
+  }, []);
 
   useEffect(() => {
     fetch(`/api/ip/employer/internships/${id}`)
@@ -55,10 +106,14 @@ export default function EditInternshipPage() {
         const firstHit = cities[0] ? findCity(cities[0]) : null;
         const locationState =
           firstHit?.state && !/^work mode$/i.test(firstHit.state) ? firstHit.state : '';
+        const elig = eligibilityFormFields(internship?.eligibility);
         setForm({
           ...internship,
           locationCities: cities,
           locationState,
+          eligDegrees: elig.degrees,
+          eligMinCgpa: elig.minCgpa,
+          eligSkills: elig.skills,
         });
         const qs = Array.isArray(d.internship?.questions) ? d.internship.questions : [];
         const normalized = normalizeScreeningQuestions(qs);
@@ -171,6 +226,7 @@ export default function EditInternshipPage() {
             : null,
           stipend_type: form.stipend_type || null,
           incentive_basis: form.stipend_type === 'incentive' ? (form.incentive_basis || null) : null,
+          eligibility: buildEligibility(form),
           questions,
         }),
       });
@@ -192,6 +248,7 @@ export default function EditInternshipPage() {
       ? form.locationCities
       : (Array.isArray(form.locations) ? form.locations : (form.location ? [form.location] : [])),
     company_name: form.show_employer_identity !== false ? 'Your company' : 'Confidential employer',
+    eligibility: buildEligibility(form),
     questions,
     application_volume_label: '50+',
   };
@@ -232,6 +289,7 @@ export default function EditInternshipPage() {
                 <TabsTrigger value="schedule">Schedule</TabsTrigger>
                 <TabsTrigger value="hours">Hours &amp; engagement</TabsTrigger>
                 <TabsTrigger value="pay">Compensation</TabsTrigger>
+                <TabsTrigger value="eligibility">Eligibility</TabsTrigger>
                 <TabsTrigger value="screening">Screening</TabsTrigger>
               </TabsList>
 
@@ -275,6 +333,16 @@ export default function EditInternshipPage() {
                 </Field>
                 <Field><FieldLabel>Internship start</FieldLabel><Input type="date" value={startISO} onChange={(e) => setStartDate(e.target.value)} /></Field>
                 <Field><FieldLabel>Internship end</FieldLabel><Input type="date" value={endISO} onChange={(e) => setEndDate(e.target.value)} /></Field>
+                <Field className="sm:col-span-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={form.show_employer_identity !== false}
+                      onChange={(e) => set('show_employer_identity', e.target.checked)}
+                    />
+                    Show company identity to candidates
+                  </label>
+                </Field>
               </TabsContent>
 
               <TabsContent value="schedule" className="grid gap-4 sm:grid-cols-2">
@@ -341,9 +409,9 @@ export default function EditInternshipPage() {
                 <Field className="sm:col-span-2">
                   <FieldLabel>Working hours range</FieldLabel>
                   <div className="flex flex-wrap items-center gap-2 mt-1">
-                    <Input type="time" className="w-36" value={form.work_hours_start || ''} onChange={(e) => set('work_hours_start', e.target.value)} />
+                    <WorkTime12hInput label="Start time" value={form.work_hours_start || ''} onChange={(v) => set('work_hours_start', v)} />
                     <span className="text-muted-foreground text-sm">to</span>
-                    <Input type="time" className="w-36" value={form.work_hours_end || ''} onChange={(e) => set('work_hours_end', e.target.value)} />
+                    <WorkTime12hInput label="End time" defaultPeriod="PM" value={form.work_hours_end || ''} onChange={(v) => set('work_hours_end', v)} />
                   </div>
                 </Field>
                 <Field>
@@ -402,6 +470,21 @@ export default function EditInternshipPage() {
                     <Textarea rows={3} value={form.incentive_basis || ''} onChange={(e) => set('incentive_basis', e.target.value)} />
                   </Field>
                 )}
+              </TabsContent>
+
+              <TabsContent value="eligibility" className="grid gap-4 sm:grid-cols-2">
+                <Field className="sm:col-span-2">
+                  <FieldLabel>Eligibility: degree</FieldLabel>
+                  <SearchableMultiSelect
+                    options={degreeOptions}
+                    value={form.eligDegrees || []}
+                    onChange={(next) => set('eligDegrees', next)}
+                    placeholder="Search degrees…"
+                    ariaLabel="Eligibility degrees"
+                  />
+                </Field>
+                <Field><FieldLabel>Eligibility: min CGPA</FieldLabel><Input value={form.eligMinCgpa || ''} onChange={(e) => set('eligMinCgpa', e.target.value)} /></Field>
+                <Field className="sm:col-span-2"><FieldLabel>Preferred skills (comma separated)</FieldLabel><Input value={form.eligSkills || ''} onChange={(e) => set('eligSkills', e.target.value)} /></Field>
               </TabsContent>
 
               <TabsContent value="screening">

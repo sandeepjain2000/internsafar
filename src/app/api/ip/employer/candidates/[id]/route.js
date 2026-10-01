@@ -7,6 +7,8 @@ import {
   internshipHistorySelectSql,
   decorateHistoryFields,
 } from '@/lib/ipCandidateInternshipHistory';
+import { loadEmployerCandidateSections } from '@/lib/ipCandidateFullExport';
+import { commitmentLabel, resumeLinkList, textList } from '@/lib/ipCandidateProfileDisplay';
 
 /**
  * Employer-visible candidate profile. Discovery fields always (if searchable or they applied).
@@ -24,14 +26,11 @@ export async function GET(request, { params }) {
   const employerId = emp.rows[0]?.id;
   if (!employerId) return jsonError('Not found', 404);
 
+  // c.* so a column missing on an older database reads as empty instead of failing the page.
   const cand = await query(
-    `SELECT c.id, c.user_id, c.name, c.college, c.degree, c.specialization, c.city, c.state, c.skills,
-            c.study_status, c.graduation_year, c.cgpa, c.availability_date, c.show_completed_internships,
-            c.preferred_work_mode, c.ongoing_commitment, c.prior_experience, c.immediate_start,
-            c.willing_to_relocate, c.linkedin_url, c.searchable, c.updated_at, c.phone,
-            c.hide_phone_until_shortlist,
-            CASE WHEN c.show_profile_picture THEN c.profile_picture_url ELSE NULL END AS profile_picture_url,
-            c.preferred_hours_start, c.preferred_hours_end, c.has_wired_broadband, c.has_dedicated_laptop,
+    `SELECT c.*,
+            to_char(c.availability_date, 'YYYY-MM-DD') AS availability_day,
+            CASE WHEN c.show_profile_picture THEN c.profile_picture_url ELSE NULL END AS visible_profile_picture_url,
             ${internshipHistorySelectSql('c')}
      FROM ip_candidates c WHERE c.id = $1`,
     [id],
@@ -68,6 +67,15 @@ export async function GET(request, { params }) {
   const reveal = application ? employerCanSeeCandidatePhone(application.status, hide) : false;
   const hist = decorateHistoryFields(candidate);
 
+  // Email, CV and the per-employer sections follow the "Download Excel + CV" gate: an owned application.
+  const linked = Boolean(application);
+  let sections = { academics: [], applications: [], offers: [], endorsements: [] };
+  try {
+    sections = await loadEmployerCandidateSections(candidate.id, employerId, { hasApplication: linked });
+  } catch (err) {
+    console.error('[employer candidate] sections', err?.message || err);
+  }
+
   const publicCandidate = {
     id: candidate.id,
     /** Needed so employer Message can create/open an ip_message_threads row. */
@@ -78,26 +86,42 @@ export async function GET(request, { params }) {
     specialization: candidate.specialization,
     city: candidate.city,
     state: candidate.state,
+    country: candidate.country || null,
     skills: candidate.skills,
     study_status: candidate.study_status,
     graduation_year: candidate.graduation_year,
     cgpa: candidate.cgpa,
-    availability_date: candidate.availability_date,
+    /** Plain 'YYYY-MM-DD' (DATE column) so the client never shows an ISO timestamp. */
+    availability_date: candidate.availability_day || null,
     preferred_work_mode: candidate.preferred_work_mode,
-    ongoing_commitment: candidate.ongoing_commitment,
+    preferred_locations: textList(candidate.preferred_locations),
+    preferred_roles: textList(candidate.preferred_roles),
+    ongoing_commitment: candidate.ongoing_commitment ?? null,
+    ongoing_commitment_label: commitmentLabel(candidate) || null,
     prior_experience: candidate.prior_experience,
     immediate_start: candidate.immediate_start,
     willing_to_relocate: candidate.willing_to_relocate,
-    linkedin_url: candidate.linkedin_url,
-    profile_picture_url: candidate.profile_picture_url,
+    linkedin_url: candidate.linkedin_url || null,
+    github_url: candidate.github_url || null,
+    portfolio_url: candidate.portfolio_url || null,
+    personal_website: candidate.personal_website || null,
+    profile_picture_url: candidate.visible_profile_picture_url || null,
     preferred_hours_start: candidate.preferred_hours_start,
     preferred_hours_end: candidate.preferred_hours_end,
-    has_wired_broadband: candidate.has_wired_broadband,
-    has_dedicated_laptop: candidate.has_dedicated_laptop,
+    has_wired_broadband: candidate.has_wired_broadband ?? null,
+    has_dedicated_laptop: candidate.has_dedicated_laptop ?? null,
     updated_at: candidate.updated_at,
     searchable: candidate.searchable,
     phone: reveal ? candidate.phone : null,
     phone_hidden: hide && !reveal,
+    email: linked ? candidate.email || null : null,
+    resume_url: linked ? candidate.resume_url || null : null,
+    resume_links: linked ? resumeLinkList(candidate.resume_links) : [],
+    contact_gated: !linked,
+    academics: sections.academics,
+    applications: sections.applications,
+    offers: sections.offers,
+    endorsements: sections.endorsements,
     ...hist,
   };
 

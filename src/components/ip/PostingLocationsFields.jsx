@@ -87,8 +87,12 @@ export default function PostingLocationsFields({
           onChange={(next) => onCitiesChange?.(next)}
           placeholder={stateNeedle ? 'Search cities in this state…' : 'Search cities…'}
           ariaLabel="Work cities"
+          allowCustom
         />
-        <FieldDescription>Select one or more work cities. You can change State to add cities from another state.</FieldDescription>
+        <FieldDescription>
+          Select one or more work cities. You can change State to add cities from another state.
+          City not listed? Type it and press Enter (or click Add).
+        </FieldDescription>
       </Field>
     </>
   );
