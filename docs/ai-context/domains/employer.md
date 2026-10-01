@@ -62,6 +62,13 @@ Login after email verify is allowed while **pending** approval (docs upload). Re
 - Logo URL field hidden when logo image is set.
 - Ethics: Accept/Reject per item; lock after all Accepted + save; SA can `resetEthics`.
 
+## LinkedIn share (confirmed 2026-10-01)
+
+- All LinkedIn share buttons use `src/lib/ipLinkedInShare.js`: phone share sheet (`navigator.share`, LinkedIn app gets text) → fallback LinkedIn web compose `feed/?shareActive=true&text=`. No `share-offsite` (URL only, browser only).
+- iPhone/iPad: the LinkedIn iOS app drops shared text, so the share sheet sends only the URL found in the text (arrives as a link card; employer types or pastes text). Android sends the full text. Owner accepted link-only on iPhone (2026-10-01).
+- Post text reuses existing copy: posting share = `POST /api/ip/promotions` `suggestedPostText` ("We're hiring for {title}. Apply here: {shareUrl}" — share code lives in the `?promo=` link); referral pages = their WhatsApp text; candidate offers = link only.
+- `POST /api/ip/promotions` returns the existing `pending` claim (same token/link, `reused: true`) instead of 409, so an employer can share again before submitting a post URL; still 409 once a URL is submitted (`fast_track_pending`). Claim step has **Open LinkedIn** retry + post text preview.
+
 ## List UX (confirmed 2026-09-18)
 
 Offers, notifications, and message panes use shared `IpListPager`. Prefer it over a one-off pager.

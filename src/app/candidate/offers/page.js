@@ -21,6 +21,7 @@ import IpListPager from '@/components/ip/IpListPager';
 import { IpListLoading } from '@/components/ip/IpListStatus';
 import { PhoneOnlyNote, PhoneOnlyTag } from '@/components/ip/PhoneOnlyShare';
 import { isPhoneShareDevice, phoneOnlyShareMessage } from '@/lib/ipShareDevice';
+import { shareOnLinkedIn } from '@/lib/ipLinkedInShare';
 import { usePhoneShareDevice } from '@/hooks/usePhoneShareDevice';
 import {
   IpDateRangeFilter,
@@ -289,11 +290,7 @@ export default function CandidateOffersPage() {
       return;
     }
     setPhoneNote('');
-    window.open(
-      `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl())}`,
-      '_blank',
-      'noopener,noreferrer',
-    );
+    shareOnLinkedIn(shareUrl());
   }
 
   function messagesHref(o) {

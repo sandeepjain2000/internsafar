@@ -42,6 +42,7 @@ import {
 import { IpListLoading } from '@/components/ip/IpListStatus';
 import { PhoneOnlyNote, PhoneOnlyTag } from '@/components/ip/PhoneOnlyShare';
 import { isPhoneShareDevice, phoneOnlyShareMessage } from '@/lib/ipShareDevice';
+import { linkedInComposeUrl, shareOnLinkedIn } from '@/lib/ipLinkedInShare';
 import { usePhoneShareDevice } from '@/hooks/usePhoneShareDevice';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useClientPagination } from '@/hooks/useClientPagination';
@@ -352,9 +353,7 @@ export default function CandidateReferralPage() {
   const waHref = link
     ? `https://wa.me/?text=${encodeURIComponent(inviteBody(link))}`
     : '#';
-  const liHref = link
-    ? `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(link)}`
-    : '#';
+  const liHref = link ? linkedInComposeUrl(inviteBody(link)) : '#';
   const mailHref = link
     ? `mailto:?subject=${encodeURIComponent('Join PlacementHub Internships')}&body=${encodeURIComponent(inviteBody(link))}`
     : '#';
@@ -500,7 +499,12 @@ export default function CandidateReferralPage() {
             Share on WhatsApp
             {onPhone === false ? <PhoneOnlyTag /> : null}
           </a>
-          <a className={`ip-cr-share--li${onPhone === false ? ' ip-phone-only-off' : ''}`} aria-disabled={onPhone === false || undefined} href={liHref} target="_blank" rel="noreferrer" onClick={(e) => guardPhoneShare(e, 'LinkedIn')}>
+          <a className={`ip-cr-share--li${onPhone === false ? ' ip-phone-only-off' : ''}`} aria-disabled={onPhone === false || undefined} href={liHref} target="_blank" rel="noreferrer" onClick={(e) => {
+            guardPhoneShare(e, 'LinkedIn');
+            if (e.defaultPrevented || !link) return;
+            e.preventDefault();
+            shareOnLinkedIn(inviteBody(link));
+          }}>
             <LinkedinMark />
             Share on LinkedIn
             {onPhone === false ? <PhoneOnlyTag /> : null}

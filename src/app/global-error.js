@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
+import { isChunkLoadError, reloadForNewBuild } from '@/components/ip/ClientOpsErrorGuard';
 
 export default function GlobalError({ error, reset }) {
   useEffect(() => {
+    if (isChunkLoadError(error?.message, error?.stack) && reloadForNewBuild()) return;
     void fetch('/api/ip/ops/report-error', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

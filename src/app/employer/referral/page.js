@@ -31,6 +31,7 @@ import {
 import { IpListLoading } from '@/components/ip/IpListStatus';
 import { PhoneOnlyNote, PhoneOnlyTag } from '@/components/ip/PhoneOnlyShare';
 import { isPhoneShareDevice, phoneOnlyShareMessage } from '@/lib/ipShareDevice';
+import { linkedInComposeUrl, shareOnLinkedIn } from '@/lib/ipLinkedInShare';
 import { usePhoneShareDevice } from '@/hooks/usePhoneShareDevice';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { POINTS_PER_POST, REFERRAL_POINTS } from '@/lib/pointsEconomy';
@@ -224,14 +225,9 @@ export default function EmployerReferralPage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  const liHref = link
-    ? `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(link)}`
-    : '#';
-  const waHref = link
-    ? `https://wa.me/?text=${encodeURIComponent(
-        `Join PlacementHub to post internships and hire verified talent: ${link}`,
-      )}`
-    : '#';
+  const shareText = link ? `Join PlacementHub to post internships and hire verified talent: ${link}` : '';
+  const liHref = link ? linkedInComposeUrl(shareText) : '#';
+  const waHref = link ? `https://wa.me/?text=${encodeURIComponent(shareText)}` : '#';
 
   function guardPhoneShare(e, channel) {
     if (isPhoneShareDevice()) {
@@ -394,7 +390,12 @@ export default function EmployerReferralPage() {
               href={liHref}
               target="_blank"
               rel="noreferrer"
-              onClick={(e) => guardPhoneShare(e, 'LinkedIn')}
+              onClick={(e) => {
+                guardPhoneShare(e, 'LinkedIn');
+                if (e.defaultPrevented || !link) return;
+                e.preventDefault();
+                shareOnLinkedIn(shareText);
+              }}
             >
               <Share2 size={14} aria-hidden />
               LinkedIn

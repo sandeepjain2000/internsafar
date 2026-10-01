@@ -37,10 +37,13 @@ export default function SharePostingDialog({
   error = '',
   onWhatsApp,
   onStartLinkedInPromo,
+  onOpenLinkedIn,
   onSubmitClaim,
 }) {
   const [step, setStep] = useState('channels'); // channels | claim
   const [token, setToken] = useState('');
+  const [postText, setPostText] = useState('');
+  const [shareBlocked, setShareBlocked] = useState(false);
   const [claimUrl, setClaimUrl] = useState('');
   const [localError, setLocalError] = useState('');
   const [phoneNote, setPhoneNote] = useState('');
@@ -50,6 +53,8 @@ export default function SharePostingDialog({
     if (!open) {
       setStep('channels');
       setToken('');
+      setPostText('');
+      setShareBlocked(false);
       setClaimUrl('');
       setLocalError('');
       setPhoneNote('');
@@ -77,6 +82,8 @@ export default function SharePostingDialog({
       const data = await onStartLinkedInPromo?.();
       if (!data?.token) return;
       setToken(data.token);
+      setPostText(data.postText || '');
+      setShareBlocked(data.shareResult === 'blocked');
       setStep('claim');
     } catch (e) {
       setLocalError(e?.message || 'Could Not Open LinkedIn Share');
@@ -167,9 +174,36 @@ export default function SharePostingDialog({
             <DialogHeader>
               <DialogTitle>{claimTitle}</DialogTitle>
               <DialogDescription>
-                LinkedIn should be open with your unique share link. Paste the live post URL below so SuperAdmin can verify it for reward points. Including the share code in the post is optional.
+                Choose LinkedIn in your phone&apos;s share menu. The post text and your unique share link are filled in for you. After posting, paste the live post URL below so SuperAdmin can verify it for reward points.
               </DialogDescription>
             </DialogHeader>
+
+            {shareBlocked ? (
+              <Alert>
+                <AlertTitle>Tap Open LinkedIn</AlertTitle>
+                <AlertDescription>Your phone needs one more tap to open the share menu.</AlertDescription>
+              </Alert>
+            ) : null}
+
+            {postText ? (
+              <Field>
+                <FieldLabel>Post Text</FieldLabel>
+                <p className="text-muted-foreground text-xs break-words whitespace-pre-wrap">{postText}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="justify-start gap-2"
+                  disabled={busy}
+                  onClick={() => {
+                    setShareBlocked(false);
+                    onOpenLinkedIn?.();
+                  }}
+                >
+                  <BrandIcon src="/brand/linkedin.svg" alt="" />
+                  Open LinkedIn
+                </Button>
+              </Field>
+            ) : null}
 
             {token ? (
               <Alert>

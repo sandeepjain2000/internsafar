@@ -25,6 +25,7 @@ import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 import '@/components/ip/ip-employer-postings-gemini.css';
 import '@/components/ip/ip-table-filters.css';
 import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
+import { shareOnLinkedIn } from '@/lib/ipLinkedInShare';
 
 const PAGE_SIZE = 10;
 
@@ -238,14 +239,13 @@ export default function EmployerInternshipsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could Not Open LinkedIn Share');
-      window.open(
-        `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(data.shareUrl)}`,
-        '_blank',
-        'noreferrer',
-      );
-      setPendingPromotion(data);
-      setMsg(`LinkedIn Share Opened. Include Share Code ${data.token} In Your Post.`);
-      return data;
+      const postText = data.suggestedPostText || data.shareUrl;
+      setPendingPromotion({ ...data, postText });
+      const result = await shareOnLinkedIn(postText);
+      setMsg(result === 'shared' || result === 'web'
+        ? 'LinkedIn Share Opened. Paste Your Live Post URL To Claim Reward Points.'
+        : '');
+      return { ...data, postText, shareResult: result };
     } catch (e) {
       setShareError(e.message || 'Could Not Open LinkedIn Share');
       throw e;
@@ -624,6 +624,7 @@ export default function EmployerInternshipsPage() {
           setShareFor(null);
         }}
         onStartLinkedInPromo={startLinkedInPromo}
+        onOpenLinkedIn={() => (pendingPromotion?.postText ? shareOnLinkedIn(pendingPromotion.postText) : null)}
         onSubmitClaim={submitClaimUrl}
       />
     </div>

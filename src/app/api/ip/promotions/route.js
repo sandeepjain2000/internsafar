@@ -9,6 +9,10 @@ function promoToken() {
   return `ip_li_${randomBytes(8).toString('hex')}`;
 }
 
+function suggestedPostText(title, shareUrl) {
+  return `We're hiring for ${title}. Apply here: ${shareUrl}`;
+}
+
 export async function GET(request) {
   const { session, error } = await requireSession(['employer', 'superadmin']);
   if (error) return error;
@@ -69,11 +73,28 @@ export async function POST(request) {
     return jsonError('Only published (live) postings can be shared for reward points', 400);
   }
 
+  const title = owns.rows[0].title;
   const open = await query(
-    `SELECT id FROM ip_linkedin_promotions WHERE internship_id = $1 AND status IN ('pending','fast_track_pending') LIMIT 1`,
+    `SELECT id, token, share_url, status FROM ip_linkedin_promotions
+     WHERE internship_id = $1 AND status IN ('pending','fast_track_pending')
+     ORDER BY created_at DESC LIMIT 1`,
     [internshipId],
   );
-  if (open.rows[0]) return jsonError('A posting share claim is already pending for this listing', 409);
+  const existing = open.rows[0];
+  if (existing?.status === 'fast_track_pending') {
+    return jsonError('A posting share claim is already pending for this listing', 409);
+  }
+  // No post URL submitted yet: reuse the same share link so the employer can share again.
+  if (existing) {
+    return jsonOk({
+      ok: true,
+      id: existing.id,
+      token: existing.token,
+      shareUrl: existing.share_url,
+      suggestedPostText: suggestedPostText(title, existing.share_url),
+      reused: true,
+    });
+  }
 
   const id = newId('ip_promo');
   const token = promoToken();
@@ -91,6 +112,6 @@ export async function POST(request) {
     id,
     token,
     shareUrl,
-    suggestedPostText: `We're hiring for ${owns.rows[0].title}. Apply here: ${shareUrl} (token ${token})`,
+    suggestedPostText: suggestedPostText(title, shareUrl),
   }, 201);
 }

@@ -2,11 +2,30 @@
 
 import { useEffect } from 'react';
 
+// Old tab asking for a code file from the build that a deploy just replaced.
+const CHUNK_ERROR = /ChunkLoadError|Failed to load chunk|Loading (CSS )?chunk [\w-]+ failed/i;
+const CHUNK_RELOAD_KEY = 'ip-chunk-reload-at';
+
+export function isChunkLoadError(message, stack) {
+  return CHUNK_ERROR.test(`${message || ''} ${stack || ''}`);
+}
+
+/** Reloads once per minute to pick up the new build; false if already tried (real failure). */
+export function reloadForNewBuild() {
+  try {
+    const last = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY) || 0);
+    if (Date.now() - last < 60_000) return false;
+    sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
+  } catch {
+    return false;
+  }
+  window.location.reload();
+  return true;
+}
+
 const IGNORE = [
   /^ResizeObserver loop/i,
   /^Script error\.?$/i,
-  /Loading CSS chunk/i,
-  /Loading chunk [\d]+ failed/i,
   // CefSharp / Outlook Safe Links / embedded Chromium crawlers — not our app.
   /^Object Not Found Matching Id:\d+, MethodName:update, ParamCount:\d+$/i,
   // Empty/truncated bodies during deploy cutovers — clients should soft-fail; not ops-worthy.
@@ -17,6 +36,7 @@ const IGNORE = [
 function report(message, meta = {}) {
   const text = String(message || '').trim();
   if (!text || IGNORE.some((re) => re.test(text))) return;
+  if (isChunkLoadError(text, meta.stack) && reloadForNewBuild()) return;
   void fetch('/api/ip/ops/report-error', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
