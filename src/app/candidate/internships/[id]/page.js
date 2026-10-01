@@ -16,8 +16,42 @@ import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
 import { formatInternshipLocations } from '@/lib/ipInternshipLocations';
 import { formatWorkHoursRange } from '@/lib/ipWorkHours';
 import { LISTING_REPORT_REASONS } from '@/lib/ipListingReportReasons';
+import { formatDate } from '@/lib/utils';
 
 const APPLY_DRAFT_PREFIX = 'ip_apply_draft_';
+const EMPTY = '—';
+
+function hasAnyAnswer(answers) {
+  return Object.values(answers || {}).some((v) => String(v ?? '').trim());
+}
+
+function eligibilityOf(internship) {
+  const raw = internship?.eligibility;
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+    } catch {
+      /* ignore */
+    }
+  }
+  return {};
+}
+
+function eligibilityDegrees(eligibility) {
+  if (Array.isArray(eligibility.degrees) && eligibility.degrees.length) {
+    return eligibility.degrees.map((d) => String(d).trim()).filter(Boolean);
+  }
+  return String(eligibility.degree || '').split(',').map((d) => d.trim()).filter(Boolean);
+}
+
+function formatApplyBy(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
 
 export default function InternshipDetailPage() {
   const { id } = useParams();
@@ -56,7 +90,7 @@ export default function InternshipDetailPage() {
         const raw = localStorage.getItem(`${APPLY_DRAFT_PREFIX}${id}`);
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === 'object') {
+          if (parsed && typeof parsed === 'object' && hasAnyAnswer(parsed)) {
             Object.assign(init, parsed);
             setDraftHint('Restored your saved screening answers from this device.');
           }
@@ -81,7 +115,11 @@ export default function InternshipDetailPage() {
     if (!id || !Object.keys(answers).length) return undefined;
     const t = setTimeout(() => {
       try {
-        localStorage.setItem(`${APPLY_DRAFT_PREFIX}${id}`, JSON.stringify(answers));
+        if (hasAnyAnswer(answers)) {
+          localStorage.setItem(`${APPLY_DRAFT_PREFIX}${id}`, JSON.stringify(answers));
+        } else {
+          localStorage.removeItem(`${APPLY_DRAFT_PREFIX}${id}`);
+        }
       } catch {
         /* ignore */
       }
@@ -193,6 +231,20 @@ export default function InternshipDetailPage() {
 
   if (!internship) return <div className="p-8 text-muted-foreground">Loading…</div>;
 
+  const eligibility = eligibilityOf(internship);
+  const degrees = eligibilityDegrees(eligibility);
+  const minCgpa = String(eligibility.minCgpa ?? '').trim();
+  const skills = Array.isArray(eligibility.skills) ? eligibility.skills : [];
+  const applyBy = formatApplyBy(internship.apply_ends_at);
+  const stipendTypeText = internship.stipend_type === 'fixed'
+    ? 'Fixed'
+    : internship.stipend_type === 'incentive' ? 'Incentive-based' : EMPTY;
+  const engagementText = internship.engagement_type === 'full_time'
+    ? 'Full-time'
+    : internship.engagement_type === 'part_time'
+      ? `Part-time${internship.weekly_hours ? ` · ${internship.weekly_hours}h/wk` : ''}`
+      : EMPTY;
+
   return (
     <div className="ip-cand-intern-detail ip-mobile-bleed space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -283,20 +335,20 @@ export default function InternshipDetailPage() {
           ) : null}
 
           <div className="flex gap-2 flex-wrap">
+            <Badge variant="outline">Stipend: {formatInternshipStipend(internship) || EMPTY}</Badge>
+            <Badge variant="outline">Stipend type: {stipendTypeText}</Badge>
+            <Badge variant="outline">Duration: {internship.duration_months ? `${internship.duration_months} months` : EMPTY}</Badge>
+            <Badge variant="outline">Mode: {internship.work_mode || EMPTY}</Badge>
+            <Badge variant="outline">Cities: {formatInternshipLocations(internship) || EMPTY}</Badge>
+            <Badge variant="outline">Starts: {internship.start_date ? formatDate(internship.start_date) : EMPTY}</Badge>
+            <Badge variant="outline">Ends: {internship.end_date ? formatDate(internship.end_date) : EMPTY}</Badge>
+            <Badge variant="outline">Apply by: {applyBy || EMPTY}</Badge>
+            <Badge variant="outline">Engagement: {engagementText}</Badge>
             <Badge variant="outline">
-              {formatInternshipStipend(internship, { unpaidLabel: 'Unpaid / not specified' })
-                || 'Unpaid / not specified'}
+              Hours: {internship.work_hours_start && internship.work_hours_end
+                ? formatWorkHoursRange(internship.work_hours_start, internship.work_hours_end)
+                : EMPTY}
             </Badge>
-            {internship.stipend_type === 'fixed' ? <Badge variant="secondary">Fixed stipend</Badge> : null}
-            <Badge variant="outline">Duration: {internship.duration_months ? `${internship.duration_months} months` : '—'}</Badge>
-            <Badge variant="outline">Mode: {internship.work_mode || '—'}</Badge>
-            {internship.engagement_type === 'full_time' ? <Badge variant="secondary">Full-time</Badge> : null}
-            {internship.engagement_type === 'part_time' ? (
-              <Badge variant="secondary">Part-time{internship.weekly_hours ? ` · ${internship.weekly_hours}h/wk` : ''}</Badge>
-            ) : null}
-            {internship.work_hours_start && internship.work_hours_end ? (
-              <Badge variant="outline">Hours: {formatWorkHoursRange(internship.work_hours_start, internship.work_hours_end)}</Badge>
-            ) : null}
             {internship.application_volume_label ? (
               <Badge variant="secondary" title="Historical applications (range)">
                 {internship.application_volume_label} applications
@@ -306,25 +358,40 @@ export default function InternshipDetailPage() {
               <Badge>Actively hiring</Badge>
             ) : null}
           </div>
-          {internship.stipend_type === 'incentive' && internship.incentive_basis ? (
+          {internship.stipend_type === 'incentive' ? (
             <div>
               <h3 className="font-medium mb-1">Incentive basis</h3>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{internship.incentive_basis}</p>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{internship.incentive_basis || EMPTY}</p>
             </div>
           ) : null}
           <div>
             <h3 className="font-medium mb-1">Description</h3>
-            <p className="text-sm whitespace-pre-wrap text-muted-foreground">{internship.description || 'No description provided.'}</p>
+            <p className="text-sm whitespace-pre-wrap text-muted-foreground">{internship.description || EMPTY}</p>
           </div>
-          {internship.eligibility?.skills?.length ? (
-            <div>
-              <h3 className="font-medium mb-1">Preferred skills</h3>
+          <div>
+            <h3 className="font-medium mb-1">Eligibility</h3>
+            <div className="space-y-1 text-sm text-muted-foreground">
+              <p><span className="font-medium text-foreground">Degree:</span> {degrees.length ? degrees.join(', ') : EMPTY}</p>
+              <p><span className="font-medium text-foreground">Minimum CGPA:</span> {minCgpa || EMPTY}</p>
+            </div>
+          </div>
+          <div>
+            <h3 className="font-medium mb-1">Preferred skills</h3>
+            {skills.length ? (
               <div className="flex gap-1 flex-wrap">
-                {internship.eligibility.skills.map((s) => <Badge key={s} variant="secondary">{s}</Badge>)}
+                {skills.map((s) => <Badge key={s} variant="secondary">{s}</Badge>)}
               </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">{EMPTY}</p>
+            )}
+          </div>
+
+          {!questions.length ? (
+            <div>
+              <h3 className="font-medium mb-1">Screening questions</h3>
+              <p className="text-sm text-muted-foreground">{EMPTY}</p>
             </div>
           ) : null}
-
           {questions.length ? (
             <div className="space-y-3 border rounded-md p-3">
               <h3 className="font-medium">Screening questions</h3>

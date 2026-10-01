@@ -21,7 +21,7 @@ Candidate dashboard, profile, browse/apply internships, applications, messages, 
 | `/candidate` | Dashboard |
 | `/candidate/profile` | Profile |
 | `/candidate/internships` | Browse |
-| `/candidate/internships/[id]` | Detail / apply |
+| `/candidate/internships/[id]` | Detail / apply — shows every candidate-facing field the employer form saves: stipend, duration, mode, cities, hours/engagement, internship start/end dates, apply-by deadline, description, eligibility (degrees, min CGPA), preferred skills, screening questions. Every field is always listed; anything the employer left blank shows `—` (never "Not specified" / "Unpaid" wording). Screening-answer drafts are saved per device only when an answer is typed (2026-10-01) |
 | `/candidate/applications` | My applications |
 | `/candidate/messages`, `/candidate/messages/[id]` | Messaging |
 | `/candidate/offers` | Offers |

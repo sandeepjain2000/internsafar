@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { signOutAndEndSession } from '@/lib/ipClientSignOut';
 import { readResponseJson } from '@/lib/readResponseJson';
 import { NAV_BADGES_REFRESH_EVENT } from '@/lib/ipNavBadges';
+import { isPostingPath } from '@/lib/ipReturnTo';
 import {
   Activity,
   Award,
@@ -136,22 +137,25 @@ export default function PortalShell({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  async function handleSignOut() {
+  function loginWithReturn() {
+    const here = `${window.location.pathname}${window.location.search}`;
+    return here && here !== '/' ? `${loginHref}?next=${encodeURIComponent(here)}` : loginHref;
+  }
+
+  async function handleSignOut(returnHere) {
     if (signingOut) return;
     setSigningOut(true);
     try {
-      await signOutAndEndSession({ callbackUrl: loginHref });
+      await signOutAndEndSession({ callbackUrl: returnHere === true ? loginWithReturn() : loginHref });
     } catch {
       setSigningOut(false);
     }
   }
 
   useEffect(() => {
-    if (status === 'unauthenticated') router.replace(loginHref);
-    if (status === 'authenticated' && session?.user?.role && session.user.role !== role) {
-      router.replace(loginHref);
-    }
-  }, [status, session, role, router, loginHref]);
+    if (status === 'unauthenticated' && !signingOut) router.replace(loginWithReturn());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, signingOut, router, loginHref]);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -177,16 +181,25 @@ export default function PortalShell({
     );
   }
   if (session?.user?.role !== role) {
+    const postingLink = role === 'candidate' && isPostingPath(pathname);
     return (
       <div className="flex min-h-svh items-center justify-center bg-background px-4 text-foreground">
         <div className="max-w-md space-y-3 text-center">
-          <p className="text-sm font-medium">Wrong account for this workspace</p>
-          <p className="text-sm text-muted-foreground">
-            This area needs role “{role}”, but you are signed in as “{session?.user?.role || 'unknown'}”
-            ({session?.user?.email || 'no email'}). Sign out, then sign in with the correct account
-            {role === 'superadmin' ? ' at /superadmin/login' : ''}.
+          <p className="text-sm font-medium">
+            {postingLink ? 'Sign in as a candidate to view this internship' : 'Wrong account for this workspace'}
           </p>
-          <Button type="button" variant="outline" onClick={handleSignOut} disabled={signingOut} aria-busy={signingOut}>
+          <p className="text-sm text-muted-foreground">
+            {postingLink
+              ? `You are signed in as ${session?.user?.role || 'unknown'} (${session?.user?.email || 'no email'}). Sign out, then sign in or register as a candidate to view and apply for this internship.`
+              : `This area needs role “${role}”, but you are signed in as “${session?.user?.role || 'unknown'}” (${session?.user?.email || 'no email'}). Sign out, then sign in with the correct account.`}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleSignOut(role === 'candidate')}
+            disabled={signingOut}
+            aria-busy={signingOut}
+          >
             {signingOut ? <Loader2 data-icon="inline-start" className="animate-spin" aria-hidden /> : null}
             {signingOut ? 'Signing out…' : 'Sign out'}
           </Button>

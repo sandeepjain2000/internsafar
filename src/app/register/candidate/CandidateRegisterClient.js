@@ -16,6 +16,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { IpGeminiBrand } from '@/components/ip/IpGeminiBrand';
 import { isGmailAddress, normalizeEmail } from '@/lib/authRegisterRules';
+import { isPostingPath, readReturnTo, rememberReturnTo, safeReturnPath } from '@/lib/ipReturnTo';
 import '@/components/ip/ip-login-gemini.css';
 import '@/components/ip/ip-candidate-register-gemini.css';
 
@@ -66,6 +67,15 @@ export default function CandidateRegisterPage() {
   const [verified, setVerified] = useState(null);
   const [checkingGv, setCheckingGv] = useState(Boolean(gv));
   const [startingGoogle, setStartingGoogle] = useState(false);
+  const [returnTo, setReturnTo] = useState('');
+
+  // ?next= is lost on the Google round trip (fixed return URL), so it lives in localStorage.
+  useEffect(() => {
+    const next = safeReturnPath(sp.get('next'));
+    if (next) rememberReturnTo(next);
+    setReturnTo(next || readReturnTo());
+  }, [sp]);
+  const signInHref = returnTo ? `/?next=${encodeURIComponent(returnTo)}` : '/';
 
   /**
    * Create the account straight from the Google verification. There is no form to submit:
@@ -177,7 +187,7 @@ export default function CandidateRegisterPage() {
         <IpGeminiBrand href="/" subtitle="Candidate Portal" />
         <div className="ip-crg-topbar-signin">
           <span>Already registered?</span>
-          <Link href="/" className="ip-crg-signin">
+          <Link href={signInHref} className="ip-crg-signin">
             Sign In
           </Link>
         </div>
@@ -201,6 +211,14 @@ export default function CandidateRegisterPage() {
 
           {step === 'form' ? (
             <div className="ip-crg-body">
+              {isPostingPath(returnTo) ? (
+                <Alert data-testid="register-posting-notice">
+                  <AlertTitle>Internship link</AlertTitle>
+                  <AlertDescription>
+                    After you register and sign in, you will be taken back to the internship you opened.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
               {activeReferralCode ? (
                 <Alert>
                   <AlertTitle>Referral</AlertTitle>
@@ -302,7 +320,7 @@ export default function CandidateRegisterPage() {
                 </Alert>
               ) : null}
 
-              <Link href="/" className="ip-crg-submit">
+              <Link href={signInHref} className="ip-crg-submit">
                 Back to Sign In
                 <ArrowRight className="size-4" aria-hidden />
               </Link>

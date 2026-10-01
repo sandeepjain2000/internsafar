@@ -210,12 +210,16 @@ async function hardDeleteIpUser(client, opts = {}) {
   const deleted = {};
 
   const run = async (label, sql, params = []) => {
+    // Savepoint so a missing optional table does not abort the whole transaction.
+    await client.query('SAVEPOINT hard_delete_step');
     try {
       const r = await client.query(sql, params);
       deleted[label] = r.rowCount ?? 0;
+      await client.query('RELEASE SAVEPOINT hard_delete_step');
     } catch (e) {
       // Missing optional table — ignore
       if (e.code === '42P01') {
+        await client.query('ROLLBACK TO SAVEPOINT hard_delete_step');
         deleted[label] = 0;
         return;
       }

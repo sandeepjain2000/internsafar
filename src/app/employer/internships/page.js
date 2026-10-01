@@ -277,10 +277,13 @@ export default function EmployerInternshipsPage() {
     }
   }
 
+  function postingUrl(i) {
+    return `${window.location.origin}/candidate/internships/${i.id}`;
+  }
+
   function whatsappShareUrl(i) {
-    const url = `${window.location.origin}/candidate/internships/${i.id}`;
     const text = encodeURIComponent(`We're hiring: ${i.title}`);
-    return `https://wa.me/?text=${text}%20${encodeURIComponent(url)}`;
+    return `https://wa.me/?text=${text}%20${encodeURIComponent(postingUrl(i))}`;
   }
 
   function openShare(i) {
@@ -625,6 +628,11 @@ export default function EmployerInternshipsPage() {
         }}
         onStartLinkedInPromo={startLinkedInPromo}
         onOpenLinkedIn={() => (pendingPromotion?.postText ? shareOnLinkedIn(pendingPromotion.postText) : null)}
+        onCopyLink={() => {
+          if (!shareFor) return undefined;
+          if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+          return navigator.clipboard.writeText(postingUrl(shareFor));
+        }}
         onSubmitClaim={submitClaimUrl}
       />
     </div>

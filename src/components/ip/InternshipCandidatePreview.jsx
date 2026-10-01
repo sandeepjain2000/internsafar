@@ -12,9 +12,7 @@ import { formatInternshipLocations } from '@/lib/ipInternshipLocations';
 /** Employer-only preview of candidate-facing posting + MCQ form. */
 export default function InternshipCandidatePreview({ internship, onClose }) {
   const questions = Array.isArray(internship?.questions) ? internship.questions : [];
-  const stipendText =
-    formatInternshipStipend(internship, { unpaidLabel: 'Unpaid / not specified' })
-    || 'Unpaid / not specified';
+  const stipendText = formatInternshipStipend(internship) || '—';
   const locationsText = formatInternshipLocations(internship);
   const placeLine = [internship?.company_name, locationsText || internship?.work_mode]
     .filter(Boolean)
@@ -41,7 +39,7 @@ export default function InternshipCandidatePreview({ internship, onClose }) {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2 flex-wrap">
-              <Badge variant="outline">{stipendText}</Badge>
+              <Badge variant="outline">Stipend: {stipendText}</Badge>
               <Badge variant="outline">Mode: {internship.work_mode || '—'}</Badge>
               {locationsText ? (
                 <Badge variant="outline" title="Work cities">
@@ -57,7 +55,7 @@ export default function InternshipCandidatePreview({ internship, onClose }) {
             <div>
               <h3 className="font-medium mb-1">Description</h3>
               <p className="text-sm whitespace-pre-wrap text-muted-foreground">
-                {internship.description || 'No description provided.'}
+                {internship.description || '—'}
               </p>
             </div>
             {internship.eligibility?.skills?.length ? (

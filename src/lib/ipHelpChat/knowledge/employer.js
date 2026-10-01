@@ -23,6 +23,18 @@ export const EMPLOYER_KNOWLEDGE = [
     ],
   },
   {
+    id: 'employer.share_posting',
+    topic: 'employer',
+    roles: ['employer', 'guest'],
+    keywords: ['share', 'share posting', 'share internship', 'copy link', 'whatsapp', 'linkedin', 'posting link'],
+    facts: [
+      'Published postings have a Share button on /employer/internships with three options: WhatsApp, LinkedIn, and Copy Link.',
+      'The link opens the posting for candidates. Visitors who are not signed in are asked to sign in or register as a candidate and are then taken back to the posting.',
+      'LinkedIn on Android opens the phone share menu with the post text and link; on iPhone only the link is shared; on a computer LinkedIn opens with the post ready.',
+      'Copy Link copies the posting link to paste anywhere.',
+    ],
+  },
+  {
     id: 'employer.applicants',
     topic: 'employer',
     roles: ['employer'],

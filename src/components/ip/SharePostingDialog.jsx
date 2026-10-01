@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Check, Copy } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -28,6 +29,7 @@ function BrandIcon({ src, alt }) {
  * Share entry for employer postings:
  *  - WhatsApp: plain share (no reward claim)
  *  - LinkedIn: unique share link + post URL for SuperAdmin verification / reward points
+ *  - Copy link: plain posting link (works on laptop too, no reward claim)
  */
 export default function SharePostingDialog({
   open,
@@ -38,6 +40,7 @@ export default function SharePostingDialog({
   onWhatsApp,
   onStartLinkedInPromo,
   onOpenLinkedIn,
+  onCopyLink,
   onSubmitClaim,
 }) {
   const [step, setStep] = useState('channels'); // channels | claim
@@ -47,6 +50,7 @@ export default function SharePostingDialog({
   const [claimUrl, setClaimUrl] = useState('');
   const [localError, setLocalError] = useState('');
   const [phoneNote, setPhoneNote] = useState('');
+  const [copied, setCopied] = useState(false);
   const onPhone = usePhoneShareDevice();
 
   useEffect(() => {
@@ -58,8 +62,19 @@ export default function SharePostingDialog({
       setClaimUrl('');
       setLocalError('');
       setPhoneNote('');
+      setCopied(false);
     }
   }, [open]);
+
+  async function handleCopy() {
+    setLocalError('');
+    try {
+      await onCopyLink?.();
+      setCopied(true);
+    } catch {
+      setLocalError('Could Not Copy Link. Long-press the link in your browser and copy it instead.');
+    }
+  }
 
   function blockedOnLaptop(channel) {
     if (isPhoneShareDevice()) {
@@ -102,14 +117,14 @@ export default function SharePostingDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90svh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-md">
         {step === 'channels' ? (
           <>
             <DialogHeader>
               <DialogTitle>Share Posting</DialogTitle>
               <DialogDescription>
                 Choose a channel. LinkedIn uses a unique posting share link so SuperAdmin can verify your post for reward points.
-                {onPhone === false ? ' WhatsApp and LinkedIn sharing works from your phone or tablet.' : null}
+                {onPhone === false ? ' WhatsApp and LinkedIn sharing works from your phone or tablet; Copy Link works anywhere.' : null}
               </DialogDescription>
             </DialogHeader>
 
@@ -161,6 +176,27 @@ export default function SharePostingDialog({
                   </span>
                 </span>
               </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto justify-start gap-3 px-3 py-3 text-left whitespace-normal"
+                disabled={busy}
+                onClick={handleCopy}
+                data-testid="share-posting-copy-link"
+              >
+                {copied ? (
+                  <Check className="size-5 shrink-0 text-emerald-600" aria-hidden />
+                ) : (
+                  <Copy className="size-5 shrink-0" aria-hidden />
+                )}
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="font-semibold">{copied ? 'Link Copied' : 'Copy Link'}</span>
+                  <span className="text-muted-foreground text-xs font-normal">
+                    Copy the posting link to paste anywhere — email, SMS or other apps. No reward claim.
+                  </span>
+                </span>
+              </Button>
             </div>
 
             <DialogFooter>
@@ -188,7 +224,7 @@ export default function SharePostingDialog({
             {postText ? (
               <Field>
                 <FieldLabel>Post Text</FieldLabel>
-                <p className="text-muted-foreground text-xs break-words whitespace-pre-wrap">{postText}</p>
+                <p className="text-muted-foreground text-xs whitespace-pre-wrap [overflow-wrap:anywhere]">{postText}</p>
                 <Button
                   type="button"
                   variant="outline"

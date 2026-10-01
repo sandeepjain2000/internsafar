@@ -11,6 +11,14 @@ import LoginCaptchaField from '@/components/auth/LoginCaptchaField';
 import { readCaptchaField, verifyCaptchaAnswer } from '@/lib/captchaClient';
 import { CAPTCHA_BYPASS_FOR_TESTING, STATIC_CAPTCHA_TOKEN } from '@/lib/captchaBypass';
 import { ROLE_HOME } from '@/lib/roleHome';
+import {
+  clearReturnTo,
+  isPostingPath,
+  readReturnTo,
+  rememberReturnTo,
+  returnPathForRole,
+  safeReturnPath,
+} from '@/lib/ipReturnTo';
 import './ip-login-gemini.css';
 
 const HERO_POINTS = [
@@ -86,15 +94,22 @@ export default function IpSignInLanding() {
   const [resendBusy, setResendBusy] = useState(false);
   const [resendHint, setResendHint] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [nextPath, setNextPath] = useState('');
 
-  // Read ?error= from the URL without useSearchParams — that API forces a client-only
+  // Read ?error= / ?next= from the URL without useSearchParams — that API forces a client-only
   // bailout (BAILOUT_TO_CLIENT_SIDE_RENDERING) so production SSR only shipped "Loading…"
   // until JS hydrated.
   useEffect(() => {
     try {
-      const authError = new URLSearchParams(window.location.search).get('error');
+      const params = new URLSearchParams(window.location.search);
+      const authError = params.get('error');
       if (authError && GOOGLE_AUTH_ERRORS[authError]) {
         setError(GOOGLE_AUTH_ERRORS[authError]);
+      }
+      const next = safeReturnPath(params.get('next'));
+      if (next) {
+        setNextPath(next);
+        rememberReturnTo(next);
       }
     } catch {
       /* ignore */
@@ -154,7 +169,9 @@ export default function IpSignInLanding() {
   async function finishLogin() {
     const sess = await fetch('/api/auth/session').then((r) => r.json());
     const role = sess?.user?.role;
-    router.push(ROLE_HOME[role] || '/');
+    const target = returnPathForRole(nextPath || readReturnTo(), role);
+    clearReturnTo();
+    router.push(target || ROLE_HOME[role] || '/');
   }
 
   async function onSubmitOtp(e) {
@@ -317,6 +334,23 @@ export default function IpSignInLanding() {
             </div>
 
             <form className="flex flex-col gap-5" onSubmit={otpStep ? onSubmitOtp : onSubmit}>
+              {isPostingPath(nextPath) && !otpStep ? (
+                <Alert data-testid="signin-posting-notice">
+                  <AlertTitle>Internship link</AlertTitle>
+                  <AlertDescription>
+                    <span>
+                      Sign in or register as a candidate to view and apply for this internship. You will be taken back
+                      to it after signing in.{' '}
+                      <Link
+                        href={`/register/candidate?next=${encodeURIComponent(nextPath)}`}
+                        className="ip-gemini-link-strong"
+                      >
+                        Register as a candidate
+                      </Link>
+                    </span>
+                  </AlertDescription>
+                </Alert>
+              ) : null}
               {error ? (
                 <Alert variant="destructive">
                   <AlertTitle>{otpStep ? 'Verification failed' : 'Sign in failed'}</AlertTitle>

@@ -41,6 +41,13 @@ Sign-in, registration, sessions, role homes, Google auth helpers, 2FA, account s
 | Rejected | Blocked | — |
 | Suspended | Blocked | — |
 
+### Return to the page after sign-in (confirmed 2026-10-01)
+
+- Logged-out visit to any portal page → `PortalShell` redirects to `/?next=<path+query>` (e.g. shared posting `/candidate/internships/<id>?promo=…`). Home sign-in shows an "Internship link" notice + **Register as a candidate** link for posting paths, and after sign-in opens `next` only if it belongs to the signed-in role's portal (`src/lib/ipReturnTo.js` `returnPathForRole`); otherwise role home.
+- `next` is also kept in `localStorage` (`ip_return_to`, 24 h) because candidate registration goes through Google (fixed server return URL) and the temp-password email; `/register/candidate?next=` stores it and its Sign In links carry it back.
+- Signed in with the wrong role (e.g. employer opens a candidate posting link) → no redirect; `PortalShell` shows "Sign in as a candidate to view this internship" + Sign out (signs out to `/?next=…`).
+- Help coverage: help chatbot entries `internships.shared_link` + `employer.share_posting` (`src/lib/ipHelpChat/knowledge/`) and the `/help` card "Shared internship links". Update them if this flow changes.
+
 Candidates do **not** require email verify before login. Employer email verify table/columns: `ensureIpEmployerEmailVerifySchema` (schema only — fill blanks via temp runner on AWS, never `email_verify_required=false` grandfather).
 
 ## Constraints

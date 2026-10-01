@@ -362,7 +362,9 @@
 
 .ip-emp-postings .ip-epo-badge {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
+  white-space: nowrap;
   border-radius: 9999px;
   border: 1px solid;
   padding: 0.125rem 0.625rem;

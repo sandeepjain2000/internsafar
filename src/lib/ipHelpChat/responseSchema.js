@@ -32,6 +32,7 @@ export function normalizeHelpResponse({
     );
     text = text.replace(/\bACTIONS:\s*[a-z0-9_,\s-]+/i, '').trim();
   }
+  text = text.replace(/\s*\bACTIONS:?\s*$/, '').trim();
 
   const state = FALLBACK_STATES.includes(fallbackState) ? fallbackState : 'answered';
   const actions = resolveHelpActions({ topic, role, suggestedIds });

@@ -13,6 +13,10 @@ const TOPICS = [
     b: 'Complete Profile & docs (including ethics). SuperAdmin must approve before live posts.',
   },
   {
+    t: 'Shared internship links',
+    b: 'A shared internship link opens that posting for candidates. If you are not signed in, sign in or register as a candidate and you are taken back to it. Employers share published postings from Internships via WhatsApp, LinkedIn, or Copy Link. A "—" on a posting means the employer did not fill in that detail.',
+  },
+  {
     t: 'Messaging',
     b: 'Messages use an email-style inbox (subject = last message), not chat-bubble threads.',
   },

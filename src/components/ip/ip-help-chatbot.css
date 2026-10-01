@@ -593,3 +593,10 @@
     margin-right: 8px;
   }
 }
+
+/* Phone pages with a fixed bottom action bar: keep the closed launcher above the bar. */
+@media (max-width: 767px) {
+  body:has(.ip-cand-intern-detail .ip-id-apply-bar, .ip-emp-profile .ip-ep-actions--save) .ip-helpbot[data-open='0'] {
+    bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}

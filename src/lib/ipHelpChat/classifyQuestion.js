@@ -22,9 +22,12 @@ const TOPIC_HINTS = {
     'otp',
   ],
   candidate: ['candidate', 'apply', 'application', 'profile', 'offer', 'browse'],
-  employer: ['employer', 'post internship', 'applicant', 'ethics', 'company'],
+  employer: ['employer', 'post internship', 'applicant', 'ethics', 'company', 'share', 'linkedin', 'whatsapp', 'copy link'],
   superadmin: ['superadmin', 'super admin', 'approve employer', 'form registration'],
-  internships: ['internship', 'internships', 'posting', 'guidelines', 'fairness'],
+  internships: [
+    'internship', 'internships', 'posting', 'guidelines', 'fairness',
+    'posting link', 'internship link', 'shared link', 'sign in as a candidate', 'taken back',
+  ],
   messaging: ['message', 'messages', 'inbox', 'reply', 'thread'],
   troubleshooting: ['not working', 'error', 'broken', 'cannot', "can't", 'issue', 'problem', 'failed'],
 };

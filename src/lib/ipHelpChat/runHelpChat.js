@@ -126,7 +126,7 @@ export async function runHelpChat({
 
   const { text } = await nvidiaChat(null, null, {
     messages,
-    maxTokens: 280,
+    maxTokens: 400,
     temperature: 0.3,
     // Fail fast for UI: avoid multi-minute retry storms when NIM is down.
     maxKeyAttempts: 2,
