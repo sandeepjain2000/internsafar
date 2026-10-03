@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { query } from '@/lib/db';
+import { transaction } from '@/lib/transaction';
 import { newId } from '@/lib/ids';
 import { sendMail } from '@/lib/mail';
 import { resolveAppOrigin } from '@/lib/ipAppOrigin';
@@ -115,20 +116,18 @@ export async function consumeEmployerEmailVerification(tokenRaw) {
         'This verification link has expired. Sign in and use Resend verification email, or use Resend on the registration confirmation screen.',
     };
   }
-  await query('BEGIN');
-  try {
-    await query(
+  const consumed = await transaction(async (client) => {
+    const claim = await client.query(
       `UPDATE ip_employer_email_verifications SET consumed_at = now() WHERE id = $1 AND consumed_at IS NULL`,
       [v.id],
     );
-    await query(
+    if (!claim.rowCount) return false;
+    await client.query(
       `UPDATE ip_users SET email_verified_at = coalesce(email_verified_at, now()), updated_at = now() WHERE id = $1`,
       [v.user_id],
     );
-    await query('COMMIT');
-  } catch (e) {
-    await query('ROLLBACK');
-    throw e;
-  }
+    return true;
+  });
+  if (!consumed) return { ok: false, error: 'This verification link was already used' };
   return { ok: true, userId: v.user_id, email: v.email };
 }

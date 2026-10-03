@@ -6,6 +6,7 @@ import { personalizeMessageBody } from '@/lib/ipMessageResponseState';
 import { notifyUser } from '@/lib/ipNotify';
 import { linkThreadToApplicationIfPresent } from '@/lib/ipLinkThreadApplication';
 import { closePendingOfferForApplication } from '@/lib/ipOfferLifecycle';
+import { employerCanSetStatus } from '@/lib/ipApplicationPresentation';
 
 async function ownedApps(employerId, internshipId, applicationIds) {
   const result = await query(
@@ -78,7 +79,14 @@ export async function POST(request, { params }) {
       template = tpl.rows[0] || null;
     }
     let updated = 0;
+    let skipped = 0;
     for (const row of rows) {
+      const current = String(row.status || 'applied').toLowerCase();
+      // Hired rows are skipped in bulk; undoing a hand-set hire stays a single-row action.
+      if (current === 'hired' || !employerCanSetStatus(current, nextStatus)) {
+        skipped += 1;
+        continue;
+      }
       await query(
         `UPDATE ip_applications SET status = $2,
            rejection_template_id = $3, rejection_template_version = $4, updated_at = now()
@@ -133,7 +141,7 @@ export async function POST(request, { params }) {
       }
       updated += 1;
     }
-    return jsonOk({ ok: true, updated, action: nextStatus });
+    return jsonOk({ ok: true, updated, skipped, action: nextStatus });
   }
 
   if (action === 'add_to_list' || action === 'remove_from_list') {
@@ -326,7 +334,13 @@ export async function POST(request, { params }) {
     const interviewAt = body.interviewAt;
     if (!interviewAt) return jsonError('interviewAt is required');
     let n = 0;
+    let skipped = 0;
     for (const row of rows) {
+      const current = String(row.status || 'applied').toLowerCase();
+      if (current === 'hired' || !employerCanSetStatus(current, 'interviewing')) {
+        skipped += 1;
+        continue;
+      }
       await query(
         `UPDATE ip_applications SET status = 'interviewing', interview_at = $2, interview_meet_url = $3, updated_at = now()
          WHERE id = $1`,
@@ -335,7 +349,7 @@ export async function POST(request, { params }) {
       await closePendingOfferForApplication(row.id, 'interviewing');
       n += 1;
     }
-    return jsonOk({ ok: true, updated: n });
+    return jsonOk({ ok: true, updated: n, skipped });
   }
 
   return jsonError(`Unknown action: ${action}`);

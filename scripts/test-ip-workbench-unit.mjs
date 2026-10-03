@@ -27,10 +27,10 @@ assert.ok(PROTECTED_ACCOUNT_EMAILS.includes('lawsonlclintern+1@gmail.com'));
 assert.ok(PROTECTED_ACCOUNT_EMAILS.includes('placementhubsupport@gmail.com'));
 assert.ok(isProtectedEmail('support@placementhub.online'));
 assert.ok(!isProtectedEmail('random@example.com'));
-// Sibling/Vercel QA uses hardcoded Admin@123 (no JSON required for getters).
+// Sibling/Vercel QA uses hardcoded passwords (no JSON required for getters); SuperAdmin has its own.
 assert.equal(getCorePasswordForRole('candidate'), 'Admin@123');
 assert.equal(getCorePasswordForRole('employer'), 'Admin@123');
-assert.equal(getCorePasswordForRole('superadmin'), 'Admin@123');
+assert.equal(getCorePasswordForRole('superadmin'), '<IP_QA_SUPERADMIN_PASSWORD>');
 // JSON loader remains available for AWS/ops tooling when the file exists.
 try {
   const loaded = loadCoreAccountPasswords();

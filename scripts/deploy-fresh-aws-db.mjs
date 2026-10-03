@@ -32,6 +32,7 @@ const manifestPath = path.join(__dirname, 'MIGRATION_MANIFEST.txt');
 const runner = path.join(root, 'scripts', 'db_exec_sql_file.js');
 const SPLIT_FILE = '035_ip_seed_candidate_academics.sql';
 const DRY_RUN = process.argv.includes('--dry-run');
+const ALLOW_NON_EMPTY_FLAG = '--i-confirm-wipe-non-core-users';
 
 dotenv.config({ path: path.join(root, '.env.local') });
 dotenv.config({ path: path.join(root, '.env') });
@@ -115,9 +116,35 @@ async function verifyDatabaseUrl() {
   try {
     await pool.query('SELECT 1');
     console.log('DATABASE_URL: connected');
+    await assertFreshDatabase(pool);
   } finally {
     await pool.end();
   }
+}
+
+/**
+ * Path C is for an empty RDS only: the core seed runs IP_Reset_Core_Sample.js --yes, which deletes
+ * every non-core account. Refuse when ip_users already holds rows unless the operator opts in.
+ */
+async function assertFreshDatabase(pool) {
+  const exists = await pool.query(`SELECT to_regclass('public.ip_users') AS t`);
+  if (!exists.rows[0]?.t) {
+    console.log('ip_users: not present (fresh database)');
+    return;
+  }
+  const r = await pool.query(`SELECT count(*)::int AS n FROM ip_users`);
+  const n = r.rows[0]?.n ?? 0;
+  console.log(`ip_users: ${n} row(s)`);
+  if (n === 0) return;
+  if (process.argv.includes(ALLOW_NON_EMPTY_FLAG)) {
+    console.warn(`\n=== WARNING: ${ALLOW_NON_EMPTY_FLAG} — reset will delete non-core accounts on this database ===\n`);
+    return;
+  }
+  console.error('\n=== BLOCKED: this database already has users ===');
+  console.error('deploy:fresh-aws-db is Path C (empty RDS only). Its core seed deletes every non-core account.');
+  console.error('For a live database use Path B (app only) or db:migrate:sql-only for specific files.');
+  console.error(`Only if you really mean to wipe accounts here, re-run with ${ALLOW_NON_EMPTY_FLAG}.`);
+  process.exit(1);
 }
 
 function runCoreSeed() {

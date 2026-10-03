@@ -2,13 +2,15 @@
 /**
  * One-shot: set SuperAdmin to support@placementhub.online using password from
  * coreaccountspass.json (gitignored).
- * Usage (from internship-portal): node scripts/set-superadmin-email.js
+ * Usage (from internship-portal): node scripts/set-superadmin-email.js --i-confirm-db-write
  */
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const { Client } = require('pg');
 const fs = require('fs');
 const { SUPERADMIN_EMAIL, getCorePasswordForEmail } = require('./lib/ipCoreSampleConfig.js');
+const { assertDbMigrateAllowed } = require('./assert-db-migrate-allowed.js');
+const { assertDbMigrateTargetAllowed } = require('./assert-db-migrate-target.js');
 
 const NEW_EMAIL = SUPERADMIN_EMAIL;
 const LEGACY = 'superadmin@internship.local';
@@ -32,6 +34,8 @@ async function main() {
   const connectionString =
     process.env.DATABASE_URL || process.env.SUPABASE_DATABASE_URL || env.DATABASE_URL || env.SUPABASE_DATABASE_URL;
   if (!connectionString) throw new Error('DATABASE_URL required');
+  assertDbMigrateAllowed(process.argv);
+  assertDbMigrateTargetAllowed(process.argv, { connectionString });
 
   const client = new Client({ connectionString, ssl: { rejectUnauthorized: false } });
   await client.connect();

@@ -64,6 +64,7 @@ const LoginCaptchaField = forwardRef(function LoginCaptchaField(
   const abortRef = useRef(null);
   const tokenRef = useRef(CAPTCHA_BYPASS_FOR_TESTING ? STATIC_CAPTCHA_TOKEN : '');
   const inputRef = useRef(null);
+  const loadChallengeRef = useRef(null);
   const [answerLocked, setAnswerLocked] = useState(!CAPTCHA_BYPASS_FOR_TESTING);
   const onTokenChangeRef = useRef(onTokenChange);
   const onAnswerChangeRef = useRef(onAnswerChange);
@@ -92,6 +93,10 @@ const LoginCaptchaField = forwardRef(function LoginCaptchaField(
     getChallenge() {
       const typed = sanitizeAnswer(inputRef.current?.value ?? answer).trim();
       return { token: tokenRef.current || token || '', answer: typed };
+    },
+    /** A submit that reached the server spends the captcha, so load a new one after a failure. */
+    refresh() {
+      void loadChallengeRef.current?.();
     },
   }));
 
@@ -191,6 +196,10 @@ const LoginCaptchaField = forwardRef(function LoginCaptchaField(
       if (seq === loadSeqRef.current) setLoading(false);
     }
   }, [resetVerification, applyChallenge]);
+
+  useEffect(() => {
+    loadChallengeRef.current = loadChallenge;
+  }, [loadChallenge]);
 
   useEffect(() => {
     void loadChallenge();

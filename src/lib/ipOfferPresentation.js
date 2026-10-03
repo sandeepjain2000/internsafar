@@ -10,15 +10,33 @@ export const OFFERABLE_APPLICATION_STATUSES = [
   'declined_offer',
 ];
 
+const IST_OFFSET_MS = 330 * 60 * 1000;
+
+/**
+ * valid_until is a DATE. pg hands it over as a Date at host-local midnight, and JSON turns that
+ * into an ISO instant (00:00Z on UTC hosts, 18:30Z the day before on IST hosts). Reading the
+ * instant's calendar day in IST recovers the stored day for all of those, then the offer stays
+ * open until 23:59:59.999 IST on that day.
+ */
 export function offerDeadlineEnd(validUntil) {
   if (!validUntil) return null;
-  const d = new Date(validUntil);
-  if (Number.isNaN(d.getTime())) return null;
-  const end = new Date(d);
-  if (String(validUntil).length <= 10) {
-    end.setHours(23, 59, 59, 999);
+  let y;
+  let m;
+  let d;
+  const plain = typeof validUntil === 'string' ? validUntil.match(/^(\d{4})-(\d{2})-(\d{2})$/) : null;
+  if (plain) {
+    y = Number(plain[1]);
+    m = Number(plain[2]) - 1;
+    d = Number(plain[3]);
+  } else {
+    const t = new Date(validUntil).getTime();
+    if (Number.isNaN(t)) return null;
+    const ist = new Date(t + IST_OFFSET_MS);
+    y = ist.getUTCFullYear();
+    m = ist.getUTCMonth();
+    d = ist.getUTCDate();
   }
-  return end;
+  return new Date(Date.UTC(y, m, d, 23, 59, 59, 999) - IST_OFFSET_MS);
 }
 
 export function offerIsExpired(row) {
@@ -67,7 +85,7 @@ export function offerDaysRemainingLabel(row) {
     return `Expired ${days} day${days === 1 ? '' : 's'} ago`;
   }
   if (disp.key !== 'action_required') return null;
-  const days = Math.ceil((end.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+  const days = Math.ceil((end.getTime() - Date.now()) / (24 * 60 * 60 * 1000)) - 1;
   if (days <= 0) return 'Expires today';
   if (days === 1) return '1 day remaining';
   return `${days} days remaining`;

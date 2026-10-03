@@ -254,6 +254,7 @@ export default function IpSignInLanding() {
         rememberMe: rememberMe ? 'true' : 'false',
       });
       if (res?.error) {
+        captchaFieldRef.current?.refresh?.();
         const challengeId = parseTwoFactorRequired(res.error);
         if (challengeId) {
           setOtpChallengeId(challengeId);

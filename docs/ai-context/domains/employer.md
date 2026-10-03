@@ -48,6 +48,12 @@ Nav order: `src/lib/ipNav.js` → `EMPLOYER_NAV`. Postings nav/API stay gated un
 
 Login after email verify is allowed while **pending** approval (docs upload). Rejected / suspended cannot login.
 
+Publishing (confirmed 2026-10-03): `POST /api/ip/employer/internships` validates everything first, then charges publish points and inserts the posting in one `transaction()` — a failed insert never costs points. Not enough points → 403 "… Or save as draft." Drafts cost nothing. Edit page loads/saves `start_date`/`end_date` as plain `YYYY-MM-DD` (no timezone shift).
+
+## Application status changes (confirmed 2026-10-03)
+
+`EMPLOYER_STATUS_TRANSITIONS` in `src/lib/ipApplicationPresentation.js` decides which status buttons show (`employerStatusTargets`) and what `PATCH /api/ip/employer/applications/[id]` accepts (`employerCanSetStatus`, 409 otherwise). `offered` is set only by sending an offer; `withdrawn` / `completed` are locked; a hire that came from an **accepted offer** cannot be changed (409). Manual hire is allowed from shortlisted/interviewing. Bulk shortlist/reject/interview skips rows the map refuses and returns `skipped` (UI shows the count).
+
 ## Documents — Hybrid E (confirmed 2026-09-26)
 
 - One **active** row per doc type (Shop Act / LLP / Business PAN / Other + `doc_label`).

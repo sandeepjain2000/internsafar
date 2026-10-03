@@ -33,6 +33,9 @@ Useful npm scripts: `db:migrate:ip`, `db:migrate:sql-only`, `db:migrate:workbenc
 | `044_ip_internship_stipend_range.sql` | `ip_internships.stipend_inr_max` (+ CHECK) |
 | `045_ip_notification_archive.sql` + `ensureIpNotificationCategorySchema` | `ip_notifications.archived_at` (NULL = Inbox; no blank-fill needed) |
 | `046_ip_offer_withdrawn_status.sql` | Widens `ip_offers_status_check` with `withdrawn` (applied to Supabase and AWS 2026-09-29; no blank-fill; app falls back to `expired` on any DB still missing it) |
+| `026b_ip_runtime_tables_before_constraints.sql` (2026-10-03) | Additive: creates runtime tables/columns that 027/028 constrain (`ip_users.two_factor_enabled`, `ip_2fa_challenges`, `ip_notification_preferences`, `ip_notifications.meta`) so a fresh migrate no longer fails. No-op on existing DBs |
+| `047_ip_captcha_nonces_2fa_attempts.sql` + `ensureIpCaptchaNonceSchema` / `ensureIpTwoFactorSchema` (2026-10-03) | `ip_captcha_nonces` (single-use captcha) + `ip_2fa_challenges.failed_attempts` (default 0). Also created at runtime — optional on AWS, no blank-fill |
+| `037`/`038` college-name retire (edited 2026-10-03) | UPDATEs only touch rows with `updated_at` before 2026-09-02 IST, so a replay cannot rewrite newer user edits |
 | `ensureIpEmployerDocumentSlotsSchema` | `superseded_at`, `doc_label`, file_size; dedupe; active-type unique index |
 | `ensureIpEmployerEmailVerifySchema` | Verify table + `email_verify_required` (**schema only**) |
 

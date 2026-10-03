@@ -24,7 +24,26 @@ export async function ensureIpTwoFactorSchema() {
     CREATE INDEX IF NOT EXISTS idx_ip_2fa_challenges_user
       ON ip_2fa_challenges(user_id, purpose, created_at DESC)
   `);
+  await query(`ALTER TABLE ip_2fa_challenges ADD COLUMN IF NOT EXISTS failed_attempts INT NOT NULL DEFAULT 0`);
   schemaReady = true;
+}
+
+/** Wrong codes allowed per challenge before it is burned (user must sign in with password again). */
+export const MAX_TWO_FACTOR_ATTEMPTS = 5;
+
+/** Login codes a user may be sent per window (password sign-ins + resends together). */
+export const MAX_LOGIN_CODES_PER_WINDOW = 5;
+export const LOGIN_CODE_WINDOW_MINUTES = 15;
+
+export async function recentLoginChallengeCount(userId) {
+  await ensureIpTwoFactorSchema();
+  const result = await query(
+    `SELECT count(*)::int AS n FROM ip_2fa_challenges
+     WHERE user_id = $1 AND purpose = 'login'
+       AND created_at > now() - make_interval(mins => $2)`,
+    [userId, LOGIN_CODE_WINDOW_MINUTES],
+  );
+  return Number(result.rows[0]?.n || 0);
 }
 
 function hashCode(code) {
@@ -98,9 +117,22 @@ export async function verifyTwoFactorChallenge(challengeId, code) {
   const row = result.rows[0];
   if (!row || row.consumed_at) return null;
   if (new Date(row.expires_at).getTime() < Date.now()) return null;
-  if (row.code_hash !== hashCode(otp)) return null;
+  if (row.code_hash !== hashCode(otp)) {
+    await query(
+      `UPDATE ip_2fa_challenges
+       SET failed_attempts = failed_attempts + 1,
+           consumed_at = CASE WHEN failed_attempts + 1 >= $2 THEN now() ELSE consumed_at END
+       WHERE id = $1 AND consumed_at IS NULL`,
+      [id, MAX_TWO_FACTOR_ATTEMPTS],
+    );
+    return null;
+  }
 
-  await query(`UPDATE ip_2fa_challenges SET consumed_at = now() WHERE id = $1`, [id]);
+  const claimed = await query(
+    `UPDATE ip_2fa_challenges SET consumed_at = now() WHERE id = $1 AND consumed_at IS NULL`,
+    [id],
+  );
+  if (!claimed.rowCount) return null;
   return { userId: row.user_id, purpose: row.purpose };
 }
 

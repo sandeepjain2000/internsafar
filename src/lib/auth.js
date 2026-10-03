@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { headers } from 'next/headers';
 import { cookies } from 'next/headers';
 import { query } from '@/lib/db';
-import { isCaptchaBypassed, verifyLoginCaptcha, verifyCaptchaGate } from '@/lib/simpleCaptcha';
+import { captchaFailureMessage, consumeCaptcha } from '@/lib/simpleCaptcha';
 import { newId } from '@/lib/ids';
 import { ROLE_HOME } from '@/lib/roleHome';
 import { createAuthSession, touchAuthSession, revokeAuthSession } from '@/lib/ipAuthSessions';
@@ -12,6 +12,10 @@ import {
   createTwoFactorChallenge,
   ensureIpTwoFactorSchema,
   isTwoFactorEnabled,
+  LOGIN_CODE_WINDOW_MINUTES,
+  MAX_LOGIN_CODES_PER_WINDOW,
+  MAX_TWO_FACTOR_ATTEMPTS,
+  recentLoginChallengeCount,
   verifyTwoFactorChallenge,
 } from '@/lib/ipTwoFactor';
 import { consumeLoginDbFailureSimulation } from '@/lib/ipQaSimulate';
@@ -100,6 +104,33 @@ async function recordLoginEvent({ userId, email, role, success, failureReason, a
   }
 }
 
+const LOGIN_FAIL_WINDOW_MINUTES = 15;
+const MAX_FAILED_LOGINS_PER_EMAIL = 10;
+const MAX_FAILED_LOGINS_PER_IP = 50;
+
+/** Wrong-password attempts in the window, counted per account email and per client IP. */
+async function isLoginThrottled(email) {
+  try {
+    const { ip } = await requestMeta();
+    const result = await query(
+      `SELECT
+         count(*) FILTER (WHERE lower(email) = $1)::int AS by_email,
+         count(*) FILTER (WHERE $2::text IS NOT NULL AND ip_address = $2)::int AS by_ip
+       FROM ip_login_events
+       WHERE success = false
+         AND failure_reason IN ('Bad Pass', 'Unknown account')
+         AND created_at > now() - make_interval(mins => $3)`,
+      [email, ip || null, LOGIN_FAIL_WINDOW_MINUTES],
+    );
+    const row = result.rows[0] || {};
+    return Number(row.by_email || 0) >= MAX_FAILED_LOGINS_PER_EMAIL
+      || Number(row.by_ip || 0) >= MAX_FAILED_LOGINS_PER_IP;
+  } catch (e) {
+    console.error('[ip auth] throttle check failed', e.message);
+    return false;
+  }
+}
+
 async function requestMeta() {
   try {
     const h = await headers();
@@ -136,7 +167,9 @@ export const authOptions = {
         if (credentials?.otpChallengeId && credentials?.otpCode) {
           const verified = await verifyTwoFactorChallenge(credentials.otpChallengeId, credentials.otpCode);
           if (!verified || verified.purpose !== 'login') {
-            throw new Error('Invalid or expired verification code');
+            throw new Error(
+              `Invalid or expired verification code. After ${MAX_TWO_FACTOR_ATTEMPTS} wrong codes, sign in again with your password.`,
+            );
           }
           const result = await queryWithRetry(
             `SELECT id, email, role, name, active, profile_complete
@@ -162,22 +195,29 @@ export const authOptions = {
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Email and password are required');
         }
-        const captchaOk =
-          isCaptchaBypassed() ||
-          verifyCaptchaGate(credentials.captchaToken) ||
-          verifyLoginCaptcha(credentials.captchaToken, credentials.captchaAnswer);
-        if (!captchaOk) {
-          const answerEmpty = !String(credentials.captchaAnswer ?? '').trim();
-          throw new Error(
-            answerEmpty
-              ? 'Verification answer is required'
-              : !credentials.captchaToken
-                ? 'Verification question is required'
-                : 'Captcha verification failed — refresh the question and try again',
-          );
-        }
         const email = String(credentials.email).trim().toLowerCase();
         const password = String(credentials.password);
+
+        if (await isLoginThrottled(email)) {
+          await recordLoginEvent({ email, success: false, failureReason: 'Rate limited' });
+          throw new Error(
+            `Too many failed sign-in attempts. Wait ${LOGIN_FAIL_WINDOW_MINUTES} minutes, or use Forgot password.`,
+          );
+        }
+
+        const captchaCode = await consumeCaptcha(credentials.captchaToken, credentials.captchaAnswer);
+        if (captchaCode) {
+          const answerEmpty = !String(credentials.captchaAnswer ?? '').trim();
+          throw new Error(
+            captchaCode === 'used'
+              ? captchaFailureMessage('used')
+              : answerEmpty
+                ? 'Verification answer is required'
+                : !credentials.captchaToken
+                  ? 'Verification question is required'
+                  : 'Captcha verification failed — refresh the question and try again',
+          );
+        }
 
         let result;
         try {
@@ -283,6 +323,11 @@ export const authOptions = {
 
         await ensureIpTwoFactorSchema();
         if (await isTwoFactorEnabled(user.id)) {
+          if ((await recentLoginChallengeCount(user.id)) >= MAX_LOGIN_CODES_PER_WINDOW) {
+            throw new Error(
+              `Too many verification codes requested. Wait ${LOGIN_CODE_WINDOW_MINUTES} minutes, then sign in again.`,
+            );
+          }
           try {
             const { challengeId } = await createTwoFactorChallenge(user.id, 'login');
             // Client parses this and shows the OTP step (session not created yet).

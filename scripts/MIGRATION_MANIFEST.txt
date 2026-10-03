@@ -1,4 +1,4 @@
-# Internship Portal — IP migration manifest (001–044)
+# Internship Portal — IP migration manifest (001–047, plus 026b)
 # Fresh RDS: npm run deploy:fresh-aws-db
 # SQL only (demo users exist): npm run db:migrate:sql-only
 # Path B (live app update): do NOT run migrate — include files for Path C / sql-only only.
@@ -30,6 +30,7 @@
 024_ip_endorsement_not_null_export_skipped.sql
 025_ratings_endorsements_required_internship.sql
 026_endorsements_candidate_cascade.sql
+026b_ip_runtime_tables_before_constraints.sql
 027_ip_uniques_and_status_checks.sql
 028_endorsement_referral_pref_integrity.sql
 029_offer_accept_application_status.sql
@@ -50,3 +51,4 @@
 044_ip_internship_stipend_range.sql
 045_ip_notification_archive.sql
 046_ip_offer_withdrawn_status.sql
+047_ip_captcha_nonces_2fa_attempts.sql

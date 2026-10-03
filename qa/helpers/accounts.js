@@ -1,8 +1,9 @@
 /** InternSafar core demo accounts (scripts/lib/ipCoreSampleConfig.js).
- * Sibling/Vercel QA: hardcoded Admin@123 via ipCoreSampleConfig (Neon).
+ * Sibling/Vercel QA: hardcoded passwords via ipCoreSampleConfig (SuperAdmin has its own).
  * AWS/production packs use coreaccountspass.json in the handoff extract.
  */
 const {
+  getCorePasswordForEmail,
   getCorePasswordForRole,
   CAND_BASE,
   EMP_BASE,
@@ -12,6 +13,9 @@ const {
 module.exports = {
   get password() {
     return getCorePasswordForRole('candidate');
+  },
+  passwordFor(email) {
+    return getCorePasswordForEmail(email);
   },
   candidate: { email: CAND_BASE || 'lawsonlclintern+1@gmail.com', home: /\/candidate(\/|$|\?)/ },
   employer: { email: EMP_BASE || 'placementhubsupport@gmail.com', home: /\/employer(\/|$|\?)/ },

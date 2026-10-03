@@ -69,7 +69,9 @@ export function createLoginCaptcha() {
     };
   }
   const exp = Date.now() + TTL_MS;
-  const body = Buffer.from(JSON.stringify({ a, b, exp })).toString('base64url');
+  // n = one-time id; a submit that passes the captcha spends it (see consumeCaptcha).
+  const n = crypto.randomBytes(12).toString('base64url');
+  const body = Buffer.from(JSON.stringify({ a, b, exp, n })).toString('base64url');
   const sig = signBody(body);
   return {
     question: `What is ${a} + ${b}?`,
@@ -77,33 +79,64 @@ export function createLoginCaptcha() {
   };
 }
 
+/** Signed payload of a captcha token or gate, or null when the signature does not match. */
+function readSignedPayload(token) {
+  if (token == null || typeof token === 'object') return null;
+  const parts = splitToken(token);
+  if (!parts) return null;
+  const expectedSig = signBody(parts.body);
+  const sigBuf = Buffer.from(parts.sig);
+  const expectedBuf = Buffer.from(expectedSig);
+  if (sigBuf.length !== expectedBuf.length) return null;
+  if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
+  try {
+    return JSON.parse(Buffer.from(parts.body, 'base64url').toString('utf8')) || null;
+  } catch {
+    return null;
+  }
+}
+
+/** One-time id carried by a captcha token or gate (signature checked). */
+export function captchaNonce(token) {
+  const payload = readSignedPayload(token);
+  return typeof payload?.n === 'string' && payload.n ? payload.n : null;
+}
+
 /**
- * One-time short gate after /api/auth/captcha/verify succeeds — safer through NextAuth form parsing.
+ * Short gate after /api/auth/captcha/verify succeeds — safer through NextAuth form parsing.
+ * Carries the captcha's one-time id, so spending the gate also spends the captcha.
  */
-export function createCaptchaGate() {
+export function createCaptchaGate(nonce) {
   if (CAPTCHA_BYPASS_FOR_TESTING) return STATIC_CAPTCHA_TOKEN;
-  const body = Buffer.from(JSON.stringify({ g: 1, exp: Date.now() + GATE_TTL_MS })).toString('base64url');
+  const body = Buffer.from(JSON.stringify({ g: 1, exp: Date.now() + GATE_TTL_MS, n: nonce })).toString('base64url');
   const sig = signBody(body);
   return `${body}${SEP}${sig}`;
 }
 
 export function verifyCaptchaGate(gate) {
   if (CAPTCHA_BYPASS_FOR_TESTING) return true;
-  const parts = splitToken(gate);
-  if (!parts) return false;
-  const expectedSig = signBody(parts.body);
-  const sigBuf = Buffer.from(parts.sig);
-  const expectedBuf = Buffer.from(expectedSig);
-  if (sigBuf.length !== expectedBuf.length) return false;
-  if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return false;
-  try {
-    const payload = JSON.parse(Buffer.from(parts.body, 'base64url').toString('utf8'));
-    if (!payload || payload.g !== 1) return false;
-    if (typeof payload.exp !== 'number' || Date.now() > payload.exp) return false;
-    return true;
-  } catch {
-    return false;
+  const payload = readSignedPayload(gate);
+  if (!payload || payload.g !== 1) return false;
+  if (typeof payload.n !== 'string' || !payload.n) return false;
+  if (typeof payload.exp !== 'number' || Date.now() > payload.exp) return false;
+  return true;
+}
+
+/**
+ * Final check for a login / register / reset submit: accepts a gate or token+answer, then spends
+ * the one-time id so the same solved captcha cannot be replayed.
+ * @returns {Promise<null | 'missing_token' | 'missing_answer' | 'bad_token' | 'expired' | 'wrong_answer' | 'used'>}
+ */
+export async function consumeCaptcha(token, answer) {
+  if (CAPTCHA_BYPASS_FOR_TESTING) return null;
+  if (!verifyCaptchaGate(token)) {
+    const code = explainCaptchaFailure(token, answer);
+    if (code) return code;
   }
+  const nonce = captchaNonce(token);
+  if (!nonce) return 'bad_token';
+  const { consumeCaptchaNonce } = await import('@/lib/ipCaptchaNonce');
+  return (await consumeCaptchaNonce(nonce)) ? null : 'used';
 }
 
 /**
@@ -144,6 +177,7 @@ export function explainCaptchaFailure(token, answer) {
     return 'bad_token';
   }
   if (!payload || typeof payload.a !== 'number' || typeof payload.b !== 'number') return 'bad_token';
+  if (typeof payload.n !== 'string' || !payload.n) return 'bad_token';
   if (typeof payload.exp !== 'number' || Date.now() > payload.exp) return 'expired';
 
   const n = Number(String(answer).trim());
@@ -156,7 +190,7 @@ export function captchaFailureMessage(code) {
   if (code === 'missing_answer') return 'Verification answer is required';
   if (code === 'missing_token') return 'Verification question is required — wait for it to load or refresh';
   if (code === 'expired') return 'Verification expired. Click New Code and try again.';
-  if (code === 'bad_token') {
+  if (code === 'used') return 'That verification was already used. Click New Code and answer the new question.';  if (code === 'bad_token') {
     return 'Verification out of date. Click New Code, then enter the new answer.';
   }
   if (code === 'wrong_answer' || code === 'invalid') {
