@@ -8,6 +8,7 @@ import { newId } from '@/lib/ids';
 import { linkThreadToApplicationIfPresent } from '@/lib/ipLinkThreadApplication';
 import { ensureIpMessageInboxSchema } from '@/lib/ipMessageThreadQuery';
 import { closePendingOfferForApplication } from '@/lib/ipOfferLifecycle';
+import { employerCanSetStatus, employerStatusBlockedMessage } from '@/lib/ipApplicationPresentation';
 
 /** Same closed set as ip_applications_status_check (all writers, not only this PATCH). */
 const ALLOWED = [
@@ -56,7 +57,7 @@ export async function PATCH(request, { params }) {
 
   const emp = await query(`SELECT id FROM ip_employers WHERE user_id = $1`, [session.user.id]);
   const app = await query(
-    `SELECT a.id, a.internship_id, i.employer_id, i.title, c.user_id as candidate_user_id, e.company_name
+    `SELECT a.id, a.status, a.internship_id, i.employer_id, i.title, c.user_id as candidate_user_id, e.company_name
      FROM ip_applications a
      JOIN ip_internships i ON i.id = a.internship_id
      JOIN ip_candidates c ON c.id = a.candidate_id
@@ -66,6 +67,20 @@ export async function PATCH(request, { params }) {
   );
   const row = app.rows[0];
   if (!row || row.employer_id !== emp.rows[0]?.id) return jsonError('Not found', 404);
+
+  const currentStatus = String(row.status || 'applied').toLowerCase();
+  if (!employerCanSetStatus(currentStatus, status)) {
+    return jsonError(employerStatusBlockedMessage(currentStatus, status), 409);
+  }
+  if (currentStatus === 'hired' && status !== 'hired') {
+    const accepted = await query(
+      `SELECT 1 FROM ip_offers WHERE application_id = $1 AND status = 'accepted' LIMIT 1`,
+      [id],
+    );
+    if (accepted.rows[0]) {
+      return jsonError('The candidate accepted your offer, so this hire can no longer be changed here.', 409);
+    }
+  }
 
   if (status === 'interviewing') {
     await query(

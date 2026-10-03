@@ -54,7 +54,7 @@ There is **no** dedicated SuperAdmin page route for unsubscribe as of 2026-09-18
 
 ## Confirmed demo account (from `README.md`)
 
-Bootstrap via `/api/ip/bootstrap` ensures: `support@placementhub.online` / `Admin@123`.  
+Bootstrap via `/api/ip/bootstrap` ensures: `support@placementhub.online`. Local/Vercel QA password lives in `scripts/lib/ipCoreSampleConfig.js` (`SUPERADMIN_QA_PASSWORD` — separate from the candidate/employer core password).  
 Do not invent alternate admin roles. Do not reset password hashes for existing SuperAdmin in bootstrap.
 
 ## Constraints

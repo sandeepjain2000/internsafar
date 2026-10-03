@@ -359,14 +359,14 @@ export default function CandidateProfilePage() {
     delete payload.profile_complete;
     delete payload.created_at;
     delete payload.updated_at;
-    if (profileTab === 'academic') {
-      delete payload.college;
-      delete payload.degree;
-      delete payload.specialization;
-      delete payload.study_status;
-      delete payload.graduation_year;
-      delete payload.cgpa;
-    }
+    // Education columns are owned by PUT /academics (row 0 is synced there). Sending the copy loaded
+    // with the page would overwrite education saved earlier in this visit with stale values.
+    delete payload.college;
+    delete payload.degree;
+    delete payload.specialization;
+    delete payload.study_status;
+    delete payload.graduation_year;
+    delete payload.cgpa;
     const res = await fetch('/api/ip/candidate/profile', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

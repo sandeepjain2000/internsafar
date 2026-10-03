@@ -61,6 +61,9 @@ Stipend display/sort may use `stipend_inr_max` when present (NULL = single/`stip
 
 Candidate profile location/phone update path: `src/lib/ipCandidateProfileUpdate.js` + `/api/ip/candidate/profile` — preserve validation when restyling.
 
+- Profile save (2026-10-03): the profile page never sends `college`/`degree`/`specialization`/`study_status`/`graduation_year`/`cgpa` to `PUT /api/ip/candidate/profile`; `PUT /api/ip/candidate/academics` owns education and syncs row 0. Saving another tab cannot overwrite education.
+- Offer expiry (2026-10-03): `valid_until` is a date; an offer stays open until **23:59:59 IST** that day (`offerDeadlineEnd` in `src/lib/ipOfferPresentation.js`). Dashboard pending offers + "Expires today / N days left" use the same helper.
+
 ## Constraints
 
 - Role home is `/candidate`. Wrong-role redirects via `PortalShell`.

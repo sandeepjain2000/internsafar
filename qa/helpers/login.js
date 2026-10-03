@@ -1,5 +1,5 @@
 const { expect } = require('@playwright/test');
-const { password } = require('./accounts');
+const { passwordFor } = require('./accounts');
 
 async function fillCaptchaIfPresent(page, inputId = 'login-captcha') {
   const box = page.locator(`#${inputId}`);
@@ -38,7 +38,7 @@ async function fillCaptchaIfPresent(page, inputId = 'login-captcha') {
   await box.pressSequentially(answer, { delay: 20 });
 }
 
-async function apiLoginOnce(base, email, pwd = password) {
+async function apiLoginOnce(base, email, pwd = passwordFor(email)) {
   const jar = new Map();
   const store = (res) => {
     const raw = typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [];
@@ -124,7 +124,7 @@ async function apiLoginOnce(base, email, pwd = password) {
 }
 
 /** Retry login — captcha/session races under load are wait/flake, not product bugs. */
-async function apiLogin(base, email, pwd = password) {
+async function apiLogin(base, email, pwd = passwordFor(email)) {
   let last = { ok: false };
   for (let i = 0; i < 4; i += 1) {
     last = await apiLoginOnce(base, email, pwd);
@@ -151,7 +151,7 @@ async function openWithSession(page, email, homePath) {
   });
 }
 
-async function signInOnHome(page, email, pwd = password) {
+async function signInOnHome(page, email, pwd = passwordFor(email)) {
   await page.goto('/');
   await expect(page.locator('#email')).toBeVisible({ timeout: 20_000 });
   await page.locator('#email').fill(email);
@@ -164,7 +164,7 @@ async function signInOnHome(page, email, pwd = password) {
   });
 }
 
-async function signInSuperAdmin(page, email, pwd = password) {
+async function signInSuperAdmin(page, email, pwd = passwordFor(email)) {
   // Prefer API session for reliability (same path as openWithSession). UI form is covered by field smoke tests.
   const base = process.env.IP_BASE || 'http://localhost:3000';
   const logged = await apiLogin(base, email, pwd);

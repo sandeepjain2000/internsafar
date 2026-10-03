@@ -1,5 +1,45 @@
 /** Candidate application labels and next-step copy from live statuses (no stored timeline). */
 
+/**
+ * Statuses an employer may set by hand, keyed by the current status. `offered` comes only from
+ * POST /api/ip/offers, `completed` from /api/ip/completions, `declined_offer` / `withdrawn` from the
+ * candidate. `hired` may be undone only when it was set by hand — a hire from an accepted offer is
+ * locked server-side (see employer applications PATCH).
+ */
+const EMPLOYER_STATUS_TRANSITIONS = {
+  applied: ['shortlisted', 'interviewing', 'rejected'],
+  pending: ['shortlisted', 'interviewing', 'rejected'],
+  shortlisted: ['applied', 'interviewing', 'rejected', 'hired'],
+  interviewing: ['applied', 'shortlisted', 'rejected', 'hired'],
+  offered: ['shortlisted', 'interviewing', 'rejected'],
+  declined_offer: ['shortlisted', 'interviewing', 'rejected'],
+  rejected: ['applied', 'shortlisted', 'interviewing'],
+  hired: ['shortlisted', 'interviewing', 'rejected'],
+  withdrawn: [],
+  completed: [],
+};
+
+export function employerStatusTargets(current) {
+  return EMPLOYER_STATUS_TRANSITIONS[String(current || 'applied').toLowerCase()] || [];
+}
+
+/** Re-setting the same status (e.g. rescheduling an interview) is always allowed unless the row is locked. */
+export function employerCanSetStatus(current, next) {
+  const from = String(current || 'applied').toLowerCase();
+  const to = String(next || '').toLowerCase();
+  if (from === to) return employerStatusTargets(from).length > 0;
+  return employerStatusTargets(from).includes(to);
+}
+
+export function employerStatusBlockedMessage(current, next) {
+  const from = String(current || 'applied').toLowerCase();
+  if (from === 'withdrawn') return 'The candidate withdrew this application, so its status can no longer be changed.';
+  if (from === 'completed') return 'This internship is marked completed, so its status can no longer be changed.';
+  if (next === 'offered') return 'Send an offer from the applicant list to move this application to offered.';
+  if (next === 'completed') return 'Mark the internship completed from the Completions section instead.';
+  return `An application cannot move from ${from.replace(/_/g, ' ')} to ${String(next || '').replace(/_/g, ' ')}.`;
+}
+
 export function applicationStatusKey(status) {
   return String(status || 'applied').toLowerCase();
 }

@@ -32,7 +32,8 @@ function ForgotInner() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, captchaToken: challenge.token, captchaAnswer: challenge.answer }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
+    captchaFieldRef.current?.refresh?.();
     if (!res.ok) setErr(data.error || 'Failed');
     else setMsg(data.message || 'If the email exists, a reset link was sent via ZeptoMail.');
   }

@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { query } from '@/lib/db';
+import { transaction } from '@/lib/transaction';
 import { newId, referralCodeFrom } from '@/lib/ids';
 import { sendMail } from '@/lib/mail';
 import { notifyRole, notifyUser } from '@/lib/ipNotify';
 import { referrerRewardsForRole } from '@/lib/pointsEconomy';
 import { domainFromWebsite, normalizeEmail } from '@/lib/authRegisterRules';
-import { captchaFailureMessage, explainCaptchaFailure } from '@/lib/simpleCaptcha';
+import { captchaFailureMessage, consumeCaptcha } from '@/lib/simpleCaptcha';
 import { ensureIpFormRegistrationSchema } from '@/lib/ensureIpFormRegistrationSchema';
 import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
 import { isValidBusinessEntityType } from '@/lib/employerBusinessEntity';
@@ -76,7 +77,7 @@ export async function POST(request) {
     if (passwordPlain.length < 8) {
       return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
     }
-    const captchaCode = explainCaptchaFailure(body.captchaToken, body.captchaAnswer);
+    const captchaCode = await consumeCaptcha(body.captchaToken, body.captchaAnswer);
     if (captchaCode) {
       return NextResponse.json({ error: captchaFailureMessage(captchaCode), code: captchaCode }, { status: 400 });
     }
@@ -122,16 +123,15 @@ export async function POST(request) {
       }
     }
 
-    await query('BEGIN');
-    try {
-      await query(
+    await transaction(async (client) => {
+      await client.query(
         `INSERT INTO ip_users (
            id, email, password_hash, role, name, points, free_post_credits, referral_code, referred_by,
            registration_source, active, email_verify_required, email_verified_at
          ) VALUES ($1,$2,$3,'employer',$4,50,1,$5,$6,$7,true,true,null)`,
         [userId, email, passwordHash, name, referralCodeFrom(name), referredBy, registrationSource],
       );
-      await query(
+      await client.query(
         `INSERT INTO ip_employers (
            id, user_id, company_name, website, work_email, contact_name, contact_designation,
            business_entity_type, approval_status,
@@ -152,13 +152,13 @@ export async function POST(request) {
           classReasons,
         ],
       );
-      await query(
+      await client.query(
         `INSERT INTO ip_points_ledger (id, user_id, delta, reason) VALUES ($1,$2,50,'default_signup')`,
         [newId('ip_pts'), userId],
       );
       if (referredBy && referrerRole) {
         const rewards = referrerRewardsForRole(referrerRole);
-        await query(
+        await client.query(
           `UPDATE ip_users
            SET points = points + $2,
                free_post_credits = free_post_credits + $3,
@@ -167,11 +167,11 @@ export async function POST(request) {
            WHERE id = $1`,
           [referredBy, rewards.points, rewards.freePostCredits, rewards.applicationAllowance],
         );
-        await query(
+        await client.query(
           `INSERT INTO ip_points_ledger (id, user_id, delta, reason, meta) VALUES ($1,$2,$3,'referral_bonus',$4::jsonb)`,
           [newId('ip_pts'), referredBy, rewards.points, JSON.stringify({ referredUserId: userId })],
         );
-        await query(
+        await client.query(
           `INSERT INTO ip_referrals (id, referrer_user_id, referred_user_id, referral_code, status, points_awarded)
            VALUES ($1,$2,$3,$4,'completed',$5)`,
           [newId('ip_ref'), referredBy, userId, referralCode, rewards.points],
@@ -184,11 +184,7 @@ export async function POST(request) {
           category: 'referral',
         };
       }
-      await query('COMMIT');
-    } catch (e) {
-      await query('ROLLBACK');
-      throw e;
-    }
+    });
 
     if (referralNotify) {
       await notifyUser(referralNotify).catch(() => {});

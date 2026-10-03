@@ -1,6 +1,6 @@
 /**
  * Shared NextAuth credentials login for IP QA scripts (API cookie jar).
- * Sibling/Vercel: core passwords are hardcoded Admin@123 (ipCoreSampleConfig).
+ * Sibling/Vercel: core passwords are hardcoded in ipCoreSampleConfig (SuperAdmin has its own).
  */
 import { createRequire } from 'module';
 import { dirname } from 'path';

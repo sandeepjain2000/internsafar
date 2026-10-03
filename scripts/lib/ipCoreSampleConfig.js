@@ -17,22 +17,29 @@ const SUPERADMIN_EMAIL = 'support@placementhub.online';
 const LEGACY_SUPERADMIN_EMAIL = 'superadmin@internship.local';
 
 /**
- * Sibling / Vercel / local Neon QA: hardcoded core password (Admin@123).
+ * Sibling / Vercel / local Neon QA: hardcoded core passwords. Candidates and
+ * employers share CORE_QA_PASSWORD; SuperAdmin has its own.
  * AWS / production packs keep coreaccountspass.json via loadCoreAccountPasswords
  * in the handoff extract — do not bake this hardcode into production tars.
  */
 const CORE_QA_PASSWORD = 'Admin@123';
+const SUPERADMIN_QA_PASSWORD = 'Admin680@#';
 
-function getCorePasswordForEmail(_email) {
-  return CORE_QA_PASSWORD;
+function isSuperadminEmail(email) {
+  const e = String(email || '').trim().toLowerCase();
+  return e === SUPERADMIN_EMAIL || e === LEGACY_SUPERADMIN_EMAIL;
 }
 
-function getCorePasswordForRole(_role) {
-  return CORE_QA_PASSWORD;
+function getCorePasswordForEmail(email) {
+  return isSuperadminEmail(email) ? SUPERADMIN_QA_PASSWORD : CORE_QA_PASSWORD;
 }
 
-function getCorePasswordForEmailOrRole(_email, _role) {
-  return CORE_QA_PASSWORD;
+function getCorePasswordForRole(role) {
+  return role === 'superadmin' ? SUPERADMIN_QA_PASSWORD : CORE_QA_PASSWORD;
+}
+
+function getCorePasswordForEmailOrRole(email, role) {
+  return isSuperadminEmail(email) || role === 'superadmin' ? SUPERADMIN_QA_PASSWORD : CORE_QA_PASSWORD;
 }
 
 /** Optional: still available for ops scripts that need the JSON file (AWS tooling). */

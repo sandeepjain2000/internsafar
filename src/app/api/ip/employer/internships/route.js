@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { chargePublishPoints } from '@/lib/chargePublishPoints';
+import { transaction } from '@/lib/transaction';
 import { POINTS_PER_POST } from '@/lib/pointsEconomy';
 import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
 import { validateScreeningQuestions } from '@/lib/ipScreeningQuestions';
@@ -73,13 +74,6 @@ export async function POST(request) {
   });
   if (schedule.errors.length) return jsonError(schedule.errors[0], 400);
 
-  if (publishing) {
-    const spendErr = await chargePublishPoints(session.user.id, { action: 'create_publish' });
-    if (spendErr) {
-      return jsonError(`${spendErr} Or save as draft.`, 403);
-    }
-  }
-
   const engagementType = body.engagementType || body.engagement_type || null;
   const stipendType = body.stipendType || body.stipend_type || null;
   const weeklyHours = body.weeklyHours ?? body.weekly_hours ?? null;
@@ -104,35 +98,52 @@ export async function POST(request) {
   const remindEndHours = Math.max(1, Number(body.remindEndHours ?? body.remind_end_hours ?? 24) || 24);
 
   const id = newId('ip_int');
-  await query(
-    `INSERT INTO ip_internships (
+  const insertSql = `INSERT INTO ip_internships (
        id, employer_id, title, description, location, work_mode, stipend_inr, stipend_inr_max, duration_months,
        start_date, end_date, eligibility, questions, status, show_employer_identity,
        work_hours_start, work_hours_end, engagement_type, weekly_hours, stipend_type, incentive_basis,
        starts_at, apply_ends_at, locations,
        remind_before_start, remind_before_end, remind_start_hours, remind_end_hours
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24::jsonb,$25,$26,$27,$28)`,
-    [
-      id, emp.rows[0].id, title, body.description || '', body.location || locations[0] || '', workMode,
-      stipendInr, stipendInrMax, body.durationMonths || null, body.startDate || null, body.endDate || null,
-      JSON.stringify(body.eligibility || {}), JSON.stringify(questions),
-      publishing ? 'published' : 'draft',
-      body.showEmployerIdentity !== false,
-      body.workHoursStart || body.work_hours_start || null,
-      body.workHoursEnd || body.work_hours_end || null,
-      engagementType || null,
-      engagementType === 'part_time' && weeklyHours !== '' && weeklyHours != null ? Number(weeklyHours) : null,
-      stipendType || null,
-      stipendType === 'incentive' ? (incentiveBasis || null) : null,
-      startsAtRaw || null,
-      applyEndsRaw || null,
-      JSON.stringify(locations),
-      remindBeforeStart,
-      remindBeforeEnd,
-      remindStartHours,
-      remindEndHours,
-    ],
-  );
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24::jsonb,$25,$26,$27,$28)`;
+  const insertParams = [
+    id, emp.rows[0].id, title, body.description || '', body.location || locations[0] || '', workMode,
+    stipendInr, stipendInrMax, body.durationMonths || null, body.startDate || null, body.endDate || null,
+    JSON.stringify(body.eligibility || {}), JSON.stringify(questions),
+    publishing ? 'published' : 'draft',
+    body.showEmployerIdentity !== false,
+    body.workHoursStart || body.work_hours_start || null,
+    body.workHoursEnd || body.work_hours_end || null,
+    engagementType || null,
+    engagementType === 'part_time' && weeklyHours !== '' && weeklyHours != null ? Number(weeklyHours) : null,
+    stipendType || null,
+    stipendType === 'incentive' ? (incentiveBasis || null) : null,
+    startsAtRaw || null,
+    applyEndsRaw || null,
+    JSON.stringify(locations),
+    remindBeforeStart,
+    remindBeforeEnd,
+    remindStartHours,
+    remindEndHours,
+  ];
+
+  if (publishing) {
+    try {
+      await transaction(async (client) => {
+        const spendErr = await chargePublishPoints(session.user.id, { action: 'create_publish' }, client);
+        if (spendErr) {
+          const err = new Error(spendErr);
+          err.code = 'INSUFFICIENT_POINTS';
+          throw err;
+        }
+        await client.query(insertSql, insertParams);
+      });
+    } catch (e) {
+      if (e.code === 'INSUFFICIENT_POINTS') return jsonError(`${e.message} Or save as draft.`, 403);
+      throw e;
+    }
+  } else {
+    await query(insertSql, insertParams);
+  }
 
   return jsonOk({
     ok: true,

@@ -22,6 +22,7 @@ import { StandardTableIconAction } from '@/components/ui/StandardTableIconAction
 import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 import { toTitleCaseLabel } from '@/lib/ipTitleCase';
 import { OFFERABLE_APPLICATION_STATUSES } from '@/lib/ipOfferPresentation';
+import { employerStatusTargets } from '@/lib/ipApplicationPresentation';
 import '@/components/ip/ip-table-filters.css';
 
 const STATUS_OPTIONS = ['applied', 'shortlisted', 'interviewing', 'rejected', 'hired', 'completed'];
@@ -226,6 +227,11 @@ export default function ApplicantsPipelinePage() {
     setBulkMsgOpen(false);
     setRejectOpen(false);
     await load();
+    if (data.skipped > 0) {
+      window.alert(
+        `Updated ${data.updated || 0}. Skipped ${data.skipped} hired, withdrawn or completed application(s) — change those one at a time if needed.`,
+      );
+    }
   }
 
   function triggerDownload(blob, filename) {
@@ -331,11 +337,15 @@ export default function ApplicantsPipelinePage() {
       setInterviewMeetUrl(row?.interview_meet_url || '');
       return;
     }
-    await fetch(`/api/ip/employer/applications/${appId}`, {
+    const res = await fetch(`/api/ip/employer/applications/${appId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: next }),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      window.alert(data.error || 'Could not change the application status');
+    }
     await load();
   }
 
@@ -532,7 +542,7 @@ export default function ApplicantsPipelinePage() {
   function renderApplicantActions(a) {
     return (
       <div className="flex flex-wrap gap-1">
-        {STATUS_OPTIONS.filter((s) => s !== a.status && s !== 'completed').map((s) => (
+        {employerStatusTargets(a.status).map((s) => (
           <StandardTableIconAction key={s} action={STATUS_ACTIONS[s] || 'edit'} tooltip={`Move to ${s}`} onClick={() => setStatus(a.id, s)} />
         ))}
         {OFFERABLE_APPLICATION_STATUSES.includes(String(a.status || '').toLowerCase()) ? (

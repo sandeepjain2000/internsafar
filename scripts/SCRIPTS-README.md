@@ -24,8 +24,8 @@ to the database. Deep detail on generating and deleting test data lives in
 
 | Script | Writes? | What it does |
 |---|---|---|
-| `generate-ip-test-data.mjs` | data + schema | Main generator. `--mode=core-fill` fills the three core accounts; `--mode=gen-accounts` creates disposable `+gen` users. Applies pipeline schema idempotently. |
-| `delete-ip-generated-run.mjs` | data | Deletes one generate run by id, or everything except the three cores. Requires an explicit confirm flag. |
+| `generate-ip-test-data.mjs` | data + schema | Main generator. `--mode=core-fill` fills the three core accounts; `--mode=gen-accounts` creates disposable `+gen` users. Applies pipeline schema idempotently. Needs `IP_ALLOW_DB_MIGRATE=1` (or `--i-confirm-db-write`); refuses AWS RDS from a laptop/Vercel. |
+| `delete-ip-generated-run.mjs` | data | Deletes one generate run by id, or everything except the three cores. Requires an explicit confirm flag, plus the same allow + RDS-target gates (dry run included, since it applies schema). |
 | `IP_Reset_Core_Sample.js` | data + schema | Demo/core baseline tool. **Not** for wiping live/production data. Do not use delete/truncate-and-reinsert as a live migration strategy. |
 | `seed-ip-completed-for-core.mjs` | data | Gives the core candidate completed applications so "Internships Completed" isn't empty. |
 | `fill-ip-posting-requirements.mjs` | data | Backfills `eligibility.requirements_text` and `ideal_profile_text` on published internships missing them. Data only. |
@@ -33,7 +33,7 @@ to the database. Deep detail on generating and deleting test data lives in
 | `assert-db-migrate-allowed.js` | no | **Hard gate.** Refuses migrate/seed unless `IP_ALLOW_DB_MIGRATE=1` (or confirm flag). Path B must never set this. Allow ≠ wipe permission. |
 | `assert-db-migrate-target.js` | no | **Accident gate.** If migrate runs on a laptop or Vercel and `DATABASE_URL` is AWS RDS, refuse. Path C on EC2 still allowed (no extra env). |
 | `assert-migration-sql-safe.js` | no | **Live-data gate.** Blocks new migration SQL with `DELETE`/`DROP TABLE`/`DROP COLUMN`/`TRUNCATE`. Legacy allowlist only for old files. `npm run db:check-migration-safety`. |
-| `deploy-fresh-aws-db.mjs` | data + schema | **AWS Path C — empty RDS only.** Requires allow. Never use to wipe an existing live database. |
+| `deploy-fresh-aws-db.mjs` | data + schema | **AWS Path C — empty RDS only.** Requires allow. Refuses to start when `ip_users` already has rows (its seed deletes non-core accounts); override flag `--i-confirm-wipe-non-core-users` exists for deliberate wipes only. |
 | `db_migrate_sql_only_ip.mjs` | schema | SQL 001–039 when demo users exist. Review files first; live data must stay intact (no truncate/delete-and-insert refresh). |
 | `db_exec_sql_file.js` | schema | Runs one `.sql` file. Calls the allow gate; fail-closed (`=== OK ===` / `=== FAIL ===` / `=== BLOCKED ===`). |
 
@@ -44,7 +44,7 @@ to the database. Deep detail on generating and deleting test data lives in
 | `hard-delete-ip-user.js` | data | Hard-deletes one `ip_*` user with full cascade. See `HARD_DELETE_IP_USER.md`. |
 | `hard-delete-ip-test-prefix-users.js` | data | Hard-deletes candidate/employer users whose first name starts with `test` (case-insensitive: `test1` / `Test1` / `Testcase` yes). Dry-run default; `--confirm` to delete. `npm run delete:ip-test-prefix`. |
 | `hard-delete-internship-local-users.js` | data | Hard-deletes every `*@internship.local` user. Leaves real accounts alone. |
-| `set-superadmin-email.js` | data | One-shot: points SuperAdmin at `support@placementhub.online`. |
+| `set-superadmin-email.js` | data | One-shot: points SuperAdmin at `support@placementhub.online`. Needs `--i-confirm-db-write` (or `IP_ALLOW_DB_MIGRATE=1`); refuses AWS RDS from a laptop/Vercel. |
 
 ## QA runners
 

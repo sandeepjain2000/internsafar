@@ -10,6 +10,7 @@ import { ensureIpInternshipStipendRangeSchema } from '@/lib/ensureIpInternshipSt
 import { parseStipendRangeFields } from '@/lib/ipInternshipStipend';
 import { getEmployerPostingGate } from '@/lib/ipEmployerPostingGate';
 import { transaction } from '@/lib/transaction';
+import { dayString } from '@/lib/ipCandidateProfileDisplay';
 
 const EDITABLE_FIELDS = [
   'title', 'description', 'location', 'work_mode', 'stipend_inr', 'stipend_inr_max', 'duration_months', 'start_date',
@@ -45,6 +46,10 @@ export async function GET(request, { params }) {
   return jsonOk({
     internship: {
       ...row,
+      // DATE → Date at server-local midnight; as JSON it becomes the previous UTC day on IST hosts,
+      // and the edit form would save that earlier day back.
+      start_date: dayString(row.start_date) || null,
+      end_date: dayString(row.end_date) || null,
       lifecycle_label: deriveLifecycleLabel(row),
       applicant_count: counts.rows[0]?.historical || 0,
       active_applicant_count: counts.rows[0]?.active || 0,

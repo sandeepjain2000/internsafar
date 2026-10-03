@@ -36,6 +36,8 @@ const {
 } = require('./lib/ipCoreSampleConfig.js');
 const { ensureIpPipelineSchema } = require('./lib/ensureIpPipelineSchema.js');
 const demoText = require('./lib/ipDemoText.js');
+const { assertDbMigrateAllowed } = require('./assert-db-migrate-allowed.js');
+const { assertDbMigrateTargetAllowed } = require('./assert-db-migrate-target.js');
 
 function arg(name, fallback) {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -729,6 +731,9 @@ async function main() {
 See scripts/IP_TEST_DATA_GUIDE.md`);
     return;
   }
+
+  assertDbMigrateAllowed(process.argv);
+  assertDbMigrateTargetAllowed(process.argv, { connectionString: dbUrl });
 
   const pool = new pg.Pool(parseUrl(dbUrl));
   try {

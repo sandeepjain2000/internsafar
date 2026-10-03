@@ -27,6 +27,8 @@ const {
 } = require('./lib/ipCoreSampleConfig.js');
 const { hardDeleteIpUser } = require('./lib/hardDeleteIpUser.js');
 const { ensureIpPipelineSchema } = require('./lib/ensureIpPipelineSchema.js');
+const { assertDbMigrateAllowed } = require('./assert-db-migrate-allowed.js');
+const { assertDbMigrateTargetAllowed } = require('./assert-db-migrate-target.js');
 
 function argFlag(name) {
   const idx = process.argv.indexOf(`--${name}`);
@@ -221,6 +223,10 @@ async function main() {
 See scripts/IP_TEST_DATA_GUIDE.md`);
     return;
   }
+
+  // Even the dry run applies pipeline schema, so the DB write gate covers every mode.
+  assertDbMigrateAllowed(process.argv);
+  assertDbMigrateTargetAllowed(process.argv, { connectionString: dbUrl });
 
   const pool = new pg.Pool(parseUrl(dbUrl));
   console.log('Connecting to database...');

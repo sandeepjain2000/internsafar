@@ -48,6 +48,14 @@ Sign-in, registration, sessions, role homes, Google auth helpers, 2FA, account s
 - Signed in with the wrong role (e.g. employer opens a candidate posting link) → no redirect; `PortalShell` shows "Sign in as a candidate to view this internship" + Sign out (signs out to `/?next=…`).
 - Help coverage: help chatbot entries `internships.shared_link` + `employer.share_posting` (`src/lib/ipHelpChat/knowledge/`) and the `/help` card "Shared internship links". Update them if this flow changes.
 
+### Abuse limits (confirmed 2026-10-03)
+
+- **Captcha is single-use.** Tokens carry a nonce `n`; `/api/auth/captcha/verify` gates carry the same nonce. Login, employer signup and password-reset call `consumeCaptcha` (`src/lib/simpleCaptcha.js`), which spends the nonce in `ip_captcha_nonces` (`src/lib/ipCaptchaNonce.js`, 30 min expiry). Replays → "already used, click New Code". Tokens without a nonce (issued before 2026-10-03) → "out of date". Client refreshes the captcha after every failed submit (`LoginCaptchaField` ref `refresh()`).
+- **Login throttle** (`auth.js` `isLoginThrottled`): 10 wrong-password / unknown-account attempts per email, or 50 per IP, in 15 min → blocked with "use Forgot password" (recorded as `Rate limited`). Reads `ip_login_events`; fails open on DB error.
+- **2FA:** 5 wrong codes burn a challenge (`ip_2fa_challenges.failed_attempts`); max 5 login codes per user per 15 min (sign-in + resend); resend on a spent challenge asks to sign in again.
+- **Password reset:** max 5 reset emails per account per hour; extra requests get the same OK response but no mail.
+- Signup (candidate/employer) and employer email-verify run in `transaction()` (`src/lib/transaction.js`); verify token claim is atomic.
+
 Candidates do **not** require email verify before login. Employer email verify table/columns: `ensureIpEmployerEmailVerifySchema` (schema only — fill blanks via temp runner on AWS, never `email_verify_required=false` grandfather).
 
 ## Constraints

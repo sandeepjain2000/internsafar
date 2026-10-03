@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { query } from '@/lib/db';
+import { transaction } from '@/lib/transaction';
 import { newId, randomPassword, referralCodeFrom } from '@/lib/ids';
 import { sendMail, tempPasswordEmailHtml } from '@/lib/mail';
 import { notifyUser } from '@/lib/ipNotify';
@@ -149,28 +150,27 @@ export async function POST(request) {
     const active = true;
     const registrationSource = googleIdentity ? 'google' : 'gmail_domain';
 
-    await query('BEGIN');
-    try {
-      await query(
+    await transaction(async (client) => {
+      await client.query(
         `INSERT INTO ip_users (
            id, email, password_hash, role, name, points, application_allowance, referral_code, referred_by,
            active, registration_source
          ) VALUES ($1,$2,$3,'candidate',$4,50,10,$5,$6,$7,$8)`,
         [userId, email, passwordHash, name, myReferral, referredBy, active, registrationSource],
       );
-      await query(
+      await client.query(
         `INSERT INTO ip_candidates (id, user_id, name, email, college, graduation_year, profile_picture_url)
          VALUES ($1,$2,$3,$4,$5,$6,$7)`,
         [candidateId, userId, name, email, college, graduationYear, googleIdentity?.pictureUrl || null],
       );
-      await query(
+      await client.query(
         `INSERT INTO ip_points_ledger (id, user_id, delta, reason, meta)
          VALUES ($1,$2,50,'default_signup',$3::jsonb)`,
         [newId('ip_pts'), userId, JSON.stringify({ source: registrationSource })],
       );
       if (referredBy && referrerRole && referredBy !== userId) {
         const rewards = referrerRewardsForRole(referrerRole);
-        await query(
+        await client.query(
           `UPDATE ip_users
            SET points = points + $2,
                free_post_credits = free_post_credits + $3,
@@ -179,12 +179,12 @@ export async function POST(request) {
            WHERE id = $1`,
           [referredBy, rewards.points, rewards.freePostCredits, rewards.applicationAllowance],
         );
-        await query(
+        await client.query(
           `INSERT INTO ip_points_ledger (id, user_id, delta, reason, meta)
            VALUES ($1,$2,$3,'referral_bonus',$4::jsonb)`,
           [newId('ip_pts'), referredBy, rewards.points, JSON.stringify({ referredUserId: userId, referrerName })],
         );
-        await query(
+        await client.query(
           `INSERT INTO ip_referrals (id, referrer_user_id, referred_user_id, referral_code, status, points_awarded)
            VALUES ($1,$2,$3,$4,'completed',$5)`,
           [newId('ip_ref'), referredBy, userId, referralCode, rewards.points],
@@ -197,11 +197,7 @@ export async function POST(request) {
           category: 'referral',
         };
       }
-      await query('COMMIT');
-    } catch (e) {
-      await query('ROLLBACK');
-      throw e;
-    }
+    });
 
     if (googleIdentity?.googleSub) {
       try {

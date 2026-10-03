@@ -108,6 +108,7 @@ export default function EmployerRegisterPage() {
       setResendHint('');
     } catch (err) {
       setError(err.message);
+      captchaFieldRef.current?.refresh?.();
     } finally {
       setLoading(false);
     }

@@ -23,6 +23,7 @@ import {
 } from '@/lib/ipCandidateProfileDraft';
 import { parseExperienceEntries } from '@/lib/ipPostingBody';
 import { readResponseJson } from '@/lib/readResponseJson';
+import { offerDeadlineEnd, offerIsExpired } from '@/lib/ipOfferPresentation';
 import '@/components/ip/ip-candidate-dashboard-gemini.css';
 
 const FEATURES = [
@@ -110,9 +111,10 @@ function formatInterviewWhen(iso) {
 function offerExpiresLabel(validUntil) {
   if (!validUntil) return null;
   try {
-    const end = new Date(validUntil);
-    const days = Math.ceil((end.getTime() - Date.now()) / 86400000);
-    if (days < 0) return 'Expired';
+    const end = offerDeadlineEnd(validUntil);
+    if (!end) return null;
+    if (end.getTime() < Date.now()) return 'Expired';
+    const days = Math.ceil((end.getTime() - Date.now()) / 86400000) - 1;
     if (days === 0) return 'Expires today';
     if (days === 1) return 'Expires in 1 day';
     return `Expires in ${days} days`;
@@ -190,11 +192,7 @@ export default function CandidateDashboard() {
       offers
         .filter((o) => {
           if (String(o.status).toLowerCase() !== 'pending') return false;
-          if (o.valid_until) {
-            const end = new Date(o.valid_until).getTime();
-            if (!Number.isNaN(end) && end < Date.now()) return false;
-          }
-          return true;
+          return !offerIsExpired(o);
         })
         .slice(0, 2),
     [offers],
