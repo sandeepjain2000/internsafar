@@ -16,7 +16,8 @@ import {
   normalizeScreeningQuestions,
 } from '@/lib/ipScreeningQuestions';
 import { withApplicationCapacityLock } from '@/lib/ipApplicationCapacity';
-import { maskEmployerName } from '@/lib/ipEmployerIdentity';
+import { candidateFacingCompany, maskEmployerIdentityForCandidate } from '@/lib/ipEmployerIdentity';
+import { escapeHtml } from '@/lib/escapeHtml';
 import { ensureIpInternshipStipendRangeSchema } from '@/lib/ensureIpInternshipStipendRangeSchema';
 
 export const dynamic = 'force-dynamic';
@@ -57,7 +58,8 @@ export async function GET(request) {
     const where = ['a.candidate_id = $1'];
     if (q) {
       params.push(`%${q}%`);
-      where.push(`(lower(coalesce(i.title,'')) LIKE $${params.length} OR lower(coalesce(e.company_name,'')) LIKE $${params.length})`);
+      where.push(`(lower(coalesce(i.title,'')) LIKE $${params.length}
+        OR (coalesce(i.show_employer_identity, true) AND lower(coalesce(e.company_name,'')) LIKE $${params.length}))`);
     }
 
     let orderBy = 'a.created_at DESC NULLS LAST';
@@ -79,6 +81,7 @@ export async function GET(request) {
 
     const result = await query(
       `SELECT a.id, a.internship_id, a.candidate_id, a.status, a.match_score, a.created_at, a.updated_at,
+              a.interview_at, a.interview_meet_url,
               i.title, i.stipend_inr, i.stipend_inr_max, i.stipend_type, i.work_mode, i.location, i.show_employer_identity,
               i.status AS internship_status, i.apply_ends_at,
               e.id AS employer_id, e.company_name, e.approval_status, e.user_id AS employer_user_id
@@ -92,12 +95,13 @@ export async function GET(request) {
     );
 
     const items = result.rows.map((row) =>
-      decorateCandidateApplication({
-        ...row,
-        employer_id: row.employer_id || null,
-        employer_user_id: row.employer_user_id || null,
-        company_name: maskEmployerName(row.company_name, row.show_employer_identity !== false),
-      }),
+      decorateCandidateApplication(
+        maskEmployerIdentityForCandidate({
+          ...row,
+          employer_id: row.employer_id || null,
+          employer_user_id: row.employer_user_id || null,
+        }),
+      ),
     );
 
     return jsonOk({ items, total, page, pageSize });
@@ -125,7 +129,7 @@ export async function POST(request) {
   if (!cand.rows[0]) return jsonError('Candidate profile missing', 404);
 
   const internship = await query(
-    `SELECT id, employer_id, title, eligibility, questions, status, starts_at, apply_ends_at
+    `SELECT id, employer_id, title, eligibility, questions, status, starts_at, apply_ends_at, show_employer_identity
      FROM ip_internships WHERE id = $1`,
     [internshipId],
   );
@@ -225,7 +229,7 @@ export async function POST(request) {
       if (withdrawnApp) {
         // UNIQUE(internship_id, candidate_id) — reopen withdrawn row as a fresh apply
         appId = withdrawnApp.id;
-        await client.query(
+        const reopened = await client.query(
           `UPDATE ip_applications SET
              status = 'applied',
              match_score = $2,
@@ -251,6 +255,13 @@ export async function POST(request) {
             disableEval.reason ? JSON.stringify(disableEval.reason) : null,
           ],
         );
+        if (!reopened.rowCount) {
+          const err = new Error(
+            'You already have an active application to this internship. Withdraw it first if you want to apply again.',
+          );
+          err.code = 'ALREADY_APPLIED';
+          throw err;
+        }
         await client.query(
           `INSERT INTO ip_application_events (id, application_id, actor_user_id, event_type, payload)
            VALUES ($1,$2,$3,'reapplied',$4::jsonb)`,
@@ -302,6 +313,13 @@ export async function POST(request) {
   } catch (e) {
     if (e.code === 'CAPACITY') return jsonError(e.message, 409);
     if (e.code === 'INSUFFICIENT_POINTS') return jsonError(e.message, 403);
+    if (e.code === 'ALREADY_APPLIED') return jsonError(e.message, 409);
+    if (e.code === '23505') {
+      return jsonError(
+        'You already have an active application to this internship. Withdraw it first if you want to apply again.',
+        409,
+      );
+    }
     throw e;
   }
 
@@ -349,7 +367,7 @@ export async function POST(request) {
       await sendMail({
         to: employer.rows[0].email,
         subject: `New Applicant — ${roleTitle}`,
-        html: `<p><strong>${candidateName}</strong> applied for <strong>${roleTitle}</strong>.</p><p>Sign In To Review Applicants.</p>`,
+        html: `<p><strong>${escapeHtml(candidateName)}</strong> applied for <strong>${escapeHtml(roleTitle)}</strong>.</p><p>Sign In To Review Applicants.</p>`,
         text: `${candidateName} applied for ${roleTitle}.`,
       });
     } catch (e) {
@@ -357,17 +375,21 @@ export async function POST(request) {
     }
   }
 
+  const shownCompany = candidateFacingCompany(
+    employer.rows[0]?.company_name,
+    internship.rows[0].show_employer_identity,
+  );
   await notifyUser({
     userId: session.user.id,
     title: 'Application submitted',
-    body: `You applied to ${internship.rows[0].title}${employer.rows[0]?.company_name ? ` at ${employer.rows[0].company_name}` : ''}`,
+    body: `You applied to ${internship.rows[0].title}${shownCompany ? ` at ${shownCompany}` : ''}`,
     link: `/candidate/applications?id=${encodeURIComponent(id)}`,
     category: 'application',
     meta: {
       applicationId: id,
       internshipId,
       internshipTitle: internship.rows[0].title,
-      company: employer.rows[0]?.company_name || null,
+      company: shownCompany,
     },
   });
 

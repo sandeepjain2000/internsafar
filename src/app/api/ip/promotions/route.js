@@ -4,13 +4,14 @@ import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { LINKEDIN_PROMO_CREDITS, LINKEDIN_PROMO_POINTS } from '@/lib/pointsEconomy';
 import { resolveAppOrigin } from '@/lib/ipAppOrigin';
+import { postingShareText } from '@/lib/ipPostingShareText';
 
 function promoToken() {
   return `ip_li_${randomBytes(8).toString('hex')}`;
 }
 
-function suggestedPostText(title, shareUrl) {
-  return `We're hiring for ${title}. Apply here: ${shareUrl}`;
+function suggestedPostText(internship, shareUrl) {
+  return postingShareText({ title: internship.title, link: shareUrl, description: internship.description });
 }
 
 export async function GET(request) {
@@ -65,7 +66,7 @@ export async function POST(request) {
   const emp = await query(`SELECT id FROM ip_employers WHERE user_id = $1`, [session.user.id]);
   if (!emp.rows[0]) return jsonError('Employer profile missing', 404);
   const owns = await query(
-    `SELECT id, title, status FROM ip_internships WHERE id = $1 AND employer_id = $2`,
+    `SELECT id, title, description, status FROM ip_internships WHERE id = $1 AND employer_id = $2`,
     [internshipId, emp.rows[0].id],
   );
   if (!owns.rows[0]) return jsonError('Internship not found', 404);
@@ -73,7 +74,7 @@ export async function POST(request) {
     return jsonError('Only published (live) postings can be shared for reward points', 400);
   }
 
-  const title = owns.rows[0].title;
+  const internship = owns.rows[0];
   const open = await query(
     `SELECT id, token, share_url, status FROM ip_linkedin_promotions
      WHERE internship_id = $1 AND status IN ('pending','fast_track_pending')
@@ -91,7 +92,7 @@ export async function POST(request) {
       id: existing.id,
       token: existing.token,
       shareUrl: existing.share_url,
-      suggestedPostText: suggestedPostText(title, existing.share_url),
+      suggestedPostText: suggestedPostText(internship, existing.share_url),
       reused: true,
     });
   }
@@ -112,6 +113,6 @@ export async function POST(request) {
     id,
     token,
     shareUrl,
-    suggestedPostText: suggestedPostText(title, shareUrl),
+    suggestedPostText: suggestedPostText(internship, shareUrl),
   }, 201);
 }

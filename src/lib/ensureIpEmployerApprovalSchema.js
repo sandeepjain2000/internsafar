@@ -13,8 +13,12 @@ export async function ensureIpEmployerApprovalSchema() {
   await query(`ALTER TABLE ip_employers ADD COLUMN IF NOT EXISTS email_soft_fail BOOLEAN DEFAULT false`);
   await query(`ALTER TABLE ip_employers ADD COLUMN IF NOT EXISTS email_classification_summary TEXT`);
   await query(`ALTER TABLE ip_employers ADD COLUMN IF NOT EXISTS email_classification_reasons TEXT`);
+  await query(`ALTER TABLE ip_employers ADD COLUMN IF NOT EXISTS approval_reviewed_by TEXT`);
+  await query(`ALTER TABLE ip_internships ADD COLUMN IF NOT EXISTS moderated_by TEXT`);
+  await query(`ALTER TABLE ip_internships ADD COLUMN IF NOT EXISTS moderated_at TIMESTAMPTZ`);
   try {
     await query(`ALTER TABLE ip_employer_documents ADD COLUMN IF NOT EXISTS review_status TEXT DEFAULT 'pending'`);
+    await query(`ALTER TABLE ip_employer_documents ADD COLUMN IF NOT EXISTS reviewed_by TEXT`);
   } catch {
     /* table may not exist on a partial DB */
   }

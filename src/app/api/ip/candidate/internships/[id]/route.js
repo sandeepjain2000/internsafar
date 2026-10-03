@@ -5,7 +5,8 @@ import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
 import { ensureIpEmployerDocumentSlotsSchema } from '@/lib/ipEmployerDocuments';
 import { isCandidateAccessible } from '@/lib/ipInternshipVisibility';
 import { publicApplicationVolumeLabel } from '@/lib/ipApplicationVolume';
-import { maskEmployerName } from '@/lib/ipEmployerIdentity';
+import { maskEmployerIdentityForCandidate } from '@/lib/ipEmployerIdentity';
+import { normalizeScreeningQuestions } from '@/lib/ipScreeningQuestions';
 
 export async function GET(request, { params }) {
   const { session, error } = await requireSession(['candidate']);
@@ -13,8 +14,6 @@ export async function GET(request, { params }) {
   await ensureIpWorkbenchSchema();
   await ensureIpEmployerDocumentSlotsSchema();
   const { id } = await params;
-  const { searchParams } = new URL(request.url);
-  const preview = searchParams.get('preview') === '1';
 
   const result = await query(
     `SELECT i.*,
@@ -29,11 +28,9 @@ export async function GET(request, { params }) {
   const row = result.rows[0];
   if (!row) return jsonError('Not found', 404);
 
-  if (!preview && !isCandidateAccessible(row)) {
+  if (!isCandidateAccessible(row)) {
     return jsonError('This internship is not available', 404);
   }
-
-  row.company_name = maskEmployerName(row.company_name, row.show_employer_identity !== false);
 
   const docs = await query(
     `SELECT id, employer_id, doc_type, review_status, reviewed_at, created_at
@@ -79,15 +76,24 @@ export async function GET(request, { params }) {
     }
   }
 
+  const {
+    work_email: _workEmail,
+    ethics_acks: _acks,
+    ethics_accepted_at: _ethicsAt,
+    employer_updated_at: _empUpdated,
+    ...publicRow
+  } = row;
+
   return jsonOk({
     internship: {
-      ...row,
+      ...maskEmployerIdentityForCandidate(publicRow),
+      questions: normalizeScreeningQuestions(row.questions),
       historical_application_count: undefined,
       application_volume_label: volumeLabel,
       validation_score: validation.validation_score,
       validation_label: validation.validation_label,
       validation_breakdown: validation.validation_breakdown,
-      preview_mode: preview || false,
+      preview_mode: false,
       applied,
       previouslyWithdrawn,
     },

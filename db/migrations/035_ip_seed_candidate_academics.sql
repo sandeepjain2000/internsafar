@@ -180,9 +180,13 @@ BEGIN
     RAISE EXCEPTION '% primary academic row(s) are missing a college, degree or year.', thin_primary;
   END IF;
 
+  -- Checks below are scoped to the seeded cast: real users' own histories must not fail deploys.
   SELECT count(*) INTO bad_order FROM ip_candidate_academics a0
     JOIN ip_candidate_academics a1
       ON a1.candidate_id = a0.candidate_id AND a1.sort_order > a0.sort_order
+    JOIN ip_candidates c ON c.id = a0.candidate_id
+    JOIN ip_users u ON u.id = c.user_id
+    JOIN ip_acad_seed s ON s.email = lower(u.email)
    WHERE a1.graduation_year > a0.graduation_year;
   IF bad_order > 0 THEN
     RAISE EXCEPTION '% academic row(s) list an earlier qualification as finishing later than the current one.', bad_order;
@@ -191,6 +195,8 @@ BEGIN
   SELECT count(*) INTO mismatched
     FROM ip_candidate_academics a
     JOIN ip_candidates c ON c.id = a.candidate_id
+    JOIN ip_users u ON u.id = c.user_id
+    JOIN ip_acad_seed s ON s.email = lower(u.email)
    WHERE a.sort_order = 0
      AND (coalesce(a.college, '') <> coalesce(c.college, '')
        OR coalesce(a.degree, '') <> coalesce(c.degree, ''));

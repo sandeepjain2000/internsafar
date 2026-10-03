@@ -2,6 +2,8 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { notifyUser } from '@/lib/ipNotify';
 import { sendMail } from '@/lib/mail';
+import { escapeHtml } from '@/lib/escapeHtml';
+import { candidateFacingCompany } from '@/lib/ipEmployerIdentity';
 import { getNotifyChannels } from '@/lib/ipNotificationPreferences';
 import { ensureIpOfferRemindSchema } from '@/lib/ensureIpOfferRemindSchema';
 import { resolveAppOrigin } from '@/lib/ipAppOrigin';
@@ -24,7 +26,7 @@ export async function POST(_request, { params }) {
   if (!emp.rows[0]) return jsonError('Employer profile missing', 404);
 
   const offer = await query(
-    `SELECT o.*, i.title, c.name as candidate_name, c.user_id as candidate_user_id
+    `SELECT o.*, i.title, i.show_employer_identity, c.name as candidate_name, c.user_id as candidate_user_id
      FROM ip_offers o
      JOIN ip_internships i ON i.id = o.internship_id
      JOIN ip_candidates c ON c.id = o.candidate_id
@@ -52,7 +54,8 @@ export async function POST(_request, { params }) {
   }
 
   const roleLabel = row.role_title || row.title;
-  const company = emp.rows[0].company_name || 'the employer';
+  const company =
+    candidateFacingCompany(emp.rows[0].company_name, row.show_employer_identity) || 'the employer';
 
   await notifyUser({
     userId: row.candidate_user_id,
@@ -79,9 +82,9 @@ export async function POST(_request, { params }) {
       await sendMail({
         to,
         subject: `Reminder: offer for ${roleLabel}`,
-        html: `<p>Hi ${row.candidate_name || 'there'},</p>
-<p>${company} is reminding you that your internship offer for <strong>${roleLabel}</strong> is still awaiting your response.</p>
-<p><a href="${offersUrl}">Review your offer</a> in Internship Portal to accept or decline.</p>`,
+        html: `<p>Hi ${escapeHtml(row.candidate_name || 'there')},</p>
+<p>${escapeHtml(company)} is reminding you that your internship offer for <strong>${escapeHtml(roleLabel)}</strong> is still awaiting your response.</p>
+<p><a href="${escapeHtml(offersUrl)}">Review your offer</a> in Internship Portal to accept or decline.</p>`,
         text: `${company} is reminding you that your offer for ${roleLabel} is still awaiting your response. Respond here: ${offersUrl}`,
       });
     }

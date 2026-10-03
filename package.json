@@ -51,7 +51,7 @@
         "qa:e2e:aws": "node qa/runners/run-internsafar-aws.mjs",
         "qa:e2e:aws:smoke": "node qa/runners/run-internsafar-aws.mjs --suite=smoke",
         "playwright:install": "node scripts/lib/ensurePlaywrightBrowsers.mjs --install",
-        "postinstall": "node scripts/lib/ensurePlaywrightBrowsers.mjs --install",
+        "postinstall": "node scripts/lib/ensurePlaywrightBrowsers.mjs --install --postinstall",
         "qa:patch-latest-cases": "python scripts/patch-internsafar-latest-cases.py",
         "qa:migrate-xlsx-cols": "python scripts/migrate-internsafar-xlsx-boarders-cols.py",
         "qa:manual:email-change": "node scripts/manual/run-tc-is-06-007-email-change.mjs",

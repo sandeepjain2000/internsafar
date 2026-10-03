@@ -3,6 +3,8 @@ import { ensureIpMessageArchiveSchema } from '@/lib/ensureIpMessageArchiveSchema
 import { ensureIpMessageAttachmentSchema } from '@/lib/ensureIpMessageAttachmentSchema';
 import { ensureIpApplicationInterviewSchema } from '@/lib/ensureIpApplicationInterviewSchema';
 import { ensureIpInternshipStipendRangeSchema } from '@/lib/ensureIpInternshipStipendRangeSchema';
+import { decorateMessageThread } from '@/lib/ipMessagePresentation';
+import { maskEmployerIdentityForCandidate } from '@/lib/ipEmployerIdentity';
 
 export async function ensureIpMessageInboxSchema() {
   await ensureIpMessageArchiveSchema();
@@ -61,6 +63,18 @@ export const THREAD_JOINS = `
        ORDER BY o.created_at DESC
        LIMIT 1
      ) off ON true`;
+
+/**
+ * Role view of a thread row: candidates never see a confidential employer's identity; employers
+ * see the CV only when the candidate applied to that posting (not on invite-only threads).
+ */
+export function presentThreadForRole(row, role) {
+  if (!row) return row;
+  const base = role === 'candidate' ? maskEmployerIdentityForCandidate(row) : row;
+  const decorated = decorateMessageThread(base);
+  if (role !== 'employer' || !row.application_id) delete decorated.candidate_resume_url;
+  return decorated;
+}
 
 export async function loadMessageThread(id, uid) {
   await ensureIpMessageInboxSchema();

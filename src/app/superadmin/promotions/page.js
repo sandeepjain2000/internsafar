@@ -119,9 +119,10 @@ export default function SuperAdminPromotionsPage() {
 
   useEffect(() => {
     setPage(1);
+    setSelected([]);
   }, [tab, search, setPage]);
 
-  const pendingSelectable = filtered.filter(
+  const pendingSelectable = pageItems.filter(
     (p) => isPending(p.status) && String(p.claimed_post_url || '').trim(),
   );
   async function act(ids, action, reviewNotes = '') {

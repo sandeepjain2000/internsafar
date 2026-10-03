@@ -15,7 +15,10 @@ import {
   LOGIN_CODE_WINDOW_MINUTES,
   MAX_LOGIN_CODES_PER_WINDOW,
   MAX_TWO_FACTOR_ATTEMPTS,
+  newTwoFactorBinding,
   recentLoginChallengeCount,
+  TWO_FACTOR_BIND_COOKIE,
+  twoFactorBindCookieOptions,
   verifyTwoFactorChallenge,
 } from '@/lib/ipTwoFactor';
 import { consumeLoginDbFailureSimulation } from '@/lib/ipQaSimulate';
@@ -182,6 +185,12 @@ export const authOptions = {
           }
           await recordLoginEvent({ userId: user.id, email: user.email, role: user.role, success: true });
           await query(`UPDATE ip_users SET last_login_at = now() WHERE id = $1`, [user.id]);
+          try {
+            const cookieStore = await cookies();
+            cookieStore.delete(TWO_FACTOR_BIND_COOKIE);
+          } catch {
+            /* non-fatal */
+          }
           return {
             id: user.id,
             email: user.email,
@@ -329,7 +338,14 @@ export const authOptions = {
             );
           }
           try {
-            const { challengeId } = await createTwoFactorChallenge(user.id, 'login');
+            const binding = newTwoFactorBinding();
+            const { challengeId } = await createTwoFactorChallenge(user.id, 'login', { bindHash: binding.hash });
+            try {
+              const cookieStore = await cookies();
+              cookieStore.set(TWO_FACTOR_BIND_COOKIE, binding.secret, twoFactorBindCookieOptions());
+            } catch (cookieErr) {
+              console.error('[IP Auth] 2FA bind cookie not set', cookieErr.message);
+            }
             // Client parses this and shows the OTP step (session not created yet).
             throw new Error(`TWO_FACTOR_REQUIRED:${challengeId}`);
           } catch (e) {
@@ -463,6 +479,12 @@ export const authOptions = {
         } catch (e) {
           console.error('[ip auth] session create failed', e.message);
         }
+        return token;
+      }
+
+      // A token already ended (revoked / inactive / expired) stays signed out until a fresh
+      // login; without this the !sid branch below would mint a new tracked session row.
+      if (token?.error) {
         return token;
       }
 

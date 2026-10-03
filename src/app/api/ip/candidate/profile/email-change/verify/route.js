@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import { query, withClient } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { sendMail } from '@/lib/mail';
+import { escapeHtml } from '@/lib/escapeHtml';
 import { ensureIpCandidateProfileSchema } from '@/lib/ensureIpCandidateProfileSchema';
 import { ensureIpAccountSettingsSchema } from '@/lib/ensureIpAccountSettingsSchema';
 
@@ -42,7 +43,17 @@ export async function POST(request) {
         );
       }
       await client.query(`UPDATE ip_email_change_challenges SET used_at = now() WHERE id = $1`, [challenge.id]);
-      await client.query(`DELETE FROM ip_auth_sessions WHERE user_id = $1`, [session.user.id]).catch(() => {});
+      await client.query('SAVEPOINT revoke_sessions');
+      try {
+        await client.query(
+          `UPDATE ip_auth_sessions SET revoked_at = now()
+           WHERE user_id = $1 AND revoked_at IS NULL AND id IS DISTINCT FROM $2`,
+          [session.user.id, session.user.sessionId || null],
+        );
+      } catch (revokeErr) {
+        await client.query('ROLLBACK TO SAVEPOINT revoke_sessions');
+        console.warn('[email change] session revoke skipped', revokeErr.message);
+      }
       await client.query('COMMIT');
       return challenge;
     } catch (e) {
@@ -57,7 +68,7 @@ export async function POST(request) {
       to: changed.old_email,
       subject: 'Your InternSafar login email changed',
       text: `Your login email was changed to ${changed.new_email}. Your old email can no longer be used to sign in.`,
-      html: `<p>Your InternSafar login email was changed to <strong>${changed.new_email}</strong>.</p><p>Your old email can no longer be used to sign in.</p>`,
+      html: `<p>Your InternSafar login email was changed to <strong>${escapeHtml(changed.new_email)}</strong>.</p><p>Your old email can no longer be used to sign in.</p>`,
       skipUnsubscribe: true,
     });
   } catch (mailError) {

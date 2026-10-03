@@ -54,6 +54,10 @@ Publishing (confirmed 2026-10-03): `POST /api/ip/employer/internships` validates
 
 `EMPLOYER_STATUS_TRANSITIONS` in `src/lib/ipApplicationPresentation.js` decides which status buttons show (`employerStatusTargets`) and what `PATCH /api/ip/employer/applications/[id]` accepts (`employerCanSetStatus`, 409 otherwise). `offered` is set only by sending an offer; `withdrawn` / `completed` are locked; a hire that came from an **accepted offer** cannot be changed (409). Manual hire is allowed from shortlisted/interviewing. Bulk shortlist/reject/interview skips rows the map refuses and returns `skipped` (UI shows the count).
 
+Single and bulk status changes share `applyEmployerApplicationStatus` (`src/lib/ipApplicationStatusChange.js`). Interview times are sent as ISO (`interview_at` is timestamptz); emails/reminders format in IST via `formatIstDateTime` (`src/lib/ipIstTime.js`). Create-posting dates are converted to ISO on the client (`localInputToIso`). Dashboard "interviews today" compares the IST date.
+
+Medium audit (2026-10-03): applicant export jobs are claimed atomically (pending, or processing stale > 2 min), so concurrent polls cannot double-process; `POST /api/ip/employer/documents` accepts only the employer's own upload key, `/sample-docs/…`, or an `https:` URL (400 otherwise).
+
 ## Documents — Hybrid E (confirmed 2026-09-26)
 
 - One **active** row per doc type (Shop Act / LLP / Business PAN / Other + `doc_label`).
@@ -73,7 +77,7 @@ Publishing (confirmed 2026-10-03): `POST /api/ip/employer/internships` validates
 - All LinkedIn share buttons use `src/lib/ipLinkedInShare.js`: phone share sheet (`navigator.share`, LinkedIn app gets text) → fallback LinkedIn web compose `feed/?shareActive=true&text=`. No `share-offsite` (URL only, browser only).
 - Posting share dialog (`SharePostingDialog`) has three options like Refer & Earn: WhatsApp, LinkedIn (reward claim), **Copy Link** (plain `/candidate/internships/<id>`, works on laptop too, no claim). Opening that link logged out goes to sign-in with return — see `domains/auth.md`.
 - iPhone/iPad: the LinkedIn iOS app drops shared text, so the share sheet sends only the URL found in the text (arrives as a link card; employer types or pastes text). Android sends the full text. Owner accepted link-only on iPhone (2026-10-01).
-- Post text reuses existing copy: posting share = `POST /api/ip/promotions` `suggestedPostText` ("We're hiring for {title}. Apply here: {shareUrl}" — share code lives in the `?promo=` link); referral pages = their WhatsApp text; candidate offers = link only.
+- Posting share text (2026-10-03) is built by `src/lib/ipPostingShareText.js` and is identical on WhatsApp and LinkedIn: intro "Looking for your next opportunity? {title} is now listed on InternSafar." / "See the role details and apply here 👇", blank line, link, blank line, employer's posting `description`. Whole message capped at 2900 chars (LinkedIn 3000 limit); the description is cut only at a sentence end or line break, never ends on a section heading, and is dropped if no whole sentence fits. Only the link differs: LinkedIn = `?promo=` share URL from `POST /api/ip/promotions` `suggestedPostText`; WhatsApp = plain posting URL. Copy Link still copies the link only. Referral pages = their WhatsApp text; candidate offers = link only.
 - `POST /api/ip/promotions` returns the existing `pending` claim (same token/link, `reused: true`) instead of 409, so an employer can share again before submitting a post URL; still 409 once a URL is submitted (`fast_track_pending`). Claim step has **Open LinkedIn** retry + post text preview.
 
 ## List UX (confirmed 2026-09-18)

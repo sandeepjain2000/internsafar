@@ -59,12 +59,15 @@ function isSafePublicHttpUrl(urlString) {
   return true;
 }
 
-async function fetchResumeBuffer(resumeUrl) {
+async function fetchResumeBuffer(resumeUrl, ownerUserId) {
   if (!resumeUrl) return null;
   const url = String(resumeUrl);
   try {
     if (url.includes('/api/ip/files?key=')) {
       const key = decodeURIComponent(url.split('key=')[1].split('&')[0]);
+      if (!ownerUserId || !key.startsWith(`internship-portal/candidates/${ownerUserId}/`) || key.includes('..')) {
+        return null;
+      }
       if (!isS3Configured()) return null;
       const obj = await getIpObject(key);
       const bytes = await obj.Body?.transformToByteArray?.();
@@ -115,7 +118,8 @@ export async function GET(request, { params }) {
   let appRow = null;
   if (applicationId) {
     const app = await query(
-      `SELECT a.id, a.status, a.created_at, c.name, c.resume_url, c.hide_phone_until_shortlist, c.phone
+      `SELECT a.id, a.status, a.created_at, c.name, c.resume_url, c.hide_phone_until_shortlist, c.phone,
+              c.user_id AS candidate_user_id
        FROM ip_applications a
        JOIN ip_candidates c ON c.id = a.candidate_id
        JOIN ip_internships i ON i.id = a.internship_id
@@ -126,7 +130,8 @@ export async function GET(request, { params }) {
   }
   if (!appRow) {
     const any = await query(
-      `SELECT a.id, a.status, a.created_at, c.name, c.resume_url, c.hide_phone_until_shortlist, c.phone
+      `SELECT a.id, a.status, a.created_at, c.name, c.resume_url, c.hide_phone_until_shortlist, c.phone,
+              c.user_id AS candidate_user_id
        FROM ip_applications a
        JOIN ip_candidates c ON c.id = a.candidate_id
        JOIN ip_internships i ON i.id = a.internship_id
@@ -145,7 +150,7 @@ export async function GET(request, { params }) {
   const sheets = await buildEmployerCandidateExportSheets(id, employerId, { includePhone });
   const xlsxBuffer = await workbookToBuffer(sheets);
 
-  const resume = await fetchResumeBuffer(appRow.resume_url);
+  const resume = await fetchResumeBuffer(appRow.resume_url, appRow.candidate_user_id);
   if (resume) {
     const zip = new JSZip();
     zip.file('candidate.xlsx', xlsxBuffer);

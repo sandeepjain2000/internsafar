@@ -295,7 +295,7 @@ export async function creditReferralForReferredUser(referredUserId) {
     await notifyUser({
       userId: result.ref.id,
       title: 'Referral bonus earned',
-      body: `A referred candidate was approved. You earned +${result.rewards.points} points.`,
+      body: `Someone you referred completed verification. You earned +${result.rewards.points} points.`,
       link: result.ref.role === 'employer' ? '/employer/referral' : '/candidate/referral',
       category: 'referral',
     }).catch(() => {});
@@ -318,14 +318,18 @@ export async function invalidateReferralForReferredUser(
 }
 
 export async function awardPointsOnce({ userId, delta, reason, meta = {} }) {
-  const existing = await query(
-    `SELECT id FROM ip_points_ledger WHERE user_id = $1 AND reason = $2 LIMIT 1`,
-    [userId, reason],
-  );
-  if (existing.rows[0]) return { awarded: false };
-  await awardPoints({ userId, delta, reason, meta });
-  await query(`UPDATE ip_users SET updated_at = now() WHERE id = $1`, [userId]);
-  return { awarded: true };
+  return transaction(async (client) => {
+    // Serialise concurrent saves for the same user+reason so the bonus cannot land twice.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`ip_points_once:${userId}:${reason}`]);
+    const existing = await client.query(
+      `SELECT id FROM ip_points_ledger WHERE user_id = $1 AND reason = $2 LIMIT 1`,
+      [userId, reason],
+    );
+    if (existing.rows[0]) return { awarded: false };
+    await awardPoints({ userId, delta, reason, meta, client });
+    await client.query(`UPDATE ip_users SET updated_at = now() WHERE id = $1`, [userId]);
+    return { awarded: true };
+  });
 }
 
 export async function maybeAwardProfileCompleteBonus(userId) {

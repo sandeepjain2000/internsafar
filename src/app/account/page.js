@@ -39,6 +39,14 @@ function passwordStrength(pw) {
   return { score: 100, label: 'Strong Password', color: '#10b981' };
 }
 
+function displayPhone(phone, countryCode) {
+  const number = String(phone || '').trim();
+  if (!number) return '';
+  if (number.startsWith('+')) return number;
+  const code = String(countryCode || '').trim();
+  return code ? `${code} ${number}` : number;
+}
+
 function formatWhen(value) {
   if (!value) return '—';
   const d = new Date(value);
@@ -128,7 +136,7 @@ export default function AccountPage() {
     setFullName(data.name || '');
     setEmail(data.email || '');
     setEmailVerifiedAt(data.emailVerifiedAt || null);
-    setPhone(data.phone || '');
+    setPhone(displayPhone(data.phone, data.phoneCountryCode));
     setPhoneVerifiedAt(data.phoneVerifiedAt || null);
     setProfileHref(data.profileHref || null);
   }
@@ -382,7 +390,7 @@ export default function AccountPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not verify code');
-      setPhone(data.phone || newPhone);
+      setPhone(displayPhone(data.phone || newPhone, data.phoneCountryCode));
       setPhoneVerifiedAt(data.phoneVerifiedAt || new Date().toISOString());
       setModal(null);
       setNewPhone('');

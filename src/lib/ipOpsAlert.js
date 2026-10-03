@@ -19,6 +19,24 @@ const COOLDOWN_MS = Math.max(
 
 /** @type {Map<string, number>} */
 const lastSentAt = new Map();
+const MAX_FINGERPRINTS = 500;
+const GLOBAL_WINDOW_MS = 60 * 60_000;
+const GLOBAL_MAX_MAILS = Math.max(1, Number(process.env.IP_OPS_ALERT_MAX_PER_HOUR) || 30);
+/** Send times in the last hour (non-forced), per instance. */
+let recentSends = [];
+
+function rememberFingerprint(fp, now) {
+  if (lastSentAt.size >= MAX_FINGERPRINTS && !lastSentAt.has(fp)) {
+    for (const [key, at] of lastSentAt) {
+      if (now - at >= COOLDOWN_MS) lastSentAt.delete(key);
+    }
+    if (lastSentAt.size >= MAX_FINGERPRINTS) {
+      const oldest = lastSentAt.keys().next().value;
+      lastSentAt.delete(oldest);
+    }
+  }
+  lastSentAt.set(fp, now);
+}
 
 const REDACT_KEY = /(password|secret|token|authorization|cookie|api[_-]?key)/i;
 
@@ -71,8 +89,14 @@ export async function reportOpsFailure(payload) {
     if (!payload.force) {
       const prev = lastSentAt.get(fp) || 0;
       if (now - prev < COOLDOWN_MS) return { sent: false, reason: 'cooldown' };
+      recentSends = recentSends.filter((at) => now - at < GLOBAL_WINDOW_MS);
+      if (recentSends.length >= GLOBAL_MAX_MAILS) {
+        console.warn('[ipOpsAlert] hourly cap reached; alert logged only', { kind, route });
+        return { sent: false, reason: 'hourly_cap' };
+      }
+      recentSends.push(now);
     }
-    lastSentAt.set(fp, now);
+    rememberFingerprint(fp, now);
 
     const ref = newId('ip_ops');
     const host = hostLabel();
@@ -111,7 +135,7 @@ export async function reportOpsFailure(payload) {
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')}</pre>`;
 
-    await sendMail({ to: OPS_ALERT_TO, subject, text, html });
+    await sendMail({ to: OPS_ALERT_TO, subject, text, html, skipUnsubscribe: true });
     return { sent: true, ref };
   } catch (e) {
     console.error('[ipOpsAlert] send failed', e.message);

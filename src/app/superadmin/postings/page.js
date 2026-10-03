@@ -120,6 +120,7 @@ export default function SuperAdminPostingsPage() {
 
   useEffect(() => {
     setPage(1);
+    setSelected([]);
   }, [tab, search, companyFilter, setPage]);
 
   async function applyStatus(ids, status, moderationReason = '') {
@@ -143,6 +144,14 @@ export default function SuperAdminPostingsPage() {
         setTakedown(null);
         setReason('');
         await load();
+        const failures = Array.isArray(data.failures) ? data.failures : [];
+        if (failures.length) {
+          setError(
+            failures.length === 1
+              ? failures[0].error
+              : `${failures.length} postings not updated. First: ${failures[0].error}`,
+          );
+        }
       }
     } finally {
       setBusy(false);
@@ -305,8 +314,9 @@ export default function SuperAdminPostingsPage() {
                   <th>
                     <input
                       type="checkbox"
-                      checked={filtered.length > 0 && filtered.every((i) => selected.includes(i.id))}
-                      onChange={(e) => setSelected(e.target.checked ? filtered.map((i) => i.id) : [])}
+                      aria-label="Select all on this page"
+                      checked={pageItems.length > 0 && pageItems.every((i) => selected.includes(i.id))}
+                      onChange={(e) => setSelected(e.target.checked ? pageItems.map((i) => i.id) : [])}
                     />
                   </th>
                   <th>Internship Role &amp; Title</th>

@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { notifyUser } from '@/lib/ipNotify';
+import { candidateFacingCompany } from '@/lib/ipEmployerIdentity';
 
 /** Employer invites a searchable candidate to apply to a specific internship. */
 export async function POST(request, { params }) {
@@ -18,7 +19,10 @@ export async function POST(request, { params }) {
   if (!internshipId) return jsonError('internshipId is required');
 
   const emp = await query(`SELECT id, company_name FROM ip_employers WHERE user_id = $1`, [session.user.id]);
-  const internship = await query(`SELECT id, title FROM ip_internships WHERE id = $1 AND employer_id = $2`, [internshipId, emp.rows[0]?.id]);
+  const internship = await query(
+    `SELECT id, title, show_employer_identity FROM ip_internships WHERE id = $1 AND employer_id = $2`,
+    [internshipId, emp.rows[0]?.id],
+  );
   if (!internship.rows[0]) return jsonError('Internship not found', 404);
 
   const candidate = await query(`SELECT user_id FROM ip_candidates WHERE id = $1 AND searchable = true`, [id]);
@@ -40,14 +44,15 @@ export async function POST(request, { params }) {
     return jsonError('Invitation already sent for this internship.', 409);
   }
 
+  const shownCompany = candidateFacingCompany(emp.rows[0].company_name, internship.rows[0].show_employer_identity);
   await notifyUser({
     userId: candidate.rows[0].user_id,
-    title: `${emp.rows[0].company_name} invited you to apply`,
+    title: `${shownCompany || 'An employer'} invited you to apply`,
     body: internship.rows[0].title,
     link: `/candidate/internships/${internshipId}`,
     category: 'application',
     meta: {
-      company: emp.rows[0].company_name || null,
+      company: shownCompany,
       internshipId,
       internshipTitle: internship.rows[0].title,
     },

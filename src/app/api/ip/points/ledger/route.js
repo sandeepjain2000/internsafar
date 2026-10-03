@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import { requireSession, jsonOk } from '@/lib/apiAuth';
 import { presentLedgerEntry } from '@/lib/ipReferralCredit';
+import { maskEmployerName } from '@/lib/ipEmployerIdentity';
 
 export async function GET() {
   const { session, error } = await requireSession(['candidate', 'employer']);
@@ -8,7 +9,7 @@ export async function GET() {
 
   const result = await query(
     `SELECT l.id, l.user_id, l.delta, l.reason, l.meta, l.created_at,
-            i.title as internship_title, e.company_name,
+            i.title as internship_title, e.company_name, i.show_employer_identity,
             app.id as application_row_id
      FROM ip_points_ledger l
      LEFT JOIN ip_internships i ON i.id = (l.meta->>'internshipId')
@@ -19,10 +20,14 @@ export async function GET() {
     [session.user.id],
   );
 
+  const isCandidate = session.user.role === 'candidate';
   let running = 0;
-  const chronological = result.rows.map((row) => {
+  const chronological = result.rows.map(({ show_employer_identity: showIdentity, ...row }) => {
     running += Number(row.delta) || 0;
-    return presentLedgerEntry(row, running);
+    const visible = isCandidate && row.company_name
+      ? { ...row, company_name: maskEmployerName(row.company_name, showIdentity !== false) }
+      : row;
+    return presentLedgerEntry(visible, running);
   });
   const items = chronological.slice().reverse();
   const balance = await query(`SELECT points FROM ip_users WHERE id = $1`, [session.user.id]);

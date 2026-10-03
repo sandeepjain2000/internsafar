@@ -1,9 +1,10 @@
-import crypto from 'crypto';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { query } from '@/lib/db';
 import { newId } from '@/lib/ids';
 import { sendMail } from '@/lib/mail';
 import { resolveAppOrigin } from '@/lib/ipAppOrigin';
+import { escapeHtml } from '@/lib/escapeHtml';
+import { newPasswordResetToken } from '@/lib/ipPasswordResetToken';
 
 /** Signed-in reset: uses the login email. No captcha (identity already known). */
 export async function POST(request) {
@@ -16,20 +17,20 @@ export async function POST(request) {
   const user = existing.rows[0];
   if (!user?.email) return jsonError('Account email missing', 400);
 
-  const token = crypto.randomBytes(24).toString('base64url');
+  const token = newPasswordResetToken();
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
   await query(`INSERT INTO ip_password_resets (id, user_id, token, expires_at) VALUES ($1,$2,$3,$4)`, [
     newId('ip_reset'),
     user.id,
-    token,
+    token.hash,
     expiresAt,
   ]);
-  const resetUrl = `${resolveAppOrigin(request.url)}/forgot-password?token=${token}`;
+  const resetUrl = `${resolveAppOrigin(request.url)}/forgot-password?token=${token.raw}`;
   try {
     await sendMail({
       to: user.email,
       subject: 'Reset your Internship Portal password',
-      html: `<p>Hi ${user.name || ''},</p><p>Click to reset your password (valid 1 hour):</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
+      html: `<p>Hi ${escapeHtml(user.name || '')},</p><p>Click to reset your password (valid 1 hour):</p><p><a href="${escapeHtml(resetUrl)}">${escapeHtml(resetUrl)}</a></p>`,
       text: `Reset your password: ${resetUrl}`,
       skipUnsubscribe: true,
     });

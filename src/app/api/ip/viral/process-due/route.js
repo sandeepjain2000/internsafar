@@ -1,4 +1,5 @@
 import { query } from '@/lib/db';
+import { transaction } from '@/lib/transaction';
 import { requireSession, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { LINKEDIN_PROMO_POINTS } from '@/lib/pointsEconomy';
@@ -29,7 +30,13 @@ export async function POST(request) {
 
   const results = [];
   for (const share of due.rows) {
-    await query(`UPDATE ip_viral_shares SET status = 'searching', last_checked_at = now(), updated_at = now() WHERE id = $1`, [share.id]);
+    const claimed = await query(
+      `UPDATE ip_viral_shares SET status = 'searching', last_checked_at = now(), updated_at = now()
+       WHERE id = $1 AND status IN ('scheduled', 'pending')
+       RETURNING id`,
+      [share.id],
+    );
+    if (!claimed.rowCount) continue;
 
     const apiKey = process.env.GOOGLE_SEARCH_API_KEY;
     const cx = process.env.GOOGLE_SEARCH_CX;
@@ -54,18 +61,25 @@ export async function POST(request) {
     }
 
     if (hit) {
-      await query(
-        `UPDATE ip_users SET points = points + $2, updated_at = now() WHERE id = $1`,
-        [share.user_id, LINKEDIN_PROMO_POINTS],
-      );
-      await query(
-        `INSERT INTO ip_points_ledger (id, user_id, delta, reason, meta) VALUES ($1,$2,$3,'viral_share_verified',$4::jsonb)`,
-        [newId('ip_pts'), share.user_id, LINKEDIN_PROMO_POINTS, JSON.stringify({ shareId: share.id, via: 'process-due' })],
-      );
-      await query(
-        `UPDATE ip_viral_shares SET status = 'rewarded', search_hit = true, search_notes = $2, points_awarded = $3, credits_awarded = 0, updated_at = now() WHERE id = $1`,
-        [share.id, notes, LINKEDIN_PROMO_POINTS],
-      );
+      const rewarded = await transaction(async (client) => {
+        const mark = await client.query(
+          `UPDATE ip_viral_shares SET status = 'rewarded', search_hit = true, search_notes = $2, points_awarded = $3, credits_awarded = 0, updated_at = now()
+           WHERE id = $1 AND status = 'searching'
+           RETURNING id`,
+          [share.id, notes, LINKEDIN_PROMO_POINTS],
+        );
+        if (!mark.rowCount) return false;
+        await client.query(
+          `UPDATE ip_users SET points = points + $2, updated_at = now() WHERE id = $1`,
+          [share.user_id, LINKEDIN_PROMO_POINTS],
+        );
+        await client.query(
+          `INSERT INTO ip_points_ledger (id, user_id, delta, reason, meta) VALUES ($1,$2,$3,'viral_share_verified',$4::jsonb)`,
+          [newId('ip_pts'), share.user_id, LINKEDIN_PROMO_POINTS, JSON.stringify({ shareId: share.id, via: 'process-due' })],
+        );
+        return true;
+      });
+      if (!rewarded) continue;
       await notifyUser({
         userId: share.user_id,
         title: 'Viral LinkedIn Share Verified',

@@ -80,6 +80,13 @@ export async function ensureIpEmailUnsubscribeSchema(db) {
       ON ip_email_unsubscribe_requests (status, requested_at)
   `);
 
+  await resolved.query(
+    `ALTER TABLE ip_email_unsubscribe_requests ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ`,
+  );
+  await resolved.query(
+    `ALTER TABLE ip_email_unsubscribe_requests ADD COLUMN IF NOT EXISTS processed_by TEXT`,
+  );
+
   if (isLive) schemaReady = true;
 }
 
@@ -91,7 +98,41 @@ function mapRequestRow(row) {
     token: row.token,
     status: row.status,
     requestedAt: row.requested_at,
+    processedAt: row.processed_at || null,
   };
+}
+
+/** SuperAdmin: confirm PENDING requests; processed addresses stop receiving non-security mail. */
+export async function markUnsubscribeRequestsProcessed(ids, processedBy, db) {
+  db = resolveDb(db);
+  await ensureIpEmailUnsubscribeSchema(db);
+  const list = [...new Set((Array.isArray(ids) ? ids : [ids]).map((v) => String(v || '').trim()).filter(Boolean))];
+  if (!list.length) return 0;
+  const result = await db.query(
+    `UPDATE ip_email_unsubscribe_requests
+        SET status = $2, processed_at = now(), processed_by = $3
+      WHERE id = ANY($1::text[]) AND status = $4`,
+    [list, UNSUBSCRIBE_STATUS.PROCESSED, processedBy || null, UNSUBSCRIBE_STATUS.PENDING],
+  );
+  return result.rowCount || 0;
+}
+
+/** True when a SuperAdmin has processed an unsubscribe for this address. Fails open (false) on DB errors. */
+export async function isEmailUnsubscribed(email, db) {
+  const normalized = normalizeUnsubscribeEmail(email);
+  if (!normalized) return false;
+  try {
+    db = resolveDb(db);
+    await ensureIpEmailUnsubscribeSchema(db);
+    const result = await db.query(
+      `SELECT 1 FROM ip_email_unsubscribe_requests WHERE email = $1 AND status = $2 LIMIT 1`,
+      [normalized, UNSUBSCRIBE_STATUS.PROCESSED],
+    );
+    return Boolean(result.rows[0]);
+  } catch (err) {
+    console.warn('[unsubscribe] lookup skipped:', err.message);
+    return false;
+  }
 }
 
 export async function getOrCreateUnsubscribeToken(email, preferredToken, db) {
@@ -201,7 +242,7 @@ export async function listUnsubscribeRequests({ status = UNSUBSCRIBE_STATUS.PEND
   }
   const cap = Math.min(Math.max(Number(limit) || 200, 1), 1000);
   const result = await db.query(
-    `SELECT id, email, token, status, requested_at
+    `SELECT id, email, token, status, requested_at, processed_at
        FROM ip_email_unsubscribe_requests
       WHERE status = $1
       ORDER BY requested_at ASC

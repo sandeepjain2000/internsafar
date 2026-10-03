@@ -145,6 +145,7 @@ export default function SuperAdminApprovalsPage() {
 
   useEffect(() => {
     setPage(1);
+    setSelected([]);
   }, [filter, search, setPage]);
 
   async function patchStatus(ids, approvalStatus, rejectionReason) {
@@ -172,6 +173,11 @@ export default function SuperAdminApprovalsPage() {
           pending: `Set ${n} employer(s) to Pending`,
         };
         setToast(toastByStatus[approvalStatus] || `Updated ${n} employer(s)`);
+        setRejectRow(null);
+        setAuditRow(null);
+        setRejectNote('');
+        await load();
+        // After load(): load() clears the error banner.
         const failures = Array.isArray(data.failures) ? data.failures : [];
         if (failures.length) {
           const first = failures[0].error || 'Update failed';
@@ -181,10 +187,6 @@ export default function SuperAdminApprovalsPage() {
               : `${failures.length} employers not updated. First: ${first}`,
           );
         }
-        setRejectRow(null);
-        setAuditRow(null);
-        setRejectNote('');
-        await load();
       }
     } finally {
       setBusy(false);
@@ -242,7 +244,7 @@ export default function SuperAdminApprovalsPage() {
   }
 
   function toggleAll(checked) {
-    const selectable = filtered.filter((e) =>
+    const selectable = pageItems.filter((e) =>
       ['pending', 'approved', 'suspended'].includes(String(e.approval_status || '')),
     );
     setSelected(checked ? selectable.map((e) => e.id) : []);
@@ -268,6 +270,14 @@ export default function SuperAdminApprovalsPage() {
       return;
     }
     patchStatus(ids, 'suspended');
+  }
+
+  function confirmBulkReject(ids) {
+    if (!ids.length) return;
+    if (!window.confirm(`Reject ${ids.length} employer(s)? They will be notified that their registration was rejected.`)) {
+      return;
+    }
+    patchStatus(ids, 'rejected', 'Bulk rejected by SuperAdmin');
   }
 
   function submitReject() {
@@ -326,7 +336,7 @@ export default function SuperAdminApprovalsPage() {
                 type="button"
                 className="ip-saq-btn ip-saq-btn--rose"
                 disabled={!selected.length || busy}
-                onClick={() => patchStatus(selected, 'rejected', 'Bulk rejected by SuperAdmin')}
+                onClick={() => confirmBulkReject(selected)}
               >
                 <X size={15} aria-hidden />
                 Reject Selected ({selected.length})
@@ -348,7 +358,7 @@ export default function SuperAdminApprovalsPage() {
                 type="button"
                 className="ip-saq-btn ip-saq-btn--rose"
                 disabled={!selected.length || busy}
-                onClick={() => patchStatus(selected, 'rejected', 'Bulk rejected by SuperAdmin')}
+                onClick={() => confirmBulkReject(selected)}
               >
                 <X size={15} aria-hidden />
                 Reject Selected ({selected.length})
@@ -370,7 +380,7 @@ export default function SuperAdminApprovalsPage() {
                 type="button"
                 className="ip-saq-btn ip-saq-btn--rose"
                 disabled={!selected.length || busy}
-                onClick={() => patchStatus(selected, 'rejected', 'Bulk rejected by SuperAdmin')}
+                onClick={() => confirmBulkReject(selected)}
               >
                 <X size={15} aria-hidden />
                 Reject Selected ({selected.length})
@@ -710,6 +720,21 @@ export default function SuperAdminApprovalsPage() {
                               <X size={14} />
                             </button>
                           </>
+                        ) : null}
+                        {e.approval_status === 'rejected' ? (
+                          <button
+                            type="button"
+                            className="ip-saq-btn ip-saq-btn--sm"
+                            disabled={busy}
+                            title="Move back to Pending so the employer can be reviewed again"
+                            onClick={() => {
+                              if (!window.confirm(`Move ${e.company_name || 'this employer'} back to Pending review?`)) return;
+                              patchStatus([e.id], 'pending');
+                            }}
+                          >
+                            <Clock size={14} aria-hidden />
+                            Set to Pending
+                          </button>
                         ) : null}
                       </div>
                     </td>

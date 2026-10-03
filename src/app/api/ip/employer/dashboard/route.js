@@ -102,7 +102,7 @@ export async function GET() {
      JOIN ip_internships i ON i.id = a.internship_id
      WHERE i.employer_id = $1
        AND a.interview_at IS NOT NULL
-       AND a.interview_at::date = (now() AT TIME ZONE 'Asia/Kolkata')::date`,
+       AND (a.interview_at AT TIME ZONE 'Asia/Kolkata')::date = (now() AT TIME ZONE 'Asia/Kolkata')::date`,
     [employer.id],
   );
 

@@ -140,6 +140,7 @@ export default function SuperAdminDocumentsPage() {
 
   useEffect(() => {
     setPage(1);
+    setSelected([]);
   }, [tab, search, docType, setPage]);
 
   async function review(ids, reviewStatus, notes) {
@@ -180,7 +181,7 @@ export default function SuperAdminDocumentsPage() {
     review([rejectRow.id], 'flagged', reason || 'Rejected');
   }
 
-  const pendingSelectable = filtered.filter((d) => d.status === 'pending');
+  const pendingSelectable = pageItems.filter((d) => d.status === 'pending');
 
   return (
     <div className="ip-sa-q ip-mobile-bleed">

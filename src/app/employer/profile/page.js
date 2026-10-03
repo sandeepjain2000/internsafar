@@ -247,8 +247,6 @@ export default function EmployerProfilePage() {
       if (!res.ok) throw new Error(data.error || data.hint || 'Upload failed');
       if (data.logo_url || data.fileUrl) {
         set('logo_url', data.logo_url || data.fileUrl);
-        setLogoUrlOpen(false);
-        setLogoUrlDraft('');
         setMessage('Logo uploaded to cloud storage.');
       }
     } catch (err) {

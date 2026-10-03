@@ -4,6 +4,7 @@ import { ensureIpNotificationCategorySchema } from '@/lib/ensureIpNotificationCa
 import { getNotifyChannels } from '@/lib/ipNotificationPreferences';
 import { sendMail } from '@/lib/mail';
 import { resolveAppOrigin } from '@/lib/ipAppOrigin';
+import { escapeHtml } from '@/lib/escapeHtml';
 
 /**
  * Insert a notification for one ip_users row.
@@ -75,7 +76,7 @@ export async function notifyUser({
         await sendMail({
           to,
           subject: title,
-          html: `<p>Hi ${user.rows[0]?.name || 'there'},</p><p>${body || title}</p><p><a href="${href}">Open In Internship Portal</a></p>`,
+          html: `<p>Hi ${escapeHtml(user.rows[0]?.name || 'there')},</p><p>${escapeHtml(body || title)}</p><p><a href="${escapeHtml(href)}">Open In Internship Portal</a></p>`,
           text: `${body || title}\n${href}`,
         });
       }

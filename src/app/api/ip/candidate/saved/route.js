@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
+import { maskEmployerIdentityForCandidate } from '@/lib/ipEmployerIdentity';
 
 /** List saved internships for the candidate. */
 export async function GET() {
@@ -26,8 +27,7 @@ export async function GET() {
       match_score = Math.round((elig.filter((s) => have.has(String(s).toLowerCase())).length / elig.length) * 100);
     }
     return {
-      ...r,
-      company_name: r.show_employer_identity ? r.company_name : 'Confidential employer',
+      ...maskEmployerIdentityForCandidate(r),
       match_score,
       saved: true,
     };

@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { NextResponse } from 'next/server';
 import { transaction } from '@/lib/transaction';
+import { hashPasswordResetToken } from '@/lib/ipPasswordResetToken';
 
 export async function POST(request) {
   let body;
@@ -20,14 +21,15 @@ export async function POST(request) {
   const hash = await bcrypt.hash(newPassword, 10);
   try {
     await transaction(async (client) => {
+      // Links issued before hashing stored the raw token (32 chars); never accept a stored 64-char hash as input.
       const claim = await client.query(
         `UPDATE ip_password_resets
          SET used_at = now()
-         WHERE token = $1
+         WHERE (token = $1 OR (token = $2 AND length(token) <> 64))
            AND used_at IS NULL
            AND expires_at > now()
          RETURNING id, user_id`,
-        [token],
+        [hashPasswordResetToken(token), token],
       );
       const row = claim.rows[0];
       if (!row) {
@@ -39,6 +41,21 @@ export async function POST(request) {
         `UPDATE ip_users SET password_hash = $2, updated_at = now() WHERE id = $1`,
         [row.user_id, hash],
       );
+      await client.query(
+        `UPDATE ip_password_resets SET used_at = now()
+         WHERE user_id = $1 AND used_at IS NULL AND id <> $2`,
+        [row.user_id, row.id],
+      );
+      await client.query('SAVEPOINT revoke_sessions');
+      try {
+        await client.query(
+          `UPDATE ip_auth_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`,
+          [row.user_id],
+        );
+      } catch (revokeErr) {
+        await client.query('ROLLBACK TO SAVEPOINT revoke_sessions');
+        console.warn('[password-reset confirm] session revoke skipped', revokeErr.message);
+      }
     });
   } catch (e) {
     if (e?.code === 'INVALID_RESET') {

@@ -2,10 +2,11 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { notifyUser } from '@/lib/ipNotify';
 import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
+import { getEmployerPostingGate } from '@/lib/ipEmployerPostingGate';
 
 async function setOne(id, status, reason, moderatorId) {
   const row = await query(
-    `SELECT i.title, i.status AS current_status, e.user_id
+    `SELECT i.title, i.status AS current_status, e.user_id, e.company_name
      FROM ip_internships i JOIN ip_employers e ON e.id = i.employer_id WHERE i.id = $1`,
     [id],
   );
@@ -15,7 +16,17 @@ async function setOne(id, status, reason, moderatorId) {
     // Already at target — no email / in-app spam on Publish Selected re-clicks.
     return { ok: true, changed: false, moderatedBy: moderatorId };
   }
-  await query(`UPDATE ip_internships SET status = $2, updated_at = now() WHERE id = $1`, [id, status]);
+  if (status === 'published') {
+    const gate = await getEmployerPostingGate(row.rows[0].user_id);
+    if (!gate.ok) {
+      const who = row.rows[0].company_name || 'This employer';
+      return { ok: false, changed: false, error: `${row.rows[0].title}: ${who} cannot publish yet — ${gate.error}` };
+    }
+  }
+  await query(
+    `UPDATE ip_internships SET status = $2, moderated_by = $3, moderated_at = now(), updated_at = now() WHERE id = $1`,
+    [id, status, moderatorId || null],
+  );
   await notifyUser({
     userId: row.rows[0].user_id,
     title: 'Posting Moderation Update',
@@ -95,23 +106,31 @@ export async function PATCH(request) {
     : [String(body.id || '')].filter(Boolean);
   if (!ids.length) return jsonError('id or ids required');
 
+  await ensureIpEmployerApprovalSchema();
   let ok = 0;
   let changed = 0;
   let skipped = 0;
+  const failures = [];
   for (const id of ids) {
     const res = await setOne(id, status, body.reason, session.user.id);
     if (res.ok) {
       ok += 1;
       if (res.changed) changed += 1;
       else skipped += 1;
+    } else if (res.error) {
+      failures.push({ id, error: res.error });
     }
   }
-  if (!ok) return jsonError('Not found', 404);
+  if (!ok) {
+    if (failures.length) return jsonError(failures[0].error, 400);
+    return jsonError('Not found', 404);
+  }
   return jsonOk({
     ok: true,
     processed: ok,
     changed,
     skipped,
+    failures,
     moderatedBy: session.user.id,
   });
 }

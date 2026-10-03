@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { notifyUser } from '@/lib/ipNotify';
 import { sendMail } from '@/lib/mail';
+import { escapeHtml } from '@/lib/escapeHtml';
 import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
 import { ensureIpEmployerDocumentSlotsSchema } from '@/lib/ipEmployerDocuments';
 
@@ -77,7 +78,7 @@ function statusTitle(status) {
   return `Employer Account ${status}`;
 }
 
-async function setOneStatus(id, status, rejectionReason) {
+async function setOneStatus(id, status, rejectionReason, reviewerId) {
   const cur = await query(`SELECT approval_status, company_name FROM ip_employers WHERE id = $1`, [id]);
   if (!cur.rows[0]) return { ok: false, error: 'not_found' };
   const current = String(cur.rows[0].approval_status || '');
@@ -99,17 +100,26 @@ async function setOneStatus(id, status, rejectionReason) {
      SET approval_status = $2,
          rejection_reason = CASE WHEN $2 = 'rejected' THEN $3 ELSE NULL END,
          approval_reviewed_at = now(),
+         approval_reviewed_by = $4,
          updated_at = now()
      WHERE id = $1
      RETURNING user_id, company_name`,
-    [id, status, rejectionReason || null],
+    [id, status, rejectionReason || null, reviewerId || null],
   );
   const row = result.rows[0];
   if (!row) return { ok: false, error: 'not_found' };
 
+  // Delete (softDeleteOne) turns the login off; approving or re-opening the employer turns it back on.
+  if (status === 'approved' || status === 'pending') {
+    await query(
+      `UPDATE ip_users SET active = true, updated_at = now() WHERE id = $1 AND active = false`,
+      [row.user_id],
+    );
+  }
+
   const reasonLine =
     status === 'rejected' && rejectionReason
-      ? `<p><strong>Reason:</strong> ${String(rejectionReason).replace(/</g, '&lt;')}</p>`
+      ? `<p><strong>Reason:</strong> ${escapeHtml(rejectionReason)}</p>`
       : '';
 
   const restored = status === 'approved' && current === 'suspended';
@@ -136,7 +146,7 @@ async function setOneStatus(id, status, rejectionReason) {
     await sendMail({
       to: emailRow.rows[0]?.email,
       subject: title,
-      html: `<p>Hi ${emailRow.rows[0]?.name || ''},</p><p>${body}</p>${reasonLine}<p><a href="/employer">Open Employer Portal</a></p>`,
+      html: `<p>Hi ${escapeHtml(emailRow.rows[0]?.name || '')},</p><p>${escapeHtml(body)}</p>${reasonLine}<p><a href="/employer">Open Employer Portal</a></p>`,
       text: `${body}${rejectionReason ? `\nReason: ${rejectionReason}` : ''}`,
     });
   } catch (e) {
@@ -146,7 +156,7 @@ async function setOneStatus(id, status, rejectionReason) {
 }
 
 export async function PATCH(request, { params }) {
-  const { error } = await requireSession(['superadmin']);
+  const { session, error } = await requireSession(['superadmin']);
   if (error) return error;
   await ensureIpEmployerApprovalSchema();
   const { id: routeId } = await params;
@@ -197,7 +207,7 @@ export async function PATCH(request, { params }) {
   let ok = 0;
   const failures = [];
   for (const id of ids) {
-    const res = await setOneStatus(id, status, rejectionReason);
+    const res = await setOneStatus(id, status, rejectionReason, session.user.id);
     if (res.ok) ok += 1;
     else failures.push({ id, error: res.error || 'Failed' });
   }

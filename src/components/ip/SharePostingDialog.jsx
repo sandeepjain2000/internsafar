@@ -224,7 +224,7 @@ export default function SharePostingDialog({
             {postText ? (
               <Field>
                 <FieldLabel>Post Text</FieldLabel>
-                <p className="text-muted-foreground text-xs whitespace-pre-wrap [overflow-wrap:anywhere]">{postText}</p>
+                <p className="text-muted-foreground max-h-48 overflow-y-auto text-xs whitespace-pre-wrap [overflow-wrap:anywhere]">{postText}</p>
                 <Button
                   type="button"
                   variant="outline"

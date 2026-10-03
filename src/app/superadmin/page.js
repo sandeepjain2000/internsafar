@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import '@/components/ip/ip-superadmin-dashboard-gemini.css';
+import { REJECT_PRESETS } from '@/lib/ipDomainRisk';
 
 function domainFromEmployer(e) {
   return e.domain || '—';
@@ -123,8 +124,18 @@ export default function SuperAdminDashboard() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedApproval, setSelectedApproval] = useState(null);
+  const [selectedApproval, setSelectedApprovalState] = useState(null);
+  const [modalError, setModalError] = useState('');
+  const [rejectPreset, setRejectPreset] = useState(REJECT_PRESETS[0]);
+  const [rejectNote, setRejectNote] = useState('');
   const [busy, setBusy] = useState(false);
+
+  function setSelectedApproval(row) {
+    setSelectedApprovalState(row);
+    setModalError('');
+    setRejectPreset(REJECT_PRESETS[0]);
+    setRejectNote('');
+  }
   const [exporting, setExporting] = useState(false);
 
   async function load() {
@@ -188,15 +199,24 @@ export default function SuperAdminDashboard() {
   }
 
   async function setEmployerStatus(id, approvalStatus) {
+    let rejectionReason;
+    if (approvalStatus === 'rejected') {
+      const note = rejectNote.trim();
+      rejectionReason = rejectPreset === 'Other' ? note : note ? `${rejectPreset}: ${note}` : rejectPreset;
+      if (!rejectionReason) {
+        setModalError('Enter a rejection reason.');
+        return;
+      }
+    }
     setBusy(true);
-    setError('');
+    setModalError('');
     try {
       const res = await fetch(`/api/ip/superadmin/employers/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ approvalStatus }),
+        body: JSON.stringify({ approvalStatus, rejectionReason }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Update failed');
       setSelectedApproval(null);
       showToast(
@@ -206,7 +226,7 @@ export default function SuperAdminDashboard() {
       );
       await load();
     } catch (e) {
-      setError(e.message);
+      setModalError(e.message);
     } finally {
       setBusy(false);
     }
@@ -446,6 +466,36 @@ export default function SuperAdminDashboard() {
                 Approving this account enables full internship posting privileges and candidate search access.
               </span>
             </div>
+
+            <div className="ip-sad-modal-body" style={{ paddingTop: 0 }}>
+              <label className="ip-sad-modal-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.35rem' }}>
+                <span>Reason if rejecting:</span>
+                <select
+                  value={rejectPreset}
+                  onChange={(e) => setRejectPreset(e.target.value)}
+                  disabled={busy}
+                  style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.45rem 0.6rem', font: 'inherit' }}
+                >
+                  {REJECT_PRESETS.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  value={rejectNote}
+                  onChange={(e) => setRejectNote(e.target.value)}
+                  placeholder={rejectPreset === 'Other' ? 'Describe the reason (required)' : 'Optional note for the employer'}
+                  disabled={busy}
+                  style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.45rem 0.6rem', font: 'inherit' }}
+                />
+              </label>
+            </div>
+
+            {modalError ? (
+              <div className="ip-sad-error" role="alert" style={{ margin: '0 1.25rem 0.75rem' }}>
+                {modalError}
+              </div>
+            ) : null}
 
             <div className="ip-sad-modal-actions">
               <button

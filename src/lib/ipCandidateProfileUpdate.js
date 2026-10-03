@@ -72,6 +72,22 @@ export function normalizeResumeLinks(value) {
   }));
 }
 
+/** Upload-owned columns: profile save may only clear them or keep a file this candidate uploaded. */
+const OWN_UPLOAD_FIELDS = new Set(['resume_url', 'profile_picture_url']);
+
+export function isOwnCandidateUploadUrl(value, userId) {
+  const url = String(value || '').trim();
+  const marker = '/api/ip/files?key=';
+  if (!url.startsWith(marker) || !userId) return false;
+  let key;
+  try {
+    key = decodeURIComponent(url.slice(marker.length).split('&')[0]);
+  } catch {
+    return false;
+  }
+  return key.startsWith(`internship-portal/candidates/${userId}/`) && !key.includes('..');
+}
+
 function toTextArray(value) {
   const list = Array.isArray(value) ? value : String(value || '').split(',');
   return list.map((s) => String(s ?? '').trim()).filter(Boolean);
@@ -102,6 +118,12 @@ export function buildCandidateProfileUpdate(body, userId, options = {}) {
 
     let value = body[field];
 
+    if (OWN_UPLOAD_FIELDS.has(field)) {
+      const trimmed = String(value ?? '').trim();
+      if (trimmed && !isOwnCandidateUploadUrl(trimmed, userId)) continue;
+      assign(field, trimmed);
+      continue;
+    }
     if (TEXT_ARRAYS.has(field)) {
       assign(field, toTextArray(value), '::text[]');
       continue;
