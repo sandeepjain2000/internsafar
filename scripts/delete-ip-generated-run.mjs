@@ -224,27 +224,34 @@ See scripts/IP_TEST_DATA_GUIDE.md`);
     return;
   }
 
-  // Even the dry run applies pipeline schema, so the DB write gate covers every mode.
   assertDbMigrateAllowed(process.argv);
   assertDbMigrateTargetAllowed(process.argv, { connectionString: dbUrl });
+
+  const exceptCoresToken = argFlag('confirm-except-cores') || arg('confirm-except-cores', null);
+  const confirm =
+    mode === 'except-cores'
+      ? String(exceptCoresToken || '').toUpperCase() === 'YES'
+      : Boolean(argFlag('confirm-generated-run'));
 
   const pool = new pg.Pool(parseUrl(dbUrl));
   console.log('Connecting to database...');
   const client = await pool.connect();
-  console.log('Connected. Ensuring pipeline schema...');
   try {
-    await ensureIpPipelineSchema(client);
-    console.log('Schema ready.');
+    // Dry runs are read-only: no schema changes.
+    if (confirm) {
+      console.log('Connected. Ensuring pipeline schema...');
+      await ensureIpPipelineSchema(client);
+      console.log('Schema ready.');
+    } else {
+      console.log('Connected (dry run — schema not modified).');
+    }
     if (mode === 'except-cores') {
-      const token = argFlag('confirm-except-cores') || arg('confirm-except-cores', null);
-      const confirm = String(token || '').toUpperCase() === 'YES';
       await deleteExceptCores(client, { confirm });
       return;
     }
 
     // run mode
     const runId = argFlag('confirm-generated-run') || argFlag('run-id') || arg('run-id', null);
-    const confirm = Boolean(argFlag('confirm-generated-run'));
     if (!runId) {
       console.error('Missing --run-id or --confirm-generated-run RUN_ID');
       process.exit(1);

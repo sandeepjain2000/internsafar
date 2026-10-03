@@ -3,31 +3,31 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { sendMail } from '@/lib/mail';
 import { ensureIpAccountSettingsSchema } from '@/lib/ensureIpAccountSettingsSchema';
-
-function normalizePhone(value) {
-  return String(value || '').replace(/[^\d+]/g, '').trim();
-}
+import { validateOptionalPhone, validateRequiredPhone } from '@/lib/ipPhoneValidation';
+import { escapeHtml } from '@/lib/escapeHtml';
 
 export async function POST(request) {
   const { session, error } = await requireSession(['candidate']);
   if (error) return error;
   await ensureIpAccountSettingsSchema();
   const body = await request.json().catch(() => ({}));
-  const newPhone = normalizePhone(body.newPhone);
-  const newCountryCode = String(body.newCountryCode || '+91').trim() || '+91';
-  const digits = newPhone.replace(/\D/g, '');
-  if (digits.length < 8) return jsonError('Enter a valid mobile number');
+  const requestedCode = String(body.newCountryCode || '+91').trim() || '+91';
+  const check = validateRequiredPhone(body.newPhone, requestedCode);
+  if (!check.ok) return jsonError(check.error || 'Enter a valid mobile number');
+  const newPhone = check.national;
+  const newCountryCode = check.dial || requestedCode;
 
   const current = await query(`SELECT email, name FROM ip_users WHERE id = $1`, [session.user.id]);
   const email = current.rows[0]?.email;
   if (!email) return jsonError('Account email missing', 400);
 
-  const cand = await query(`SELECT phone FROM ip_candidates WHERE user_id = $1`, [session.user.id]);
+  const cand = await query(`SELECT phone, phone_country_code FROM ip_candidates WHERE user_id = $1`, [session.user.id]);
   const oldPhone = cand.rows[0]?.phone || null;
-  const combined = `${newCountryCode} ${newPhone}`.replace(/\s+/g, ' ').trim();
-  if (oldPhone && String(oldPhone).replace(/\s+/g, '') === combined.replace(/\s+/g, '')) {
+  const oldCheck = oldPhone ? validateOptionalPhone(oldPhone, cand.rows[0]?.phone_country_code || '+91') : null;
+  if (oldCheck?.ok && oldCheck.e164 && oldCheck.e164 === check.e164) {
     return jsonError('Enter a different phone number');
   }
+  const combined = `${newCountryCode} ${newPhone}`;
 
   const code = String(randomInt(100000, 1000000));
   const codeHash = createHash('sha256').update(code).digest('hex');
@@ -43,8 +43,8 @@ export async function POST(request) {
       to: email,
       subject: 'Confirm your new PlacementHub mobile number',
       text: `Your code to confirm ${combined} is ${code}. It expires in 10 minutes.`,
-      html: `<p>Hi ${current.rows[0]?.name || 'there'},</p>
-<p>Use this code to confirm your new mobile number <strong>${combined}</strong>:</p>
+      html: `<p>Hi ${escapeHtml(current.rows[0]?.name || 'there')},</p>
+<p>Use this code to confirm your new mobile number <strong>${escapeHtml(combined)}</strong>:</p>
 <p style="font-size:24px;font-weight:700;letter-spacing:4px">${code}</p>
 <p>This code expires in 10 minutes. We email this code because SMS delivery is not configured.</p>`,
       skipUnsubscribe: true,

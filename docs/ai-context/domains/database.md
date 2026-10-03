@@ -9,14 +9,14 @@ Postgres access for InternSafar, `ip_*` schema, SQL migrations, migrate safety g
 | Path | Role |
 |------|------|
 | `src/lib/db.js` | `pg` pool — app queries must use **`ip_*` only** |
-| `db/migrations/` | Numbered SQL (prefer `*ip*`; latest **`046_ip_offer_withdrawn_status.sql`**) |
+| `db/migrations/` | Numbered SQL (prefer `*ip*`; latest **`048_ip_lookup_indexes.sql`**) |
 | `scripts/MIGRATION_MANIFEST.txt` | Apply order for Path C / sql-only |
 | `docs/ip-er-diagram-notes.md` | ER notes (synced through **039**; also see **040–044**) |
 | `docs/ip-er-diagram.puml` | PlantUML diagram |
 | `scripts/schema-fingerprint-ip.mjs` | Read-only local↔AWS schema compare |
-| `scripts/db_exec_sql_file.js` | Applies one SQL file (gated) |
+| `scripts/db_exec_sql_file.js` | Applies one SQL file (gated). Records applied files in `ip_schema_migrations` (filename, sha256 checksum) and skips them on re-run; `--force` re-runs, `--baseline` records without executing. DBs without the table behave as before (everything runs once, then is recorded) |
 | `scripts/assert-db-migrate-allowed.js` | Blocks migrate unless allowed |
-| `scripts/assert-db-migrate-target.js` | Blocks laptop/Vercel migrate against AWS RDS hostnames |
+| `scripts/assert-db-migrate-target.js` | Blocks laptop/Vercel migrate against AWS RDS hostnames. Checks the explicit `connectionString` when given (`db_exec_sql_file.js` passes the one it connects with); otherwise blocks if **any** of `IP_DATABASE_URL` / `DATABASE_URL` / `SUPABASE_DATABASE_URL` (env or `.env*`) is RDS |
 | `scripts/assert-migration-sql-safe.js` | Blocks destructive SQL in new migrations |
 | `scripts/deploy-fresh-aws-db.mjs` | Path C fresh/empty RDS |
 
@@ -35,6 +35,9 @@ Useful npm scripts: `db:migrate:ip`, `db:migrate:sql-only`, `db:migrate:workbenc
 | `046_ip_offer_withdrawn_status.sql` | Widens `ip_offers_status_check` with `withdrawn` (applied to Supabase and AWS 2026-09-29; no blank-fill; app falls back to `expired` on any DB still missing it) |
 | `026b_ip_runtime_tables_before_constraints.sql` (2026-10-03) | Additive: creates runtime tables/columns that 027/028 constrain (`ip_users.two_factor_enabled`, `ip_2fa_challenges`, `ip_notification_preferences`, `ip_notifications.meta`) so a fresh migrate no longer fails. No-op on existing DBs |
 | `047_ip_captcha_nonces_2fa_attempts.sql` + `ensureIpCaptchaNonceSchema` / `ensureIpTwoFactorSchema` (2026-10-03) | `ip_captcha_nonces` (single-use captcha) + `ip_2fa_challenges.failed_attempts` (default 0). Also created at runtime — optional on AWS, no blank-fill |
+| `048_ip_lookup_indexes.sql` (2026-10-03) | Additive `CREATE INDEX IF NOT EXISTS`: `ip_notifications(user_id, created_at DESC)`, `ip_message_threads(candidate_user_id)` + `(employer_user_id)`, `ip_offers(candidate_id)`, `ip_applications(candidate_id)`. Performance only — app works without it; **not applied** to Supabase or AWS yet |
+| Runtime columns (2026-10-03, Medium audit) | `ip_2fa_challenges.bind_hash`; `ip_email_unsubscribe_requests.processed_at` / `processed_by`; `ip_employers.approval_reviewed_by`; `ip_internships.moderated_by` / `moderated_at`; `ip_employer_documents.reviewed_by`. All nullable, added by `ensure*` helpers on first use; old rows stay NULL (no blank-fill needed — NULL means "before audit columns") |
+| `035` self-check (edited 2026-10-03) | Order / summary-mismatch checks scoped to the three seeded cast candidates, so real users' histories cannot fail a deploy |
 | `037`/`038` college-name retire (edited 2026-10-03) | UPDATEs only touch rows with `updated_at` before 2026-09-02 IST, so a replay cannot rewrite newer user edits |
 | `ensureIpEmployerDocumentSlotsSchema` | `superseded_at`, `doc_label`, file_size; dedupe; active-type unique index |
 | `ensureIpEmployerEmailVerifySchema` | Verify table + `email_verify_required` (**schema only**) |

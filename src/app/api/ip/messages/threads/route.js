@@ -1,12 +1,11 @@
 import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
-import { decorateMessageThread } from '@/lib/ipMessagePresentation';
-import { maskEmployerName } from '@/lib/ipEmployerIdentity';
 import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
 import { linkThreadToApplicationIfPresent } from '@/lib/ipLinkThreadApplication';
 import {
   ensureIpMessageInboxSchema,
+  presentThreadForRole,
   THREAD_JOINS,
   THREAD_LAST_MESSAGE_SQL,
   THREAD_SELECT_CORE,
@@ -41,18 +40,7 @@ export async function GET(request) {
      ) DESC`,
     [uid],
   );
-  const items = result.rows.map((row) => {
-    const masked =
-      role === 'candidate'
-        ? {
-            ...row,
-            company_name: maskEmployerName(row.company_name, row.show_employer_identity !== false),
-          }
-        : row;
-    const decorated = decorateMessageThread(masked);
-    if (role !== 'employer') delete decorated.candidate_resume_url;
-    return decorated;
-  });
+  const items = result.rows.map((row) => presentThreadForRole(row, role));
   return jsonOk({ items });
 }
 

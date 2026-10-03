@@ -179,6 +179,7 @@ export default function FeatureIdeasTriagePage() {
 
   useEffect(() => {
     setPage(1);
+    setSelected([]);
   }, [tab, categoryFilter, priorityFilter, search, setPage]);
 
   const tabCounts = useMemo(() => {
@@ -406,9 +407,9 @@ export default function FeatureIdeasTriagePage() {
                     <th>
                       <input
                         type="checkbox"
-                        checked={filtered.length > 0 && filtered.every((i) => selected.includes(i.id))}
-                        onChange={(e) => setSelected(e.target.checked ? filtered.map((i) => i.id) : [])}
-                        aria-label="Select all"
+                        checked={pageItems.length > 0 && pageItems.every((i) => selected.includes(i.id))}
+                        onChange={(e) => setSelected(e.target.checked ? pageItems.map((i) => i.id) : [])}
+                        aria-label="Select all on this page"
                       />
                     </th>
                     <th>Feature Request Title</th>

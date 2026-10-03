@@ -50,6 +50,18 @@ function resolveDatabaseUrl() {
   );
 }
 
+/** Every DB URL a migrate/seed script might connect with (scripts differ in precedence). */
+function candidateDatabaseUrls() {
+  const fileEnv = { ...readEnvFile('.env'), ...readEnvFile('.env.local') };
+  const keys = ['IP_DATABASE_URL', 'DATABASE_URL', 'SUPABASE_DATABASE_URL'];
+  const urls = [];
+  for (const k of keys) {
+    if (process.env[k]) urls.push(process.env[k]);
+    if (fileEnv[k]) urls.push(fileEnv[k]);
+  }
+  return urls;
+}
+
 function hostnameFromUrl(rawUrl) {
   if (!rawUrl) return '';
   try {
@@ -132,8 +144,14 @@ function printBlockedAndExit(hostname, reason) {
  * @param {{ connectionString?: string, forceEc2?: boolean, forceVercel?: boolean }} [opts]
  */
 function assertDbMigrateTargetAllowed(_argv, opts) {
-  const rawUrl = (opts && opts.connectionString) || resolveDatabaseUrl();
-  const hostname = hostnameFromUrl(rawUrl);
+  let hostname;
+  if (opts && opts.connectionString) {
+    hostname = hostnameFromUrl(opts.connectionString);
+  } else {
+    // No explicit URL: block if any candidate is RDS, since callers resolve URLs differently.
+    const hosts = candidateDatabaseUrls().map(hostnameFromUrl);
+    hostname = hosts.find(isAwsRdsHost) || hostnameFromUrl(resolveDatabaseUrl());
+  }
   if (!isAwsRdsHost(hostname)) {
     return { hostname, awsRds: false };
   }

@@ -233,6 +233,7 @@ export async function POST(request) {
         subject: 'Your Internship Portal temporary password',
         html: tempPasswordEmailHtml({ name, email, password }),
         text: `Hi ${name},\nTemporary password: ${password}\nSign in and change it.`,
+        skipUnsubscribe: true,
       });
       if (mailResult?.usedOverride) {
         return googlePathSuccessResponse({

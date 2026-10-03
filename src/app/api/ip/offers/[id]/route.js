@@ -5,6 +5,7 @@ import { notifyUser } from '@/lib/ipNotify';
 import { sendMail } from '@/lib/mail';
 import { offerIsExpired } from '@/lib/ipOfferPresentation';
 import { maskEmployerName } from '@/lib/ipEmployerIdentity';
+import { escapeHtml } from '@/lib/escapeHtml';
 
 export async function PATCH(request, { params }) {
   const { session, error } = await requireSession(['candidate']);
@@ -96,7 +97,7 @@ export async function PATCH(request, { params }) {
       await sendMail({
         to: candEmail,
         subject: `Offer ${status} — ${row.title}`,
-        html: `<p>You <strong>${status}</strong> the offer for <strong>${row.title}</strong>${atCompany}.</p>`,
+        html: `<p>You <strong>${status}</strong> the offer for <strong>${escapeHtml(row.title)}</strong>${escapeHtml(atCompany)}.</p>`,
         text: `You ${status} the offer for ${row.title}${atCompany}.`,
       });
     }
@@ -104,7 +105,7 @@ export async function PATCH(request, { params }) {
       await sendMail({
         to: empEmail,
         subject: `Offer ${status} — ${row.title}`,
-        html: `<p>The offer for <strong>${row.title}</strong> was <strong>${status}</strong> by the candidate.</p>`,
+        html: `<p>The offer for <strong>${escapeHtml(row.title)}</strong> was <strong>${status}</strong> by the candidate.</p>`,
         text: `The offer for ${row.title} was ${status} by the candidate.`,
       });
     }

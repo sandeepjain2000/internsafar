@@ -61,7 +61,12 @@ export function validateOptionalPhone(phone, phoneCountryCode) {
       error: 'Please enter a correct phone number for the selected country code, or leave it blank.',
     };
   }
-  return { ok: true, e164: parsed.format('E.164') };
+  return {
+    ok: true,
+    e164: parsed.format('E.164'),
+    national: String(parsed.nationalNumber || ''),
+    dial: `+${parsed.countryCallingCode}`,
+  };
 }
 
 /** Required phone. */

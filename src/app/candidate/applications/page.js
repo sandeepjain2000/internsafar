@@ -355,6 +355,7 @@ export default function MyApplicationsPage() {
   }
 
   async function withdraw(id) {
+    if (!window.confirm('Withdraw this application? The employer will no longer review it.')) return;
     const res = await fetch(`/api/ip/candidate/applications/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -604,8 +605,8 @@ export default function MyApplicationsPage() {
                   <button
                     type="button"
                     className="ip-ap-icon is-withdraw"
-                    title="Reject"
-                    aria-label="Reject"
+                    title="Withdraw application"
+                    aria-label="Withdraw application"
                     disabled={!canWithdraw(a.status)}
                     onClick={() => withdraw(a.id)}
                   >
@@ -691,8 +692,8 @@ export default function MyApplicationsPage() {
                       <button
                         type="button"
                         className="ip-ap-icon is-withdraw"
-                        title="Reject"
-                        aria-label="Reject"
+                        title="Withdraw application"
+                        aria-label="Withdraw application"
                         disabled={!canWithdraw(a.status)}
                         onClick={() => withdraw(a.id)}
                       >
@@ -811,7 +812,7 @@ export default function MyApplicationsPage() {
                 Message employer
               </button>
               {canWithdraw(detail.status) ? (
-                <button type="button" className="ip-ap-btn ip-ap-btn--danger" onClick={() => withdraw(detail.id)}>Reject</button>
+                <button type="button" className="ip-ap-btn ip-ap-btn--danger" onClick={() => withdraw(detail.id)}>Withdraw application</button>
               ) : null}
             </div>
           </div>

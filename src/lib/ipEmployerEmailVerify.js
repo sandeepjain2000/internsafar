@@ -6,6 +6,7 @@ import { sendMail } from '@/lib/mail';
 import { resolveAppOrigin } from '@/lib/ipAppOrigin';
 import { ensureIpAccountSettingsSchema } from '@/lib/ensureIpAccountSettingsSchema';
 import { normalizeEmail } from '@/lib/authRegisterRules';
+import { escapeHtml } from '@/lib/escapeHtml';
 
 const TTL_MS = 48 * 60 * 60 * 1000;
 let schemaReady = false;
@@ -41,11 +42,12 @@ function hashToken(token) {
 }
 
 export function employerVerifyEmailHtml({ name, verifyUrl, appName = 'InternSafar' }) {
-  const safeName = name || 'there';
+  const safeName = escapeHtml(name || 'there');
+  const safeUrl = escapeHtml(verifyUrl);
   return `<!doctype html><html><body style="font-family:system-ui,sans-serif;line-height:1.5;color:#0f172a">
   <p>Hi ${safeName},</p>
   <p>Confirm your employer email for ${appName} by opening this link:</p>
-  <p><a href="${verifyUrl}">${verifyUrl}</a></p>
+  <p><a href="${safeUrl}">${safeUrl}</a></p>
   <p>This link expires in 48 hours. After you verify, a SuperAdmin still needs to approve your account before you can post internships.</p>
   <p>— ${appName}</p>
   </body></html>`;
@@ -84,6 +86,7 @@ export async function sendEmployerEmailVerification({ userId, email, name, reque
       subject,
       html: employerVerifyEmailHtml({ name, verifyUrl }),
       text: `Hi ${name || 'there'},\nVerify your employer email: ${verifyUrl}\n`,
+      skipUnsubscribe: true,
     });
     mailOk = true;
   } catch (e) {
@@ -129,5 +132,11 @@ export async function consumeEmployerEmailVerification(tokenRaw) {
     return true;
   });
   if (!consumed) return { ok: false, error: 'This verification link was already used' };
+  try {
+    const { creditReferralForReferredUser } = await import('@/lib/ipReferralCredit');
+    await creditReferralForReferredUser(v.user_id);
+  } catch (e) {
+    console.warn('[employer email verify] referral credit skipped', e.message);
+  }
   return { ok: true, userId: v.user_id, email: v.email };
 }

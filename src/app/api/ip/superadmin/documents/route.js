@@ -3,6 +3,7 @@ import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { ensureIpDocumentAuditSchema, formatFileSize } from '@/lib/ensureIpDocumentAuditSchema';
 import { ensureIpEmployerDocumentSlotsSchema } from '@/lib/ipEmployerDocuments';
 import { notifyUser } from '@/lib/ipNotify';
+import { ensureIpEmployerApprovalSchema } from '@/lib/ensureIpEmployerApprovalSchema';
 
 function normalizeStatus(s) {
   const v = String(s || '').toLowerCase();
@@ -13,10 +14,10 @@ function normalizeStatus(s) {
 async function setOne(id, reviewStatus, notes, reviewerId) {
   const result = await query(
     `UPDATE ip_employer_documents
-     SET review_status = $2, review_notes = $3, reviewed_at = now()
+     SET review_status = $2, review_notes = $3, reviewed_at = now(), reviewed_by = $4
      WHERE id = $1
      RETURNING id, employer_id, file_name, doc_type`,
-    [id, reviewStatus, notes || null],
+    [id, reviewStatus, notes || null, reviewerId || null],
   );
   const row = result.rows[0];
   if (!row) return { ok: false };
@@ -118,6 +119,7 @@ export async function PATCH(request) {
   if (error) return error;
   await ensureIpDocumentAuditSchema();
   await ensureIpEmployerDocumentSlotsSchema();
+  await ensureIpEmployerApprovalSchema();
   let body;
   try {
     body = await request.json();

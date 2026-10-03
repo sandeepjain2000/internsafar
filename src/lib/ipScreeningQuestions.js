@@ -31,7 +31,7 @@ export function normalizeScreeningQuestions(raw) {
       continue;
     }
     if (!q || typeof q !== 'object') continue;
-    const prompt = String(q.prompt || '').trim();
+    const prompt = String(q.prompt || q.question || q.text || '').trim();
     if (!prompt) continue;
     const type = String(q.type || 'text').toLowerCase() === 'mcq' ? 'mcq' : 'text';
     const id = String(q.id || `q${out.length + 1}`).trim() || `q${out.length + 1}`;

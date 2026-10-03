@@ -6,7 +6,7 @@ import { ensureIpWorkbenchSchema } from '@/lib/ensureIpWorkbenchSchema';
 import { ensureIpStudentDiscoveryFeatures } from '@/lib/ensureIpStudentDiscoveryFeatures';
 import { CANDIDATE_VISIBLE_SQL } from '@/lib/ipInternshipVisibility';
 import { publicApplicationVolumeLabel } from '@/lib/ipApplicationVolume';
-import { maskEmployerName } from '@/lib/ipEmployerIdentity';
+import { maskEmployerIdentityForCandidate } from '@/lib/ipEmployerIdentity';
 import { matchesRegionValue } from '@/lib/ipRegions';
 import { ensureIpInternshipStipendRangeSchema } from '@/lib/ensureIpInternshipStipendRangeSchema';
 import { ensureIpEmployerDocumentSlotsSchema } from '@/lib/ipEmployerDocuments';
@@ -251,10 +251,12 @@ export async function GET(request) {
     const volume = r.show_hiring_numbers
       ? publicApplicationVolumeLabel(r.historical_application_count)
       : null;
+    const { work_email: _workEmail, ethics_acks: _acks, ethics_accepted_at: _ethicsAt, employer_updated_at: _empUpdated, ...publicRow } = r;
     return {
-      ...r,
-      employer_id: r.employer_id || r.employer_row_id || null,
-      company_name: maskEmployerName(r.company_name, r.show_employer_identity !== false),
+      ...maskEmployerIdentityForCandidate({
+        ...publicRow,
+        employer_id: r.employer_id || r.employer_row_id || null,
+      }),
       _applicantCount: Number(r.historical_application_count || 0),
       historical_application_count: undefined,
       application_volume_label: volume,

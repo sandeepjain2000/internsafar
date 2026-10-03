@@ -56,6 +56,17 @@ Sign-in, registration, sessions, role homes, Google auth helpers, 2FA, account s
 - **Password reset:** max 5 reset emails per account per hour; extra requests get the same OK response but no mail.
 - Signup (candidate/employer) and employer email-verify run in `transaction()` (`src/lib/transaction.js`); verify token claim is atomic.
 
+### Session / token hardening (confirmed 2026-10-03, Medium audit)
+
+- **2FA resend is browser-bound.** The password step sets an httpOnly cookie `ip_2fa_bind` (15 min) and stores its sha256 in `ip_2fa_challenges.bind_hash` (runtime column via `ensureIpTwoFactorSchema`). `POST /api/ip/auth/2fa/resend` returns 403 unless the cookie matches; successful OTP sign-in deletes the cookie. Challenges opened before this change have no `bind_hash` → 403 "sign in again".
+- **Password reset tokens are stored hashed** (`src/lib/ipPasswordResetToken.js`, sha256 hex); the email carries the raw token. Confirm accepts the hash match, or a legacy raw row (stored value not 64 chars). Confirm also burns the user's other open reset tokens and revokes all their `ip_auth_sessions`. QA `run-internsafar-qa.mjs` mints its own hashed row to get a raw token.
+- **Revoked session stays revoked:** the `jwt` callback returns early when `token.error` is set (no re-mint).
+- **Email change** revokes the user's other sessions (current device stays signed in) instead of deleting rows.
+- **Phone change** validates with `validateRequiredPhone`; stores national number + dial code like the profile; verify claim is atomic. Account page shows `+<dial> <national>`.
+- **Employer referral** row is created `pending` at signup and credited only on email verification (`consumeEmployerEmailVerification` → `creditReferralForReferredUser`).
+- Transactional mail (2FA codes, employer verify, temp password, employer signup ack, ops alerts) passes `skipUnsubscribe: true`; other single-recipient mail is skipped for addresses with a **processed** unsubscribe request (`isEmailUnsubscribed`, fails open).
+- User-supplied text in email HTML is escaped with `src/lib/escapeHtml.js`.
+
 Candidates do **not** require email verify before login. Employer email verify table/columns: `ensureIpEmployerEmailVerifySchema` (schema only — fill blanks via temp runner on AWS, never `email_verify_required=false` grandfather).
 
 ## Constraints

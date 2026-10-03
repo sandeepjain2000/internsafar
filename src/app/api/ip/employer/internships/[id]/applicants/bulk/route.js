@@ -7,12 +7,15 @@ import { notifyUser } from '@/lib/ipNotify';
 import { linkThreadToApplicationIfPresent } from '@/lib/ipLinkThreadApplication';
 import { closePendingOfferForApplication } from '@/lib/ipOfferLifecycle';
 import { employerCanSetStatus } from '@/lib/ipApplicationPresentation';
+import { applyEmployerApplicationStatus } from '@/lib/ipApplicationStatusChange';
+import { candidateFacingCompany } from '@/lib/ipEmployerIdentity';
+import { parseInterviewMeetUrl } from '@/lib/ipInterviewMeetUrl';
 
 async function ownedApps(employerId, internshipId, applicationIds) {
   const result = await query(
-    `SELECT a.id, a.candidate_id, a.status, a.match_score, a.screening_disabled, a.created_at, a.answers,
+    `SELECT a.id, a.internship_id, a.candidate_id, a.status, a.match_score, a.screening_disabled, a.created_at, a.answers,
             c.name, c.email, c.college, c.degree, c.city, c.skills, c.user_id as candidate_user_id,
-            i.title, i.employer_id, e.company_name
+            i.title, i.employer_id, i.show_employer_identity, e.company_name
      FROM ip_applications a
      JOIN ip_candidates c ON c.id = a.candidate_id
      JOIN ip_internships i ON i.id = a.internship_id
@@ -133,7 +136,7 @@ export async function POST(request, { params }) {
           category: 'application',
           meta: {
             applicationId: row.id,
-            company: row.company_name || null,
+            company: candidateFacingCompany(row.company_name, row.show_employer_identity),
             internshipTitle: row.title,
             bulk: true,
           },
@@ -331,8 +334,12 @@ export async function POST(request, { params }) {
   }
 
   if (action === 'schedule_interview') {
-    const interviewAt = body.interviewAt;
-    if (!interviewAt) return jsonError('interviewAt is required');
+    const rawAt = String(body.interviewAt ?? '').trim();
+    if (!rawAt) return jsonError('interviewAt is required');
+    const at = new Date(rawAt);
+    if (Number.isNaN(at.getTime())) return jsonError('interviewAt must be a valid date/time');
+    const parsedMeet = parseInterviewMeetUrl(body.interviewMeetUrl ?? body.interview_meet_url);
+    if (!parsedMeet.ok) return jsonError(parsedMeet.error);
     let n = 0;
     let skipped = 0;
     for (const row of rows) {
@@ -341,12 +348,14 @@ export async function POST(request, { params }) {
         skipped += 1;
         continue;
       }
-      await query(
-        `UPDATE ip_applications SET status = 'interviewing', interview_at = $2, interview_meet_url = $3, updated_at = now()
-         WHERE id = $1`,
-        [row.id, interviewAt, body.interviewMeetUrl || null],
-      );
-      await closePendingOfferForApplication(row.id, 'interviewing');
+      await applyEmployerApplicationStatus({
+        row,
+        employerUserId: session.user.id,
+        status: 'interviewing',
+        interviewAt: at.toISOString(),
+        interviewMeetUrl: parsedMeet.url,
+        eventExtra: { bulk: true },
+      });
       n += 1;
     }
     return jsonOk({ ok: true, updated: n, skipped });

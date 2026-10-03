@@ -3,6 +3,26 @@ import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { replaceEmployerDocument } from '@/lib/ipEmployerDocuments';
 
+const FILES_MARKER = '/api/ip/files?key=';
+
+function isAllowedDocumentUrl(url, userId) {
+  if (url.startsWith(FILES_MARKER)) {
+    let key;
+    try {
+      key = decodeURIComponent(url.slice(FILES_MARKER.length).split('&')[0]);
+    } catch {
+      return false;
+    }
+    return key.startsWith(`internship-portal/employers/${userId}/`) && !key.includes('..');
+  }
+  if (url.startsWith('/sample-docs/') && !url.includes('..')) return true;
+  try {
+    return new URL(url).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Document metadata + optional URL reference.
  * Prefer file upload via POST /api/ip/employer/documents/upload (S3) when available.
@@ -20,6 +40,11 @@ export async function POST(request) {
   const docType = String(body.docType || '').trim();
   if (!docType) return jsonError('docType is required');
 
+  const url = String(body.url || '').trim() || null;
+  if (url && !isAllowedDocumentUrl(url, session.user.id)) {
+    return jsonError('Document link must be an https URL or a file you uploaded', 400);
+  }
+
   const emp = await query(`SELECT id FROM ip_employers WHERE user_id = $1`, [session.user.id]);
   if (!emp.rows[0]) return jsonError('Employer profile missing', 404);
 
@@ -29,7 +54,7 @@ export async function POST(request) {
     docType,
     docLabel: body.docLabel || body.documentName || null,
     fileName: body.fileName || null,
-    url: body.url || null,
+    url,
     fileSize: null,
     id,
   });

@@ -2,6 +2,8 @@ import { query } from '@/lib/db';
 import { notifyUser } from '@/lib/ipNotify';
 import { sendMail } from '@/lib/mail';
 import { hoursUntilClose, deriveLifecycleLabel } from '@/lib/ipInternshipVisibility';
+import { escapeHtml } from '@/lib/escapeHtml';
+import { formatIstDateTime } from '@/lib/ipIstTime';
 
 /**
  * Optional employer reminders before posting goes live / before applications close.
@@ -28,7 +30,7 @@ export async function processScheduleReminders({ now = new Date() } = {}) {
 
   for (const row of startDue.rows) {
     try {
-      const when = new Date(row.starts_at).toLocaleString();
+      const when = formatIstDateTime(row.starts_at);
       const title = `Posting launches soon: ${row.title}`;
       const body = `Your posting goes live at ${when}. Review details before candidates can see it.`;
       await notifyUser({
@@ -45,7 +47,7 @@ export async function processScheduleReminders({ now = new Date() } = {}) {
           to: row.email,
           subject: title,
           text: body,
-          html: `<p>${body}</p><p><a href="/employer/internships/${row.id}">Open Posting</a></p>`,
+          html: `<p>${escapeHtml(body)}</p><p><a href="/employer/internships/${row.id}">Open Posting</a></p>`,
         });
       } catch (e) {
         console.warn('[scheduleReminders] mail start', e.message);
@@ -78,7 +80,7 @@ export async function processScheduleReminders({ now = new Date() } = {}) {
   for (const row of endDue.rows) {
     try {
       const hoursLeft = hoursUntilClose(row, now);
-      const when = new Date(row.apply_ends_at).toLocaleString();
+      const when = formatIstDateTime(row.apply_ends_at);
       const title = `Applications closing soon: ${row.title}`;
       const body = `Applications close at ${when}${hoursLeft != null ? ` (~${hoursLeft}h left)` : ''}. Lifecycle: ${deriveLifecycleLabel(row, now)}.`;
       await notifyUser({
@@ -95,7 +97,7 @@ export async function processScheduleReminders({ now = new Date() } = {}) {
           to: row.email,
           subject: title,
           text: body,
-          html: `<p>${body}</p>`,
+          html: `<p>${escapeHtml(body)}</p>`,
         });
       } catch (e) {
         console.warn('[scheduleReminders] mail end', e.message);

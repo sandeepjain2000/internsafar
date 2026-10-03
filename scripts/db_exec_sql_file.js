@@ -4,8 +4,13 @@
  * Fail-closed: any PostgreSQL error exits with code 1 and a clear FAIL banner.
  * Do not treat "Done" / exit 0 as success unless you see the OK banner.
  *
- * Usage: node scripts/db_exec_sql_file.js <relative-or-absolute-sql-path>
+ * Usage: node scripts/db_exec_sql_file.js <relative-or-absolute-sql-path> [--force] [--baseline]
+ *
+ * Applied files are recorded in ip_schema_migrations and skipped on re-run.
+ *   --force     re-run even if recorded (file must be idempotent)
+ *   --baseline  record as applied WITHOUT executing (DB already has this schema)
  */
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { Client } = require('pg');
@@ -79,7 +84,9 @@ async function main() {
   // Live-data gate: new migrations must not DELETE/DROP/TRUNCATE (legacy allowlisted).
   assertMigrationSqlSafe(sqlPath, process.argv, { sql });
 
-  const client = new Client(getDbConfig());
+  const dbConfig = getDbConfig();
+  assertDbMigrateTargetAllowed(process.argv, { connectionString: dbConfig.connectionString });
+  const client = new Client(dbConfig);
   const notices = [];
   client.on('notice', (msg) => {
     const text = msg.message || String(msg);
@@ -88,13 +95,47 @@ async function main() {
   });
 
   await client.connect();
+  const filename = path.basename(sqlPath);
+  const checksum = crypto.createHash('sha256').update(sql).digest('hex');
+  const force = process.argv.includes('--force');
+  const baseline = process.argv.includes('--baseline');
+  const recordApplied = () =>
+    client.query(
+      `INSERT INTO ip_schema_migrations (filename, checksum) VALUES ($1, $2)
+       ON CONFLICT (filename) DO UPDATE SET checksum = EXCLUDED.checksum, applied_at = now()`,
+      [filename, checksum]
+    );
   try {
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS ip_schema_migrations (
+         filename TEXT PRIMARY KEY,
+         checksum TEXT NOT NULL,
+         applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+       )`
+    );
+    if (baseline) {
+      await recordApplied();
+      console.log(`=== OK: ${rel} recorded as applied (--baseline, SQL not executed) ===`);
+      return;
+    }
+    const prior = await client.query(
+      'SELECT checksum, applied_at FROM ip_schema_migrations WHERE filename = $1',
+      [filename]
+    );
+    if (prior.rows[0] && !force) {
+      if (prior.rows[0].checksum !== checksum) {
+        console.warn(`[migrate] ${filename} changed since it was applied; use --force to re-run.`);
+      }
+      console.log(`=== OK: ${rel} already applied ${prior.rows[0].applied_at.toISOString()} (skipped) ===`);
+      return;
+    }
     console.log(`Executing SQL file: ${rel}`);
     // Do not wrap with BEGIN/COMMIT here: many migration files manage their own
     // transactions. An outer COMMIT after an inner COMMIT can print "success"
     // while leaving earlier errors easy to miss. One client.query(multi-SQL)
     // fails the whole batch if any statement errors (unless the file COMMITs early).
     await client.query(sql);
+    await recordApplied();
     console.log(`=== OK: ${rel} applied successfully (exit 0) ===`);
     if (notices.length) {
       console.log(`(server notices during run: ${notices.length})`);

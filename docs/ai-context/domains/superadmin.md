@@ -59,15 +59,27 @@ Nav order: `src/lib/ipNav.js` → `SUPERADMIN_NAV`.
 - "Contacted" = `ip_message_threads` with `application_id IS NULL`. "Name hidden on posting" = `ip_internships.show_employer_identity = false`.
 - Read-only: no deactivate / edit actions. Over 5000 candidates the page shows a warning; move to server-side paging if the base grows past that.
 
-## Email unsubscribe queue (API)
+## Email unsubscribe queue (confirmed 2026-10-03)
 
 | Path | Role |
 |------|------|
-| `GET` `/api/ip/superadmin/unsubscribe-requests` | List PENDING (and related) unsubscribe requests |
-| Public `/unsubscribe?token=…` + `/api/ip/unsubscribe` | User click creates **PENDING** row — does **not** disable mail until ops process it |
-| Libs | `src/lib/ipEmailUnsubscribe.js`, `ipEmailUnsubscribeFormat.js` |
+| `/superadmin/unsubscribes` | **Email unsubscribes** page (nav item): Pending / Processed tabs, Mark processed per row, Mark this page processed, IST dates |
+| `GET` `/api/ip/superadmin/unsubscribe-requests?status=` | List requests (includes `processed_at`) |
+| `PATCH` `/api/ip/superadmin/unsubscribe-requests` | `{ ids \| id }` (max 500) → PENDING → PROCESSED, sets `processed_at`, `processed_by`; returns `{ ok, processed }` |
+| Public `/unsubscribe?token=…` + `/api/ip/unsubscribe` | User click creates **PENDING** row — mail continues until processed |
+| Libs | `src/lib/ipEmailUnsubscribe.js` (`markUnsubscribeRequestsProcessed`, `isEmailUnsubscribed`), `ipEmailUnsubscribeFormat.js` |
 
-There is **no** dedicated SuperAdmin page route for unsubscribe as of 2026-09-18 — consume via API / existing requests tooling. Confirm UI before inventing a page.
+Once PROCESSED, `sendMail` skips non-transactional single-recipient mail to that address (see `domains/auth.md`).
+
+## Review actions and audit (confirmed 2026-10-03, Medium audit)
+
+- Bulk selection on Approvals, Postings, Documents, Promotions and Feature ideas: select-all covers the **current page only**; selection clears when filter or search changes. Partial bulk failures stay visible after reload.
+- Bulk Reject asks for confirmation. Rejected employers get **Set to Pending** (confirm → pending). Approve or Pending re-activates a deactivated login (`ip_users.active=true`).
+- Dashboard review modal: reject reason from `REJECT_PRESETS` (`src/lib/ipDomainRisk.js`) + note, sent as `rejectionReason`; errors show inside the modal; modal state resets per employer.
+- Reviewer columns (runtime, `ensureIpEmployerApprovalSchema`): `ip_employers.approval_reviewed_by`, `ip_internships.moderated_by` + `moderated_at`, `ip_employer_documents.reviewed_by`.
+- Postings **Publish** requires the employer posting gate (`getEmployerPostingGate`); blocked rows come back in `failures`, 400 if none succeeded.
+- Promotions: employer can re-submit a claim only while `pending`, `fast_track_pending` or `failed` (else 409).
+- `POST /api/ip/ops/report-error` (public): 20 reports per IP per 10 min (429 after); `ipOpsAlert` sends at most `IP_OPS_ALERT_MAX_PER_HOUR` (default 30) alert mails per hour per instance, fingerprint map capped at 500.
 
 ## Confirmed demo account (from `README.md`)
 

@@ -131,7 +131,7 @@ src/
 | Content | `/help`, `/ideas`, `/guidelines`, `/how-it-works` |
 | Candidate | `/candidate`, `/candidate/profile`, `/candidate/internships`, `/candidate/internships/[id]`, `/candidate/applications`, `/candidate/messages`, `/candidate/messages/[id]`, `/candidate/offers`, `/candidate/notifications`, `/candidate/referral` |
 | Employer | `/employer`, `/employer/profile`, `/employer/internships`, `/employer/internships/new`, `/employer/internships/[id]`, `/employer/internships/[id]/edit`, `/employer/candidates`, `/employer/candidates/[id]`, `/employer/messages`, `/employer/messages/[id]`, `/employer/offers`, `/employer/notifications`, `/employer/analytics`, `/employer/rejection-templates`, `/employer/referral`, `/employer/viral` (redirect → referral) |
-| SuperAdmin | `/superadmin`, `/superadmin/approvals`, `/superadmin/candidates` (+ `/superadmin/candidates/[id]`), `/superadmin/documents`, `/superadmin/postings`, `/superadmin/promotions` (Posting Share Rewards), `/superadmin/points` (Adjust Points), `/superadmin/login-report`, `/superadmin/listing-reports`, `/superadmin/messages`, `/superadmin/feature-ideas`. Redirect-only: `/superadmin/login` → `/`, `/superadmin/requests` + `/superadmin/form-registrations` → approvals, `/superadmin/viral` → dashboard |
+| SuperAdmin | `/superadmin`, `/superadmin/approvals`, `/superadmin/candidates` (+ `/superadmin/candidates/[id]`), `/superadmin/documents`, `/superadmin/postings`, `/superadmin/promotions` (Posting Share Rewards), `/superadmin/points` (Adjust Points), `/superadmin/login-report`, `/superadmin/listing-reports`, `/superadmin/messages`, `/superadmin/feature-ideas`, `/superadmin/unsubscribes` (Email unsubscribes). Redirect-only: `/superadmin/login` → `/`, `/superadmin/requests` + `/superadmin/form-registrations` → approvals, `/superadmin/viral` → dashboard |
 
 Nav labels/order: `src/lib/ipNav.js`.
 
@@ -139,7 +139,7 @@ Nav labels/order: `src/lib/ipNav.js`.
 
 `account`, `auth`, `bootstrap`, `candidate`, `completions`, `cron`, `employer`, `endorsements`, `files`, `help-chat`, `idea-categories`, `ideas`, `list-presets`, `messages`, `nav-badges`, `notifications`, `offers`, `ops`, `points`, `profile-reminder`, `promotions`, `qa`, `ratings`, `ref`, `referral`, `superadmin`, `table-filter-prefs`, `unsubscribe`, `viral`
 
-SuperAdmin API sub-area of note: `superadmin/unsubscribe-requests` (PENDING queue for email unsubscribe clicks); `superadmin/candidates` (+ `[id]`, `[id]/export`) for the Candidates pages.
+SuperAdmin API sub-area of note: `superadmin/unsubscribe-requests` (GET list, PATCH mark processed — backs `/superadmin/unsubscribes`); `superadmin/candidates` (+ `[id]`, `[id]/export`) for the Candidates pages.
 
 Full path list of every `route.js`: use a directory listing or `ISM_ROUTE_INVENTORY.md`. Do not invent endpoints.
 

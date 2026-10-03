@@ -85,8 +85,17 @@ export function installPlaywrightBrowsersIfNeeded(opts = {}) {
   return { ok: true, path: dir, installed: true };
 }
 
+function isHostedBuild() {
+  return Boolean(process.env.VERCEL || process.env.VERCEL_ENV || process.env.CI);
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const force = process.argv.includes('--force');
+  // The app never uses Playwright at runtime; skip the Chromium download on Vercel/CI installs.
+  if (process.argv.includes('--postinstall') && !force && isHostedBuild()) {
+    console.log('[playwright] hosted build (VERCEL/CI) — skipping browser install');
+    process.exit(0);
+  }
   installPlaywrightBrowsersIfNeeded({ force });
   try {
     const { chromium } = require('playwright');

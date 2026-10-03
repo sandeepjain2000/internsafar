@@ -4,8 +4,8 @@ import { query } from '@/lib/db';
 import { transaction } from '@/lib/transaction';
 import { newId, referralCodeFrom } from '@/lib/ids';
 import { sendMail } from '@/lib/mail';
-import { notifyRole, notifyUser } from '@/lib/ipNotify';
-import { referrerRewardsForRole } from '@/lib/pointsEconomy';
+import { escapeHtml } from '@/lib/escapeHtml';
+import { notifyRole } from '@/lib/ipNotify';
 import { domainFromWebsite, normalizeEmail } from '@/lib/authRegisterRules';
 import { captchaFailureMessage, consumeCaptcha } from '@/lib/simpleCaptcha';
 import { ensureIpFormRegistrationSchema } from '@/lib/ensureIpFormRegistrationSchema';
@@ -114,7 +114,6 @@ export async function POST(request) {
 
     let referredBy = null;
     let referrerRole = null;
-    let referralNotify = null;
     if (referralCode) {
       const ref = await query(`SELECT id, role FROM ip_users WHERE referral_code = $1 LIMIT 1`, [referralCode]);
       if (ref.rows[0]) {
@@ -156,39 +155,15 @@ export async function POST(request) {
         `INSERT INTO ip_points_ledger (id, user_id, delta, reason) VALUES ($1,$2,50,'default_signup')`,
         [newId('ip_pts'), userId],
       );
+      // Referrer is credited when this employer verifies their email (creditReferralForReferredUser).
       if (referredBy && referrerRole) {
-        const rewards = referrerRewardsForRole(referrerRole);
-        await client.query(
-          `UPDATE ip_users
-           SET points = points + $2,
-               free_post_credits = free_post_credits + $3,
-               application_allowance = application_allowance + $4,
-               updated_at = now()
-           WHERE id = $1`,
-          [referredBy, rewards.points, rewards.freePostCredits, rewards.applicationAllowance],
-        );
-        await client.query(
-          `INSERT INTO ip_points_ledger (id, user_id, delta, reason, meta) VALUES ($1,$2,$3,'referral_bonus',$4::jsonb)`,
-          [newId('ip_pts'), referredBy, rewards.points, JSON.stringify({ referredUserId: userId })],
-        );
         await client.query(
           `INSERT INTO ip_referrals (id, referrer_user_id, referred_user_id, referral_code, status, points_awarded)
-           VALUES ($1,$2,$3,$4,'completed',$5)`,
-          [newId('ip_ref'), referredBy, userId, referralCode, rewards.points],
+           VALUES ($1,$2,$3,$4,'pending',0)`,
+          [newId('ip_ref'), referredBy, userId, referralCode],
         );
-        referralNotify = {
-          userId: referredBy,
-          title: 'Referral bonus earned',
-          body: `${name} completed registration using your link. You earned +${rewards.points} points.`,
-          link: referrerRole === 'employer' ? '/employer/referral' : '/candidate/referral',
-          category: 'referral',
-        };
       }
     });
-
-    if (referralNotify) {
-      await notifyUser(referralNotify).catch(() => {});
-    }
 
     const softLabel = softFail ? ' [email soft-flag]' : '';
     await notifyRole({
@@ -230,11 +205,12 @@ export async function POST(request) {
       await sendMail({
         to: email,
         subject: ackSubject,
-        html: `<p>Hi ${name},</p>
-          <p>Your employer account for <strong>${companyForDb}</strong> was created and is pending SuperAdmin approval.</p>
+        html: `<p>Hi ${escapeHtml(name)},</p>
+          <p>Your employer account for <strong>${escapeHtml(companyForDb)}</strong> was created and is pending SuperAdmin approval.</p>
           <p>Please confirm ownership of this inbox using the separate verification email we sent. Once your email is verified you can sign in and upload your verification documents. Posting internships unlocks after SuperAdmin approval.</p>
           <p>— InternSafar</p>`,
         text: `Hi ${name},\nYour employer account for ${companyForDb} is pending SuperAdmin approval. Confirm your email via the verification link we sent, then sign in and upload your verification documents. Posting internships unlocks after SuperAdmin approval.\n`,
+        skipUnsubscribe: true,
       });
       ackMailOk = true;
     } catch (mailErr) {

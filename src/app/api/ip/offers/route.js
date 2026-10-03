@@ -8,7 +8,8 @@ import { getNotifyChannels } from '@/lib/ipNotificationPreferences';
 import { ensureIpOfferRemindSchema } from '@/lib/ensureIpOfferRemindSchema';
 import { ensureIpOfferOnboardingSchema } from '@/lib/ensureIpOfferOnboardingSchema';
 import { decorateCandidateOffer, offerIsExpired, OFFERABLE_APPLICATION_STATUSES } from '@/lib/ipOfferPresentation';
-import { maskEmployerName } from '@/lib/ipEmployerIdentity';
+import { candidateFacingCompany, maskEmployerIdentityForCandidate } from '@/lib/ipEmployerIdentity';
+import { escapeHtml } from '@/lib/escapeHtml';
 
 function trimOrNull(value) {
   const s = String(value ?? '').trim();
@@ -48,12 +49,7 @@ export async function GET() {
       [cand.rows[0]?.id || '', session.user.id],
     );
     return jsonOk({
-      items: result.rows.map((row) =>
-        decorateCandidateOffer({
-          ...row,
-          company_name: maskEmployerName(row.company_name, row.show_employer_identity !== false),
-        }),
-      ),
+      items: result.rows.map((row) => decorateCandidateOffer(maskEmployerIdentityForCandidate(row))),
     });
   }
 
@@ -103,7 +99,7 @@ export async function POST(request) {
   if (applicationId) {
     const app = await query(
       `SELECT a.status as application_status, a.candidate_id, a.internship_id, i.employer_id, i.title,
-              c.user_id as candidate_user_id, c.name as candidate_name
+              i.show_employer_identity, c.user_id as candidate_user_id, c.name as candidate_name
        FROM ip_applications a
        JOIN ip_internships i ON i.id = a.internship_id
        JOIN ip_candidates c ON c.id = a.candidate_id
@@ -115,7 +111,7 @@ export async function POST(request) {
   } else {
     const existingApp = await query(
       `SELECT a.id, a.status as application_status, a.candidate_id, a.internship_id, i.employer_id, i.title,
-              c.user_id as candidate_user_id, c.name as candidate_name
+              i.show_employer_identity, c.user_id as candidate_user_id, c.name as candidate_name
        FROM ip_applications a
        JOIN ip_internships i ON i.id = a.internship_id
        JOIN ip_candidates c ON c.id = a.candidate_id
@@ -220,16 +216,17 @@ export async function POST(request) {
   }
   if (conflict) return jsonError(conflict, 409);
 
+  const shownCompany = candidateFacingCompany(emp.rows[0].company_name, row.show_employer_identity);
   await notifyUser({
     userId: row.candidate_user_id,
     title: 'You received an offer!',
-    body: `${roleTitle || row.title}${emp.rows[0].company_name ? ` at ${emp.rows[0].company_name}` : ''}`,
+    body: `${roleTitle || row.title}${shownCompany ? ` at ${shownCompany}` : ''}`,
     link: '/candidate/offers',
     category: 'offer',
     skipEmail: true,
     meta: {
       offerId: id,
-      company: emp.rows[0].company_name || null,
+      company: shownCompany,
       validUntil: untilParsed?.value || null,
       roleTitle: roleTitle || row.title,
     },
@@ -240,7 +237,7 @@ export async function POST(request) {
       await sendMail({
         to: (await query(`SELECT email FROM ip_users WHERE id = $1`, [row.candidate_user_id])).rows[0]?.email,
         subject: `Offer letter — ${roleTitle || row.title}`,
-        html: `<p>Hi ${row.candidate_name},</p><p>You have received an offer for <strong>${roleTitle || row.title}</strong>. Sign in to review and respond.</p>`,
+        html: `<p>Hi ${escapeHtml(row.candidate_name)},</p><p>You have received an offer for <strong>${escapeHtml(roleTitle || row.title)}</strong>. Sign in to review and respond.</p>`,
         text: `You have received an offer for ${roleTitle || row.title}. Sign in to review.`,
       });
     }

@@ -26,6 +26,7 @@ import '@/components/ip/ip-employer-postings-gemini.css';
 import '@/components/ip/ip-table-filters.css';
 import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
 import { shareOnLinkedIn } from '@/lib/ipLinkedInShare';
+import { postingShareText } from '@/lib/ipPostingShareText';
 
 const PAGE_SIZE = 10;
 
@@ -282,8 +283,8 @@ export default function EmployerInternshipsPage() {
   }
 
   function whatsappShareUrl(i) {
-    const text = encodeURIComponent(`We're hiring: ${i.title}`);
-    return `https://wa.me/?text=${text}%20${encodeURIComponent(postingUrl(i))}`;
+    const text = postingShareText({ title: i.title, link: postingUrl(i), description: i.description });
+    return `https://wa.me/?text=${encodeURIComponent(text)}`;
   }
 
   function openShare(i) {

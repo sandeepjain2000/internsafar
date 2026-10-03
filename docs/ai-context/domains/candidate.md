@@ -64,6 +64,16 @@ Candidate profile location/phone update path: `src/lib/ipCandidateProfileUpdate.
 - Profile save (2026-10-03): the profile page never sends `college`/`degree`/`specialization`/`study_status`/`graduation_year`/`cgpa` to `PUT /api/ip/candidate/profile`; `PUT /api/ip/candidate/academics` owns education and syncs row 0. Saving another tab cannot overwrite education.
 - Offer expiry (2026-10-03): `valid_until` is a date; an offer stays open until **23:59:59 IST** that day (`offerDeadlineEnd` in `src/lib/ipOfferPresentation.js`). Dashboard pending offers + "Expires today / N days left" use the same helper.
 
+### Medium audit fixes (confirmed 2026-10-03)
+
+- **Confidential employers** (`ip_internships.show_employer_identity = false`): every candidate-facing surface masks company name/logo/website via `src/lib/ipEmployerIdentity.js` (`maskEmployerIdentityForCandidate`, `candidateFacingCompany`, label `CONFIDENTIAL_EMPLOYER_LABEL`) — internships list + detail, applications, saved, offers (+ detail, reminder email), points ledger, message threads (`presentThreadForRole` in `ipMessageThreadQuery.js`), employer invite notification.
+- `?preview=1` bypass on candidate internship detail is **removed**; unpublished postings are not visible to candidates.
+- Re-apply after withdraw is race-safe; screening question ids normalised (`ipScreeningQuestions.js`).
+- Profile `resume_url` / `photo_url` accept only the candidate's own upload key (`internship-portal/candidates/<userId>/…`, `isOwnCandidateUploadUrl` in `ipCandidateProfileUpdate.js`); blank clears; any other value is ignored (existing external photo URLs untouched). Employer CV download/export also check the owner prefix before reading S3.
+- Withdraw button is labelled **Withdraw application** and asks for confirmation first.
+- One-time bonuses (`awardPointsOnce`) use an advisory transaction lock; viral share rewards claim atomically — no double award.
+- `POST /api/ip/completions` only marks **hired** applications complete (409 otherwise).
+
 ## Constraints
 
 - Role home is `/candidate`. Wrong-role redirects via `PortalShell`.

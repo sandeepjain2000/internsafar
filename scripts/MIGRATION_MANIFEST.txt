@@ -1,4 +1,4 @@
-# Internship Portal — IP migration manifest (001–047, plus 026b)
+# Internship Portal — IP migration manifest (001–048, plus 026b)
 # Fresh RDS: npm run deploy:fresh-aws-db
 # SQL only (demo users exist): npm run db:migrate:sql-only
 # Path B (live app update): do NOT run migrate — include files for Path C / sql-only only.
@@ -52,3 +52,4 @@
 045_ip_notification_archive.sql
 046_ip_offer_withdrawn_status.sql
 047_ip_captcha_nonces_2fa_attempts.sql
+048_ip_lookup_indexes.sql

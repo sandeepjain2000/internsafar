@@ -2,8 +2,13 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { notifyUser } from '@/lib/ipNotify';
-import { decorateMessageThread, isAllowedMessageAttachmentUrl, lastMessagePreview } from '@/lib/ipMessagePresentation';
-import { loadMessageThread } from '@/lib/ipMessageThreadQuery';
+import { isAllowedMessageAttachmentUrl, lastMessagePreview } from '@/lib/ipMessagePresentation';
+import { loadMessageThread, presentThreadForRole } from '@/lib/ipMessageThreadQuery';
+import {
+  candidateFacingCompany,
+  CONFIDENTIAL_EMPLOYER_LABEL,
+  isEmployerIdentityHidden,
+} from '@/lib/ipEmployerIdentity';
 
 async function loadThread(id, uid) {
   return loadMessageThread(id, uid);
@@ -23,14 +28,12 @@ function archiveColumnForUser(thread, uid) {
 }
 
 function threadOut(thread, session) {
-  const decorated = decorateMessageThread({
-    ...thread,
-    archived: archivedForUser(thread, session),
-  });
-  if (session.user.role !== 'employer') {
-    delete decorated.candidate_resume_url;
-  }
-  return decorated;
+  return presentThreadForRole({ ...thread, archived: archivedForUser(thread, session) }, session.user.role);
+}
+
+function messagesOut(rows, thread, session) {
+  if (session.user.role !== 'candidate' || !isEmployerIdentityHidden(thread.show_employer_identity)) return rows;
+  return rows.map((m) => (m.sender_role === 'employer' ? { ...m, sender_name: CONFIDENTIAL_EMPLOYER_LABEL } : m));
 }
 
 export async function GET(request, { params }) {
@@ -52,7 +55,7 @@ export async function GET(request, { params }) {
   );
   return jsonOk({
     thread: threadOut(thread, session),
-    messages: messages.rows,
+    messages: messagesOut(messages.rows, thread, session),
   });
 }
 
@@ -143,7 +146,9 @@ export async function POST(request, { params }) {
     forceEmail: !isCandidateRecipient,
     meta: {
       threadId: id,
-      company: isCandidateRecipient ? thread.company_name || null : null,
+      company: isCandidateRecipient
+        ? candidateFacingCompany(thread.company_name, thread.show_employer_identity)
+        : null,
     },
   });
 

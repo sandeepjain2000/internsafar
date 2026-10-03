@@ -31,6 +31,13 @@ const QUALITY_CHECKS = [
 
 const LAST_TAB = 'screening';
 
+/** datetime-local has no zone; convert in the browser so a UTC server does not shift it. */
+function localInputToIso(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 export default function NewInternshipPage() {
   const router = useRouter();
   const [form, setForm] = useState({
@@ -146,8 +153,8 @@ export default function NewInternshipPage() {
           stipendInrMax: form.stipendInrMax ? Number(form.stipendInrMax) : null,
           durationMonths: durationMonths != null && !Number.isNaN(durationMonths) ? durationMonths : null,
           weeklyHours: form.weeklyHours ? Number(form.weeklyHours) : null,
-          startsAt: form.startsAt || null,
-          applyEndsAt: form.applyEndsAt || null,
+          startsAt: localInputToIso(form.startsAt),
+          applyEndsAt: localInputToIso(form.applyEndsAt),
           showEmployerIdentity: form.showEmployerIdentity,
           remindBeforeStart: form.remindBeforeStart,
           remindBeforeEnd: form.remindBeforeEnd,

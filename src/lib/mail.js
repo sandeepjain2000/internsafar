@@ -17,6 +17,7 @@
  */
 import nodemailer from 'nodemailer';
 import { resolveAppOrigin } from '@/lib/ipAppOrigin';
+import { escapeHtml } from '@/lib/escapeHtml';
 import {
   applyUnsubscribeFooter,
   buildUnsubscribeUrl,
@@ -221,6 +222,13 @@ export async function sendMail(opts) {
   const intended = intendedList.join(', ');
   if (!intended) throw new Error('sendMail: to is required');
 
+  if (!opts?.skipUnsubscribe && intendedList.length === 1) {
+    const { isEmailUnsubscribed } = await import('@/lib/ipEmailUnsubscribe');
+    if (await isEmailUnsubscribed(intendedList[0])) {
+      return { ok: true, skipped: true, reason: 'unsubscribed', intendedTo: intended };
+    }
+  }
+
   const mailOpts = await withUnsubscribeFooter(opts, intendedList);
 
   const override = getOutboundEmailOverride();
@@ -269,11 +277,11 @@ export async function sendMail(opts) {
 }
 
 export function tempPasswordEmailHtml({ name, email, password, appName = 'Internship Portal' }) {
-  const safeName = name || 'there';
+  const safeName = escapeHtml(name || 'there');
   return `<!doctype html><html><body style="font-family:system-ui,sans-serif;line-height:1.5;color:#0f172a">
   <p>Hi ${safeName},</p>
-  <p>Your ${appName} account was created for <strong>${email}</strong>.</p>
-  <p>Temporary password: <code style="font-size:16px">${password}</code></p>
+  <p>Your ${appName} account was created for <strong>${escapeHtml(email)}</strong>.</p>
+  <p>Temporary password: <code style="font-size:16px">${escapeHtml(password)}</code></p>
   <p>Please sign in and change your password.</p>
   <p>— ${appName}</p>
   </body></html>`;

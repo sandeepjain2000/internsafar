@@ -85,12 +85,17 @@ export async function PATCH(request, { params }) {
     if (!isLinkedInPostUrl(postUrl)) {
       return jsonError('Submit a valid LinkedIn post URL (linkedin.com)');
     }
-    await query(
+    // Only open or failed claims can be (re)submitted; verified/rewarded claims stay final.
+    const updated = await query(
       `UPDATE ip_linkedin_promotions
        SET claimed_post_url = $2, status = 'fast_track_pending', updated_at = now()
-       WHERE id = $1`,
+       WHERE id = $1
+         AND coalesce(status, 'pending') IN ('pending', 'fast_track_pending', 'failed')`,
       [id, postUrl],
     );
+    if (!updated.rowCount) {
+      return jsonError('This share claim was already reviewed and can no longer be changed.', 409);
+    }
     return jsonOk({ ok: true, status: 'fast_track_pending' });
   }
 

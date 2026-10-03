@@ -22,6 +22,7 @@ import { writeFileSync, readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execFileSync } from 'child_process';
+import { createHash, randomBytes } from 'crypto';
 import './lib/ensurePlaywrightBrowsers.mjs'; // pin PLAYWRIGHT_BROWSERS_PATH before playwright
 import { chromium } from 'playwright';
 import dotenv from 'dotenv';
@@ -185,7 +186,7 @@ async function runApiSuite() {
 
   const cand = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, PW);
   const emp = await apiLogin(BASE, QA_ACCOUNTS.employer.email, PW);
-  const sa = await apiLogin(BASE, QA_ACCOUNTS.superadmin.email, PW);
+  const sa = await apiLogin(BASE, QA_ACCOUNTS.superadmin.email, QA_ACCOUNTS.superadmin.password);
   const bad = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, 'WRONG-password-xyz!');
 
   async function getResetTokenForEmail(email) {
@@ -200,16 +201,13 @@ async function runApiSuite() {
       );
       const userId = userRes.rows[0]?.id;
       if (!userId) throw new Error('user not found for reset token');
-      const resetRes = await client.query(
-        `SELECT token, expires_at, used_at
-         FROM ip_password_resets
-         WHERE user_id = $1 AND used_at IS NULL
-         ORDER BY expires_at DESC
-         LIMIT 1`,
-        [userId],
+      // Stored tokens are sha256 hashes, so mint a known raw token for the confirm step.
+      const token = randomBytes(24).toString('base64url');
+      await client.query(
+        `INSERT INTO ip_password_resets (id, user_id, token, expires_at)
+         VALUES ($1, $2, $3, now() + interval '1 hour')`,
+        [`ip_reset_qa_${Date.now()}`, userId, createHash('sha256').update(token).digest('hex')],
       );
-      const token = resetRes.rows[0]?.token;
-      if (!token) throw new Error('reset token not found');
       return token;
     } finally {
       await client.end().catch(() => {});

@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { notifyUser } from '@/lib/ipNotify';
 import { sendMail } from '@/lib/mail';
+import { escapeHtml } from '@/lib/escapeHtml';
 
 /** Mark an application / internship engagement as completed (employer). Unlocks rate/endorse. */
 export async function POST(request) {
@@ -28,12 +29,20 @@ export async function POST(request) {
   const row = app.rows[0];
   if (!row || row.employer_id !== emp.rows[0]?.id) return jsonError('Not found', 404);
 
-  await query(
+  const updated = await query(
     `UPDATE ip_applications
      SET status = 'completed', completed_at = now(), completion_notes = $2, updated_at = now()
-     WHERE id = $1`,
+     WHERE id = $1 AND status = 'hired'`,
     [applicationId, body.notes || null],
   );
+  if (!updated.rowCount) {
+    return jsonError(
+      row.status === 'completed'
+        ? 'This internship is already marked complete.'
+        : 'Only hired candidates (offer accepted) can be marked complete.',
+      409,
+    );
+  }
 
   await notifyUser({
     userId: row.candidate_user_id,
@@ -47,7 +56,7 @@ export async function POST(request) {
     await sendMail({
       to: row.candidate_email,
       subject: `Internship completed — ${row.title}`,
-      html: `<p>Hi ${row.candidate_name},</p><p>Your internship <strong>${row.title}</strong> was marked complete. Sign in to rate the employer and view endorsements.</p>`,
+      html: `<p>Hi ${escapeHtml(row.candidate_name)},</p><p>Your internship <strong>${escapeHtml(row.title)}</strong> was marked complete. Sign in to rate the employer and view endorsements.</p>`,
       text: `Your internship ${row.title} was marked complete.`,
     });
   } catch (e) {
