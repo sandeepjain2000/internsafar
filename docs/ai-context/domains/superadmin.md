@@ -2,7 +2,7 @@
 
 ## Responsibility
 
-Platform oversight: employer approvals (incl. Reject/Suspend), documents, Adjust Points, postings, posting share rewards, login report, feature ideas, messages, bootstrap.
+Platform oversight: employer approvals (incl. Reject/Suspend), candidates (read-only browse), documents, Adjust Points, postings, posting share rewards, login report, feature ideas, messages, bootstrap.
 
 ## Central sources
 
@@ -21,6 +21,8 @@ Platform oversight: employer approvals (incl. Reject/Suspend), documents, Adjust
 | `/superadmin` | Dashboard |
 | `/superadmin/login` | Redirect-only → `/` (no SA form) |
 | `/superadmin/approvals` | **Only** employer approval queue (Domain + Free-email). Path column on rows. **Reject** and **Suspend** available for approved employers (not only pending). |
+| `/superadmin/candidates` | **Candidates** (2026-10-03, read-only) — every candidate account; tiles, profile tabs, search, "Applied to company" combobox + company strip (posting / status-at-company), filter panel, chips, selection, CSV export. Filters live in the query string |
+| `/superadmin/candidates/[id]` | Candidate detail (`id` = `ip_users.id`): Overview / Applications (per-application timeline) / Companies / Offers / Activity. View CV, Copy email, Adjust points (`/superadmin/points?q=<email>`), Excel export. Back keeps list filters via `?list=` |
 | `/superadmin/documents` | Documents (active rows only: `superseded_at IS NULL`) |
 | `/superadmin/postings` | Postings oversight |
 | `/superadmin/promotions` | Posting Share Rewards (LinkedIn posting-share claims) |
@@ -41,6 +43,21 @@ Employer email verify resend: `POST /api/ip/auth/employer-email-verify/resend` (
 **Suspend vs Reject:** both block login; keep as distinct `approval_status` values (`suspended` \| `rejected`). Do not collapse them.
 
 Nav order: `src/lib/ipNav.js` → `SUPERADMIN_NAV`.
+
+## Candidates (confirmed 2026-10-03)
+
+| Path | Role |
+|------|------|
+| `GET /api/ip/superadmin/candidates` | `{ candidates, companies, truncated, cap }` — newest 5000 candidates (`SA_CANDIDATE_LIST_CAP`) with compact application / offer / no-application contact summaries; page filters, sorts, pages client-side |
+| `GET /api/ip/superadmin/candidates/[id]` | Detail: profile + academics, applications with events, offers, contacts, referrer / referrals, sign-up method |
+| `GET /api/ip/superadmin/candidates/[id]/export` | Excel — same sheets as the candidate self-export (`buildCandidateExportSheets`) |
+| Libs | `src/lib/ipSuperadminCandidates.js` (server), `src/lib/ipSuperadminCandidatesView.js` (labels, filters, URL state, CSV) |
+| CSS | `src/components/ip/ip-superadmin-candidates.css` (`.ip-sac` scope, `sac-*` classes in `@layer components`) |
+
+- "Never returned after sign-up" = `last_login_at` empty or within 1 hour of `created_at` (registration signs the user in).
+- Timeline: `ip_application_events` (minus `export`) + synthesized steps — `applied` when no event, offer sent / accepted / declined from `ip_offers`, current status when not logged. Withdraw has no event of its own; it comes from the `reapplied` payload `priorStatus` and shows as "Before <date>".
+- "Contacted" = `ip_message_threads` with `application_id IS NULL`. "Name hidden on posting" = `ip_internships.show_employer_identity = false`.
+- Read-only: no deactivate / edit actions. Over 5000 candidates the page shows a warning; move to server-side paging if the base grows past that.
 
 ## Email unsubscribe queue (API)
 

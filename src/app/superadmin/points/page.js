@@ -34,6 +34,11 @@ export default function SuperAdminAdjustPointsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q');
+    if (q) setSearch(q);
+  }, []);
+
+  useEffect(() => {
     const t = setTimeout(() => setQDebounced(search.trim()), 300);
     return () => clearTimeout(t);
   }, [search]);

@@ -34,6 +34,7 @@ import {
   Coins,
   User,
   UserPlus,
+  Users,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -56,6 +57,7 @@ const NAV_ICONS = {
   lightbulb: Lightbulb,
   settings: Settings,
   user: User,
+  users: Users,
   search: Search,
   award: Award,
   bell: Bell,

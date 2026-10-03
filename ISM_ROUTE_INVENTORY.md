@@ -105,6 +105,8 @@ Layout `src/app/superadmin/layout.js` · nav `SUPERADMIN_NAV`
 | `/superadmin/login` | *not in sidebar* | Dedicated sign-in |
 | `/superadmin/form-registrations` | Form registrations | Self-signup approvals (`ip_users.form_approval_status`) |
 | `/superadmin/approvals` | Employer approvals | Approve / reject / suspend employers |
+| `/superadmin/candidates` | Candidates | Browse/filter every candidate account, CSV export (read-only) |
+| `/superadmin/candidates/[id]` | Candidate detail | Profile, applications + timeline, companies, offers, activity; Excel export |
 | `/superadmin/requests` | Manual requests | Manual employer onboarding (`ip_employer_requests`) |
 | `/superadmin/documents` | Documents | Review employer verification documents |
 | `/superadmin/postings` | Postings | Posting oversight |
