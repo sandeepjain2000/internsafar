@@ -1,6 +1,6 @@
 /**
- * Simulate clicking the core employer's current unsubscribe token → PENDING.
- * Run: node scripts/simulate-unsub-click-core-employer.mjs
+ * Simulate clicking the QA test employer's current unsubscribe token → PENDING.
+ * Run: node scripts/simulate-unsub-click-test-employer.mjs
  */
 import fs from 'fs';
 import path from 'path';
@@ -13,7 +13,7 @@ const { Client } = require('pg');
 const here = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(here, '..');
 const libDir = path.join(projectRoot, 'src', 'lib');
-const CORE_EMPLOYER = 'placementhubsupport@gmail.com';
+const TEST_EMPLOYER = require('./lib/ipTestAccountsConfig.js').TEST_EMPLOYER.email;
 
 function readEnvFile(filename) {
   const envPath = path.join(projectRoot, filename);
@@ -56,11 +56,11 @@ try {
   const db = { query: (t, p) => client.query(t, p) };
   const tok = (
     await client.query(`SELECT token FROM ip_email_unsubscribe_tokens WHERE email = $1 LIMIT 1`, [
-      CORE_EMPLOYER.toLowerCase(),
+      TEST_EMPLOYER.toLowerCase(),
     ])
   ).rows[0]?.token;
   if (!tok) {
-    console.error('NO_TOKEN for', CORE_EMPLOYER);
+    console.error('NO_TOKEN for', TEST_EMPLOYER);
     process.exit(1);
   }
   const first = await unsub.recordUnsubscribeRequest(tok, db);
@@ -68,7 +68,7 @@ try {
   console.log(
     JSON.stringify(
       {
-        email: CORE_EMPLOYER,
+        email: TEST_EMPLOYER,
         first: { ok: first.ok, status: first.status, duplicate: first.duplicate, id: first.id },
         second: { ok: second.ok, duplicate: second.duplicate, sameId: second.id === first.id },
       },

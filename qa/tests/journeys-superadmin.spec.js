@@ -1,6 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { superadmin } = require('../helpers/accounts');
 const { openWithSession, apiLogin } = require('../helpers/login');
+const { testEmployerPublishedPostingIds } = require('../helpers/testPostings');
 
 /**
  * SuperAdmin product journeys.
@@ -28,8 +29,11 @@ test.describe('InternSafar journeys — SuperAdmin', () => {
     expect(listRes.ok()).toBeTruthy();
     const listBody = await listRes.json();
     const items = listBody?.items || listBody?.postings || listBody?.rows || [];
-    const published = items.find((i) => String(i.status || i.display_status || '') === 'published');
-    test.skip(!published?.id, 'No published posting available for skip-notify assert');
+    const testIds = await testEmployerPublishedPostingIds();
+    const published = items.find(
+      (i) => String(i.status || i.display_status || '') === 'published' && testIds.has(i.id),
+    );
+    test.skip(!published?.id, 'No published test-employer posting (npm run qa:ensure-test-accounts)');
 
     const patch = await apiWithSession(request, superadmin.email, 'PATCH', '/api/ip/superadmin/postings', {
       data: { id: published.id, status: 'published' },

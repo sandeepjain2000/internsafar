@@ -142,8 +142,6 @@ def main():
             tc_id = ws.cell(r, tc).value if tc else None
             legacy = (ws.cell(r, lc).value if lc else None) or ""
             legacy = str(legacy).strip()
-            if tc_id and str(tc_id) in MANUAL_ONLY_TC_IDS:
-                continue
             # Never overwrite Obsolete rows from Playwright apply
             cur_status = str(ws.cell(r, sc).value or "").strip()
             if cur_status == "Obsolete":
@@ -159,13 +157,15 @@ def main():
             if not rec:
                 continue
             status = rec.get("status") or "Not Run"
+            if tc_id and str(tc_id) in MANUAL_ONLY_TC_IDS and status not in ("Pass", "Fail"):
+                continue
             actual = sanitize_excel_text(rec.get("actual"))
             style_status(ws.cell(r, sc), status)
             if ac:
                 ws.cell(r, ac).value = actual
                 ws.cell(r, ac).alignment = Alignment(vertical="top", wrap_text=True)
             if ec:
-                ws.cell(r, ec).value = executed
+                ws.cell(r, ec).value = rec.get("executedAt") or executed
             updated += 1
 
     stamp_index_for_results(wb, as_of=as_of, executed_iso=executed)

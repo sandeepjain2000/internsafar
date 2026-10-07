@@ -1,0 +1,10 @@
+{
+  "results": {
+    "TC-IS-03-022": {
+      "status": "Pass",
+      "actual": "API Pass 2026-10-07 (local): register-candidate qa.nongmail.muxzoxgt@yahoo.com → 400 (Only Gmail addresses (@gmail.com) are allowed for candidate registration. Yahoo and other providers are not accepted.). No Google OAuth required."
+    }
+  },
+  "executed": "2026-10-07T10:53:37.720Z",
+  "base": "http://localhost:3000"
+}

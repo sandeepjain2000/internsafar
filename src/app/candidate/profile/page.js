@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { imageAcceptAttr, resumeAcceptAttr } from '@/lib/ipFileUpload';
 import { validateRequiredPhone, phoneDialOptionsFor } from '@/lib/ipPhoneValidation';
+import { firstPersonNameError, personNameError } from '@/lib/ipPersonName';
 import IpUploadButton from '@/components/ip/IpUploadButton';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import SearchableSelect from '@/components/ip/SearchableSelect';
@@ -124,12 +125,12 @@ function initialsFrom(form) {
   return ((a + b) || 'C').toUpperCase();
 }
 
-function Field({ label, hint, required, optional, children, span, invalid }) {
+function Field({ label, hint, required, optional, children, span, invalid, error }) {
   const classes = [
     'ip-cp-field',
     span === 2 ? 'ip-cp-span-2' : '',
     span === 3 ? 'ip-cp-span-3' : '',
-    invalid ? 'is-missing' : '',
+    invalid || error ? 'is-missing' : '',
   ].filter(Boolean).join(' ');
   return (
     <div className={classes}>
@@ -140,7 +141,8 @@ function Field({ label, hint, required, optional, children, span, invalid }) {
       </label>
       {hint ? <p className="ip-cp-hint">{hint}</p> : null}
       {children}
-      {invalid ? <p className="ip-cp-error" role="alert">Required to unlock applying.</p> : null}
+      {error ? <p className="ip-cp-error" role="alert">{error}</p> : null}
+      {invalid && !error ? <p className="ip-cp-error" role="alert">Required to unlock applying.</p> : null}
     </div>
   );
 }
@@ -323,6 +325,8 @@ export default function CandidateProfilePage() {
   }
 
   async function saveProfileBody(orderedExperiences = experiences) {
+    const nameIssue = firstPersonNameError(form);
+    if (nameIssue) throw new Error(nameIssue.error);
     const dial = form.phone_country_code || '+91';
     // Draft (local) may omit phone; account Save always requires a valid phone.
     const phoneCheck = validateRequiredPhone(form.phone, dial);
@@ -784,14 +788,14 @@ export default function CandidateProfilePage() {
                 <h3>Personal Details</h3>
               </div>
               <div className="ip-cp-grid ip-cp-grid--3">
-                <Field label="First Name" required invalid={isMissing('first_name')}>
-                  <input className="ip-cp-input" value={form.first_name || ''} onChange={(e) => set('first_name', e.target.value)} />
+                <Field label="First Name" required invalid={isMissing('first_name')} error={personNameError('First Name', form.first_name)}>
+                  <input className="ip-cp-input" value={form.first_name || ''} aria-invalid={personNameError('First Name', form.first_name) ? 'true' : undefined} onChange={(e) => set('first_name', e.target.value)} />
                 </Field>
-                <Field label="Middle Name" optional>
-                  <input className="ip-cp-input" value={form.middle_name || ''} onChange={(e) => set('middle_name', e.target.value)} />
+                <Field label="Middle Name" optional error={personNameError('Middle Name', form.middle_name)}>
+                  <input className="ip-cp-input" value={form.middle_name || ''} aria-invalid={personNameError('Middle Name', form.middle_name) ? 'true' : undefined} onChange={(e) => set('middle_name', e.target.value)} />
                 </Field>
-                <Field label="Last Name" required invalid={isMissing('last_name')}>
-                  <input className="ip-cp-input" value={form.last_name || ''} onChange={(e) => set('last_name', e.target.value)} />
+                <Field label="Last Name" required invalid={isMissing('last_name')} error={personNameError('Last Name', form.last_name)}>
+                  <input className="ip-cp-input" value={form.last_name || ''} aria-invalid={personNameError('Last Name', form.last_name) ? 'true' : undefined} onChange={(e) => set('last_name', e.target.value)} />
                 </Field>
               </div>
             </section>

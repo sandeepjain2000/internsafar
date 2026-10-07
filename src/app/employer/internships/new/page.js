@@ -149,8 +149,8 @@ export default function NewInternshipPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          stipendInr: form.stipendInr ? Number(form.stipendInr) : null,
-          stipendInrMax: form.stipendInrMax ? Number(form.stipendInrMax) : null,
+          stipendInr: form.stipendType !== 'incentive' && form.stipendInr ? Number(form.stipendInr) : null,
+          stipendInrMax: form.stipendType !== 'incentive' && form.stipendInrMax ? Number(form.stipendInrMax) : null,
           durationMonths: durationMonths != null && !Number.isNaN(durationMonths) ? durationMonths : null,
           weeklyHours: form.weeklyHours ? Number(form.weeklyHours) : null,
           startsAt: localInputToIso(form.startsAt),

@@ -32,13 +32,14 @@ BLOCK_FILL = PatternFill("solid", fgColor="D9D9D9")
 BLOCK_FONT = Font(bold=True, color="595959", name="Calibri")
 NOTRUN_FILL = PatternFill("solid", fgColor="FFF2CC")
 
-# Passwords for core accounts: local gitignored coreaccountspass.json (never in workbook).
+# Test accounts (scripts/lib/ipTestAccountsConfig.js); core demo accounts are never used for testing.
+# Passwords: local gitignored coreaccountspass.json (never in workbook).
 DEMO = {
-    "candidate": "lawsonlclintern+1@gmail.com (password: coreaccountspass.json)",
+    "candidate": "lawsonlclintern+qa1@gmail.com (password: coreaccountspass.json)",
     "candidate2": "lawsonlclintern+2@gmail.com (password: coreaccountspass.json)",
     "candidate_hidden": "lawsonlclintern+3@gmail.com (password: coreaccountspass.json)",
-    "employer": "placementhubsupport@gmail.com (password: coreaccountspass.json)",
-    "employer_pending": "support+3@placementhub.online (pending)",
+    "employer": "placementhubsupport+qa1@gmail.com (password: coreaccountspass.json)",
+    "employer_pending": "placementhubsupport+qa2@gmail.com (pending)",
     "superadmin": "support@placementhub.online (password: coreaccountspass.json)",
 }
 
@@ -142,8 +143,8 @@ LIVE = {
         "title": "Valid email + password + captcha lands on that role’s home",
         "steps": (
             "1. Open `/`.\n"
-            "2. Candidate: lawsonlclintern+1@gmail.com + password from coreaccountspass.json + captcha → submit.\n"
-            "3. Sign out. Repeat as employer placementhubsupport@gmail.com (same JSON file).\n"
+            "2. Candidate: lawsonlclintern+qa1@gmail.com + password from coreaccountspass.json + captcha → submit.\n"
+            "3. Sign out. Repeat as employer placementhubsupport+qa1@gmail.com (same JSON file).\n"
             "4. SuperAdmin uses /superadmin/login with #sa-email / #sa-password, not the home form."
         ),
         "expected": "Candidate → /candidate. Employer → /employer. SuperAdmin from /superadmin/login → /superadmin. Home form is for candidate/employer.",
@@ -164,7 +165,7 @@ LIVE = {
             "1. Open /superadmin/login.\n"
             "2. Sign in with support@placementhub.online + password from coreaccountspass.json + captcha (#sa-email, #sa-password).\n"
             "3. On `/` try the same SuperAdmin email in #email/#password.\n"
-            "4. On /superadmin/login try lawsonlclintern+1@gmail.com."
+            "4. On /superadmin/login try lawsonlclintern+qa1@gmail.com."
         ),
         "expected": "SA page accepts SuperAdmin and goes to /superadmin. Candidate email on SA page is rejected. SuperAdmin is not meant to use the public home form as their login.",
     },

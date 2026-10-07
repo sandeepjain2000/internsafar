@@ -2,6 +2,7 @@ const { test, expect } = require('@playwright/test');
 const { candidate } = require('../helpers/accounts');
 const { openWithSession, apiLogin } = require('../helpers/login');
 const { openTableFilters } = require('../helpers/ipTableFilters');
+const { testEmployerPublishedPostingIds } = require('../helpers/testPostings');
 
 /**
  * Candidate product journeys (behavior, not route-load only).
@@ -23,8 +24,9 @@ test.describe('InternSafar journeys — candidate', () => {
     const listRes = await apiWithSession(request, candidate.email, 'GET', '/api/ip/candidate/internships');
     expect(listRes.ok()).toBeTruthy();
     const listBody = await listRes.json();
-    const firstId = listBody?.items?.[0]?.id;
-    test.skip(!firstId, 'No visible internships for candidate in this environment');
+    const testIds = await testEmployerPublishedPostingIds();
+    const firstId = (listBody?.items || []).find((i) => testIds.has(i?.id))?.id;
+    test.skip(!firstId, 'No open test-employer posting visible (npm run qa:ensure-test-accounts)');
 
     await openWithSession(page, candidate.email, '/candidate/internships');
     await expect(page).toHaveURL(/\/candidate\/internships/, { timeout: 25_000 });

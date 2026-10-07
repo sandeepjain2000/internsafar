@@ -3,13 +3,11 @@
   "tc_id": "TC-IS-03-013",
   "automation": "API",
   "status": "Pass",
-  "actual": "API Pass 2026-09-15 (Vercel): domain register-employer with existing support@placementhub.online + matching https://placementhub.online → 409 (An account with this email already exists).",
-  "executed": "2026-09-15T12:25:42.868Z",
+  "actual": "API Pass 2026-10-07 (local): Free-email register-employer with existing test employer placementhubsupport+qa1@gmail.com → 409 (An account with this email already exists).",
+  "executed": "2026-10-07T10:53:33.601Z",
   "log": [
-    "Base https://internship-portal-sigma-mauve.vercel.app",
-    "Duplicate domain register attempt {\"email\":\"support@placementhub.online\",\"website\":\"https://placementhub.online\"}",
-    "First POST {\"status\":401,\"error\":\"Google verification is required, expired, or already used. Verify with Google again.\"}",
-    "Host still requires gv before duplicate check — minting shared-DB verification",
-    "Retry with gv {\"status\":409,\"error\":\"An account with this email already exists\"}"
+    "Base http://localhost:3000",
+    "Duplicate Free-email register attempt {\"email\":\"placementhubsupport+qa1@gmail.com\"}",
+    "POST {\"status\":409,\"error\":\"An account with this email already exists\"}"
   ]
 }

@@ -31,7 +31,7 @@ Do **not** refer to:
 
 2. App reachable (local or set `PLAYWRIGHT_BASE_URL` / config baseURL).
 
-3. Core demo accounts seeded (see `qa/helpers/accounts.js` and `scripts/lib/ipCoreSampleConfig.js`).
+3. Test accounts present (see `qa/helpers/accounts.js` and `scripts/lib/ipTestAccountsConfig.js`). Playwright global setup runs `npm run qa:ensure-test-accounts` automatically on localhost / `*.vercel.app`; run it yourself on any other host. Core demo accounts (`scripts/lib/ipCoreSampleConfig.js`) are demo-only and must never be used by tests.
 
 4. Env present (`.env.local`) — do not blank or overwrite secrets.
 

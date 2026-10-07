@@ -6,7 +6,10 @@
  *   node --env-file=.env.local scripts/check-ip-candidate-profile-save.mjs
  */
 import pg from 'pg';
-import { buildCandidateProfileUpdate } from '../src/lib/ipCandidateProfileUpdate.js';
+import { registerAppAlias } from './lib/registerAppAlias.mjs';
+
+registerAppAlias();
+const { buildCandidateProfileUpdate } = await import('../src/lib/ipCandidateProfileUpdate.js');
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,

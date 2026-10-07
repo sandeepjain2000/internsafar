@@ -36,6 +36,7 @@ const chromiumProject = {
 
 module.exports = defineConfig({
   testDir: './qa/tests',
+  globalSetup: require.resolve('./qa/global-setup.js'),
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 1,

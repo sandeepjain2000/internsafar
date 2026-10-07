@@ -72,9 +72,9 @@ test.describe('InternSafar authentication', () => {
     await signInOnHome(page, candidate.email);
     await expect(page).toHaveURL(candidate.home, { timeout: 25_000 });
     await page.goto('/employer', { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => !location.pathname.startsWith('/employer'), {
-      timeout: 20_000,
-    });
-    await expect(page).not.toHaveURL(/\/employer(\/|$)/);
+    await expect(page.getByText('Wrong account for this workspace')).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByText(candidate.email, { exact: false })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    await expect(page.locator('a[href^="/employer/"]')).toHaveCount(0);
   });
 });

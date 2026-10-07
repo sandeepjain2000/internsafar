@@ -1,5 +1,6 @@
 const { expect } = require('@playwright/test');
 const { passwordFor } = require('./accounts');
+const { assertNotCoreForTesting } = require('../../scripts/lib/ipTestAccountsConfig.js');
 
 async function fillCaptchaIfPresent(page, inputId = 'login-captcha') {
   const box = page.locator(`#${inputId}`);
@@ -125,6 +126,7 @@ async function apiLoginOnce(base, email, pwd = passwordFor(email)) {
 
 /** Retry login — captcha/session races under load are wait/flake, not product bugs. */
 async function apiLogin(base, email, pwd = passwordFor(email)) {
+  assertNotCoreForTesting(email);
   let last = { ok: false };
   for (let i = 0; i < 4; i += 1) {
     last = await apiLoginOnce(base, email, pwd);
@@ -152,6 +154,7 @@ async function openWithSession(page, email, homePath) {
 }
 
 async function signInOnHome(page, email, pwd = passwordFor(email)) {
+  assertNotCoreForTesting(email);
   await page.goto('/');
   await expect(page.locator('#email')).toBeVisible({ timeout: 20_000 });
   await page.locator('#email').fill(email);

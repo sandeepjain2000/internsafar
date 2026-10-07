@@ -1,21 +1,28 @@
 #!/usr/bin/env node
 /**
  * Deep smoke — register → verify → LOGIN while pending → upload doc → SA approve →
- * complete profile → post → core candidate LOGIN + apply.
+ * complete profile → post → test candidate LOGIN + apply.
  *
  * Mandatory login assertions at every gate (not register-only / API probe-only).
+ *
+ * Throwaway employers it registers itself + the test candidate (ensured first; clear error if it
+ * cannot sign in). Workbook cases recorded per step into qa-results.json:
+ *   TC-IS-03-025 free-email register → pending free_email, verify + ack mail only, on Approvals
+ *   TC-IS-02-028 unverified employer login refused with the verify message; resend sends a new link
+ *   TC-IS-02-029 verified pending employer: login, doc upload, posting 403 until approved
  *
  * Requires server: IP_QA_EMPLOYER_EMAIL_VERIFY_TOKEN_IN_RESPONSE=1
  * Usage:
  *   npm run qa:register-approve-post-apply
- *   node scripts/qa-register-approve-post-apply-smoke.mjs http://localhost:3000
+ *   node scripts/qa-register-approve-post-apply-smoke.mjs http://localhost:3000 --apply-excel
  */
 import { createRequire } from 'module';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { apiLogin, apiRequest, fetchLoginCaptcha, QA_ACCOUNTS } from './lib/ipQaAuth.mjs';
+import { apiLogin, apiRequest, ensureQaTestAccounts, fetchLoginCaptcha, requireQaLogin } from './lib/ipQaAuth.mjs';
 import { buildEmployerRegisterPersona, isCoreShowcaseEmail } from './lib/ipQaRealisticPersonas.mjs';
+import { applyQaResultsToWorkbook, createCaseRecorder } from './lib/recordQaResults.mjs';
 
 const require = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -28,16 +35,32 @@ const BASE =
   args.find((a) => /^https?:\/\//i.test(a)) ||
   process.env.IP_BASE ||
   'http://localhost:3000';
+const APPLY_EXCEL = args.includes('--apply-excel');
+const cases = createCaseRecorder({ source: 'qa-register-approve-post-apply-smoke' });
 
 const findings = [];
 function note(level, msg, extra) {
   findings.push({ level, msg, extra });
   console.log(`${String(level).padEnd(8)} ${msg}${extra !== undefined ? ` ${JSON.stringify(extra)}` : ''}`);
 }
+function finish(code) {
+  cases.flush();
+  if (APPLY_EXCEL) applyQaResultsToWorkbook();
+  process.exit(code);
+}
 function fail(msg, extra) {
   note('BLOCKER', msg, extra);
   console.error('\nFAILED — superficial skips are not allowed; see BLOCKER lines');
-  process.exit(1);
+  cases.failOpen(extra !== undefined ? `${msg} ${JSON.stringify(extra)}` : msg);
+  finish(1);
+}
+process.on('uncaughtException', (e) => fail(e?.message || String(e)));
+ensureQaTestAccounts(BASE);
+
+function dbPool() {
+  if (!process.env.DATABASE_URL) fail('DATABASE_URL required in .env.local');
+  const { Pool } = require('pg');
+  return new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 }
 
 const ETHICS_IDS = [
@@ -118,9 +141,64 @@ if (!domain.reg.data?.qaVerifyUrl) {
 note('OK', 'Domain register', { email: domain.persona.email, mode: domain.reg.data.mode });
 
 // ── 2) Free-email register ──
+cases.begin('TC-IS-03-025');
 const free = await registerEmployer('free_email');
 if (free.reg.status !== 200) fail('Free-email register blocked', { status: free.reg.status, data: free.reg.data });
+if (free.reg.data?.mode !== 'free_email') fail('Free-email register mode mismatch', free.reg.data);
+{
+  const mails = Array.isArray(free.reg.data.qaOutboundMails) ? free.reg.data.qaOutboundMails : [];
+  const purposes = mails.map((m) => m.purpose).sort();
+  if (purposes.join(',') !== 'employer_email_verify,employer_register_ack') {
+    fail('Free-email register must send only the verify + ack mails (no temp password)', { mails });
+  }
+}
 note('OK', 'Free-email register', { email: free.persona.email, mode: free.reg.data.mode });
+
+// ── 2b) Unverified free-email employer: login refused with the verify message, then resend ──
+cases.begin('TC-IS-02-028');
+{
+  const early = await apiLogin(BASE, free.persona.email, free.persona.password);
+  if (early.ok) fail('Unverified free-email employer could sign in', { email: free.persona.email });
+  if (!/Verify your email before signing in/i.test(String(early.loginError || ''))) {
+    fail('Login refusal is not the verify-email message', { loginError: early.loginError });
+  }
+  note('OK', 'Unverified employer login refused with verify message', { loginError: early.loginError });
+
+  const pool = dbPool();
+  try {
+    const userId = (await pool.query(`SELECT id FROM ip_users WHERE lower(email) = lower($1)`, [free.persona.email]))
+      .rows[0]?.id;
+    if (!userId) fail('Free-email employer user row missing', { email: free.persona.email });
+    // Step past the 45s resend cooldown that starts at register.
+    await pool.query(
+      `UPDATE ip_employer_email_verifications SET created_at = created_at - interval '2 minutes' WHERE user_id = $1`,
+      [userId],
+    );
+    const resend = await apiRequest(BASE, '/api/ip/auth/employer-email-verify/resend', {
+      method: 'POST',
+      body: { email: free.persona.email },
+    });
+    if (resend.status !== 200 || resend.data?.mailed !== true || !/new link has been sent/i.test(resend.data?.message || '')) {
+      fail('Resend did not send a new verification link', { status: resend.status, data: resend.data });
+    }
+    const rows = (
+      await pool.query(
+        `SELECT consumed_at FROM ip_employer_email_verifications WHERE user_id = $1 ORDER BY created_at DESC`,
+        [userId],
+      )
+    ).rows;
+    if (rows.length < 2 || rows[0].consumed_at || rows.slice(1).some((r) => !r.consumed_at)) {
+      fail('Expected one fresh unused link and the earlier link retired after resend', { rows: rows.length });
+    }
+    note('OK', 'Resend sent a new link and retired the earlier one', { links: rows.length });
+  } finally {
+    await pool.end();
+  }
+  cases.pass(
+    'TC-IS-02-028',
+    'Pass: unverified employer sign-in refused with "Verify your email before signing in…"; resend → 200 "new link has been sent", mailed, new unused link stored and the earlier one retired.',
+  );
+}
 
 // ── 3) Candidate Google — cannot be full E2E without browser; assert gate only + core login later ──
 {
@@ -155,6 +233,7 @@ const { persona, reg } = domain;
 }
 
 // ── 6) AFTER verify, STILL PENDING: login must SUCCEED (docs path) ──
+cases.begin('TC-IS-02-029');
 let pendingEmp;
 {
   pendingEmp = await apiLogin(BASE, persona.email, persona.password);
@@ -193,9 +272,9 @@ let pendingEmp;
     method: 'POST',
     cookie: pendingEmp.cookie,
     body: {
-      docType: 'gst_certificate',
-      fileName: `${persona.companyName}-gst.pdf`,
-      url: `https://files.example/${persona.companySlug || 'co'}/gst.pdf`,
+      docType: 'Business PAN',
+      fileName: `${persona.companyName}-pan.pdf`,
+      url: `https://files.example/${persona.companySlug || 'co'}/pan.pdf`,
     },
   });
   if (doc.status !== 200 && doc.status !== 201) {
@@ -222,24 +301,37 @@ let pendingEmp;
     fail('Posting must be blocked while pending approval', { status: blocked.status, data: blocked.data });
   }
   const blockErr = String(blocked.data?.error || '');
-  if (!/approv/i.test(blockErr)) {
+  if (!/must be approved by SuperAdmin before posting/i.test(blockErr)) {
     fail('Expected posting block reason to mention SuperAdmin approval after profile complete', {
       error: blockErr,
     });
   }
   note('OK', 'Posting blocked while pending after profile complete', { error: blockErr });
+  cases.pass(
+    'TC-IS-02-029',
+    `Pass: verified pending employer signed in (role employer, dashboard pending), uploaded a document, and POST internship → 403 "${blockErr}".`,
+  );
 }
 
 // ── 7) SuperAdmin: login, approve doc, Final Approval ──
 let employerId;
 {
-  const sa = await apiLogin(BASE, QA_ACCOUNTS.superadmin.email, QA_ACCOUNTS.superadmin.password);
-  if (!sa.ok) fail('SuperAdmin login failed', sa);
+  const sa = await requireQaLogin(BASE, 'superadmin');
   await assertSession(sa.cookie, 'superadmin', 'SuperAdmin login');
 
   const list = await apiRequest(BASE, '/api/ip/superadmin/employers?status=pending', { cookie: sa.cookie });
   const employer = (list.data?.items || []).find(
     (e) => String(e.account_email || '').toLowerCase() === persona.email.toLowerCase(),
+  );
+  const freeRow = (list.data?.items || []).find(
+    (e) => String(e.account_email || '').toLowerCase() === free.persona.email.toLowerCase(),
+  );
+  if (!freeRow || freeRow.registration_source !== 'free_email') {
+    fail('Free-email employer not on Approvals Pending with registration_source free_email', { freeRow });
+  }
+  cases.pass(
+    'TC-IS-03-025',
+    `Pass: free-email register → mode free_email, only verify + ack mails (no temp password); listed on Approvals Pending with registration_source free_email (${free.persona.email}).`,
   );
   if (!employer?.id) fail('Pending employer not on Approvals after login path', { email: persona.email });
   employerId = employer.id;
@@ -341,11 +433,10 @@ let internshipId;
   });
 }
 
-// ── 9) Core candidate: real login + apply + read back ──
+// ── 9) Test candidate: real login + apply + read back ──
 {
-  const cand = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, QA_ACCOUNTS.candidate.password);
-  if (!cand.ok) fail('Core candidate login failed', { email: QA_ACCOUNTS.candidate.email, cand });
-  await assertSession(cand.cookie, 'candidate', 'Core candidate login');
+  const cand = await requireQaLogin(BASE, 'candidate');
+  await assertSession(cand.cookie, 'candidate', 'Test candidate login');
 
   const apply = await apiRequest(BASE, '/api/ip/candidate/applications', {
     method: 'POST',
@@ -356,7 +447,7 @@ let internshipId;
     fail('Candidate apply failed after login', { status: apply.status, data: apply.data });
   }
   const applicationId = apply.data?.id || apply.data?.applicationId;
-  note('OK', 'Core candidate applied while authenticated', { applicationId, internshipId });
+  note('OK', 'Test candidate applied while authenticated', { applicationId, internshipId });
 
   const apps = await apiRequest(BASE, '/api/ip/candidate/applications', { cookie: cand.cookie });
   if (apps.status !== 200) fail('Candidate applications list failed', apps.data);
@@ -392,12 +483,13 @@ console.log(
         'post blocked while pending',
         'SA login + final approve',
         'approved employer login + post',
-        'core candidate login + apply',
+        'test candidate login + apply',
       ],
     },
     null,
     2,
   ),
 );
-if (blockers.length) process.exit(1);
+if (blockers.length) finish(1);
 console.log('\nPASS deep register → verify → pending login → docs → approve → post → candidate apply');
+finish(0);

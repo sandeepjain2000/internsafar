@@ -3,28 +3,16 @@
  * Run: node scripts/test-ip-email-unsubscribe.mjs
  */
 import assert from 'assert';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath, pathToFileURL } from 'url';
+import { registerAppAlias } from './lib/registerAppAlias.mjs';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.join(here, '..');
-const libDir = path.join(projectRoot, 'src', 'lib');
+registerAppAlias({
+  stubs: {
+    '@/lib/db': 'data:text/javascript,export async function query(){throw new Error("no database in unit test")}',
+  },
+});
 
-const format = await import(pathToFileURL(path.join(libDir, 'ipEmailUnsubscribeFormat.js')).href);
-
-function rewriteAliases(source) {
-  return source.replace(/'@\/lib\/([^']+)'/g, (_m, name) => {
-    const file = /\.[a-z]+$/i.test(name) ? name : `${name}.js`;
-    return `'${pathToFileURL(path.join(libDir, file)).href}'`;
-  });
-}
-
-const tmpDir = fs.mkdtempSync(path.join(projectRoot, '.unsub-test-'));
-const unsubSource = rewriteAliases(fs.readFileSync(path.join(libDir, 'ipEmailUnsubscribe.js'), 'utf8'));
-const unsubPath = path.join(tmpDir, 'ipEmailUnsubscribe.mjs');
-fs.writeFileSync(unsubPath, unsubSource);
-const unsub = await import(pathToFileURL(unsubPath).href);
+const format = await import('../src/lib/ipEmailUnsubscribeFormat.js');
+const unsub = await import('../src/lib/ipEmailUnsubscribe.js');
 
 class UniqueViolation extends Error {
   constructor(message) {
@@ -49,8 +37,26 @@ function createMemoryDb() {
         || /CREATE UNIQUE INDEX/i.test(text)
         || /CREATE INDEX/i.test(text)
         || /DO \$\$/i.test(text)
+        || /ALTER TABLE ip_email_unsubscribe_requests ADD COLUMN IF NOT EXISTS/i.test(text)
       ) {
         return { rows: [] };
+      }
+
+      if (/UPDATE ip_email_unsubscribe_requests\s+SET status = \$2/i.test(text)) {
+        const [ids, status, processedBy, fromStatus] = params;
+        let rowCount = 0;
+        for (const r of requests) {
+          if (ids.includes(r.id) && r.status === fromStatus) {
+            Object.assign(r, { status, processed_at: new Date(), processed_by: processedBy });
+            rowCount += 1;
+          }
+        }
+        return { rows: [], rowCount };
+      }
+
+      if (/SELECT 1 FROM ip_email_unsubscribe_requests WHERE email = \$1 AND status = \$2/i.test(text)) {
+        const [mail, status] = params;
+        return { rows: requests.some((r) => r.email === mail && r.status === status) ? [{ '?column?': 1 }] : [] };
       }
 
       if (/FROM ip_email_unsubscribe_tokens WHERE email = \$1/i.test(text)) {
@@ -194,16 +200,24 @@ assert.equal(pending.length, 1);
 assert.equal(pending[0].status, 'PENDING');
 assert.equal(pending[0].email, 'candidate@example.com');
 
-db.requests[0].status = 'PROCESSED';
+assert.equal(await unsub.isEmailUnsubscribed(email, db), false, 'pending request does not stop mail yet');
+assert.equal(await unsub.markUnsubscribeRequestsProcessed([], 'sa-1', db), 0);
+assert.equal(await unsub.markUnsubscribeRequestsProcessed([created.id, created.id], 'sa-1', db), 1);
+assert.equal(db.requests[0].status, 'PROCESSED');
+assert.equal(db.requests[0].processed_by, 'sa-1');
+assert.equal(await unsub.markUnsubscribeRequestsProcessed([created.id], 'sa-1', db), 0, 'already processed');
+assert.equal(await unsub.isEmailUnsubscribed('CANDIDATE@example.com', db), true, 'processed address stops mail');
+assert.equal(await unsub.isEmailUnsubscribed('not-an-email', db), false);
+
 const nonePending = await unsub.listPendingUnsubscribeRequests({}, db);
 assert.equal(nonePending.length, 0);
 const processed = await unsub.listUnsubscribeRequests({ status: 'PROCESSED' }, db);
 assert.equal(processed.length, 1);
+assert.ok(processed[0].processedAt, 'processed row exposes processedAt');
 
 await assert.rejects(
   () => unsub.listUnsubscribeRequests({ status: 'NOPE' }, db),
   /invalid status/,
 );
 
-fs.rmSync(tmpDir, { recursive: true, force: true });
-console.log('OK: unsubscribe tokens, footer, pending-request de-dupe, and pending list');
+console.log('OK: unsubscribe tokens, footer, pending-request de-dupe, pending list, and SuperAdmin processing');

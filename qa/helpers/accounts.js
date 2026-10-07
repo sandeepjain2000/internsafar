@@ -1,14 +1,20 @@
-/** InternSafar core demo accounts (scripts/lib/ipCoreSampleConfig.js).
+/** InternSafar QA accounts.
+ * Candidate / employers are the disposable test accounts (scripts/lib/ipTestAccountsConfig.js),
+ * re-created by qa/global-setup.js. Core demo accounts are never used for testing; the one
+ * SuperAdmin is shared and only acts on test accounts.
  * Sibling/Vercel QA: hardcoded passwords via ipCoreSampleConfig (SuperAdmin has its own).
  * AWS/production packs use coreaccountspass.json in the handoff extract.
  */
 const {
   getCorePasswordForEmail,
   getCorePasswordForRole,
-  CAND_BASE,
-  EMP_BASE,
   SUPERADMIN_EMAIL,
 } = require('../../scripts/lib/ipCoreSampleConfig.js');
+const {
+  TEST_CANDIDATE,
+  TEST_EMPLOYER,
+  TEST_EMPLOYER_PENDING,
+} = require('../../scripts/lib/ipTestAccountsConfig.js');
 
 module.exports = {
   get password() {
@@ -17,10 +23,9 @@ module.exports = {
   passwordFor(email) {
     return getCorePasswordForEmail(email);
   },
-  candidate: { email: CAND_BASE || 'lawsonlclintern+1@gmail.com', home: /\/candidate(\/|$|\?)/ },
-  employer: { email: EMP_BASE || 'placementhubsupport@gmail.com', home: /\/employer(\/|$|\?)/ },
-  // Filler employer awaiting SuperAdmin approval — a +alias of the core employer.
-  employerPending: { email: 'placementhubsupport+3@gmail.com', home: /\/employer(\/|$|\?)/ },
+  candidate: { email: TEST_CANDIDATE.email, home: /\/candidate(\/|$|\?)/ },
+  employer: { email: TEST_EMPLOYER.email, home: /\/employer(\/|$|\?)/ },
+  employerPending: { email: TEST_EMPLOYER_PENDING.email, home: /\/employer(\/|$|\?)/ },
   // Exclude /superadmin/login — that path is the gate, not the dashboard.
   superadmin: { email: SUPERADMIN_EMAIL || 'support@placementhub.online', home: /\/superadmin(?!\/login)(\/|$|\?)/ },
 };

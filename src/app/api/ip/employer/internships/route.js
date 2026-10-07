@@ -79,10 +79,10 @@ export async function POST(request) {
   const weeklyHours = body.weeklyHours ?? body.weekly_hours ?? null;
   const incentiveBasis = body.incentiveBasis || body.incentive_basis || null;
   const locations = normalizeLocations(body.locations, body.location);
-  const stipendParsed = parseStipendRangeFields(body);
+  const stipendParsed =
+    stipendType === 'incentive' ? { stipendInr: null, stipendInrMax: null } : parseStipendRangeFields(body);
   if (stipendParsed.error) return jsonError(stipendParsed.error, 400);
-  const stipendInr = stipendType === 'incentive' ? null : stipendParsed.stipendInr;
-  const stipendInrMax = stipendType === 'incentive' ? null : stipendParsed.stipendInrMax;
+  const { stipendInr, stipendInrMax } = stipendParsed;
 
   // Duplicate warning data (non-blocking)
   const dupes = await query(

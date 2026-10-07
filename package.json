@@ -32,6 +32,7 @@
         "audit:core-coverage": "node scripts/audit-core-list-counts.mjs",
         "audit:demo-text": "node scripts/audit-demo-text.mjs",
         "test:demo-text": "node scripts/test-demo-text-classifier.mjs",
+        "test:person-name": "node scripts/test-ip-person-name.mjs",
         "audit:demo-consistency": "node scripts/audit-demo-consistency.mjs",
         "delete:ip-generated-run": "node scripts/delete-ip-generated-run.mjs",
         "delete:ip-except-cores": "node scripts/delete-ip-generated-run.mjs --mode=except-cores",
@@ -42,7 +43,8 @@
         "qa:apply": "node scripts/apply-qa-results.mjs",
         "qa:workbench": "node scripts/run-ip-workbench-qa.mjs",
         "qa:workbench:live": "node scripts/run-ip-workbench-qa.mjs --live",
-        "qa:e2e": "node qa/runners/run-internsafar.mjs",
+        "qa:ensure-test-accounts": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/ensure-ip-test-accounts.mjs",
+    "qa:e2e": "node qa/runners/run-internsafar.mjs",
         "qa:e2e:smoke": "node qa/runners/run-internsafar.mjs --suite=smoke",
         "qa:e2e:smoke-latest": "node qa/runners/run-internsafar.mjs --suite=smoke-latest",
         "qa:e2e:full": "node qa/runners/run-internsafar.mjs --suite=full",
@@ -57,9 +59,13 @@
         "qa:manual:email-change": "node scripts/manual/run-tc-is-06-007-email-change.mjs",
         "qa:employer-reg-e2e": "node scripts/qa-employer-reg-verify-approve-login.mjs",
         "qa:register-approve-post-apply": "node scripts/qa-register-approve-post-apply-smoke.mjs",
+        "qa:test-account-cases": "node scripts/qa-test-account-cases.mjs",
+        "qa:temp-employer-cases": "node scripts/qa-temp-employer-cases.mjs",
         "qa:audit-xlsx": "python scripts/audit-internsafar-test-cases-xlsx.py",
         "qa:sync-xlsx-hygiene": "python scripts/sync-internsafar-xlsx-product-hygiene.py",
-        "qa:e2e:full:release": "node scripts/run-full-release-qa.mjs"
+        "qa:e2e:full:release": "node scripts/run-full-release-qa.mjs",
+        "qa:all": "node scripts/run-full-release-qa.mjs",
+        "qa:coverage": "python scripts/report-internsafar-qa-coverage.py"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.1105.0",

@@ -1,13 +1,14 @@
 # Stable project decisions (InternSafar)
 
 Only confirmed, durable decisions. Not a chat diary.  
-Last pack refresh: 2026-09-28.
+Last pack refresh: 2026-10-07.
 
 | Decision | Domain | Status | Evidence |
 |----------|--------|--------|----------|
 | Product tables are `ip_*` only; do not alter Placement Hub / `ism_*` | Database | Confirmed | `README.md`, `src/lib/db.js`, route inventory |
 | Three roles: candidate, employer, superadmin | Auth / product | Confirmed | `ISM_ROUTE_INVENTORY.md`, `src/lib/ipNav.js` |
 | No `middleware.js`; APIs are the security boundary; `PortalShell` is client guard | Auth | Confirmed | `ISM_ROUTE_INVENTORY.md`, absence of `middleware.js` |
+| Signed in with the wrong role → `PortalShell` "Wrong account for this workspace" block (signed-in email + Sign out), URL stays; no redirect (403-style, matches Next.js `forbidden()` / OWASP). Tests assert the block page, not a URL change | Auth / testing | Confirmed 2026-10-07 | `src/components/ip/PortalShell.jsx`, `qa/tests/auth.spec.js`, `qa/tests/session-refresh.spec.js`, PERM-2 in `scripts/run-internsafar-qa.mjs` |
 | Edit/deploy sibling `internship-portal`; nested mono copy is frozen | Workspace | Confirmed | Dual-folder workspace rule |
 | Sibling app has its own `.git`; nested copy remains frozen regardless | Workspace | Confirmed | Live tree 2026-09-15 |
 | Path B AWS update never migrates DB; Path C only on empty RDS with allow env | Deployment | Confirmed | `AGENTS.md`, Path B rule |
@@ -35,7 +36,8 @@ Last pack refresh: 2026-09-28.
 | Employer email-verify QA exposure via `IP_QA_EMPLOYER_EMAIL_VERIFY_TOKEN_IN_RESPONSE` (token + mail metadata in register JSON); hard-off when `VERCEL_ENV=production`; employers use form password (no temp-password mail) | Testing / Auth | Confirmed | `ipQaEmployerRegister.js`, `qa-employer-reg-verify-approve-login.mjs`, `docs/qa-employer-register-e2e.md` |
 | Employer email verify resend (login + post-register); cooldown ~45s; candidates have no verify-before-login | Auth | Confirmed | `employer-email-verify/resend`, `IpSignInLanding`, `EmployerRegisterClient` |
 | Form candidate path + manualRequest employer queue retired (410); drop `ip_employer_requests` + `form_approval_status` via bootstrap | Auth / SuperAdmin | Confirmed | `ensureIpRetireDeadQueuesSchema.js` |
-| QA/seed accounts must use realistic varied personas; do not pile scripted traffic onto core showcase inboxes | Testing | Confirmed | `ipQaRealisticPersonas.mjs`, workspace rule `qa-test-account-variety` |
+| **Core accounts are never touched by testing.** Core = exactly three (`PROTECTED_ACCOUNT_EMAILS` in `ipCoreSampleConfig.js`): SuperAdmin `support@placementhub.online`, candidate `lawsonlclintern+1@gmail.com`, employer `placementhubsupport@gmail.com`; `+2`/`+3` aliases are filler, not core. No test transactions on the core candidate / employer; demos only. Testing uses disposable test accounts (`scripts/lib/ipTestAccountsConfig.js`) dropped by the reset and re-created by `npm run qa:ensure-test-accounts` / Playwright global setup. No separate test SuperAdmin: the one SuperAdmin acts on test accounts but is never itself changed by tests. Supersedes the older "cores for login smoke" allowance | Testing | Confirmed (owner 2026-10-07) | `domains/testing.md` §7; incident Nova Labs suspend/reject 2026-09-29/30 |
+| QA/seed accounts must use realistic varied personas | Testing | Confirmed | `ipQaRealisticPersonas.mjs`, workspace rule `qa-test-account-variety` |
 | AWS email-verify: ADD schema + one-time fill `email_verified_at=created_at` for existing employers; **no** `email_verify_required=false` grandfather (temp runner deleted after run) | Auth / Deploy | Confirmed | Applied AWS RDS 2026-09-23; `ensureIpEmployerEmailVerifySchema` schema-only |
 | Schema gaps on live AWS: fill blanks with values that preserve current behaviour; **never** invent parallel “ignore blank” flags | Database / Deploy | Confirmed | Workspace rule `schema-blank-fill-not-grandfather-flags`; plan `aws deploy/AWS-PUSH-PLAN-SCHEMA-BACKFILL-2026-09-26.md` |
 | Employer verification docs: **one active row per type** (Shop Act / LLP / Business PAN / Other+label); re-upload supersedes prior (`superseded_at`) and resets to pending; Final Approval / SA queues count **active** docs only | Employer / SuperAdmin | Confirmed | `ipEmployerDocuments.js` Hybrid E 2026-09-26 |

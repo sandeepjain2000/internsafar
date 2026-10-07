@@ -8,6 +8,7 @@ import { PROFILE_COMPLETE_POINTS } from '@/lib/pointsEconomy';
 import { validateRequiredPhone } from '@/lib/ipPhoneValidation';
 import { buildCandidateProfileUpdate, locationMismatchError } from '@/lib/ipCandidateProfileUpdate';
 import { dayString } from '@/lib/ipCandidateProfileDisplay';
+import { firstPersonNameError } from '@/lib/ipPersonName';
 
 /** Phone is required for account Save / apply unlock; local draft may still omit it. */
 const REQUIRED_FOR_COMPLETE = ['name', 'phone', 'college', 'degree', 'city', 'country', 'resume_url'];
@@ -134,6 +135,9 @@ async function putProfile(request) {
   } catch {
     return jsonError('Invalid JSON');
   }
+
+  const nameIssue = firstPersonNameError(body);
+  if (nameIssue) return jsonError(nameIssue.error, 400);
 
   let phonePrev = null;
   let nextPhone = null;

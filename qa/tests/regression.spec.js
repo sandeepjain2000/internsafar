@@ -4,6 +4,7 @@ const path = require('node:path');
 const { candidate, employer, superadmin } = require('../helpers/accounts');
 const { openWithSession, signOut, apiLogin } = require('../helpers/login');
 const { openTableFilters } = require('../helpers/ipTableFilters');
+const { testEmployerPublishedPostingIds } = require('../helpers/testPostings');
 
 /**
  * InternSafar regression smoke (IS-* ids) applied into
@@ -291,8 +292,9 @@ test.describe('InternSafar regression', () => {
     const listRes = await apiWithSession(request, candidate.email, 'GET', '/api/ip/candidate/internships');
     expect(listRes.ok()).toBeTruthy();
     const listBody = await listRes.json();
-    const firstId = listBody?.items?.[0]?.id;
-    test.skip(!firstId, 'No visible internships for candidate in this environment');
+    const testIds = await testEmployerPublishedPostingIds();
+    const firstId = (listBody?.items || []).find((i) => testIds.has(i?.id))?.id;
+    test.skip(!firstId, 'No open test-employer posting visible (npm run qa:ensure-test-accounts)');
     await openWithSession(page, candidate.email, `/candidate/internships/${firstId}`);
     await expect(page).toHaveURL(new RegExp(`/candidate/internships/${firstId}`), { timeout: 20_000 });
     await expect(page.getByRole('button', { name: /^Report$/i }).first()).toBeVisible({ timeout: 20_000 });
@@ -337,11 +339,12 @@ test.describe('InternSafar regression', () => {
     );
     expect(appsRes.ok()).toBeTruthy();
     const appsBody = await appsRes.json();
+    const testIds = await testEmployerPublishedPostingIds();
     const active = (appsBody.items || []).find((a) => {
       const s = String(a.status || '').toLowerCase();
-      return s && s !== 'withdrawn';
+      return s && s !== 'withdrawn' && testIds.has(a.internship_id);
     });
-    test.skip(!active?.internship_id, 'No active application for core candidate');
+    test.skip(!active?.internship_id, 'No active test-candidate application (npm run qa:ensure-test-accounts)');
     const res = await apiWithSession(request, candidate.email, 'POST', '/api/ip/candidate/applications', {
       data: { internshipId: active.internship_id, answers: {} },
     });
@@ -390,24 +393,6 @@ test.describe('InternSafar regression', () => {
       });
     }
 
-    async function seedOpenPosting() {
-      const created = await apiWithSession(request, employer.email, 'POST', '/api/ip/employer/internships', {
-        data: {
-          title: `QA IS-066 reapply ${Date.now()}`,
-          description: 'Automated seed posting for withdraw/reapply regression.',
-          workMode: 'Remote',
-          status: 'published',
-          questions: [],
-        },
-      });
-      if (![200, 201].includes(created.status())) {
-        const body = await created.json().catch(() => ({}));
-        return { ok: false, error: `${created.status()} ${body.error || ''}`.trim() };
-      }
-      const body = await created.json().catch(() => ({}));
-      return { ok: Boolean(body.id), id: body.id, error: body.error };
-    }
-
     const appsRes = await apiWithSession(
       request,
       candidate.email,
@@ -416,7 +401,8 @@ test.describe('InternSafar regression', () => {
     );
     expect(appsRes.ok()).toBeTruthy();
     const appsBody = await appsRes.json();
-    const items = appsBody.items || [];
+    const testIds = await testEmployerPublishedPostingIds();
+    const items = (appsBody.items || []).filter((a) => testIds.has(a.internship_id));
 
     let target = items.find((a) => {
       const s = String(a.status || '').toLowerCase();
@@ -443,12 +429,8 @@ test.describe('InternSafar regression', () => {
       );
       expect(listRes.ok()).toBeTruthy();
       const listBody = await listRes.json();
-      let openId = (listBody.items || []).find((i) => i?.id && !i.applied)?.id;
-      if (!openId) {
-        const seeded = await seedOpenPosting();
-        test.skip(!seeded.ok, `Could not seed open posting for reapply (${seeded.error || 'unknown'})`);
-        openId = seeded.id;
-      }
+      const openId = (listBody.items || []).find((i) => i?.id && !i.applied && testIds.has(i.id))?.id;
+      expect(openId, 'No open test-employer posting; run npm run qa:ensure-test-accounts').toBeTruthy();
 
       const created = await applyTo(openId);
       test.skip(
@@ -610,7 +592,7 @@ test.describe('InternSafar regression', () => {
     const items = Array.isArray(body.ethicsItems) ? body.ethicsItems : [];
     const locked =
       Boolean(profile.ethics_accepted_at) && items.length > 0 && items.every((i) => acks[i.id] === true);
-    test.skip(!locked, 'Core employer ethics are not locked in this environment');
+    test.skip(!locked, 'Test employer ethics are not locked (npm run qa:ensure-test-accounts)');
 
     const res = await apiWithSession(request, employer.email, 'PUT', '/api/ip/employer/profile', {
       data: { ethics_acks: {} },
@@ -650,5 +632,37 @@ test.describe('InternSafar regression', () => {
       .getByRole('tablist', { name: 'Browse views' })
       .getByRole('tab', { selected: true });
     await expect(selected).toContainText(/Unapplied/, { timeout: 25_000 });
+  });
+
+  test('IS-079 candidate profile rejects digits and symbols in name fields', async ({ page, request }) => {
+    const before = await apiWithSession(request, candidate.email, 'GET', '/api/ip/candidate/profile');
+    expect(before.ok()).toBeTruthy();
+    const savedFirst = (await before.json()).profile?.first_name;
+
+    for (const [field, value] of [
+      ['first_name', 'Priya123'],
+      ['first_name', '123'],
+      ['first_name', 'Priya@'],
+      ['middle_name', 'K2'],
+      ['last_name', 'Sharma_'],
+    ]) {
+      const res = await apiWithSession(request, candidate.email, 'PUT', '/api/ip/candidate/profile', {
+        data: { [field]: value },
+      });
+      expect(res.status(), `${field}=${value}`).toBe(400);
+      expect(String((await res.json()).error || '')).toMatch(/can only contain letters/i);
+    }
+
+    const after = await apiWithSession(request, candidate.email, 'GET', '/api/ip/candidate/profile');
+    expect((await after.json()).profile?.first_name).toBe(savedFirst);
+
+    await openWithSession(page, candidate.email, '/candidate/profile');
+    const firstName = page.locator('.ip-cp-field').filter({ hasText: 'First Name' }).locator('input');
+    await expect(firstName).toBeVisible({ timeout: 30_000 });
+    await firstName.fill('Priya123');
+    await expect(page.getByText('First Name can only contain letters', { exact: false })).toBeVisible();
+    await expect(firstName).toHaveAttribute('aria-invalid', 'true');
+    await firstName.fill("Anne-Marie O'Neil");
+    await expect(page.getByText('First Name can only contain letters', { exact: false })).toHaveCount(0);
   });
 });

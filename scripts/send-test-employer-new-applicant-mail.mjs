@@ -1,9 +1,9 @@
 /**
  * Send the real product "New applicant" employer email (same copy as
- * src/app/api/ip/candidate/applications/route.js) to the core employer,
+ * src/app/api/ip/candidate/applications/route.js) to the QA test employer,
  * with the normal unsubscribe footer (word "unsubscribe" linked — not a raw URL).
  *
- * Run: node scripts/send-core-employer-new-applicant-mail.mjs
+ * Run: node scripts/send-test-employer-new-applicant-mail.mjs
  */
 import assert from 'assert';
 import fs from 'fs';
@@ -17,7 +17,7 @@ const { Client } = require('pg');
 const here = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(here, '..');
 const libDir = path.join(projectRoot, 'src', 'lib');
-const CORE_EMPLOYER = 'placementhubsupport@gmail.com';
+const TEST_EMPLOYER = require('./lib/ipTestAccountsConfig.js').TEST_EMPLOYER.email;
 
 function readEnvFile(filename) {
   const envPath = path.join(projectRoot, filename);
@@ -62,7 +62,7 @@ try {
       WHERE lower(u.email) = $1
       ORDER BY i.created_at DESC NULLS LAST
       LIMIT 1`,
-    [CORE_EMPLOYER.toLowerCase()],
+    [TEST_EMPLOYER.toLowerCase()],
   );
   const title = posting.rows[0]?.title || 'Internship posting';
 
@@ -75,7 +75,7 @@ try {
   const format = await import(pathToFileURL(path.join(libDir, 'ipEmailUnsubscribeFormat.js')).href);
   const originMod = await import(pathToFileURL(path.join(libDir, 'ipAppOrigin.js')).href);
 
-  const token = await unsub.getOrCreateUnsubscribeToken(CORE_EMPLOYER, undefined, db);
+  const token = await unsub.getOrCreateUnsubscribeToken(TEST_EMPLOYER, undefined, db);
   const unsubUrl = format.buildUnsubscribeUrl(originMod.resolveAppOrigin(), token);
 
   // Exact product copy from candidate applications → employer mail
@@ -83,7 +83,7 @@ try {
   const baseHtml = `<p>You received a new application for <strong>${title}</strong>.</p><p>Sign in to review applicants.</p>`;
   const baseText = `New application for ${title}.`;
   const mailed = format.applyUnsubscribeFooter(
-    { to: CORE_EMPLOYER, subject, html: baseHtml, text: baseText },
+    { to: TEST_EMPLOYER, subject, html: baseHtml, text: baseText },
     unsubUrl,
   );
 
@@ -104,7 +104,7 @@ try {
 
   console.log('SENT', {
     kind: 'product:new-applicant-to-employer',
-    to: CORE_EMPLOYER,
+    to: TEST_EMPLOYER,
     subject,
     provider: result.provider,
     usedOverride: Boolean(result.usedOverride),

@@ -14,8 +14,9 @@
  *   npm run qa:e2e:aws
  *   npm run qa:e2e:aws:smoke
  *
- * Requires core demo accounts on the AWS RDS (same emails as qa/helpers/accounts.js)
- * and IP_QA_2FA_* in ~/internship-portal/.env when cores have login OTP enabled.
+ * Requires the test accounts on the AWS RDS (run `npm run qa:ensure-test-accounts` on the host first;
+ * emails in scripts/lib/ipTestAccountsConfig.js). Core demo accounts are never used by tests.
+ * IP_QA_2FA_* in ~/internship-portal/.env only if the SuperAdmin has login OTP enabled.
  *
  * Do NOT run qa:e2e:full:release / employer-reg deep scripts against live prod
  * unless you intentionally want new users on production RDS.

@@ -104,6 +104,7 @@ Candidate search (`/employer/candidates`) filters include **Region** (UI label; 
 - Publishing / points / ethics rules live in lib — inspect before changing posting flows.
 - Do not invent workbench columns or pipeline statuses; read current helpers + migrations.
 - Stipend range: `stipend_inr` = floor/fixed; `stipend_inr_max` NULL = single amount (`044_*` + ensure).
+- `stipend_type = 'incentive'`: create (POST) and edit (PUT) ignore any min/max sent, skip the range check and store both as NULL; the new/edit pages stop sending the hidden values (2026-10-07, TC-IS-09-019).
 
 ## Related domains
 

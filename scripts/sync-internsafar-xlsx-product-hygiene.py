@@ -104,7 +104,7 @@ EDITS = {
         "Description": (
             "1. Open `/` — confirm #email/#password and no Google button.\n"
             "2. Open `/register/candidate` — confirm Sign up with Google.\n"
-            "3. Sign in with core candidate email/password."
+            "3. Sign in with test candidate email/password."
         ),
         "Suggestion / Expected Behaviour": (
             "Home never offers Google login. Register starts Google OAuth for verification/create. "
@@ -123,7 +123,7 @@ NEW_CASES = [
         "Type": "Regression",
         "Issue Summary": "Employer profile required fields show asterisk markers",
         "Description": (
-            "1. Sign in as core employer.\n"
+            "1. Sign in as test employer.\n"
             "2. Open `/employer/profile`.\n"
             "3. Inspect labels for company name, website, work email, industry, HQ city, "
             "contact name/phone, business entity type."
@@ -133,7 +133,7 @@ NEW_CASES = [
             "Matches REQUIRED_FOR_COMPLETE in src/lib/employerProfileComplete.js."
         ),
         "Role(s)": "Employer",
-        "Preconditions": "Core employer account",
+        "Preconditions": "Test employer account",
         "Automation": "Automated",
         "Severity / Priority": "High",
         "Doc Status": "Ready for QA",
@@ -174,13 +174,13 @@ NEW_CASES = [
         "Feature": "Employer dashboard",
         "Type": "Regression",
         "Issue Summary": "Employer dashboard Action center shows one priority action with count and link",
-        "Description": "1. Sign in as core employer.\n2. Open `/employer`.\n3. Locate Action center.",
+        "Description": "1. Sign in as test employer.\n2. Open `/employer`.\n3. Locate Action center.",
         "Suggestion / Expected Behaviour": (
             "Action center card (data-testid=employer-action-center) shows a count and one priority hint "
             "linking to /employer/profile or /employer/internships."
         ),
         "Role(s)": "Employer",
-        "Preconditions": "Core employer",
+        "Preconditions": "Test employer",
         "Automation": "Automated",
         "Severity / Priority": "Medium",
         "Doc Status": "Ready for QA",
@@ -266,7 +266,7 @@ NEW_CASES = [
         "Description": "1. Candidate opens `/candidate/profile`.\n2. Locate Save draft control.",
         "Suggestion / Expected Behaviour": "Save draft (or Save draft & exit) button is visible.",
         "Role(s)": "Candidate",
-        "Preconditions": "Core candidate",
+        "Preconditions": "Test candidate",
         "Automation": "Automated",
         "Severity / Priority": "Medium",
         "Doc Status": "Ready for QA",
@@ -289,7 +289,7 @@ NEW_CASES = [
         ),
         "Suggestion / Expected Behaviour": "Start date filter present in browse drawer.",
         "Role(s)": "Candidate",
-        "Preconditions": "Core candidate",
+        "Preconditions": "Test candidate",
         "Automation": "Automated",
         "Severity / Priority": "Medium",
         "Doc Status": "Ready for QA",

@@ -16,9 +16,9 @@
 import { writeFileSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { execFileSync } from 'child_process';
 import dotenv from 'dotenv';
 import { runTcIs06007 } from '../lib/ipQaRemainingExtras.mjs';
+import { applyQaResultsToWorkbook, recordQaResults } from '../lib/recordQaResults.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(__dirname, '..', '..');
@@ -98,16 +98,9 @@ writeFileSync(
   ),
 );
 
-if (APPLY_EXCEL) {
-  const updater = resolve(
-    appRoot,
-    '..',
-    '_archive-root-clutter',
-    'testcase-picker',
-    'update_case_result.py',
-  );
-  execFileSync('python', [updater, payloadPath], { stdio: 'inherit' });
-  console.log(`Excel updated (${SHEET} / ${TC_ID})`);
+if (result.status !== 'Not Run') {
+  recordQaResults({ [TC_ID]: { status: result.status, actual: result.actual } }, { source: 'manual/run-tc-is-06-007' });
 }
+if (APPLY_EXCEL) applyQaResultsToWorkbook();
 
 if (result.status === 'Fail') process.exitCode = 1;

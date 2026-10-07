@@ -1,19 +1,21 @@
 #!/usr/bin/env node
 /**
  * TC-IS-03-015 — self-referral does not award points.
- * Form register with existing email + own referral code → 409 + invalid self_referral; points unchanged.
+ * Register (Google path) with the test candidate's existing email + own referral code
+ * → 409 + invalid self_referral; points unchanged. Without a Google token the API answers
+ * 401 first, so this needs a local server with IP_ALLOW_UNVERIFIED_GOOGLE_REGISTER=1.
  *
  * Usage (from internship-portal/):
  *   node scripts/manual/run-tc-is-03-015-self-referral.mjs
  *   node scripts/manual/run-tc-is-03-015-self-referral.mjs https://internship-portal-sigma-mauve.vercel.app
  *   node scripts/manual/run-tc-is-03-015-self-referral.mjs --apply-excel
  */
-import { writeFileSync, mkdirSync, readFileSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { execFileSync } from 'child_process';
 import dotenv from 'dotenv';
-import { apiLogin, apiRequest, fetchLoginCaptcha, QA_ACCOUNTS } from '../lib/ipQaAuth.mjs';
+import { apiLogin, apiRequest, ensureQaTestAccounts, requireQaLogin, QA_ACCOUNTS } from '../lib/ipQaAuth.mjs';
+import { applyQaResultsToWorkbook, recordQaResults } from '../lib/recordQaResults.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(__dirname, '..', '..');
@@ -29,7 +31,6 @@ const BASE =
 
 const TC_ID = 'TC-IS-03-015';
 const CAND = { email: QA_ACCOUNTS.candidate.email, password: QA_ACCOUNTS.candidate.password };
-const REG_PW = 'Admin@1234';
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -59,36 +60,31 @@ function isSelfInvalid(row) {
 
 let pass = false;
 let actual = '';
+let blockedReason = '';
 
 try {
   step(`Base ${BASE}`);
-
-  const login = await apiLogin(BASE, CAND.email, CAND.password);
-  if (!login.ok) throw new Error(`Candidate login failed: ${CAND.email}`);
+  ensureQaTestAccounts(BASE);
+  const login = await requireQaLogin(BASE, 'candidate');
 
   const before = await apiRequest(BASE, '/api/ip/referral', { cookie: login.cookie });
   if (before.status !== 200) throw new Error(`Referral GET failed: ${before.status}`);
   const code = before.data?.referral_code || before.data?.code;
-  if (!code) throw new Error('No referral code on +1');
+  if (!code) throw new Error('No referral code on the test candidate');
   const pts0 = Number(before.data?.points ?? 0);
   const ids0 = new Set((before.data?.referrals || []).map((r) => r.id));
   step('Baseline', { code, points: pts0, refs: ids0.size });
 
-  const cap = await fetchLoginCaptcha(BASE);
   const reg = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
     method: 'POST',
-    body: {
-      path: 'form',
-      email: CAND.email,
-      name: 'Self Referral QA',
-      password: REG_PW,
-      university: 'QA University',
-      graduationYear: 2027,
-      referralCode: code,
-      captchaToken: cap.captchaToken,
-      captchaAnswer: cap.captchaAnswer,
-    },
+    body: { email: CAND.email, name: 'Self Referral QA', referralCode: code },
   });
+  if (reg.status === 401) {
+    blockedReason =
+      'Duplicate + own-code check sits behind Google verification. Run against a local dev server with ' +
+      'IP_ALLOW_UNVERIFIED_GOOGLE_REGISTER=1, or test manually via Sign up with Google.';
+    throw new Error(blockedReason);
+  }
   if (reg.status !== 409) {
     throw new Error(`Expected 409 duplicate+self, got ${reg.status}: ${JSON.stringify(reg.data)}`);
   }
@@ -130,17 +126,19 @@ try {
   pass = true;
   actual =
     `API Pass ${new Date().toISOString().slice(0, 10)} (${BASE.includes('vercel') ? 'Vercel' : 'local'}): ` +
-    `form register existing ${CAND.email} + own code ${code} → 409; points unchanged (${pts0}); ` +
+    `register existing ${CAND.email} + own code ${code} → 409; points unchanged (${pts0}); ` +
     (selfRow
       ? `invalid self-referral recorded (${selfRow.status_label}).`
       : 'no credit (invalid attempt / points stable).');
 } catch (e) {
   pass = false;
-  actual = `Fail: ${e.message || e}\n${log.join('\n')}`;
-  console.error(e);
+  actual = blockedReason
+    ? `Blocked: ${blockedReason}`
+    : `Fail: ${e.message || e}\n${log.join('\n')}`;
+  if (!blockedReason) console.error(e);
 }
 
-const result = { tcId: TC_ID, status: pass ? 'Pass' : 'Fail', actual };
+const result = { tcId: TC_ID, status: pass ? 'Pass' : blockedReason ? 'Blocked' : 'Fail', actual };
 console.log('\nRESULT', JSON.stringify(result, null, 2));
 
 mkdirSync(resolve(appRoot, 'scripts/manual'), { recursive: true });
@@ -161,30 +159,8 @@ writeFileSync(
   ),
 );
 
-if (pass) {
-  const resultsPath = resolve(appRoot, 'test-cases/qa-results.json');
-  let payload = {};
-  try {
-    payload = JSON.parse(readFileSync(resultsPath, 'utf8'));
-  } catch {
-    payload = {};
-  }
-  const entry = { status: 'Pass', actual: result.actual };
-  for (const k of ['byTcId', 'cases', 'results']) {
-    if (!payload[k]) payload[k] = {};
-    payload[k][TC_ID] = entry;
-    payload[k]['REG-C-9'] = entry;
-  }
-  payload.executedAt = new Date().toISOString();
-  writeFileSync(resultsPath, JSON.stringify(payload, null, 2));
-  console.log('Updated test-cases/qa-results.json');
-}
+const entry = { status: result.status, actual: result.actual };
+recordQaResults({ [TC_ID]: entry, 'REG-C-9': entry }, { source: 'manual/run-tc-is-03-015' });
+if (APPLY_EXCEL) applyQaResultsToWorkbook();
 
-if (APPLY_EXCEL && pass) {
-  execFileSync('python', [resolve(appRoot, 'scripts/apply-internsafar-qa-xlsx.py')], {
-    cwd: appRoot,
-    stdio: 'inherit',
-  });
-}
-
-process.exit(pass ? 0 : 1);
+process.exitCode = result.status === 'Fail' ? 1 : 0;

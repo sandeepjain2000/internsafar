@@ -34,7 +34,8 @@ test.describe('InternSafar session refresh', () => {
   test('candidate cannot keep /employer after reload (role gate)', async ({ page }) => {
     await openWithSession(page, candidate.email, '/candidate');
     await page.goto('/employer', { waitUntil: 'domcontentloaded' });
-    // Wrong-role shell should bounce off employer workspace
-    await expect(page).not.toHaveURL(/\/employer\/?$/, { timeout: 25_000 });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Wrong account for this workspace')).toBeVisible({ timeout: 25_000 });
+    await expect(page.locator('a[href^="/employer/"]')).toHaveCount(0);
   });
 });

@@ -28,7 +28,7 @@ import { chromium } from 'playwright';
 import dotenv from 'dotenv';
 import pg from 'pg';
 import { ensurePlaywrightBrowsersPath } from './lib/ensurePlaywrightBrowsers.mjs';
-import { QA_ACCOUNTS, apiLogin, apiRequest, cookieJar, fetchLoginCaptcha } from './lib/ipQaAuth.mjs';
+import { QA_ACCOUNTS, apiLogin, apiRequest, cookieJar, ensureQaTestAccounts, fetchLoginCaptcha } from './lib/ipQaAuth.mjs';
 import {
   runFixtureCases,
   setTwoFactorFlag,
@@ -113,12 +113,44 @@ async function noClip(page) {
   });
 }
 
+/** True when any element matching `sel` is visible (a hidden first match must not fail the check). */
 async function visible(page, sel) {
   try {
-    await page.locator(sel).first().waitFor({ state: 'visible', timeout: 20_000 });
+    await page.locator(`${sel} >> visible=true`).first().waitFor({ state: 'visible', timeout: 20_000 });
     return true;
   } catch {
     return false;
+  }
+}
+
+/** Candidate page-load cases, runnable alone with `--only CAND-B-3,CAND-M-1`. */
+const CANDIDATE_PAGE_CASES = {
+  'CAND-B-3': { path: '/candidate/internships', sel: 'table, main, [data-testid], h1, h2' },
+  'CAND-M-1': { path: '/candidate/messages', sel: 'main, ul, [data-testid]' },
+};
+
+async function checkCandidatePage(page, id) {
+  const { path, sel } = CANDIDATE_PAGE_CASES[id];
+  await gotoApp(page, path);
+  const anyVisible = await visible(page, sel);
+  const firstMatchVisible = await page.locator(sel).first().isVisible().catch(() => false);
+  assessUi(id, anyVisible && page.url().includes(path), { url: page.url(), anyVisible, firstMatchVisible });
+}
+
+async function runCandidatePageCasesOnly(ids) {
+  const cand = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, PW);
+  if (!cand.ok) throw new Error('test candidate login failed');
+  const browser = await chromium
+    .launch({ headless: true })
+    .catch(() => chromium.launch({ headless: true, channel: 'chrome' }));
+  try {
+    const ctx = await browser.newContext();
+    ctx.setDefaultTimeout(30_000);
+    await ctx.addCookies(cand.cookies);
+    const page = await ctx.newPage();
+    for (const id of ids) await checkCandidatePage(page, id);
+  } finally {
+    await browser.close().catch(() => {});
   }
 }
 
@@ -288,10 +320,15 @@ async function runApiSuite() {
 
     // Switch password back to original so other automated steps keep working across runs
     const r2 = await requestAndConfirmReset(email, origPw);
+    // Reset confirm revokes every session for the user (security). The suite's candidate
+    // cookie is one of them, so check it died, then sign in again for the remaining cases.
+    const oldSession = await api('/api/auth/session', { cookie: cand.cookie });
+    const oldSessionRevoked = !oldSession.data?.user?.email;
     const backLogin = await apiLogin(BASE, email, origPw);
+    if (backLogin.ok) Object.assign(cand, backLogin);
     assess('AUTH-11',
-      r2.confirmResStatus === 200 && backLogin.ok,
-      { resetBackStatus: r2.confirmResStatus, loginOk: backLogin.ok });
+      r2.confirmResStatus === 200 && backLogin.ok && oldSessionRevoked,
+      { resetBackStatus: r2.confirmResStatus, loginOk: backLogin.ok, oldSessionRevoked });
   } catch (e) {
     blocked('AUTH-11', `Reset token automation failed: ${e.message || e}`);
   }
@@ -729,11 +766,12 @@ async function runApiSuite() {
   assess('SA-A-1', saEmp.status === 200,
     { count: (saEmp.data?.employers || saEmp.data?.items || []).length, status: saEmp.status });
 
+  // Manual Requests / Form Registrations queues are retired: APIs answer 410 Gone.
   const saReqs = await saGet('/api/ip/superadmin/requests');
-  assess('SA-R-1', saReqs.status === 200, { status: saReqs.status });
+  assess('SA-R-1', saReqs.status === 410, { status: saReqs.status, note: 'retired queue → 410' });
 
   const saFormRegs = await api('/api/ip/superadmin/form-registrations', { cookie: sa.cookie });
-  assess('SA-F-1', saFormRegs.status === 200, { status: saFormRegs.status });
+  assess('SA-F-1', saFormRegs.status === 410, { status: saFormRegs.status, note: 'retired queue → 410' });
 
   const saIdeas = await api('/api/ip/superadmin/feature-ideas/999', {
     method: 'PATCH', cookie: sa.cookie, body: { status: 'under_review' },
@@ -1008,7 +1046,7 @@ async function runBrowserSuite(logins) {
       )
       .catch(() => {});
 
-    // PERM-2: candidate trying employer shell (often 200 + client bounce — wait for leave)
+    // PERM-2: candidate on employer shell gets the "Wrong account" block page (403-style, URL stays)
     const empWrongRole = await fetchRaw('/employer', {
       redirect: 'manual',
       cookie: logins.cand.cookie,
@@ -1023,14 +1061,20 @@ async function runBrowserSuite(logins) {
       assess('PERM-2', true, { status: empWrongRole.status, location: loc });
     } else {
       await page.goto(`${BASE}/employer`, { waitUntil: 'domcontentloaded' });
-      await page
-        .waitForFunction(() => !location.pathname.startsWith('/employer'), { timeout: 20_000 })
-        .catch(() => {});
+      const blockShown = await page
+        .getByText('Wrong account for this workspace')
+        .waitFor({ state: 'visible', timeout: 20_000 })
+        .then(() => true)
+        .catch(() => false);
+      const employerLinks = await page.locator('a[href^="/employer/"]').count();
       const wrongRoleUrl = page.url();
-      assess('PERM-2', !/\/employer(\/|$|\?)/.test(new URL(wrongRoleUrl).pathname), {
+      const leftEmployer = !/\/employer(\/|$|\?)/.test(new URL(wrongRoleUrl).pathname);
+      assess('PERM-2', leftEmployer || (blockShown && employerLinks === 0), {
         status: empWrongRole.status,
         location: loc,
         url: wrongRoleUrl,
+        blockShown,
+        employerLinks,
       });
     }
 
@@ -1057,10 +1101,7 @@ async function runBrowserSuite(logins) {
     assessUi('CAND-P-2', await visible(page, 'form, input, main'),
       { url: page.url() });
 
-    // CAND-B-3: browse empty state
-    await gotoApp(page, '/candidate/internships');
-    assessUi('CAND-B-3', await visible(page, 'table, main, [data-testid], h1, h2'),
-      { url: page.url() });
+    await checkCandidatePage(page, 'CAND-B-3');
 
     // CAND-AP-1: applications page
     await gotoApp(page, '/candidate/applications');
@@ -1091,10 +1132,7 @@ async function runBrowserSuite(logins) {
       }
     }
 
-    // CAND-M-1: messages page
-    await gotoApp(page, '/candidate/messages');
-    assessUi('CAND-M-1', await visible(page, 'main, ul, [data-testid]'),
-      { url: page.url() });
+    await checkCandidatePage(page, 'CAND-M-1');
 
     // CAND-M-2: archive is role-specific — page loads
     assessUi('CAND-M-2', await visible(page, 'main'), { url: page.url() });
@@ -1271,13 +1309,15 @@ async function runBrowserSuite(logins) {
     );
 
     await gotoApp(page, '/superadmin/form-registrations');
-    assessUi('SA-F-3', await visible(page, 'main, table, h1'), { url: page.url() });
+    await page.waitForURL(/\/superadmin\/approvals/, { timeout: 25_000 }).catch(() => {});
+    assessUi('SA-F-3', /\/superadmin\/approvals/.test(page.url()), { url: page.url(), note: 'retired page → approvals' });
 
     await gotoApp(page, '/superadmin/approvals');
     assessUi('SA-A-1', await visible(page, 'main, table, h1'), { url: page.url() });
 
     await gotoApp(page, '/superadmin/requests');
-    assessUi('SA-R-1', await visible(page, 'main, table, h1'), { url: page.url() });
+    await page.waitForURL(/\/superadmin\/approvals/, { timeout: 25_000 }).catch(() => {});
+    assessUi('SA-R-1', /\/superadmin\/approvals/.test(page.url()), { url: page.url(), note: 'retired page → approvals' });
 
     await gotoApp(page, '/superadmin/documents');
     assessUi('SA-DOC-1', await visible(page, 'main, table, h1'), { url: page.url() });
@@ -1319,6 +1359,7 @@ async function runBrowserSuite(logins) {
 let byTcId = {};
 
 async function main() {
+  ensureQaTestAccounts(BASE);
   console.log(`InternSafar combined QA — base=${BASE} headless=true${ONLY ? ` only=${ONLY}` : ''}${SKIP_TC_IS ? ' skip-tc-is' : ''}`);
 
   if (ONLY === 'AUTH-8') {
@@ -1326,6 +1367,8 @@ async function main() {
   } else if (ONLY?.startsWith('TC-IS-')) {
     const rem = await runSingleTcIsCase(ONLY, { base: BASE });
     byTcId = rem.byTcId || {};
+  } else if (ONLY && ONLY.split(',').every((id) => id in CANDIDATE_PAGE_CASES)) {
+    await runCandidatePageCasesOnly(ONLY.split(','));
   } else if (ONLY) {
     console.error(`Unknown --only case: ${ONLY}`);
     process.exitCode = 1;
@@ -1349,26 +1392,28 @@ function persistResults() {
   let priorByTcId = {};
   let priorCases = {};
   let priorResults = {};
+  // Each record keeps the time it actually ran, so carried-over results never look fresh in the workbook.
+  const stampAll = (records, when) =>
+    Object.fromEntries(Object.entries(records || {}).map(([k, v]) => [k, { executedAt: when, ...v }]));
   try {
     const prior = JSON.parse(readFileSync(outPath, 'utf8'));
-    priorByTcId = prior.byTcId || {};
-    priorCases = prior.cases || {};
-    priorResults = prior.results || { ...priorCases, ...priorByTcId };
+    priorByTcId = stampAll(prior.byTcId, prior.executedAt);
+    priorCases = stampAll(prior.cases, prior.executedAt);
+    priorResults = stampAll(prior.results || { ...priorCases, ...priorByTcId }, prior.executedAt);
   } catch {
     /* first run */
   }
-  const isTcIsOnly = ONLY?.startsWith('TC-IS-');
-  const outCases = (ONLY && !isTcIsOnly) ? { ...priorCases, ...cases } : (isTcIsOnly ? priorCases : cases);
-  const outByTcId = (ONLY && !isTcIsOnly) || SKIP_TC_IS ? { ...priorByTcId, ...byTcId } : (isTcIsOnly ? { ...priorByTcId, ...byTcId } : byTcId);
-  const results = isTcIsOnly
-    ? { ...priorResults, ...outByTcId }
-    : ONLY
-      ? { ...priorResults, ...outCases, ...outByTcId }
-      : { ...outCases, ...outByTcId };
+  Object.assign(cases, stampAll(cases, executedAt));
+  Object.assign(byTcId, stampAll(byTcId, executedAt));
+  // Always keep earlier records (other runners, skipped phases); each keeps its own executedAt,
+  // so qa:coverage shows anything not re-run today as NOT run.
+  const outCases = { ...priorCases, ...cases };
+  const outByTcId = { ...priorByTcId, ...byTcId };
+  const results = { ...priorResults, ...outCases, ...outByTcId };
   const payload = { executedAt, base: BASE, results, cases: outCases, byTcId: outByTcId };
   writeFileSync(outPath, JSON.stringify(payload, null, 2));
 
-  const all = results;
+  const all = { ...cases, ...byTcId };
   const passN = Object.values(all).filter((c) => c.status === 'Pass').length;
   const failN = Object.values(all).filter((c) => c.status === 'Fail').length;
   const blockedN = Object.values(all).filter((c) => c.status === 'Blocked').length;
@@ -1377,7 +1422,8 @@ function persistResults() {
   console.log(JSON.stringify({
     executedAt,
     base: BASE,
-    combined: { total, pass: passN, fail: failN, blocked: blockedN },
+    thisRun: { total, pass: passN, fail: failN, blocked: blockedN },
+    keptFromEarlierRuns: Object.keys(results).length - total,
     results: Object.keys(results).length,
     legacyCases: Object.keys(outCases).length,
     tcIs: Object.keys(outByTcId).length,

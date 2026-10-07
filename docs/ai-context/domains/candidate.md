@@ -62,6 +62,7 @@ Stipend display/sort may use `stipend_inr_max` when present (NULL = single/`stip
 Candidate profile location/phone update path: `src/lib/ipCandidateProfileUpdate.js` + `/api/ip/candidate/profile` — preserve validation when restyling.
 
 - Profile save (2026-10-03): the profile page never sends `college`/`degree`/`specialization`/`study_status`/`graduation_year`/`cgpa` to `PUT /api/ip/candidate/profile`; `PUT /api/ip/candidate/academics` owns education and syncs row 0. Saving another tab cannot overwrite education.
+- Name rule (2026-10-07, BUG-PROFILE-001): First / Middle / Last Name (or `name` when no parts are sent) must start with a letter and contain only letters (any script, incl. combining marks), spaces, `-`, `'`/`’` and `.`. Shared helper `src/lib/ipPersonName.js` (`personNameError`, `firstPersonNameError`): `PUT /api/ip/candidate/profile` returns 400 with the field message; the profile page shows it inline under the field (`aria-invalid`) and blocks Save. Blank stays allowed here (required-ness is the existing unlock-applying check). Google-path registration takes the name from Google and is not re-validated.
 - Offer expiry (2026-10-03): `valid_until` is a date; an offer stays open until **23:59:59 IST** that day (`offerDeadlineEnd` in `src/lib/ipOfferPresentation.js`). Dashboard pending offers + "Expires today / N days left" use the same helper.
 
 ### Medium audit fixes (confirmed 2026-10-03)
@@ -76,7 +77,7 @@ Candidate profile location/phone update path: `src/lib/ipCandidateProfileUpdate.
 
 ## Constraints
 
-- Role home is `/candidate`. Wrong-role redirects via `PortalShell`.
+- Role home is `/candidate`. Wrong-role visits get the `PortalShell` "Wrong account" block, not a redirect (`domains/auth.md`).
 - Preserve live APIs, filters, and Playwright IDs when restyling.
 - Apply Gemini/mobile mocks into the **sibling** app only.
 

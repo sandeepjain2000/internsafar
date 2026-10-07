@@ -19,7 +19,8 @@ import { QA_ACCOUNTS, apiLogin as sharedApiLogin, apiRequest, fetchLoginCaptcha 
 import { qaRunLabel, qaDbId, qaReferralCode } from './ipQaNaming.mjs';
 
 const require = createRequire(import.meta.url);
-const { CAST_CANDIDATES } = require('./ipCoreSampleConfig.js');
+const { TEST_CANDIDATE_OTHER } = require('./ipTestAccountsConfig.js');
+const { hardDeleteIpUser } = require('./hardDeleteIpUser.js');
 const { companyNameForLabel } = require('./ipCompanyCatalog.js');
 const demoText = require('./ipDemoText.js');
 const { CAPTCHA_BYPASS_FOR_TESTING } = require('../../src/lib/captchaBypass.js');
@@ -30,6 +31,8 @@ dotenv.config({ path: path.join(root, '.env.local') });
 dotenv.config({ path: path.join(root, '.env') });
 
 const PW = QA_ACCOUNTS.candidate.password;
+/** Wrong-answer wording from `captchaFailureMessage` ("Incorrect answer…") plus older "captcha" messages. */
+const WRONG_CAPTCHA_RE = /captcha|incorrect answer|verification/i;
 
 function nid(prefix) {
   return qaDbId(prefix);
@@ -51,16 +54,16 @@ async function withDb(fn) {
   }
 }
 
-async function ensureUser(client, { email, role, name, points = 80, active = true, profileComplete = true, formApproval = null, source = 'gmail_domain' }) {
+async function ensureUser(client, { email, role, name, points = 80, active = true, profileComplete = true, source = 'gmail_domain' }) {
   const existing = await client.query(`SELECT id FROM ip_users WHERE lower(email) = lower($1)`, [email]);
   const hash = await bcrypt.hash(PW, 10);
   if (existing.rows[0]) {
     await client.query(
       `UPDATE ip_users
        SET name=$2, role=$3, active=$4, points=$5, profile_complete=$6,
-           form_approval_status=$7, registration_source=$8, password_hash=$9, updated_at=now()
+           registration_source=$7, password_hash=$8, updated_at=now()
        WHERE id=$1`,
-      [existing.rows[0].id, name, role, active, points, profileComplete, formApproval, source, hash],
+      [existing.rows[0].id, name, role, active, points, profileComplete, source, hash],
     );
     return existing.rows[0].id;
   }
@@ -69,9 +72,9 @@ async function ensureUser(client, { email, role, name, points = 80, active = tru
   await client.query(
     `INSERT INTO ip_users (
        id, email, password_hash, role, name, points, application_allowance, referral_code,
-       profile_complete, active, registration_source, form_approval_status
-     ) VALUES ($1,$2,$3,$4,$5,$6,10,$7,$8,$9,$10,$11)`,
-    [id, email.toLowerCase(), hash, role, name, points, ref, profileComplete, active, source, formApproval],
+       profile_complete, active, registration_source
+     ) VALUES ($1,$2,$3,$4,$5,$6,10,$7,$8,$9,$10)`,
+    [id, email.toLowerCase(), hash, role, name, points, ref, profileComplete, active, source],
   );
   return id;
 }
@@ -88,30 +91,6 @@ async function ensureCandidateRow(client, userId, email, name, extras = {}) {
       extras.phone || '9000000001', extras.college || 'Pune Institute of Computer Technology', extras.city || 'Pune', extras.state || 'Maharashtra',
       extras.skills || ['React', 'SQL'], extras.resume_url || 'https://example.com/resume.pdf',
     ],
-  );
-  return id;
-}
-
-async function ensureEmployerRequest(client, {
-  email,
-  companyName,
-  contactName,
-  reason,
-  status = 'pending',
-}) {
-  const ex = await client.query(
-    `SELECT id FROM ip_employer_requests WHERE lower(contact_email) = lower($1) LIMIT 1`,
-    [email],
-  );
-  if (ex.rows[0]) return ex.rows[0].id;
-  const id = nid('ip_ereq');
-  const hash = await bcrypt.hash(PW, 10);
-  await client.query(
-    `INSERT INTO ip_employer_requests (
-       id, company_name, contact_name, contact_email, reason, contact_designation,
-       password_hash, business_entity_type, status
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-    [id, companyName, contactName, email.toLowerCase(), reason, 'HR', hash, 'Private Limited', status],
   );
   return id;
 }
@@ -240,6 +219,7 @@ async function runCaptchaAndRegistrationGapCases(ctx) {
   const run = (qaRunLabel().replace(/[^a-zA-Z0-9]/g, '').slice(-10) || String(Date.now()).slice(-8));
 
   // ── AUTH-4 / TC-IS-02-022: wrong captcha must block login (bypass is false) ──
+  let loginCaptchaBlocked = null;
   if (CAPTCHA_BYPASS_FOR_TESTING) {
     blocked(
       'AUTH-4',
@@ -271,6 +251,7 @@ async function runCaptchaAndRegistrationGapCases(ctx) {
     const sessionRes = await fetch(`${BASE}/api/auth/session`, { headers: { Cookie: jar.header() } });
     const session = await sessionRes.json().catch(() => null);
     const noSession = !session?.user?.email;
+    loginCaptchaBlocked = noSession;
     const text = await cb.text().catch(() => '');
     const ok = noSession && cb.status !== 200;
     assess('AUTH-4', ok || noSession, {
@@ -284,257 +265,215 @@ async function runCaptchaAndRegistrationGapCases(ctx) {
     });
   }
 
-  // ── REGX-3 / TC-IS-18-032: captcha on forgot-password + form register ──
+  // ── Candidate register: Google path only. Form path is retired (410). ──
+  const postCandidate = (body) =>
+    apiRequest(BASE, '/api/ip/auth/register-candidate', { method: 'POST', body });
+
   {
-    const badCap = await fetchLoginCaptcha(BASE);
+    const r = await postCandidate({
+      path: 'form',
+      email: `qa.fix.retired.${run}@gmail.com`,
+      name: 'Meera Joshi',
+      password: 'Admin@1234',
+      university: 'QA University',
+      graduationYear: 2027,
+    });
+    const retired = r.status === 410 && /no longer available/i.test(String(r.data?.error || ''));
+    const evidence = { status: r.status, error: r.data?.error, note: 'form path retired → 410' };
+    for (const id of ['REG-C-4', 'TC-IS-03-004', 'REG-C-11', 'TC-IS-03-017']) assess(id, retired, evidence);
+  }
+
+  {
+    const r = await postCandidate({ email: 'not-an-email', name: 'QA' });
+    const ok = r.status === 400 && /valid email is required/i.test(String(r.data?.error || ''));
+    assess('REG-C-10', ok, { status: r.status, error: r.data?.error });
+    assess('TC-IS-03-016', ok, { status: r.status, error: r.data?.error });
+  }
+
+  {
+    const r = await postCandidate({ email: `qa.fix.${run}@yahoo.com`, name: 'QA NonGmail' });
+    const ok = r.status === 400 && /only gmail/i.test(String(r.data?.error || ''));
+    assess('REG-C-2', ok, { status: r.status, error: r.data?.error });
+    assess('TC-IS-03-002', ok, { status: r.status, error: r.data?.error });
+  }
+
+  // Without IP_ALLOW_UNVERIFIED_GOOGLE_REGISTER the Google-token gate (401) runs before the
+  // duplicate check, so nothing is created. With the bypass on, a request would create users.
+  const googleBypass =
+    process.env.NODE_ENV !== 'production' && process.env.IP_ALLOW_UNVERIFIED_GOOGLE_REGISTER === '1';
+  {
+    const r = await postCandidate({ email: QA_ACCOUNTS.candidate.email, name: 'QA Dup' });
+    const ok = googleBypass ? r.status === 409 : r.status === 401;
+    const evidence = {
+      status: r.status,
+      error: r.data?.error,
+      note: googleBypass
+        ? 'Google bypass on: duplicate → 409'
+        : 'Duplicate check sits behind Google verification; API refuses without a token (401). Live 409 needs Google consent.',
+    };
+    assess('REG-C-3', ok, evidence);
+    assess('TC-IS-03-003', ok, evidence);
+  }
+
+  if (googleBypass) {
+    blocked('REG-C-8', 'IP_ALLOW_UNVERIFIED_GOOGLE_REGISTER=1 — googlemail probe would create a user');
+    blocked('TC-IS-03-014', 'IP_ALLOW_UNVERIFIED_GOOGLE_REGISTER=1 — googlemail probe would create a user');
+  } else {
+    const r = await postCandidate({ email: `qa.fix.gm.${run}@googlemail.com`, name: 'QA Googlemail' });
+    const ok = r.status === 401 && !/only gmail/i.test(String(r.data?.error || ''));
+    const evidence = { status: r.status, error: r.data?.error, note: 'googlemail passes the Gmail rule; stops at Google verification' };
+    assess('REG-C-8', ok, evidence);
+    assess('TC-IS-03-014', ok, evidence);
+  }
+
+  // ── Employer register (Domain / Free-email). Manual request is retired (410). ──
+  const postEmployer = (body) =>
+    apiRequest(BASE, '/api/ip/auth/register-employer', { method: 'POST', body });
+  const employerBase = () => ({
+    path: 'domain',
+    email: `hr.${run}@acme-example.com`,
+    website: 'https://acme-example.com',
+    companyName: 'Acme Example Pvt Ltd',
+    contactName: 'Rohit Malhotra',
+    designation: 'HR Manager',
+    businessEntityType: 'Private Limited',
+    password: 'Admin@1234',
+  });
+
+  {
+    const r = await postEmployer({ ...employerBase(), manualRequest: true });
+    const ok = r.status === 410 && /no longer accepted/i.test(String(r.data?.error || ''));
+    assess('REG-E-4', ok, { status: r.status, error: r.data?.error, note: 'manual request retired → 410' });
+  }
+
+  {
+    const missing = [
+      ['email', /work email is required/i],
+      ['companyName', /company name is required/i],
+      ['contactName', /full name is required/i],
+      ['designation', /designation \/ role is required/i],
+    ];
+    const results = {};
+    let allOk = true;
+    for (const [field, re] of missing) {
+      const r = await postEmployer({ ...employerBase(), [field]: '' });
+      results[field] = r.status;
+      if (!(r.status === 400 && re.test(String(r.data?.error || '')))) allOk = false;
+    }
+    if (!CAPTCHA_BYPASS_FOR_TESTING) {
+      const cap = await fetchLoginCaptcha(BASE);
+      const r = await postEmployer({
+        ...employerBase(),
+        email: `hr.badcap.${run}@acme-example.com`,
+        captchaToken: cap.captchaToken,
+        captchaAnswer: '999999',
+      });
+      results.badCaptcha = r.status;
+      if (!(r.status === 400 && WRONG_CAPTCHA_RE.test(String(r.data?.error || '')))) allOk = false;
+    }
+    assess('REG-E-5', allOk, results);
+    assess('TC-IS-03-012', allOk, results);
+  }
+
+  {
+    const r = await postEmployer({ ...employerBase(), email: `hr.pw7.${run}@acme-example.com`, password: 'Admin@1' });
+    const ok = r.status === 400 && /at least 8 characters/i.test(String(r.data?.error || ''));
+    assess('TC-IS-03-018', ok, {
+      status: r.status,
+      error: r.data?.error,
+      note: '7-char rejected; 8-char acceptance is covered by employer register e2e (creates an account)',
+    });
+  }
+
+  {
+    const cap = await fetchLoginCaptcha(BASE);
+    const r = await postEmployer({
+      ...employerBase(),
+      email: `hr.noweb.${run}@acme-example.com`,
+      website: '',
+      captchaToken: cap.captchaToken,
+      captchaAnswer: cap.captchaAnswer,
+    });
+    const ok = r.status === 400 && /website is required/i.test(String(r.data?.error || ''));
+    assess('REG-E-3', ok, { status: r.status, error: r.data?.error });
+    assess('TC-IS-03-010', ok, { status: r.status, error: r.data?.error });
+  }
+
+  // Domain path with a free mailbox: soft-flagged pending account, not a 400. Creates one
+  // throwaway employer, so only run while outbound mail is redirected, then hard-delete it.
+  {
+    const gate = String(process.env.ISM_TEST_ENVIRONMENT ?? process.env.OUTBOUND_EMAIL_OVERRIDE_ENABLED ?? '')
+      .trim()
+      .toLowerCase();
+    const overrideOn = ['true', '1', 'yes', 'on'].includes(gate) && /@/.test(process.env.OUTBOUND_EMAIL_OVERRIDE || '');
+    if (!overrideOn) {
+      blocked('REG-E-2', 'Outbound mail override off — soft-flag probe would email a real inbox');
+      blocked('TC-IS-03-009', 'Outbound mail override off — soft-flag probe would email a real inbox');
+    } else {
+      const email = `qa.softflag.${run}@gmail.com`;
+      const cap = await fetchLoginCaptcha(BASE);
+      const r = await postEmployer({
+        ...employerBase(),
+        email,
+        website: 'https://example.com',
+        companyName: 'Softflag Example Pvt Ltd',
+        captchaToken: cap.captchaToken,
+        captchaAnswer: cap.captchaAnswer,
+      });
+      let row = null;
+      await withDb(async (db) => {
+        const q = await db.query(
+          `SELECT u.id AS user_id, e.approval_status, e.email_soft_fail, e.email_classification_reasons
+             FROM ip_users u JOIN ip_employers e ON e.user_id = u.id
+            WHERE lower(u.email) = lower($1) LIMIT 1`,
+          [email],
+        );
+        row = q.rows[0] || null;
+        if (row) await hardDeleteIpUser(db, { userId: row.user_id });
+      });
+      const ok = r.status === 200 && row?.approval_status === 'pending' && row?.email_soft_fail === true;
+      const evidence = {
+        status: r.status,
+        error: r.data?.error,
+        approvalStatus: row?.approval_status,
+        softFail: row?.email_soft_fail,
+        reasons: row?.email_classification_reasons,
+        cleanedUp: Boolean(row),
+      };
+      assess('REG-E-2', ok, evidence);
+      assess('TC-IS-03-009', ok, evidence);
+    }
+  }
+
+  // ── REGX-3 / TC-IS-18-032: wrong captcha fails closed on employer register, forgot-password, login ──
+  if (CAPTCHA_BYPASS_FOR_TESTING) {
+    blocked('REGX-3', 'CAPTCHA_BYPASS_FOR_TESTING=true — negative captcha path skipped');
+    blocked('TC-IS-18-032', 'CAPTCHA_BYPASS_FOR_TESTING=true — negative captcha path skipped');
+  } else {
+    const forgotCap = await fetchLoginCaptcha(BASE);
     const forgotBad = await apiRequest(BASE, '/api/ip/auth/password-reset/request', {
       method: 'POST',
-      body: {
-        email: QA_ACCOUNTS.candidate.email,
-        captchaToken: badCap.captchaToken,
-        captchaAnswer: '999999',
-      },
+      body: { email: QA_ACCOUNTS.candidate.email, captchaToken: forgotCap.captchaToken, captchaAnswer: '999999' },
     });
-    const formCap = await fetchLoginCaptcha(BASE);
-    const regBadCap = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
-      method: 'POST',
-      body: {
-        path: 'form',
-        email: `qa.fix.captcha.${run}@gmail.com`,
-        name: 'QA Gap Captcha',
-        password: 'Admin@1234',
-        university: 'QA University',
-        graduationYear: 2027,
-        captchaToken: formCap.captchaToken,
-        captchaAnswer: '999999',
-      },
+    const regCap = await fetchLoginCaptcha(BASE);
+    const regBad = await postEmployer({
+      ...employerBase(),
+      email: `hr.regx3.${run}@acme-example.com`,
+      captchaToken: regCap.captchaToken,
+      captchaAnswer: '999999',
     });
-    const captchaOk =
+    const ok =
       (forgotBad.status === 400 || forgotBad.status === 422) &&
-      (regBadCap.status === 400 || regBadCap.status === 422);
-    assess('REGX-3', captchaOk, {
+      regBad.status === 400 && WRONG_CAPTCHA_RE.test(String(regBad.data?.error || '')) &&
+      loginCaptchaBlocked === true;
+    const evidence = {
       forgot: forgotBad.status,
-      registerForm: regBadCap.status,
-      forgotErr: forgotBad.data?.error,
-      regErr: regBadCap.data?.error,
-    });
-    assess('TC-IS-18-032', captchaOk, {
-      forgot: forgotBad.status,
-      registerForm: regBadCap.status,
-    });
-  }
-
-  // ── Candidate form-path validation (no Google) ──
-  {
-    const cap = await fetchLoginCaptcha(BASE);
-    const nonGmail = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
-      method: 'POST',
-      body: {
-        path: 'form',
-        email: `qa.fix.${run}@yahoo.com`,
-        name: 'QA NonGmail',
-        password: 'Admin@1234',
-        university: 'QA University',
-        graduationYear: 2027,
-        captchaToken: cap.captchaToken,
-        captchaAnswer: cap.captchaAnswer,
-      },
-    });
-    assess('REG-C-2', nonGmail.status === 400, {
-      status: nonGmail.status,
-      error: nonGmail.data?.error,
-    });
-    assess('TC-IS-03-002', nonGmail.status === 400, {
-      status: nonGmail.status,
-      error: nonGmail.data?.error,
-    });
-  }
-
-  {
-    const cap = await fetchLoginCaptcha(BASE);
-    const dup = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
-      method: 'POST',
-      body: {
-        path: 'form',
-        email: QA_ACCOUNTS.candidate.email,
-        name: 'QA Dup',
-        password: 'Admin@1234',
-        university: 'QA University',
-        graduationYear: 2027,
-        captchaToken: cap.captchaToken,
-        captchaAnswer: cap.captchaAnswer,
-      },
-    });
-    assess('REG-C-3', dup.status === 409, { status: dup.status, error: dup.data?.error });
-    assess('TC-IS-03-003', dup.status === 409, { status: dup.status, error: dup.data?.error });
-  }
-
-  {
-    const cap = await fetchLoginCaptcha(BASE);
-    const badEmail = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
-      method: 'POST',
-      body: {
-        path: 'form',
-        email: 'not-an-email',
-        name: 'QA',
-        password: 'Admin@1234',
-        university: 'QA University',
-        graduationYear: 2027,
-        captchaToken: cap.captchaToken,
-        captchaAnswer: cap.captchaAnswer,
-      },
-    });
-    assess('REG-C-10', badEmail.status === 400, { status: badEmail.status });
-    assess('TC-IS-03-016', badEmail.status === 400, { status: badEmail.status });
-  }
-
-  {
-    // googlemail.com accepted as Gmail (validation only — stop before create if needed)
-    const cap = await fetchLoginCaptcha(BASE);
-    const gm = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
-      method: 'POST',
-      body: {
-        path: 'form',
-        email: `qa.fix.gm.${run}@googlemail.com`,
-        name: 'QA Googlemail',
-        password: 'Admin@1234',
-        university: 'QA University',
-        graduationYear: 2027,
-        captchaToken: cap.captchaToken,
-        captchaAnswer: cap.captchaAnswer,
-      },
-    });
-    // Accept 200 (created pending) or 409 (already exists from prior run) — not 400 gmail reject
-    const ok = gm.status === 200 || gm.status === 201 || gm.status === 409;
-    const notGmailReject = !/only gmail/i.test(String(gm.data?.error || ''));
-    assess('REG-C-8', ok && notGmailReject, { status: gm.status, error: gm.data?.error });
-    assess('TC-IS-03-014', ok && notGmailReject, { status: gm.status, error: gm.data?.error });
-  }
-
-  {
-    const cap = await fetchLoginCaptcha(BASE);
-    const shortPw = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
-      method: 'POST',
-      body: {
-        path: 'form',
-        email: `qa.fix.pw7.${run}@gmail.com`,
-        name: 'QA ShortPw',
-        password: 'Admin@1',
-        university: 'QA University',
-        graduationYear: 2027,
-        captchaToken: cap.captchaToken,
-        captchaAnswer: cap.captchaAnswer,
-      },
-    });
-    assess('TC-IS-03-018', shortPw.status === 400, {
-      status: shortPw.status,
-      error: shortPw.data?.error,
-    });
-  }
-
-  {
-    // REG-C-11 / TC-IS-03-017: bad captcha on form path — no pending user
-    const cap = await fetchLoginCaptcha(BASE);
-    const email = `qa.fix.regcap.${run}@gmail.com`;
-    const r = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
-      method: 'POST',
-      body: {
-        path: 'form',
-        email,
-        name: 'QA CapFail',
-        password: 'Admin@1234',
-        university: 'QA University',
-        graduationYear: 2027,
-        captchaToken: cap.captchaToken,
-        captchaAnswer: '999999',
-      },
-    });
-    assess('REG-C-11', r.status === 400, { status: r.status, error: r.data?.error });
-    assess('TC-IS-03-017', r.status === 400, { status: r.status, error: r.data?.error });
-  }
-
-  {
-    // REG-C-4 / TC-IS-03-004: form path creates pending (inactive until SA)
-    const cap = await fetchLoginCaptcha(BASE);
-    const email = `qa.fix.pending.${run}@gmail.com`;
-    const r = await apiRequest(BASE, '/api/ip/auth/register-candidate', {
-      method: 'POST',
-      body: {
-        path: 'form',
-        email,
-        name: 'QA Pending',
-        password: 'Admin@1234',
-        university: 'QA University',
-        graduationYear: 2027,
-        captchaToken: cap.captchaToken,
-        captchaAnswer: cap.captchaAnswer,
-      },
-    });
-    const login = await apiLogin(BASE, email, 'Admin@1234');
-    const ok = r.status === 200 && !login.ok;
-    assess('REG-C-4', ok, {
-      status: r.status,
-      loginOk: login.ok,
-      data: r.data,
-    });
-    assess('TC-IS-03-004', ok, { status: r.status, loginOk: login.ok });
-  }
-
-  // ── Employer domain validation (API) ──
-  {
-    const mismatch = await apiRequest(BASE, '/api/ip/auth/register-employer', {
-      method: 'POST',
-      body: {
-        email: `hr.${run}@acme-example.com`,
-        website: 'https://other-example.com',
-        companyName: 'QA Mismatch Co',
-        contactName: 'QA HR',
-        businessEntityType: 'Private Limited',
-      },
-    });
-    assess('REG-E-2', mismatch.status === 400, {
-      status: mismatch.status,
-      error: mismatch.data?.error,
-    });
-    assess('TC-IS-03-009', mismatch.status === 400, {
-      status: mismatch.status,
-      error: mismatch.data?.error,
-    });
-  }
-
-  {
-    const noWeb = await apiRequest(BASE, '/api/ip/auth/register-employer', {
-      method: 'POST',
-      body: {
-        email: `hr.${run}@acme-example.com`,
-        website: '',
-        companyName: 'QA NoWeb',
-        contactName: 'QA HR',
-        businessEntityType: 'Private Limited',
-      },
-    });
-    assess('REG-E-3', noWeb.status === 400, { status: noWeb.status, error: noWeb.data?.error });
-    assess('TC-IS-03-010', noWeb.status === 400, { status: noWeb.status, error: noWeb.data?.error });
-  }
-
-  {
-    const missing = await apiRequest(BASE, '/api/ip/auth/register-employer', {
-      method: 'POST',
-      body: {
-        manualRequest: true,
-        email: '',
-        companyName: '',
-        contactName: '',
-        businessEntityType: '',
-      },
-    });
-    assess('REG-E-5', missing.status === 400 || missing.status === 422, {
-      status: missing.status,
-      error: missing.data?.error,
-    });
-    assess('TC-IS-03-012', missing.status === 400 || missing.status === 422, {
-      status: missing.status,
-    });
+      employerRegister: regBad.status,
+      employerRegisterErr: regBad.data?.error,
+      loginBlocked: loginCaptchaBlocked,
+    };
+    assess('REGX-3', ok, evidence);
+    assess('TC-IS-18-032', ok, evidence);
   }
 
   // ── Not Run fixes ──
@@ -569,15 +508,13 @@ async function runCaptchaAndRegistrationGapCases(ctx) {
   const LIVE_GOOGLE =
     'Requires live Google OAuth consent / inbox — not an automation gap in API coverage';
   for (const id of [
-    // REG-C-7 / TC-IS-03-007 — form referral API (not Google): run-tc-is-03-007-…
-    // REG-C-9 / TC-IS-03-015 — self-referral form API: run-tc-is-03-015-…
+    // REG-C-9 / TC-IS-03-015 — self-referral (Google-gated): scripts/manual/run-tc-is-03-015-…
     'REG-E-1', // TC-IS-03-008 — live company Google domain register
-    // REG-E-4 / TC-IS-03-011 — employer Form manualRequest: run-tc-is-03-011-…
-    // REG-E-6 / TC-IS-03-013 — duplicate domain email 409: run-tc-is-03-013-…
+    // REG-E-6 / TC-IS-03-013 — duplicate employer email 409: scripts/manual/run-tc-is-03-013-…
     'TC-IS-03-008',
     'TC-IS-03-020',
     // TC-IS-03-019 — Manual Pass (Google candidate register); do not auto-Block
-    // TC-IS-03-022 / 03-023 — API rejects without OAuth: run-tc-is-03-022-023-…
+    // TC-IS-03-022 — non-Gmail reject without OAuth: scripts/manual/run-tc-is-03-022-…
   ]) {
     blocked(id, LIVE_GOOGLE);
   }
@@ -616,9 +553,9 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const rejectedEmail = `lawsonlclintern+qa-auth-rejected-${run}@gmail.com`;
     const inactiveEmail = `lawsonlclintern+qa-auth-inactive-${run}@gmail.com`;
     await withDb(async (db) => {
-      const p = await ensureUser(db, { email: pendingEmail, role: 'candidate', name: 'QA Pending', active: false, formApproval: 'pending', source: 'form' });
+      const p = await ensureUser(db, { email: pendingEmail, role: 'candidate', name: 'QA Pending', active: false, source: 'form' });
       await ensureCandidateRow(db, p, pendingEmail, 'QA Pending');
-      const rj = await ensureUser(db, { email: rejectedEmail, role: 'candidate', name: 'QA Rejected', active: false, formApproval: 'rejected', source: 'form' });
+      const rj = await ensureUser(db, { email: rejectedEmail, role: 'candidate', name: 'QA Rejected', active: false, source: 'form' });
       await ensureCandidateRow(db, rj, rejectedEmail, 'QA Rejected');
       const ina = await ensureUser(db, { email: inactiveEmail, role: 'candidate', name: 'QA Inactive', active: false });
       await ensureCandidateRow(db, ina, inactiveEmail, 'QA Inactive');
@@ -1072,11 +1009,8 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('CAND-O-7', async () => {
-    const otherEmail = CAST_CANDIDATES[1]?.email || 'lawsonlclintern+2@gmail.com';
-    await withDb(async (db) => {
-      const uid = await ensureUser(db, { email: otherEmail, role: 'candidate', name: 'QA Other Cand', points: 80 });
-      await ensureCandidateRow(db, uid, otherEmail, 'QA Other Cand');
-    });
+    const otherEmail = TEST_CANDIDATE_OTHER.email;
+
     const other = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, PW);
     const list = await api('/api/ip/offers', { cookie: other.cookie });
     const oid = (list.data?.items || list.data?.offers || [])[0]?.id;
@@ -1100,11 +1034,8 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('CAND-M-5', async () => {
-    const otherEmail = CAST_CANDIDATES[1]?.email || 'lawsonlclintern+2@gmail.com';
-    await withDb(async (db) => {
-      const uid = await ensureUser(db, { email: otherEmail, role: 'candidate', name: 'QA Other Cand', points: 80 });
-      await ensureCandidateRow(db, uid, otherEmail, 'QA Other Cand');
-    });
+    const otherEmail = TEST_CANDIDATE_OTHER.email;
+
     const arjun = await apiLogin(BASE, otherEmail, PW);
     const thread = await api('/api/ip/messages/threads', {
       method: 'POST', cookie: emp.cookie,
@@ -1183,17 +1114,16 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
       body: { ethics_acks: { no_fees: true } },
     });
     const get = await api('/api/ip/employer/profile', { cookie: emp.cookie });
-    const incomplete = get.data?.ethicsComplete === false || get.data?.profile?.ethics_accepted_at == null;
-    await api('/api/ip/employer/profile', {
-      method: 'PUT', cookie: emp.cookie,
-      body: {
-        ethics_acks: FULL_ETHICS_ACKS,
-        business_entity_type: 'Private Limited',
-      },
+    // Saved acknowledgements lock: a partial ethics change is refused and the stamp stays.
+    const lockedRefusal = r.status === 403 && /locked/i.test(String(r.data?.error || ''));
+    const profile = get.data?.profile || {};
+    const stillComplete = get.status === 200 && Boolean(profile.ethics_accepted_at) && profile.profile_complete === true;
+    assess('EMP-P-3', lockedRefusal && stillComplete, {
+      put: r.status,
+      error: r.data?.error,
+      ethicsAcceptedAt: profile.ethics_accepted_at || null,
+      profileComplete: profile.profile_complete,
     });
-    // Leave demo employer posting-ready for later cases / next suite run.
-    await ensureCoreQaAccountsReady().catch(() => {});
-    assess('EMP-P-3', r.status === 200 && get.status === 200, { put: r.status, incompleteEthics: incomplete });
   });
 
   await tryCase('EMP-AN-1', async () => {
@@ -1206,52 +1136,19 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     assess('EMP-C-2', r.status === 200, { status: r.status, count: (r.data?.items || []).length });
   });
 
-  await tryCase('SA-F-2', async () => {
-    const email = `lawsonlclintern+qa-form-pending-${run}@gmail.com`;
-    let formUserId = '';
-    await withDb(async (db) => {
-      const uid = await ensureUser(db, {
-        email,
-        role: 'candidate',
-        name: 'QA Form Pending',
-        active: false,
-        formApproval: 'pending',
-        source: 'form',
-      });
-      await ensureCandidateRow(db, uid, email, 'QA Form Pending');
-      formUserId = uid;
+  // Form Registrations / Manual Requests queues are retired (ip_employer_requests and
+  // form_approval_status are dropped). Their write APIs must answer 410 Gone.
+  for (const [id, path, method, body] of [
+    ['SA-F-2', '/api/ip/superadmin/form-registrations', 'PATCH', { status: 'rejected', id: 'ip_user_retired' }],
+    ['SA-F-3', '/api/ip/superadmin/form-registrations', 'PATCH', { status: 'approved', ids: ['ip_user_retired'] }],
+    ['SA-R-2', '/api/ip/superadmin/requests', 'PATCH', { id: 'ip_ereq_retired', status: 'rejected', reason: 'retired' }],
+    ['SA-R-3', '/api/ip/superadmin/requests', 'POST', { requestId: 'ip_ereq_retired' }],
+  ]) {
+    await tryCase(id, async () => {
+      const r = await api(path, { method, cookie: sa.cookie, body });
+      assess(id, r.status === 410, { status: r.status, note: 'retired queue → 410' });
     });
-    if (!formUserId) throw new Error('no pending form candidate');
-    const r = await api('/api/ip/superadmin/form-registrations', {
-      method: 'PATCH', cookie: sa.cookie, body: { status: 'rejected', id: formUserId },
-    });
-    const login = await apiLogin(BASE, email, PW);
-    assess('SA-F-2', r.status === 200 && !login.ok, { reject: r.status, loginOk: login.ok });
-  });
-
-  await tryCase('SA-F-3', async () => {
-    const emailA = `lawsonlclintern+qa-bulk-approve-a-${run}@gmail.com`;
-    const emailB = `lawsonlclintern+qa-bulk-approve-b-${run}@gmail.com`;
-    const ids = [];
-    await withDb(async (db) => {
-      for (const [email, name] of [[emailA, 'Bulk1'], [emailB, 'Bulk2']]) {
-        const uid = await ensureUser(db, {
-          email,
-          role: 'candidate',
-          name,
-          active: false,
-          formApproval: 'pending',
-          source: 'form',
-        });
-        await ensureCandidateRow(db, uid, email, name);
-        ids.push(uid);
-      }
-    });
-    const r = await api('/api/ip/superadmin/form-registrations', {
-      method: 'PATCH', cookie: sa.cookie, body: { status: 'approved', ids },
-    });
-    assess('SA-F-3', r.status === 200 && ids.length >= 1, { status: r.status, ids: ids.length });
-  });
+  }
 
   await tryCase('SA-A-2', async () => {
     const email = `qa-suspend-employer-${run}@example.com`;
@@ -1264,40 +1161,6 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
       method: 'PATCH', cookie: sa.cookie, body: { approvalStatus: 'suspended' },
     });
     assess('SA-A-2', r.status === 200, { status: r.status, empId });
-  });
-
-  await tryCase('SA-R-2', async () => {
-    const email = `qa-manual-request-${run}@gmail.com`;
-    const manualReqId = await withDb(async (db) =>
-      ensureEmployerRequest(db, {
-        email,
-        companyName: companyNameForLabel(run, 2),
-        contactName: 'QA Manual',
-        reason: 'QA fixture manual request',
-      }),
-    );
-    if (!manualReqId) throw new Error('no manual request id');
-    const r = await api('/api/ip/superadmin/requests', {
-      method: 'PATCH', cookie: sa.cookie, body: { id: manualReqId, status: 'rejected', reason: 'QA reject' },
-    });
-    assess('SA-R-2', r.status === 200, { status: r.status });
-  });
-
-  await tryCase('SA-R-3', async () => {
-    const email = `qa-manual-request-replay-${run}@gmail.com`;
-    const manualReqId = await withDb(async (db) =>
-      ensureEmployerRequest(db, {
-        email,
-        companyName: companyNameForLabel(run, 3),
-        contactName: 'QA Manual Replay',
-        reason: 'QA fixture manual request replay',
-        status: 'rejected',
-      }),
-    );
-    const r = await api('/api/ip/superadmin/requests', {
-      method: 'POST', cookie: sa.cookie, body: { requestId: manualReqId },
-    });
-    assess('SA-R-3', r.status === 409 || r.status === 400 || r.status === 404, { status: r.status });
   });
 
   await tryCase('SA-L-2', async () => {
@@ -1328,6 +1191,10 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     if (!ideaId) {
       const list = await api('/api/ip/ideas', { cookie: cand.cookie });
       ideaId = (list.data?.items || [])[0]?.id || '';
+    }
+    if (!ideaId) {
+      assess('IDEA-2', false, { reason: 'no feature idea to vote on (IDEA-1 create failed and list empty)' });
+      return;
     }
     const vote = await api(`/api/ip/ideas/${ideaId}/vote`, { method: 'POST', cookie: cand.cookie });
     const follow = await api(`/api/ip/ideas/${ideaId}/follow`, { method: 'POST', cookie: cand.cookie });

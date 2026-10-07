@@ -17,14 +17,15 @@ to the database. Deep detail on generating and deleting test data lives in
 | `audit-core-list-counts.mjs` | no | Counts what the three core accounts see per tab, against the page size of 10, so every list has enough rows to page. |
 | `find-seed-labels.mjs` | no | Lists `ip_*` text still containing "seed"/"seeded". No secrets printed. |
 | `test-ip-workbench-unit.mjs` | no | Unit tests for workbench helper logic. No database needed. |
-| `measure-overflow.mjs` | files | Measures layout overflow in a running app. |
-| `shot-candidate-home.mjs` | files | Screenshots the candidate home page. |
+| `measure-overflow.mjs` | files | Measures layout overflow in a running app (logs in as the test candidate). |
+| `shot-candidate-home.mjs` | files | Screenshots the candidate home page (test candidate). |
 
 ## Test data — create, reset, delete
 
 | Script | Writes? | What it does |
 |---|---|---|
 | `generate-ip-test-data.mjs` | data + schema | Main generator. `--mode=core-fill` fills the three core accounts; `--mode=gen-accounts` creates disposable `+gen` users. Applies pipeline schema idempotently. Needs `IP_ALLOW_DB_MIGRATE=1` (or `--i-confirm-db-write`); refuses AWS RDS from a laptop/Vercel. |
+| `ensure-ip-test-accounts.mjs` | data | Creates or repairs the disposable QA accounts (test candidate, approved + pending test employer, two open postings, one active application). Idempotent; run after `IP_Reset_Core_Sample.js` or any time QA starts. `npm run qa:ensure-test-accounts`; Playwright global setup calls it on localhost / `*.vercel.app`. Never touches core accounts. |
 | `delete-ip-generated-run.mjs` | data | Deletes one generate run by id, or everything except the three cores. Requires an explicit confirm flag, plus the same allow + RDS-target gates (dry run included, since it applies schema). |
 | `IP_Reset_Core_Sample.js` | data + schema | Demo/core baseline tool. **Not** for wiping live/production data. Do not use delete/truncate-and-reinsert as a live migration strategy. |
 | `seed-ip-completed-for-core.mjs` | data | Gives the core candidate completed applications so "Internships Completed" isn't empty. |
@@ -57,7 +58,13 @@ normal product flows.
 | `run-ip-checklist-qa.mjs` | Thin alias → `run-internsafar-qa.mjs` (kept for old npm script names). |
 | `run-ip-workbench-qa.mjs` | Broader workbench matrix (A5 / P0 rules). |
 | `apply-qa-results.mjs` | Merges a results JSON into `qa-results.json` (maps old TC-IP ids via `legacyTcIdMap`) then applies to the workbook. |
-| `manual/run-tc-is-06-007-email-change.mjs` | Manual OTP email-change case only (not in the combined suite). |
+| `manual/run-tc-is-*.mjs` | One-shot cases outside the combined suite: 06-007 OTP email change, 03-013 duplicate employer, 03-015 self-referral (Google-gated), 03-022 non-Gmail reject. See `manual/README.md`. |
+| `qa-test-account-cases.mjs` | `npm run qa:test-account-cases` — 11 workbook cases on the QA test accounts (points adjust, listing reports, stipend range, exports, Messages archive, notification loading, logo, Title Case badges, resend cooldown). `--only <ids>`, `--apply-excel`. Restores what it changes. |
+| `qa-temp-employer-cases.mjs` | `npm run qa:temp-employer-cases` — 6 SuperAdmin lifecycle cases (sticky approval, document supersede, Suspend/Restore, Reject, Reset Ethics, Delete) on throwaway employers it registers and hard-deletes. Needs `IP_QA_EMPLOYER_EMAIL_VERIFY_TOKEN_IN_RESPONSE=1` on the server. `--apply-excel`. |
+| `lib/ipQaBrowser.mjs` | Playwright helpers for the scripts above (signed-in page, wait-for-ready, retry click, math captcha). |
+| `send-unsub-test-to-test-employer.mjs`, `simulate-unsub-click-test-employer.mjs`, `send-test-employer-new-applicant-mail.mjs` | Mail checks (unsubscribe link, unsubscribe click, new-applicant mail) sent to the test employer, never the core employer. |
+
+All QA runners log in as the test accounts from `scripts/lib/ipTestAccountsConfig.js` (the shared SuperAdmin for approvals) and refuse to log in as the core candidate / employer.
 
 Legacy `run-sheet10` … `run-sheet25` runners were removed — they targeted the old checklist sheet numbers, not the current InternSafar workbook.
 
@@ -73,10 +80,12 @@ Legacy `run-sheet10` … `run-sheet25` runners were removed — they targeted th
 `ensureIpPipelineSchema.js` (idempotent pipeline schema), `hardDeleteIpUser.js` (cascade delete
 used by the CLI wrappers), `ipCoreBaselinePostings.js` and `ipSeedCoreBaseline.js` (core reset
 baseline), `ipCoreSampleConfig.js` (**the only file to edit for core account emails**),
+`ipTestAccountsConfig.js` (**the only file to edit for QA test account emails**; also the core-login guard),
 `ipTestDataContent.js` (realistic demo copy for generators), `ipQaAuth.mjs` / `ipQaAuth8.mjs`
 (QA login), `ipQaFixtureCases.mjs`, `ipQaRemainingSuite.mjs`, `ipQaRemainingExtras.mjs`
 (QA fixtures and cases), `ipQaNaming.mjs` (human-readable QA names — never random blobs),
-`legacyTcIdMap.mjs` (old TC ids to checklist ids).
+`legacyTcIdMap.mjs` (old TC ids to checklist ids), `registerAppAlias.mjs` (lets plain-node unit
+scripts import `src/` files that use `@/…`, with optional module stubs such as a DB-free `@/lib/db`).
 
 ## Workbook and repo utilities
 

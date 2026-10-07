@@ -236,7 +236,15 @@ export async function runRemainingSuite(opts = {}) {
   );
 
   const empOffers = await apiRequest(BASE, '/api/ip/offers', { cookie: emp.cookie });
-  const offerWithApp = (empOffers.data?.items || []).find((o) => o.application_id);
+  // Declined / expired / withdrawn offers may be re-sent (201), so only an accepted or still-open
+  // pending offer proves the duplicate guard.
+  const todayIst = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
+  const offerItems = (empOffers.data?.items || []).filter((o) => o.application_id);
+  const offerWithApp =
+    offerItems.find((o) => String(o.status).toLowerCase() === 'accepted') ||
+    offerItems.find(
+      (o) => String(o.status).toLowerCase() === 'pending' && (!o.valid_until || String(o.valid_until).slice(0, 10) >= todayIst),
+    );
   const dupOffer = offerWithApp?.application_id
     ? await apiRequest(BASE, '/api/ip/offers', {
         method: 'POST',
@@ -249,6 +257,7 @@ export async function runRemainingSuite(opts = {}) {
     offerWithApp ? dupOffer.status === 409 : false,
     {
       applicationId: offerWithApp?.application_id,
+      existingOfferStatus: offerWithApp?.status,
       status: dupOffer.status,
       error: dupOffer.data?.error,
     },
@@ -503,7 +512,7 @@ export async function runRemainingSuite(opts = {}) {
       { threadId, status: att.status, note: 'Empty POST should be 400 (no file) or 503 if S3 is off — not 500.' },
     );
   } else {
-    blocked('TC-IS-17-004', 'No message thread for the core candidate');
+    blocked('TC-IS-17-004', 'No message thread for the test candidate');
   }
 
   const cities = await apiRequest(BASE, '/api/ip/ref/cities', { cookie: cand.cookie });

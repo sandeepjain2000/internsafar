@@ -70,6 +70,7 @@ const TITLE_TO_TC = [
   [/IS-076/, ['TC-IS-09-018']],
   [/IS-077/, ['TC-IS-18-052']],
   [/IS-078/, ['TC-IS-07-025']],
+  [/IS-079/, ['TC-IS-06-011']],
   [/Posting Share Rewards|\/superadmin\/promotions/, ['TC-IS-14-012']],
   [/JOURNEY-SA-01|same-status publish|skips change/, ['TC-IS-14-023']],
   [/candidate register Google reaches Google OAuth|matching redirect_uri/, ['TC-IS-02-024', 'TC-IS-18-030']],
@@ -131,7 +132,7 @@ function main() {
       for (const id of ids) {
         // Prefer Fail over prior Pass in same run
         if (byTcId[id]?.status === 'Fail') continue;
-        byTcId[id] = { status: st, actual: sanitizeExcelText(`${title}: ${actual}`) };
+        byTcId[id] = { status: st, actual: sanitizeExcelText(`${title}: ${actual}`), executedAt };
       }
     }
   }
@@ -142,12 +143,17 @@ function main() {
   } catch {
     /* first */
   }
+  // Carried-over records keep the time they ran, so the workbook never dates them as fresh.
+  const keepRunTime = (records) =>
+    Object.fromEntries(Object.entries(records || {}).map(([k, v]) => [k, { executedAt: prior.executedAt, ...v }]));
+  const priorCases = keepRunTime(prior.cases);
+  const priorByTcId = keepRunTime(prior.byTcId);
   const payload = {
     executedAt,
     base: prior.base || process.env.IP_BASE || 'http://localhost:3000',
-    cases: prior.cases || {},
-    byTcId: { ...(prior.byTcId || {}), ...byTcId },
-    results: { ...(prior.results || prior.cases || {}), ...(prior.byTcId || {}), ...byTcId },
+    cases: priorCases,
+    byTcId: { ...priorByTcId, ...byTcId },
+    results: { ...keepRunTime(prior.results || prior.cases), ...priorByTcId, ...byTcId },
     source: 'playwright-regression',
   };
   writeFileSync(resultsPath, JSON.stringify(payload, null, 2));

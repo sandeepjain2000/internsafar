@@ -5,7 +5,8 @@ import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
-const { CAND_BASE, getCorePasswordForEmail } = require('./lib/ipCoreSampleConfig.js');
+const { getCorePasswordForEmail } = require('./lib/ipCoreSampleConfig.js');
+const TEST_CANDIDATE_EMAIL = require('./lib/ipTestAccountsConfig.js').TEST_CANDIDATE.email;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE = process.env.IP_BASE || 'https://internship-portal-sigma-mauve.vercel.app';
@@ -30,8 +31,8 @@ page.setDefaultTimeout(45000);
 await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(2000);
 
-await page.locator('input[type="email"]').first().fill(CAND_BASE);
-await page.locator('input[type="password"]').first().fill(getCorePasswordForEmail(CAND_BASE));
+await page.locator('input[type="email"]').first().fill(TEST_CANDIDATE_EMAIL);
+await page.locator('input[type="password"]').first().fill(getCorePasswordForEmail(TEST_CANDIDATE_EMAIL));
 
 const answer = await solveCaptcha(page);
 await page.getByPlaceholder(/answer/i).fill(answer);

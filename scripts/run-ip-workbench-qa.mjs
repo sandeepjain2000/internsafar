@@ -218,7 +218,8 @@ async function runLiveMatrix() {
     return;
   }
 
-  const { apiLogin, QA_ACCOUNTS, apiRequest } = await import('./lib/ipQaAuth.mjs');
+  const { apiLogin, QA_ACCOUNTS, apiRequest, ensureQaTestAccounts } = await import('./lib/ipQaAuth.mjs');
+  ensureQaTestAccounts(BASE);
 
   // Health
   try {

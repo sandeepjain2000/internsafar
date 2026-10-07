@@ -1,6 +1,7 @@
 /**
- * One-shot: persist unsubscribe token, then send real email to core employer.
- * Run: node scripts/send-unsub-test-to-core-employer.mjs
+ * One-shot: persist unsubscribe token, then send real email to the QA test employer
+ * (never the core employer — core accounts are demo-only).
+ * Run: node scripts/send-unsub-test-to-test-employer.mjs
  */
 import assert from 'assert';
 import fs from 'fs';
@@ -33,7 +34,7 @@ for (const [k, v] of Object.entries(fileEnv)) {
   if (process.env[k] == null || process.env[k] === '') process.env[k] = v;
 }
 
-const CORE_EMPLOYER = 'placementhubsupport@gmail.com';
+const TEST_EMPLOYER = require('./lib/ipTestAccountsConfig.js').TEST_EMPLOYER.email;
 
 function rewriteAliases(source) {
   return source.replace(/'@\/lib\/([^']+)'/g, (_m, name) => {
@@ -61,14 +62,14 @@ try {
   const format = await import(pathToFileURL(path.join(libDir, 'ipEmailUnsubscribeFormat.js')).href);
   const originMod = await import(pathToFileURL(path.join(libDir, 'ipAppOrigin.js')).href);
 
-  const token = await unsub.getOrCreateUnsubscribeToken(CORE_EMPLOYER, undefined, db);
+  const token = await unsub.getOrCreateUnsubscribeToken(TEST_EMPLOYER, undefined, db);
   assert.ok(format.isValidUnsubscribeToken(token));
   const origin = originMod.resolveAppOrigin();
   const unsubUrl = format.buildUnsubscribeUrl(origin, token);
 
   const subject = `[InternSafar QA] Unsubscribe footer check ${new Date().toISOString()}`;
   const baseHtml = `<!doctype html><html><body style="font-family:system-ui,sans-serif;line-height:1.5;color:#0f172a">
-  <p>Hi Nova Labs / core employer,</p>
+  <p>Hi QA test employer,</p>
   <p>This is a QA mail to confirm the <strong>unsubscribe</strong> footer.</p>
   <p>Click <strong>unsubscribe</strong> in the footer (or open the link below). You should see a PENDING confirmation. Emails are not turned off yet.</p>
   <p><a href="${unsubUrl}">${unsubUrl}</a></p>
@@ -77,7 +78,7 @@ try {
 
   const mailed = format.applyUnsubscribeFooter(
     {
-      to: CORE_EMPLOYER,
+      to: TEST_EMPLOYER,
       subject,
       html: baseHtml,
       text: `InternSafar QA unsubscribe check.\nunsubscribe: ${unsubUrl}\n`,
@@ -99,7 +100,7 @@ try {
   assert.equal(result.ok, true, 'sendMail should succeed');
 
   console.log('SENT', {
-    to: CORE_EMPLOYER,
+    to: TEST_EMPLOYER,
     subject,
     provider: result.provider,
     usedOverride: Boolean(result.usedOverride),

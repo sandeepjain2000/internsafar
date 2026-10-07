@@ -115,17 +115,17 @@ export async function PUT(request, { params }) {
     || normalized.stipend_inr_max !== undefined
     || normalized.stipend_type !== undefined
   ) {
-    const stipendParsed = parseStipendRangeFields({
-      stipend_inr: normalized.stipend_inr !== undefined ? normalized.stipend_inr : existing.stipend_inr,
-      stipend_inr_max:
-        normalized.stipend_inr_max !== undefined ? normalized.stipend_inr_max : existing.stipend_inr_max,
-    });
-    if (stipendParsed.error) return jsonError(stipendParsed.error, 400);
     const nextType = normalized.stipend_type !== undefined ? normalized.stipend_type : existing.stipend_type;
     if (String(nextType || '').toLowerCase() === 'incentive') {
       normalized.stipend_inr = null;
       normalized.stipend_inr_max = null;
     } else {
+      const stipendParsed = parseStipendRangeFields({
+        stipend_inr: normalized.stipend_inr !== undefined ? normalized.stipend_inr : existing.stipend_inr,
+        stipend_inr_max:
+          normalized.stipend_inr_max !== undefined ? normalized.stipend_inr_max : existing.stipend_inr_max,
+      });
+      if (stipendParsed.error) return jsonError(stipendParsed.error, 400);
       normalized.stipend_inr = stipendParsed.stipendInr;
       normalized.stipend_inr_max = stipendParsed.stipendInrMax;
     }

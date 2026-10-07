@@ -89,8 +89,6 @@ async function main() {
       rejection_template_dangling: 0,
       promo_reviewed_by_dangling: 0,
       viral_reviewed_by_dangling: 0,
-      request_created_user_dangling: 0,
-      request_reviewer_dangling: 0,
       bulk_message_id_dangling: 0,
       ratings_without_hired_or_completed: 0,
       endorsements_without_hired_or_completed: 0,
@@ -173,14 +171,6 @@ async function main() {
       SELECT count(*)::int AS n FROM ip_viral_shares v
       WHERE v.reviewed_by IS NOT NULL
         AND NOT EXISTS (SELECT 1 FROM ip_users u WHERE u.id = v.reviewed_by)`);
-    report.request_created_user_dangling = await one(`
-      SELECT count(*)::int AS n FROM ip_employer_requests r
-      WHERE r.created_user_id IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM ip_users u WHERE u.id = r.created_user_id)`);
-    report.request_reviewer_dangling = await one(`
-      SELECT count(*)::int AS n FROM ip_employer_requests r
-      WHERE r.reviewer_id IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM ip_users u WHERE u.id = r.reviewer_id)`);
     report.bulk_message_id_dangling = await one(`
       SELECT count(*)::int AS n FROM ip_bulk_message_recipients r
       WHERE r.message_id IS NOT NULL
@@ -310,6 +300,10 @@ async function main() {
         return typeof v === 'number' && v > 0;
       })
       .map(([k]) => k);
+    // one() returns -1 when the table/column is missing; that is a schema gap, not a pass.
+    const missingSchema = Object.entries(report)
+      .filter(([, v]) => v === -1)
+      .map(([k]) => k);
 
     const bad =
       !report.offer_fk_present ||
@@ -324,10 +318,12 @@ async function main() {
       !report.referred_by_fk_present ||
       !report.pref_category_check_present ||
       !report.pending_referral_unique_index ||
-      numericFails.length > 0;
+      numericFails.length > 0 ||
+      missingSchema.length > 0;
 
     report.ok = !bad;
     if (numericFails.length) report.failing_counts = numericFails;
+    if (missingSchema.length) report.missing_schema = missingSchema;
     console.log(JSON.stringify(report, null, 2));
     if (bad) process.exit(1);
   } finally {

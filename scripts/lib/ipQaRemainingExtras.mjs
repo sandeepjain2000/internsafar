@@ -43,16 +43,16 @@ export async function withDb(fn) {
   }
 }
 
-async function ensureUser(client, { email, role, name, points = 80, active = true, profileComplete = true, formApproval = null, source = 'gmail_domain' }) {
+async function ensureUser(client, { email, role, name, points = 80, active = true, profileComplete = true, source = 'gmail_domain' }) {
   const existing = await client.query(`SELECT id FROM ip_users WHERE lower(email) = lower($1)`, [email]);
   const hash = await bcrypt.hash(PW, 10);
   if (existing.rows[0]) {
     await client.query(
       `UPDATE ip_users
        SET name=$2, role=$3, active=$4, points=$5, profile_complete=$6,
-           form_approval_status=$7, registration_source=$8, password_hash=$9, updated_at=now()
+           registration_source=$7, password_hash=$8, updated_at=now()
        WHERE id=$1`,
-      [existing.rows[0].id, name, role, active, points, profileComplete, formApproval, source, hash],
+      [existing.rows[0].id, name, role, active, points, profileComplete, source, hash],
     );
     return existing.rows[0].id;
   }
@@ -61,9 +61,9 @@ async function ensureUser(client, { email, role, name, points = 80, active = tru
   await client.query(
     `INSERT INTO ip_users (
        id, email, password_hash, role, name, points, application_allowance, referral_code,
-       profile_complete, active, registration_source, form_approval_status
-     ) VALUES ($1,$2,$3,$4,$5,$6,10,$7,$8,$9,$10,$11)`,
-    [id, email.toLowerCase(), hash, role, name, points, ref, profileComplete, active, source, formApproval],
+       profile_complete, active, registration_source
+     ) VALUES ($1,$2,$3,$4,$5,$6,10,$7,$8,$9,$10)`,
+    [id, email.toLowerCase(), hash, role, name, points, ref, profileComplete, active, source],
   );
   return id;
 }
@@ -139,7 +139,7 @@ export async function runTcIs02023({ BASE, assess, blocked }) {
 
   await withDb(async (db) => {
     const p = await ensureUser(db, {
-      email: pendingEmail, role: 'candidate', name: 'QA Login DT Pending', active: false, formApproval: 'pending', source: 'form',
+      email: pendingEmail, role: 'candidate', name: 'QA Login DT Pending', active: false, source: 'form',
     });
     await ensureCandidateRow(db, p, pendingEmail, 'QA Login DT Pending');
     const ina = await ensureUser(db, {
@@ -258,7 +258,9 @@ export async function runTcIs06006({ BASE, assess, blocked, cand }) {
     await page.waitForTimeout(1500);
 
     const original = await first.inputValue();
-    const marker = `${QA_LABEL.tabMarkerPrefix} ${qaRunLabel()}`;
+    // Name fields accept letters only, so digits in the run label become letters (0→a … 9→j).
+    const runLetters = qaRunLabel().replace(/\d/g, (d) => String.fromCharCode(97 + Number(d))).replace(/[^a-z]/gi, '');
+    const marker = `${QA_LABEL.tabMarkerPrefix} ${runLetters}`;
     // React controlled inputs need native setter + input event.
     await first.evaluate((el, v) => {
       const desc = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
@@ -682,8 +684,14 @@ export async function runNotRunEleven({ BASE, assess, blocked, cand, emp }) {
     });
     assess(
       'TC-IS-06-008',
-      blank.status === 200 && bad.status === 400 && good.status === 200,
-      { blank: blank.status, bad: bad.status, badError: bad.data?.error, good: good.status },
+      blank.status === 400 && bad.status === 400 && good.status === 200,
+      {
+        blank: blank.status,
+        blankError: blank.data?.error,
+        bad: bad.status,
+        badError: bad.data?.error,
+        good: good.status,
+      },
     );
   } catch (e) {
     blocked('TC-IS-06-008', String(e.message || e));
@@ -853,26 +861,35 @@ export async function runNotRunEleven({ BASE, assess, blocked, cand, emp }) {
         assess('TC-IS-07-021', false, { error: 'no internship id from browse API' });
       }
 
-      const chips = ['Starting soon', 'Recently updated', 'Verified employers'];
-      const chipHits = {};
-      for (const label of chips) {
-        const btn = page.getByRole('button', { name: new RegExp(`^${label}$`, 'i') }).first();
-        const vis = await btn.isVisible().catch(() => false);
-        if (vis) {
-          await btn.click();
-          await page.waitForTimeout(300);
+      // Browse views are tabs whose accessible name is the label followed by the count.
+      const tabLabels = ['Unapplied', 'All Internships', 'Starting soon', 'Saved', 'Recommended for You'];
+      const tabSelected = {};
+      for (const label of tabLabels) {
+        const tab = page.getByRole('tab', { name: new RegExp(`^${label}`, 'i') }).first();
+        if (!(await tab.isVisible().catch(() => false))) {
+          tabSelected[label] = false;
+          continue;
         }
-        chipHits[label] = vis;
+        await tab.click();
+        tabSelected[label] = await tab
+          .evaluate((el) => new Promise((r) => {
+            const t0 = Date.now();
+            const tick = () => (el.getAttribute('aria-selected') === 'true' || Date.now() - t0 > 3000
+              ? r(el.getAttribute('aria-selected') === 'true')
+              : setTimeout(tick, 100));
+            tick();
+          }))
+          .catch(() => false);
       }
-      const saved = page.getByRole('button', { name: /^Saved$/i }).first();
-      chipHits.Saved = await saved.isVisible().catch(() => false);
-      if (chipHits.Saved) {
-        await saved.click();
-        await page.waitForTimeout(300);
-      }
-      const allChip = page.getByRole('button', { name: /^All$/i }).first();
-      if (await allChip.isVisible().catch(() => false)) await allChip.click();
-      assess('TC-IS-07-018', Object.values(chipHits).some(Boolean), { chipHits });
+      await page.goto(`${BASE}/candidate/internships?saved=1`, { waitUntil: 'domcontentloaded' });
+      const savedTab = page.getByRole('tab', { name: /^Saved/i }).first();
+      await savedTab.waitFor({ state: 'visible', timeout: 25_000 }).catch(() => {});
+      const savedQueryOpensSaved = (await savedTab.getAttribute('aria-selected').catch(() => null)) === 'true';
+      await page.getByRole('tab', { name: /^Unapplied/i }).first().click().catch(() => {});
+      assess('TC-IS-07-018', Object.values(tabSelected).every(Boolean) && savedQueryOpensSaved, {
+        tabSelected,
+        savedQueryOpensSaved,
+      });
       await ctx.close();
     } catch (e) {
       blocked('TC-IS-07-017', `Playwright: ${e.message || e}`);

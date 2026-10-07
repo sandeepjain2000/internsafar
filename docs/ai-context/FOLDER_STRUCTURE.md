@@ -1,7 +1,7 @@
 # InternSafar — folder structure map
 
 **App root:** `internship-portal/`  
-**Generated from live tree:** 2026-09-26  
+**Generated from live tree:** 2026-09-26 (QA `scripts/` entries refreshed 2026-10-07)  
 **Omits:** `node_modules/`, `.next/`, `.git/`, `test-results/`, scratch `tmp-*`
 
 Use this to **locate** files. Then open the real path.  
@@ -196,7 +196,20 @@ qa/
 scripts/
 ├── aws-handoff-docs/     # PATH-B / AWS-DEPLOY copies used by handoff build
 ├── lib/                  # Shared script helpers (xlsx cols, playwright browsers, …)
-├── manual/               # One-off manual QA scripts
+│   ├── ipQaAuth.mjs          # QA logins: requireQaLogin, ensureQaTestAccounts, apiRequest
+│   ├── ipQaBrowser.mjs       # Playwright helpers for QA scripts (signed-in page, waits, captcha)
+│   ├── recordQaResults.mjs   # Record Pass/Fail/Blocked into test-cases/qa-results.json (+ workbook apply)
+│   └── ipTestAccountsConfig.js  # Test accounts list + core-account guard
+├── manual/               # One-off QA scripts (03-013, 03-015, 03-022, 06-007) — see manual/README.md
+├── run-full-release-qa.mjs                 # npm run qa:all — every automated test + Excel apply + coverage
+├── run-internsafar-qa.mjs                  # Checklist runner (API + browser + TC-IS)
+├── report-internsafar-qa-coverage.py       # npm run qa:coverage (--write-map, --sync-automation)
+├── apply-internsafar-qa-xlsx.py            # Writes qa-results.json into the workbook
+├── qa-employer-reg-verify-approve-login.mjs  # Deep employer register → verify → approve → posting gates
+├── qa-register-approve-post-apply-smoke.mjs  # Deep register → approve → post → apply smoke
+├── qa-test-account-cases.mjs               # 11 workbook cases on the QA test accounts
+├── qa-temp-employer-cases.mjs              # 6 SuperAdmin lifecycle cases on throwaway employers
+├── ensure-ip-test-accounts.mjs             # npm run qa:ensure-test-accounts
 ├── build-aws-handoff.ps1
 ├── db_exec_sql_file.js
 ├── assert-db-migrate-allowed.js

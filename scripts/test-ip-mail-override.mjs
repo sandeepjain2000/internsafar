@@ -11,31 +11,25 @@
  *        OUTBOUND_EMAIL_OVERRIDE still holds the support address
  */
 import assert from 'assert';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath, pathToFileURL } from 'url';
+import { registerAppAlias } from './lib/registerAppAlias.mjs';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.join(here, '..');
-const libDir = path.join(projectRoot, 'src', 'lib');
+// Unit test: unsubscribe token persistence / lookup must never reach a real database.
+// mail.js treats a failing DB as "not unsubscribed" and falls back to a generated token.
+registerAppAlias({
+  stubs: {
+    '@/lib/db': 'data:text/javascript,export async function query(){throw new Error("no database in unit test")}',
+  },
+});
+const originalWarn = console.warn;
+console.warn = (...args) => {
+  if (/unsubscribe|\[mail\]/i.test(String(args[0]))) return;
+  originalWarn(...args);
+};
 
-// mail.js uses the "@/lib/*" alias, which plain Node cannot resolve. Rewrite the
-// alias to real file URLs in a throwaway copy so the tests exercise the real
-// source. The copy stays inside the project so bare imports (nodemailer) resolve.
-const tmpDir = fs.mkdtempSync(path.join(projectRoot, '.mail-override-test-'));
-const mailSource = fs
-  .readFileSync(path.join(libDir, 'mail.js'), 'utf8')
-  .replace(/'@\/lib\/([^']+)'/g, (_m, name) => {
-    const file = /\.[a-z]+$/i.test(name) ? name : `${name}.js`;
-    return `'${pathToFileURL(path.join(libDir, file)).href}'`;
-  });
-const mailPath = path.join(tmpDir, 'mail.mjs');
-fs.writeFileSync(mailPath, mailSource);
-
-const mail = await import(pathToFileURL(mailPath).href);
+const mail = await import('../src/lib/mail.js');
 
 const SUPPORT = 'support.placementhub@placementhub.online';
-const REAL_USER = 'lawsonlclintern+1@gmail.com';
+const REAL_USER = 'lawsonlclintern+qa1@gmail.com';
 
 const FLAG_KEYS = ['ISM_TEST_ENVIRONMENT', 'OUTBOUND_EMAIL_OVERRIDE_ENABLED'];
 
@@ -155,10 +149,9 @@ try {
   assert.ok(!/QA mail/.test(captured.at(-1).htmlbody), 'no QA banner when override is off');
 } finally {
   globalThis.fetch = originalFetch;
+  console.warn = originalWarn;
   delete process.env.ZEPTOMAIL_API_KEY;
   delete process.env.ZEPTOMAIL_FROM_EMAIL;
 }
-
-fs.rmSync(tmpDir, { recursive: true, force: true });
 
 console.log('OK: mail override gate — flag ON sends to the real user AND support, flag OFF to the real user only');

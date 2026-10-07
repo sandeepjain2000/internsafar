@@ -811,6 +811,9 @@ async function seedCoreBaseline(client, bcrypt) {
 
 module.exports = {
   seedCoreBaseline,
+  ensureUser,
+  seedAcademics,
+  nidFactory,
   TARGET,
   MIN_TAB,
 };

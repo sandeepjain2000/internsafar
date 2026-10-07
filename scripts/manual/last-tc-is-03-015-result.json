@@ -2,13 +2,11 @@
   "sheet": "03 Registration",
   "tc_id": "TC-IS-03-015",
   "automation": "API",
-  "status": "Pass",
-  "actual": "API Pass 2026-09-15 (Vercel): form register existing lawsonlclintern+1@gmail.com + own code RLAWSONLC6770 → 409; points unchanged (650); invalid self-referral recorded (Invalid / Self-referral).",
-  "executed": "2026-09-15T12:21:12.951Z",
+  "status": "Blocked",
+  "actual": "Blocked: Duplicate + own-code check sits behind Google verification. Run against a local dev server with IP_ALLOW_UNVERIFIED_GOOGLE_REGISTER=1, or test manually via Sign up with Google.",
+  "executed": "2026-10-07T10:53:53.889Z",
   "log": [
-    "Base https://internship-portal-sigma-mauve.vercel.app",
-    "Baseline {\"code\":\"RLAWSONLC6770\",\"points\":650,\"refs\":105}",
-    "Register with own email+code → 409 {\"error\":\"An account with this email already exists. Please sign in.\"}",
-    "After attempt {\"points\":650,\"newRefs\":0,\"selfFound\":true,\"status\":\"invalid\",\"status_label\":\"Invalid / Self-referral\"}"
+    "Base http://localhost:3000",
+    "Baseline {\"code\":\"QALAWSONLCLINTERNQA1\",\"points\":500,\"refs\":0}"
   ]
 }

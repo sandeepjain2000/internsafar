@@ -13,6 +13,16 @@ import { QA_ACCOUNTS, apiLogin, apiRequest } from './ipQaAuth.mjs';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../..');
 
+/** The dev server compiles a page on first visit and a click before hydration does nothing, so retry. */
+async function clickUntil(page, click, done, { tries = 6, gapMs = 2_500 } = {}) {
+  for (let i = 0; i < tries; i += 1) {
+    await click().catch(() => {});
+    if (await done().catch(() => false)) return true;
+    await page.waitForTimeout(gapMs);
+  }
+  return false;
+}
+
 /**
  * @param {{
  *   BASE: string,
@@ -138,8 +148,12 @@ export async function runLatestUpdateTcIsCases(ctx) {
       }
     } else {
       try {
-        await googleBtn.click();
-        await page.waitForURL(/accounts\.google\.com/i, { timeout: 60_000 });
+        const reachedGoogle = await clickUntil(
+          page,
+          () => googleBtn.click({ timeout: 10_000 }),
+          () => page.waitForURL(/accounts\.google\.com/i, { timeout: 8_000 }).then(() => true),
+        );
+        if (!reachedGoogle) throw new Error(`Google OAuth not reached after retries (url ${page.url()})`);
         const url = new URL(page.url());
         const redirectUri = url.searchParams.get('redirect_uri') || '';
         const originOk = (() => {
@@ -180,7 +194,8 @@ export async function runLatestUpdateTcIsCases(ctx) {
     const friendly = await page
       .getByText(/Google sign-in is not available/i)
       .first()
-      .isVisible({ timeout: 20_000 })
+      .waitFor({ state: 'visible', timeout: 45_000 })
+      .then(() => true)
       .catch(() => false);
     assess('TC-IS-02-025', friendly, { url: page.url() });
     // TC-IS-03-021: unlinked / no-intent Google path surfaces a friendly disabled/unlinked message
@@ -192,8 +207,11 @@ export async function runLatestUpdateTcIsCases(ctx) {
     await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
     const launcher = page.locator('.ip-helpbot__launcher');
     await launcher.waitFor({ state: 'visible', timeout: 45_000 });
-    await launcher.evaluate((el) => el.click());
-    const panel = await page.locator('.ip-helpbot__panel').isVisible({ timeout: 15_000 }).catch(() => false);
+    const panel = await clickUntil(
+      page,
+      () => launcher.evaluate((el) => el.click()),
+      () => page.locator('.ip-helpbot__panel').waitFor({ state: 'visible', timeout: 3_000 }).then(() => true),
+    );
     const title = await page.getByText(/InternSafar Help/i).isVisible().catch(() => false);
     assess('TC-IS-18-039', panel && title, { panel, title });
 

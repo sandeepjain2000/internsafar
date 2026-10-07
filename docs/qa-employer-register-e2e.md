@@ -54,7 +54,7 @@ Must assert (not optional):
 5. Approve document in Documents → Final Approve → **OK**  
 6. Fresh employer login after approval  
 7. Posting still **blocked** until Final Approval (covered before step 5)  
-8. Core candidate login + apply (deeper smoke: `qa:register-approve-post-apply`)
+8. Test candidate login + apply (deeper smoke: `qa:register-approve-post-apply`)
 
 
 ## Test account rules (variety; no core spam)
@@ -68,7 +68,7 @@ See also Cursor rule `qa-test-account-variety` and helper `scripts/lib/ipQaReali
 ❌ Always the same candidate ↔ same employer pair for every case
 
 ✅ Fresh realistic persona per run (human name + believable company + role title)
-✅ Keep cores for explicit core-account cases only (qa/helpers/accounts.js)
+✅ Never use core demo accounts in tests; use the test accounts (scripts/lib/ipTestAccountsConfig.js, qa/helpers/accounts.js)
 ✅ Prefer .example company domains for Domain path; unique local-part tag for Free-email
 ✅ Internship titles like “Data Analyst Intern”, not “QA Post mt140t02”
 ✅ Spread activity across several personas so SA / employer lists show variety

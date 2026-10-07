@@ -18,17 +18,25 @@
  * Requires locally for the docs seed step:
  *   DATABASE_URL in .env.local (same Neon as local/Vercel)
  *
+ * Uses a throwaway employer it registers itself (never a core or shared test account)
+ * and the SuperAdmin login. Workbook cases recorded per step into qa-results.json:
+ *   TC-IS-03-030 password chosen at register, no temp-password mail
+ *   TC-IS-03-026 verify link: first open verifies; reused + tampered links fail cleanly
+ *   TC-IS-14-024 Final Approval docs gate: none / pending / only rejected / approved+rejected
+ *   TC-IS-18-051 posting gate order: approval → email verified → ethics → profile (drafts too)
+ *
  * Usage (from internship-portal/):
  *   node scripts/qa-employer-reg-verify-approve-login.mjs
  *   node scripts/qa-employer-reg-verify-approve-login.mjs --path=free_email
- *   node scripts/qa-employer-reg-verify-approve-login.mjs http://localhost:3000
+ *   node scripts/qa-employer-reg-verify-approve-login.mjs http://localhost:3000 --apply-excel
  */
 import { createRequire } from 'module';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { apiLogin, apiRequest, fetchLoginCaptcha, QA_ACCOUNTS } from './lib/ipQaAuth.mjs';
+import { apiLogin, apiRequest, fetchLoginCaptcha, requireQaLogin } from './lib/ipQaAuth.mjs';
 import { buildEmployerRegisterPersona, isCoreShowcaseEmail } from './lib/ipQaRealisticPersonas.mjs';
+import { applyQaResultsToWorkbook, createCaseRecorder } from './lib/recordQaResults.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -49,14 +57,23 @@ const BASE =
   process.env.IP_BASE ||
   'http://localhost:3000';
 
+const APPLY_EXCEL = args.includes('--apply-excel');
 const persona = buildEmployerRegisterPersona(registrationPath);
 const REG_PW = persona.password;
-const SA = { email: QA_ACCOUNTS.superadmin.email, password: QA_ACCOUNTS.superadmin.password };
+const cases = createCaseRecorder({ source: 'qa-employer-reg-verify-approve-login' });
+
+function finish(code) {
+  cases.flush();
+  if (APPLY_EXCEL) applyQaResultsToWorkbook();
+  process.exit(code);
+}
 
 function fail(msg) {
   console.error(`FAIL: ${msg}`);
-  process.exit(1);
+  cases.failOpen(msg);
+  finish(1);
 }
+process.on('uncaughtException', (e) => fail(e?.message || String(e)));
 
 function ok(msg, extra) {
   console.log(`OK  ${msg}${extra !== undefined ? ` ${JSON.stringify(extra)}` : ''}`);
@@ -74,6 +91,7 @@ ok('Persona', {
 });
 
 // 1) Register
+cases.begin('TC-IS-03-030', 'TC-IS-03-026');
 const cap = await fetchLoginCaptcha(BASE);
 const body = {
   path: registrationPath,
@@ -109,6 +127,10 @@ const ackMail = mails.find((m) => m.purpose === 'employer_register_ack');
 if (!verifyMail || !ackMail) {
   fail(`Expected qaOutboundMails for verify + ack, got ${JSON.stringify(mails)}`);
 }
+const extraMails = mails.filter((m) => m !== verifyMail && m !== ackMail);
+if (extraMails.length || mails.some((m) => /temp|password/i.test(`${m.purpose} ${m.subject}`))) {
+  fail(`Only the verify + ack mails may be sent at register (no temp password): ${JSON.stringify(mails)}`);
+}
 ok('Outbound mail attempts recorded', {
   verify: verifyMail.subject,
   verifyMailOk: verifyMail.mailOk,
@@ -133,6 +155,19 @@ if (!/Email verified/i.test(verifyHtml)) {
 }
 ok('Email verified via qaVerifyUrl');
 
+async function expectVerifyRefused(url, label, errorRe) {
+  const res = await fetch(url, { redirect: 'manual' });
+  const html = await res.text();
+  if (res.status >= 500 || !/Could not verify/i.test(html) || !errorRe.test(html)) {
+    fail(`${label}: expected the friendly "Could not verify" state, got status=${res.status}`);
+  }
+  ok(`${label}: refused cleanly`, { status: res.status });
+}
+await expectVerifyRefused(reg.data.qaVerifyUrl, 'Reused verify link', /already used/i);
+const tampered = new URL(reg.data.qaVerifyUrl);
+tampered.searchParams.set('token', `${tampered.searchParams.get('token').slice(0, -4)}0000`);
+await expectVerifyRefused(tampered.toString(), 'Tampered verify link', /invalid|expired|not found|could not/i);
+
 // 3b) After verify, still pending: LOGIN MUST SUCCEED (docs path)
 const pendingLogin = await apiLogin(BASE, persona.email, REG_PW);
 if (!pendingLogin.ok) {
@@ -148,10 +183,49 @@ ok('Pending employer login + dashboard after email verify', {
   approvalStatus: pendingDash.data.employer.approvalStatus,
   emailVerified: pendingDash.data.employer.emailVerified,
 });
+if (pendingDash.data.employer.emailVerified !== true) fail('Dashboard does not show emailVerified after verify');
+cases.pass(
+  'TC-IS-03-030',
+  `Pass: ${persona.email} signed in with the password chosen at register after verify; register sent only verify + ack mails (${mails.length}), no temp password.`,
+);
+cases.pass(
+  'TC-IS-03-026',
+  'Pass: first open → "Email verified", emailVerified true, login allowed; reused link → "already used"; tampered token → friendly "Could not verify" (no 5xx).',
+);
+
+// 3c) Posting gate 1 (approval) while pending — published and draft
+cases.begin('TC-IS-18-051');
+async function tryPost(cookie, status) {
+  return apiRequest(BASE, '/api/ip/employer/internships', {
+    method: 'POST',
+    cookie,
+    body: {
+      title: `${persona.internshipTitle} — gate check`,
+      description: 'Gate check — must not be created.',
+      status,
+      workMode: 'Remote',
+      location: 'Pune',
+    },
+  });
+}
+async function expectPostBlocked(cookie, label, errorRe, statuses = ['published']) {
+  for (const status of statuses) {
+    const res = await tryPost(cookie, status);
+    if (res.status !== 403 || !errorRe.test(String(res.data?.error || ''))) {
+      fail(`${label} (${status}): expected 403 ${errorRe}, got ${res.status} ${JSON.stringify(res.data)}`);
+    }
+  }
+  ok(`${label}: posting blocked`, { statuses });
+}
+const gateLog = [];
+await expectPostBlocked(pendingLogin.cookie, 'Gate 1 approval', /must be approved by SuperAdmin before posting/i, [
+  'published',
+  'draft',
+]);
+gateLog.push('approval');
 
 // 4) SuperAdmin session + find employer
-const sa = await apiLogin(BASE, SA.email, SA.password);
-if (!sa.ok) fail(`SuperAdmin login failed for ${SA.email}`);
+const sa = await requireQaLogin(BASE, 'superadmin');
 const list = await apiRequest(BASE, '/api/ip/superadmin/employers?status=pending', {
   cookie: sa.cookie,
 });
@@ -168,7 +242,7 @@ const { Pool } = require('pg');
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) fail('DATABASE_URL required in .env.local to seed documents for Final Approval');
 
-async function tryFinalApprove(label) {
+async function tryFinalApprove() {
   return apiRequest(BASE, `/api/ip/superadmin/employers/${employer.id}`, {
     method: 'PATCH',
     cookie: sa.cookie,
@@ -176,60 +250,62 @@ async function tryFinalApprove(label) {
   });
 }
 
-function assertBlocked(res, label) {
+function assertBlocked(res, label, errorRe) {
   if (res.status === 200 && res.data?.ok) {
     fail(`${label}: Final Approval succeeded but should be BLOCKED`);
   }
   const err = String(res.data?.error || '');
-  if (!/document/i.test(err)) {
-    fail(`${label}: expected documents-gate error, got ${res.status} ${JSON.stringify(res.data)}`);
+  if (!errorRe.test(err)) {
+    fail(`${label}: expected ${errorRe}, got ${res.status} ${JSON.stringify(res.data)}`);
   }
   ok(`${label}: blocked`, { status: res.status, error: err.slice(0, 160) });
 }
 
-// Step 1: Final Approve with zero documents -> BLOCK
-assertBlocked(await tryFinalApprove('step1-no-docs'), 'step1-no-docs');
-
-// Step 2: insert pending document (employer uploaded)
 const pool = new Pool({ connectionString: databaseUrl, ssl: { rejectUnauthorized: false } });
-let docId;
-try {
-  docId = newId('ip_edoc');
+async function insertPendingDoc(docType, slug) {
+  const id = newId('ip_edoc');
   await pool.query(
     `INSERT INTO ip_employer_documents (id, employer_id, doc_type, file_name, url, review_status)
-     VALUES ($1,$2,'Business PAN',$3,$4,'pending')`,
-    [
-      docId,
-      employer.id,
-      `${persona.companySlug}-pan.pdf`,
-      `https://files.example/${persona.companySlug}/pan.pdf`,
-    ],
+     VALUES ($1,$2,$3,$4,$5,'pending')`,
+    [id, employer.id, docType, `${persona.companySlug}-${slug}.pdf`, `https://files.example/${persona.companySlug}/${slug}.pdf`],
   );
-  ok('step2-upload: pending document inserted', { docId });
-} finally {
-  await pool.end();
+  return id;
+}
+async function reviewDoc(id, reviewStatus, label) {
+  const res = await apiRequest(BASE, '/api/ip/superadmin/documents', {
+    method: 'PATCH',
+    cookie: sa.cookie,
+    body: { id, reviewStatus, ...(reviewStatus === 'rejected' ? { notes: 'QA: unreadable scan' } : {}) },
+  });
+  if (res.status !== 200 || !res.data?.ok) fail(`${label} failed ${res.status}: ${JSON.stringify(res.data)}`);
+  ok(`${label}: document ${reviewStatus}`, { id });
 }
 
-// Step 3: Final Approve while pending -> BLOCK
-assertBlocked(await tryFinalApprove('step3-pending-doc'), 'step3-pending-doc');
+cases.begin('TC-IS-14-024');
+// Step 1: zero documents -> BLOCK
+assertBlocked(await tryFinalApprove(), 'step1-no-docs', /has not uploaded any verification documents/i);
 
-// Step 4: SuperAdmin approves the document
-const docApprove = await apiRequest(BASE, '/api/ip/superadmin/documents', {
-  method: 'PATCH',
-  cookie: sa.cookie,
-  body: { id: docId, reviewStatus: 'approved' },
-});
-if (docApprove.status !== 200 || !docApprove.data?.ok) {
-  fail(`step4-approve-doc failed ${docApprove.status}: ${JSON.stringify(docApprove.data)}`);
-}
-ok('step4-approve-doc: document approved', { docId });
+// Step 2: one pending document -> BLOCK
+const rejectedDocId = await insertPendingDoc('Business PAN', 'pan');
+ok('step2-upload: pending document inserted', { docId: rejectedDocId });
+assertBlocked(await tryFinalApprove(), 'step2-pending-doc', /approve this employer's pending document/i);
 
-// Step 5: Final Approve employer -> OK
-const approve = await tryFinalApprove('step5-final-approve');
+// Step 3: only rejected documents -> BLOCK
+await reviewDoc(rejectedDocId, 'rejected', 'step3-reject-doc');
+assertBlocked(await tryFinalApprove(), 'step3-only-rejected', /approve at least one verification document/i);
+
+// Step 4: 1 approved + 1 rejected + 0 pending -> OK
+const docId = await insertPendingDoc('Shop Act', 'shop-act');
+await reviewDoc(docId, 'approved', 'step4-approve-doc');
+const approve = await tryFinalApprove();
 if (approve.status !== 200 || !approve.data?.ok) {
-  fail(`step5-final-approve failed ${approve.status}: ${JSON.stringify(approve.data)}`);
+  fail(`step4-final-approve failed ${approve.status}: ${JSON.stringify(approve.data)}`);
 }
-ok('step5-final-approve: Final Employer Approval granted');
+ok('step4-final-approve: Final Employer Approval granted');
+cases.pass(
+  'TC-IS-14-024',
+  'Pass: Final Approval blocked with no docs ("has not uploaded…"), with one pending doc ("approve this employer\'s pending document…"), with only rejected docs ("approve at least one…"); succeeded with 1 approved + 1 rejected + 0 pending.',
+);
 
 // 6) Fresh login AFTER approval
 const empLogin = await apiLogin(BASE, persona.email, REG_PW);
@@ -241,8 +317,48 @@ if (String(approvedDash.data?.employer?.approvalStatus).toLowerCase() !== 'appro
 }
 ok('Employer login + dashboard after Final Approval', { email: empLogin.email });
 
+// 7) Posting gates 2–4 on the approved throwaway employer (gate 1 checked while pending)
+const empUserId = (await pool.query(`SELECT user_id FROM ip_employers WHERE id = $1`, [employer.id])).rows[0]?.user_id;
+if (!empUserId) fail('Could not resolve the throwaway employer user id');
+await pool.query(`UPDATE ip_users SET email_verified_at = NULL WHERE id = $1`, [empUserId]);
+try {
+  await expectPostBlocked(empLogin.cookie, 'Gate 2 email verified', /Verify your email before posting/i);
+} finally {
+  await pool.query(`UPDATE ip_users SET email_verified_at = now() WHERE id = $1`, [empUserId]);
+}
+gateLog.push('email');
+
+await expectPostBlocked(empLogin.cookie, 'Gate 3 ethics', /Guidelines & Ethics acknowledgements and save them/i, [
+  'published',
+  'draft',
+]);
+gateLog.push('ethics');
+
+const profileGet = await apiRequest(BASE, '/api/ip/employer/profile', { cookie: empLogin.cookie });
+const ethicsIds = (profileGet.data?.ethicsItems || []).map((i) => i.id);
+if (!ethicsIds.length) fail(`Employer profile GET returned no ethicsItems: ${JSON.stringify(profileGet.data)}`);
+const ethicsSave = await apiRequest(BASE, '/api/ip/employer/profile', {
+  method: 'PUT',
+  cookie: empLogin.cookie,
+  body: { ethics_acks: Object.fromEntries(ethicsIds.map((id) => [id, true])) },
+});
+if (ethicsSave.status !== 200 || !ethicsSave.data?.ethicsComplete) {
+  fail(`Saving ethics failed ${ethicsSave.status}: ${JSON.stringify(ethicsSave.data)}`);
+}
+if (ethicsSave.data.profileComplete) fail('Profile already complete after ethics-only save; cannot check gate 4');
+await expectPostBlocked(empLogin.cookie, 'Gate 4 profile complete', /Complete your employer profile before posting/i, [
+  'published',
+  'draft',
+]);
+gateLog.push('profile');
+cases.pass(
+  'TC-IS-18-051',
+  `Pass: POST /api/ip/employer/internships gates fired in order ${gateLog.join(' → ')} with the expected 403 messages; drafts blocked at approval, ethics and profile gates.`,
+);
+await pool.end();
+
 console.log(
-  '\nPASS employer reg → verify → pending login → docs-gate (block/block/ok) → approved login',
+  '\nPASS employer reg → verify (reuse/tamper) → pending login → docs-gate (none/pending/rejected/ok) → approved login → posting gates',
 );
 console.log(
   JSON.stringify(
@@ -252,14 +368,17 @@ console.log(
       company: persona.companyName,
       employerId: employer.id,
       docId,
+      rejectedDocId,
       passwordSource: 'form_submitted_at_register',
       tempPasswordEmail: false,
       assertedPendingLoginAfterVerify: true,
-      assertedDocsGate: ['block_no_docs', 'block_pending_doc', 'ok_after_doc_approved'],
+      assertedDocsGate: ['block_no_docs', 'block_pending_doc', 'block_only_rejected', 'ok_approved_plus_rejected'],
       assertedApprovedLoginAfterFinalApproval: true,
+      assertedPostingGates: gateLog,
       puml: 'docs/employer-final-approval-documents-first.puml',
     },
     null,
     2,
   ),
 );
+finish(0);

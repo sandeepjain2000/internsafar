@@ -27,7 +27,10 @@ Optional overrides:
 
 Prerequisites:
 
-- Core demo accounts present on AWS RDS (`qa/helpers/accounts.js`)
+- Test accounts present on AWS RDS: run `npm run qa:ensure-test-accounts` on the host first
+  (Playwright global setup only auto-creates them for localhost / *.vercel.app).
+  Emails in `scripts/lib/ipTestAccountsConfig.js`. Owner decides whether test accounts may exist on production.
+  Core demo accounts are never used by tests.
 - `NEXTAUTH_URL=https://internsafar.com` and working captcha (`/api/auth/captcha`)
 - If cores require login OTP: `IP_QA_2FA_LOGIN_CODE` (and related) in `~/internship-portal/.env`
 
