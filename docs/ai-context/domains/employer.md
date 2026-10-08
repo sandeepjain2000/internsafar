@@ -71,7 +71,7 @@ Automated email to pending employers who have not uploaded any document. **Sched
 
 - Lib: `src/lib/ipEmployerDocsReminder.js` (query + send + tracking), template/constants `src/lib/ipEmployerDocsReminderFormat.js` (pure; unit `npm run test:employer-docs-reminder`).
 - Endpoint: `POST|GET /api/ip/cron/employer-docs-reminder` (cron secret, fail closed). Options: `dryRun=1` (list only), `employerId=<id>&force=1` (one employer, bypasses the env switch — testing). `force` without `employerId` → 400.
-- Runs only when `IP_EMPLOYER_DOCS_REMINDER_ENABLED=true` — set on AWS only (local/Vercel share the test DB).
+- Runs only when `IP_EMPLOYER_DOCS_REMINDER_ENABLED=true` — set on AWS only (local/Vercel share the test DB). **On in AWS production since 2026-10-08**; first real run Monday 2026-10-12 10:00 IST (log `~/logs/employer-docs-reminder.log` on EC2).
 - **Due when all hold:** `approval_status = 'pending'`, user active, `email_verified_at` set, not generated / not `is_core_account`, **no active document** (`superseded_at IS NULL`), `sent_count < 2`, and ≥ 6 days since `greatest(last_sent_at, manual_contact_at)`. **No signup grace period** (owner decision 2026-10-08: a pending employer without documents gets the next Monday email however recently they registered; the 2-day wait was an agent addition and was removed).
 - Stops by itself on: any document upload, approve/reject/suspend, 2 automated sends, unsubscribe (`sendMail` skip — not counted).
 - Tracking table `ip_employer_docs_reminders` (migration 050): `employer_id` PK **and** FK → `ip_employers.id` ON DELETE CASCADE; `sent_count`, `first_sent_at`, `last_sent_at`, `manual_contact_at`, `last_error(_at)`. Row is written only after a successful send (failures store `last_error`, no count).
