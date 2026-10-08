@@ -35,7 +35,7 @@ function ForgotInner() {
     const data = await res.json().catch(() => ({}));
     captchaFieldRef.current?.refresh?.();
     if (!res.ok) setErr(data.error || 'Failed');
-    else setMsg(data.message || 'If the email exists, a reset link was sent via ZeptoMail.');
+    else setMsg(data.message || 'If that email is registered, a reset link has been sent.');
   }
 
   async function confirmReset(e) {
@@ -57,7 +57,11 @@ function ForgotInner() {
       <Card className="border-border/80 shadow-sm">
         <CardHeader>
           <CardTitle>{token ? 'Set new password' : 'Forgot password'}</CardTitle>
-          <CardDescription>Reset link is emailed via ZeptoMail.</CardDescription>
+          <CardDescription>
+            {token
+              ? 'Choose a new password for your account.'
+              : 'Enter your account email and we will send you a link to reset your password.'}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {msg ? (

@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { jsonError, jsonOk } from '@/lib/apiAuth';
 import { revokeOtherAuthSessions } from '@/lib/ipAuthSessions';
+import { ensureIpCoreAccountSchema } from '@/lib/ipCoreAccount';
 
 function passwordMeetsRules(pw) {
   return (
@@ -34,21 +35,29 @@ export async function POST(request) {
     );
   }
 
-  const result = await query(`SELECT id, password_hash FROM ip_users WHERE id = $1 LIMIT 1`, [session.user.id]);
+  await ensureIpCoreAccountSchema();
+  const result = await query(
+    `SELECT id, password_hash, is_core_account FROM ip_users WHERE id = $1 LIMIT 1`,
+    [session.user.id],
+  );
   const user = result.rows[0];
   if (!user) return jsonError('User not found', 404);
 
   const ok = await bcrypt.compare(currentPassword, user.password_hash);
   if (!ok) return jsonError('Current password is incorrect', 400);
 
-  const hash = await bcrypt.hash(newPassword, 10);
-  await query(`UPDATE ip_users SET password_hash = $2, updated_at = now() WHERE id = $1`, [user.id, hash]);
+  // Core (shared demo) accounts: same response, but the password and other people's sessions stay.
+  const core = user.is_core_account === true;
+  if (!core) {
+    const hash = await bcrypt.hash(newPassword, 10);
+    await query(`UPDATE ip_users SET password_hash = $2, updated_at = now() WHERE id = $1`, [user.id, hash]);
+  }
 
   let signedOutOthers = false;
   if (body.signOutOthers) {
     const keep = session.user.sessionId;
     if (keep) {
-      await revokeOtherAuthSessions({ userId: session.user.id, keepSessionId: keep });
+      if (!core) await revokeOtherAuthSessions({ userId: session.user.id, keepSessionId: keep });
       signedOutOthers = true;
     }
   }

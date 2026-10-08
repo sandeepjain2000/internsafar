@@ -16,6 +16,7 @@ import '@/components/ip/ip-list-pager.css';
 import IpListPager from '@/components/ip/IpListPager';
 import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
 import { useClientPagination } from '@/hooks/useClientPagination';
+import { useLatestRequest } from '@/hooks/useLatestRequest';
 import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
 
 function rolePill(role) {
@@ -60,12 +61,16 @@ export default function LoginReportPage() {
     }
   }
 
+  const beginLoad = useLatestRequest();
+
   async function load() {
+    const isCurrent = beginLoad();
     setLoading(true);
     setError('');
     try {
       const res = await fetch(`/api/ip/superadmin/login-report?range=${range}&meta=1`);
       const data = await res.json();
+      if (!isCurrent()) return;
       if (!res.ok) {
         setError(data.error || 'Failed to load');
         setItems([]);
@@ -74,10 +79,11 @@ export default function LoginReportPage() {
         if (data.meta) setMeta(data.meta);
       }
     } catch (e) {
+      if (!isCurrent()) return;
       setError(e.message || 'Failed to load');
       setItems([]);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }
 
@@ -122,7 +128,7 @@ export default function LoginReportPage() {
   }, [range, roleTab, resultFilter, search, setPage]);
 
   return (
-    <div className="ip-sa-q ip-mobile-bleed">
+    <div className="ip-sa-q ip-saq--login-report ip-mobile-bleed">
       <div className="ip-saq-head">
         <div>
           <div className="ip-saq-head__title">

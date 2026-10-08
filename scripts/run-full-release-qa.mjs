@@ -58,6 +58,8 @@ const UNIT_SCRIPTS = [
   'scripts/test-demo-text-classifier.mjs',
   'scripts/test-ip-person-name.mjs',
   'scripts/test-ip-profile-contact.mjs',
+  'scripts/test-ip-profile-setup.mjs',
+  'scripts/test-ip-employer-docs-reminder.mjs',
 ];
 
 console.log(describeSuite('full', SUITE_FULL));

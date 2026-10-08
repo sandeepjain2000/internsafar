@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { NextResponse } from 'next/server';
 import { transaction } from '@/lib/transaction';
 import { hashPasswordResetToken } from '@/lib/ipPasswordResetToken';
+import { ensureIpCoreAccountSchema, isCoreAccount } from '@/lib/ipCoreAccount';
 
 export async function POST(request) {
   let body;
@@ -19,6 +20,7 @@ export async function POST(request) {
   }
 
   const hash = await bcrypt.hash(newPassword, 10);
+  await ensureIpCoreAccountSchema();
   try {
     await transaction(async (client) => {
       // Links issued before hashing stored the raw token (32 chars); never accept a stored 64-char hash as input.
@@ -38,13 +40,15 @@ export async function POST(request) {
         throw err;
       }
       await client.query(
-        `UPDATE ip_users SET password_hash = $2, updated_at = now() WHERE id = $1`,
-        [row.user_id, hash],
-      );
-      await client.query(
         `UPDATE ip_password_resets SET used_at = now()
          WHERE user_id = $1 AND used_at IS NULL AND id <> $2`,
         [row.user_id, row.id],
+      );
+      // Core (shared demo) accounts: the link is spent and the reply is the same, but nothing else changes.
+      if (await isCoreAccount(row.user_id, client)) return;
+      await client.query(
+        `UPDATE ip_users SET password_hash = $2, updated_at = now() WHERE id = $1`,
+        [row.user_id, hash],
       );
       await client.query('SAVEPOINT revoke_sessions');
       try {

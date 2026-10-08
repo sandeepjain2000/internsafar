@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { cloneElement, isValidElement, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
@@ -21,6 +21,7 @@ import { imageAcceptAttr, resumeAcceptAttr } from '@/lib/ipFileUpload';
 import { validateRequiredPhone, phoneDialOptionsFor } from '@/lib/ipPhoneValidation';
 import { firstPersonNameError, personNameError } from '@/lib/ipPersonName';
 import { firstContactFieldError, normalizeContactFields } from '@/lib/ipProfileContact';
+import { MAX_COMMITMENT_NOTE_LENGTH, firstSetupFieldError } from '@/lib/ipProfileSetup';
 import { fetchErrorMessage, fetchJsonWithRetry } from '@/lib/fetchJsonWithRetry';
 import { signOutAndEndSession } from '@/lib/ipClientSignOut';
 import IpUploadButton from '@/components/ip/IpUploadButton';
@@ -130,26 +131,50 @@ function initialsFrom(form) {
   return ((a + b) || 'C').toUpperCase();
 }
 
+const NATIVE_CONTROLS = new Set(['input', 'select', 'textarea']);
+
+/**
+ * A single native input/select/textarea child is tied to the label (htmlFor) and to the hint and
+ * error text (aria-describedby), so getByLabel and screen readers work. Composite children
+ * (phone group, searchable selects) carry their own aria-label.
+ */
 function Field({ label, hint, required, optional, children, span, invalid, error }) {
+  const uid = useId();
   const classes = [
     'ip-cp-field',
     span === 2 ? 'ip-cp-span-2' : '',
     span === 3 ? 'ip-cp-span-3' : '',
     invalid || error ? 'is-missing' : '',
   ].filter(Boolean).join(' ');
+  const native = isValidElement(children) && NATIVE_CONTROLS.has(children.type) ? children : null;
+  const controlId = native ? native.props.id || `ip-cp-f${uid}` : undefined;
+  const hintId = hint ? `${uid}-hint` : undefined;
+  const errorText = error || (invalid ? 'Required to unlock applying.' : '');
+  const errorId = errorText ? `${uid}-error` : undefined;
+  const control = native
+    ? cloneElement(native, {
+        id: controlId,
+        'aria-describedby': [hintId, errorId].filter(Boolean).join(' ') || undefined,
+        'aria-invalid': native.props['aria-invalid'] ?? (errorText ? 'true' : undefined),
+      })
+    : children;
   return (
     <div className={classes}>
-      <label className="ip-cp-label">
+      <label className="ip-cp-label" htmlFor={controlId}>
         {label}
         {required ? <span className="ip-cp-req"> *</span> : null}
         {optional ? <span className="ip-cp-opt"> (optional)</span> : null}
       </label>
-      {hint ? <p className="ip-cp-hint">{hint}</p> : null}
-      {children}
-      {error ? <p className="ip-cp-error" role="alert">{error}</p> : null}
-      {invalid && !error ? <p className="ip-cp-error" role="alert">Required to unlock applying.</p> : null}
+      {hint ? <p id={hintId} className="ip-cp-hint">{hint}</p> : null}
+      {control}
+      {errorText ? <p id={errorId} className="ip-cp-error" role="alert">{errorText}</p> : null}
     </div>
   );
+}
+
+/** Save-blocking problem that knows which tab and input it belongs to. */
+function profileIssue(error, tab, field) {
+  return Object.assign(new Error(error), { tab, field });
 }
 
 /** Step 1 fields that must be filled before applications unlock. */
@@ -194,6 +219,8 @@ export default function CandidateProfilePage() {
   const [phoneError, setPhoneError] = useState('');
   /** Save failures must show next to the buttons; the top alert is off-screen from the save row. */
   const [saveError, setSaveError] = useState('');
+  /** Tab + input of the client-side problem behind saveError, so the save bar can point to it. */
+  const [saveIssue, setSaveIssue] = useState(null);
   /** Turns on red highlighting for blank required fields once the user has tried to save. */
   const [showMissing, setShowMissing] = useState(false);
   /** Scroll target after quality-score action switches tab (section id). */
@@ -347,20 +374,22 @@ export default function CandidateProfilePage() {
 
   async function saveProfileBody(orderedExperiences = experiences) {
     const nameIssue = firstPersonNameError(form);
-    if (nameIssue) throw new Error(nameIssue.error);
+    if (nameIssue) throw profileIssue(nameIssue.error, 'basics', nameIssue.field);
     const dial = form.phone_country_code || '+91';
     // Draft (local) may omit phone; account Save always requires a valid phone.
     const phoneCheck = validateRequiredPhone(form.phone, dial);
     if (!phoneCheck.ok) {
       setPhoneError(phoneCheck.error);
-      throw new Error(phoneCheck.error);
+      throw profileIssue(phoneCheck.error, 'basics', 'phone');
     }
     setPhoneError('');
     const contactIssue = firstContactFieldError(form, serverProfile, dial);
     if (contactIssue) {
-      document.getElementById(`ip-cp-${contactIssue.field}`)?.focus();
-      throw new Error(contactIssue.error);
+      const tab = ['whatsapp_number', 'telegram_handle'].includes(contactIssue.field) ? 'privacy' : 'basics';
+      throw profileIssue(contactIssue.error, tab, contactIssue.field);
     }
+    const setupIssue = firstSetupFieldError(form, serverProfile);
+    if (setupIssue) throw profileIssue(setupIssue.error, 'readiness', setupIssue.field);
 
     const payload = {
       ...normalizeContactFields(form),
@@ -416,6 +445,7 @@ export default function CandidateProfilePage() {
     setSaving(true);
     setMessage('');
     setSaveError('');
+    setSaveIssue(null);
     setShowMissing(true);
     try {
       let data = {};
@@ -426,7 +456,10 @@ export default function CandidateProfilePage() {
       if (badExpIdx !== -1) {
         const bad = orderedExperiences[badExpIdx];
         const which = experienceDateError(bad.start) ? 'Start' : 'End';
-        throw new Error(`Experience ${badExpIdx + 1} (${which}): ${experienceDateError(bad.start) || experienceDateError(bad.end)}`);
+        throw profileIssue(
+          `Experience ${badExpIdx + 1} (${which}): ${experienceDateError(bad.start) || experienceDateError(bad.end)}`,
+          'skills',
+        );
       }
       if (profileTab === 'academic') {
         const orderedAcademics = sortAcademicsByYear(academics);
@@ -483,6 +516,8 @@ export default function CandidateProfilePage() {
       const text = err?.message || 'Could not save. Please try again.';
       setMessage(text);
       setSaveError(`Not saved — ${text}`);
+      setSaveIssue(err?.tab ? { tab: err.tab, field: err.field } : null);
+      if (err?.tab === profileTab && err.field) document.getElementById(`ip-cp-${err.field}`)?.focus();
       return false;
     } finally {
       setSaving(false);
@@ -667,7 +702,9 @@ export default function CandidateProfilePage() {
       const el = document.getElementById(pendingScrollId);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        const focusable = el.querySelector('input, select, textarea, button.ip-sms-input, .ip-sms-input');
+        const focusable = el.matches('input, select, textarea')
+          ? el
+          : el.querySelector('input, select, textarea, button.ip-sms-input, .ip-sms-input');
         if (focusable && typeof focusable.focus === 'function') {
           try { focusable.focus({ preventScroll: true }); } catch { /* ignore */ }
         }
@@ -721,11 +758,17 @@ export default function CandidateProfilePage() {
   const waReady = Boolean(String(form.whatsapp_number || form.phone || '').trim());
   const tgReady = Boolean(String(form.telegram_handle || '').trim());
   const activeTab = PROFILE_TABS.find((tab) => tab.id === profileTab);
+  const issueTab = saveIssue && saveIssue.tab !== profileTab ? PROFILE_TABS.find((tab) => tab.id === saveIssue.tab) : null;
   const hasNextStep = isWizardTab && wizardIndex < WIZARD_ORDER.length - 1;
   const missingRequired = showMissing && profileTab === 'basics' ? missingBasics(form) : [];
   const isMissing = (key) => missingRequired.some((f) => f.key === key);
   const contactError = (field) =>
     firstContactFieldError({ [field]: form[field] }, serverProfile, form.phone_country_code || '+91')?.error;
+  const hoursError = firstSetupFieldError(
+    { preferred_hours_start: form.preferred_hours_start, preferred_hours_end: form.preferred_hours_end },
+    serverProfile,
+  );
+  const noteError = firstSetupFieldError({ ongoing_commitment_note: form.ongoing_commitment_note }, serverProfile)?.error;
   /** City/state catalog is India-only; other countries type their own place. */
   const inIndia = (form?.country || 'India') === 'India';
 
@@ -852,13 +895,13 @@ export default function CandidateProfilePage() {
               </div>
               <div className="ip-cp-grid ip-cp-grid--3">
                 <Field label="First Name" required invalid={isMissing('first_name')} error={personNameError('First Name', form.first_name)}>
-                  <input className="ip-cp-input" value={form.first_name || ''} aria-invalid={personNameError('First Name', form.first_name) ? 'true' : undefined} onChange={(e) => set('first_name', e.target.value)} />
+                  <input id="ip-cp-first_name" className="ip-cp-input" value={form.first_name || ''} aria-invalid={personNameError('First Name', form.first_name) ? 'true' : undefined} onChange={(e) => set('first_name', e.target.value)} />
                 </Field>
                 <Field label="Middle Name" optional error={personNameError('Middle Name', form.middle_name)}>
-                  <input className="ip-cp-input" value={form.middle_name || ''} aria-invalid={personNameError('Middle Name', form.middle_name) ? 'true' : undefined} onChange={(e) => set('middle_name', e.target.value)} />
+                  <input id="ip-cp-middle_name" className="ip-cp-input" value={form.middle_name || ''} aria-invalid={personNameError('Middle Name', form.middle_name) ? 'true' : undefined} onChange={(e) => set('middle_name', e.target.value)} />
                 </Field>
                 <Field label="Last Name" required invalid={isMissing('last_name')} error={personNameError('Last Name', form.last_name)}>
-                  <input className="ip-cp-input" value={form.last_name || ''} aria-invalid={personNameError('Last Name', form.last_name) ? 'true' : undefined} onChange={(e) => set('last_name', e.target.value)} />
+                  <input id="ip-cp-last_name" className="ip-cp-input" value={form.last_name || ''} aria-invalid={personNameError('Last Name', form.last_name) ? 'true' : undefined} onChange={(e) => set('last_name', e.target.value)} />
                 </Field>
               </div>
             </section>
@@ -884,6 +927,7 @@ export default function CandidateProfilePage() {
                       ))}
                     </select>
                     <input
+                      id="ip-cp-phone"
                       className={`ip-cp-phone__num${phoneError ? ' is-invalid' : ''}`}
                       type="tel"
                       inputMode="tel"
@@ -1299,11 +1343,11 @@ export default function CandidateProfilePage() {
                     <option value="no">No</option>
                   </select>
                 </Field>
-                <Field label="Preferred working hours range" hint="Availability window (when you can work), not total hours." span={2}>
-                  <div className="ip-cp-time-row">
-                    <input className="ip-cp-input" type="time" value={form.preferred_hours_start || ''} onChange={(e) => set('preferred_hours_start', e.target.value)} />
+                <Field label="Preferred working hours range" hint="Availability window (when you can work), not total hours." span={2} error={hoursError?.error}>
+                  <div className="ip-cp-time-row" role="group" aria-label="Preferred working hours range">
+                    <input id="ip-cp-preferred_hours_start" className="ip-cp-input" type="time" aria-label="Preferred hours from" aria-invalid={hoursError?.field === 'preferred_hours_start' ? 'true' : undefined} value={form.preferred_hours_start || ''} onChange={(e) => set('preferred_hours_start', e.target.value)} />
                     <span>to</span>
-                    <input className="ip-cp-input" type="time" value={form.preferred_hours_end || ''} onChange={(e) => set('preferred_hours_end', e.target.value)} />
+                    <input id="ip-cp-preferred_hours_end" className="ip-cp-input" type="time" aria-label="Preferred hours to" aria-invalid={hoursError?.field === 'preferred_hours_end' ? 'true' : undefined} value={form.preferred_hours_end || ''} onChange={(e) => set('preferred_hours_end', e.target.value)} />
                   </div>
                 </Field>
                 <Field label="Ongoing commitment?" hint="Another internship, offline classes, or similar." span={2}>
@@ -1314,8 +1358,8 @@ export default function CandidateProfilePage() {
                   </select>
                 </Field>
                 {form.ongoing_commitment_choice === 'other' ? (
-                  <Field label="Commitment note" optional span={2}>
-                    <input className="ip-cp-input" value={form.ongoing_commitment_note || ''} onChange={(e) => set('ongoing_commitment_note', e.target.value)} placeholder="e.g. evening classes Mon–Wed" />
+                  <Field label="Commitment note" optional span={2} hint={`Up to ${MAX_COMMITMENT_NOTE_LENGTH} characters.`} error={noteError}>
+                    <input id="ip-cp-ongoing_commitment_note" className="ip-cp-input" maxLength={MAX_COMMITMENT_NOTE_LENGTH} value={form.ongoing_commitment_note || ''} onChange={(e) => set('ongoing_commitment_note', e.target.value)} placeholder="e.g. evening classes Mon–Wed" />
                   </Field>
                 ) : null}
               </div>
@@ -1507,7 +1551,22 @@ export default function CandidateProfilePage() {
         {profileTab !== 'history' ? (
           <div className="ip-cp-save">
             {saveError ? (
-              <p className="ip-cp-save__error" role="alert">{saveError}</p>
+              <p className="ip-cp-save__error" role="alert" data-testid="profile-save-error">
+                {saveError}
+                {issueTab ? (
+                  <>
+                    {` (on the ${issueTab.label} tab) `}
+                    <button
+                      type="button"
+                      className="ip-cp-save__goto"
+                      data-testid="profile-save-error-goto"
+                      onClick={() => goQualityAction({ tab: issueTab.id, scrollId: saveIssue.field ? `ip-cp-${saveIssue.field}` : '' })}
+                    >
+                      Go to {issueTab.label}
+                    </button>
+                  </>
+                ) : null}
+              </p>
             ) : missingRequired.length ? (
               <p className="ip-cp-save__error" role="status">
                 Saved. Still blank (needed to unlock applying): {missingRequired.map((f) => f.label).join(', ')}

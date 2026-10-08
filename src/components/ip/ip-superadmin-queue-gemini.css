@@ -446,6 +446,32 @@
   width: 18%;
 }
 
+/* Login report — columns keep their content; the table scrolls sideways when the panel is narrow. */
+@media (min-width: 768px) {
+  .ip-sa-q.ip-saq--login-report .ip-saq-table-wrap {
+    overflow-x: auto;
+  }
+  .ip-sa-q.ip-saq--login-report table.ip-saq-table {
+    min-width: 55rem;
+    max-width: none;
+  }
+  .ip-sa-q.ip-saq--login-report .ip-saq-table th {
+    word-break: normal;
+    overflow-wrap: normal;
+  }
+  .ip-sa-q.ip-saq--login-report .ip-saq-table .ip-saq-pill,
+  .ip-sa-q.ip-saq--login-report .ip-saq-table .ip-saq-btn {
+    white-space: nowrap;
+  }
+  .ip-sa-q.ip-saq--login-report .ip-saq-table :is(th, td):nth-child(1) { width: 2.5rem; }
+  .ip-sa-q.ip-saq--login-report .ip-saq-table :is(th, td):nth-child(2) { width: 7.5rem; }
+  .ip-sa-q.ip-saq--login-report .ip-saq-table :is(th, td):nth-child(4) { width: 7.75rem; }
+  .ip-sa-q.ip-saq--login-report .ip-saq-table :is(th, td):nth-child(5) { width: 7rem; }
+  .ip-sa-q.ip-saq--login-report .ip-saq-table :is(th, td):nth-child(6) { width: 8rem; }
+  .ip-sa-q.ip-saq--login-report .ip-saq-table :is(th, td):nth-child(7) { width: 6rem; }
+  .ip-sa-q.ip-saq--login-report .ip-saq-table :is(th, td):nth-child(8) { width: 6.75rem; }
+}
+
 .ip-sa-q .ip-saq-pager {
   display: flex;
   flex-wrap: wrap;

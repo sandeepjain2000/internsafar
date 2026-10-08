@@ -123,37 +123,6 @@ async function visible(page, sel) {
   }
 }
 
-/** Candidate page-load cases, runnable alone with `--only CAND-B-3,CAND-M-1`. */
-const CANDIDATE_PAGE_CASES = {
-  'CAND-B-3': { path: '/candidate/internships', sel: 'table, main, [data-testid], h1, h2' },
-  'CAND-M-1': { path: '/candidate/messages', sel: 'main, ul, [data-testid]' },
-};
-
-async function checkCandidatePage(page, id) {
-  const { path, sel } = CANDIDATE_PAGE_CASES[id];
-  await gotoApp(page, path);
-  const anyVisible = await visible(page, sel);
-  const firstMatchVisible = await page.locator(sel).first().isVisible().catch(() => false);
-  assessUi(id, anyVisible && page.url().includes(path), { url: page.url(), anyVisible, firstMatchVisible });
-}
-
-async function runCandidatePageCasesOnly(ids) {
-  const cand = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, PW);
-  if (!cand.ok) throw new Error('test candidate login failed');
-  const browser = await chromium
-    .launch({ headless: true })
-    .catch(() => chromium.launch({ headless: true, channel: 'chrome' }));
-  try {
-    const ctx = await browser.newContext();
-    ctx.setDefaultTimeout(30_000);
-    await ctx.addCookies(cand.cookies);
-    const page = await ctx.newPage();
-    for (const id of ids) await checkCandidatePage(page, id);
-  } finally {
-    await browser.close().catch(() => {});
-  }
-}
-
 /**
  * Client shells paint <main> only after NextAuth session resolves.
  * Wait for URL + main (and Sign out when on an authenticated role shell).
@@ -751,20 +720,8 @@ async function runApiSuite() {
   assess('SA-D-1', saStats.status === 200 && saStats.data != null,
     { status: saStats.status, keys: saStats.data ? Object.keys(saStats.data).slice(0, 8) : null });
 
-  const saPostings = await saGet('/api/ip/superadmin/postings');
-  assess('SA-PO-1', saPostings.status === 200,
-    { count: (saPostings.data?.items || saPostings.data || []).length });
-
-  const saDocs = await saGet('/api/ip/superadmin/documents');
-  assess('SA-DOC-1', saDocs.status === 200,
-    { count: (saDocs.data?.documents || saDocs.data?.items || saDocs.data || []).length });
-
-  const saLoginRep = await saGet('/api/ip/superadmin/login-report');
-  assess('SA-L-1', saLoginRep.status === 200, { status: saLoginRep.status });
-
-  const saEmp = await saGet('/api/ip/superadmin/employers');
-  assess('SA-A-1', saEmp.status === 200,
-    { count: (saEmp.data?.employers || saEmp.data?.items || []).length, status: saEmp.status });
+  // SA-PO-1, SA-DOC-1, SA-L-1, SA-L-2, SA-M-1, SA-I-1 → scripts/qa-test-account-cases.mjs;
+  // SA-A-1 → scripts/qa-temp-employer-cases.mjs (TC-IS-14-005).
 
   // Manual Requests / Form Registrations queues are retired: APIs answer 410 Gone.
   const saReqs = await saGet('/api/ip/superadmin/requests');
@@ -772,12 +729,6 @@ async function runApiSuite() {
 
   const saFormRegs = await api('/api/ip/superadmin/form-registrations', { cookie: sa.cookie });
   assess('SA-F-1', saFormRegs.status === 410, { status: saFormRegs.status, note: 'retired queue → 410' });
-
-  const saIdeas = await api('/api/ip/superadmin/feature-ideas/999', {
-    method: 'PATCH', cookie: sa.cookie, body: { status: 'under_review' },
-  });
-  assess('SA-I-1', saIdeas.status === 200 || saIdeas.status === 404,
-    { status: saIdeas.status });
 
   const saExport = await api('/api/ip/superadmin/export-audit', { cookie: sa.cookie });
   assess('SA-E-1', saExport.status === 200 || saExport.status === 404,
@@ -794,18 +745,10 @@ async function runApiSuite() {
   const saViral = await api('/api/ip/viral', { cookie: sa.cookie });
   assess('SA-V-1', saViral.status === 200, { status: saViral.status });
 
-  const saMsgs = await api('/api/ip/messages/threads', { cookie: sa.cookie });
-  assess('SA-M-1', saMsgs.status === 200 || saMsgs.status === 403,
-    { status: saMsgs.status });
-
   // Candidate-side APIs
   const candApps = await api('/api/ip/candidate/applications', { cookie: cand.cookie });
   assess('CAND-AP-1', candApps.status === 200,
     { count: (candApps.data?.applications || candApps.data?.items || []).length });
-
-  const candOffers = await api('/api/ip/offers', { cookie: cand.cookie });
-  assess('CAND-O-1', candOffers.status === 200,
-    { count: (candOffers.data?.offers || candOffers.data?.items || []).length });
 
   const candSaved = await api('/api/ip/candidate/saved', { cookie: cand.cookie });
   assess('CAND-B-4', candSaved.status === 200 || candSaved.status === 404,
@@ -814,10 +757,6 @@ async function runApiSuite() {
   const candNotifs = await api('/api/ip/notifications', { cookie: cand.cookie });
   assess('CAND-N-1', candNotifs.status === 200,
     { status: candNotifs.status, count: (candNotifs.data?.notifications || candNotifs.data?.items || []).length });
-
-  const candReferral = await api('/api/ip/referral', { cookie: cand.cookie });
-  assess('CAND-R-1', candReferral.status === 200,
-    { status: candReferral.status, code: candReferral.data?.referral_code || candReferral.data?.code, points: candReferral.data?.points });
 
   const candProfile = await api('/api/ip/candidate/profile', { cookie: cand.cookie });
   assess('CAND-P-1', candProfile.status === 200,
@@ -875,17 +814,8 @@ async function runApiSuite() {
   assess('RATE-2', ratingBefore.status === 400 || ratingBefore.status === 404,
     { status: ratingBefore.status, error: ratingBefore.data?.error });
 
-  // Employer offers + analytics + notifications
-  const empOffers = await api('/api/ip/offers', { cookie: emp.cookie });
-  assess('EMP-O-1', empOffers.status === 200,
-    { count: (empOffers.data?.offers || empOffers.data?.items || []).length });
-
   const empDash = await api('/api/ip/employer/dashboard', { cookie: emp.cookie });
   assess('EMP-H-1', empDash.status === 200, { data: empDash.data });
-
-  const empNotifs = await api('/api/ip/notifications', { cookie: emp.cookie });
-  assess('EMP-N-1', empNotifs.status === 200,
-    { count: (empNotifs.data?.notifications || empNotifs.data?.items || []).length });
 
   const empProfile = await api('/api/ip/employer/profile', { cookie: emp.cookie });
   assess('EMP-P-1', empProfile.status === 200, { data: empProfile.data });
@@ -903,10 +833,6 @@ async function runApiSuite() {
   });
   assess('EMP-P-2', empDocs.status === 200 || empDocs.status === 201,
     { status: empDocs.status, data: empDocs.data });
-
-  const empReferral = await api('/api/ip/referral', { cookie: emp.cookie });
-  assess('EMP-R-1', empReferral.status === 200,
-    { code: empReferral.data?.code });
 
   const empViral = await api('/api/ip/viral', { cookie: emp.cookie });
   assess('EMP-V-1', empViral.status === 200 || empViral.status === 403,
@@ -1096,105 +1022,68 @@ async function runBrowserSuite(logins) {
     const candDashOk = page.url().includes('/candidate') || await visible(page, 'main, .ip-shell');
     assessUi('CAND-D-1', candDashOk, { url: page.url() });
 
-    // CAND-P-2: profile page fields visible
-    await gotoApp(page, '/candidate/profile');
-    assessUi('CAND-P-2', await visible(page, 'form, input, main'),
-      { url: page.url() });
-
-    await checkCandidatePage(page, 'CAND-B-3');
-
-    // CAND-AP-1: applications page
-    await gotoApp(page, '/candidate/applications');
-    assessUi('CAND-AP-1', page.url().includes('/applications') || await visible(page, 'main'),
-      { url: page.url() });
-
-    // CAND-AP-2: dialog a11y — just confirm page loads
-    assessUi('CAND-AP-2', await visible(page, 'main, table, [role="table"]'),
-      { url: page.url() });
-
-    // Advanced filters: Next is a process <select>; Status is not an advanced field
+    // CAND-AP-1 / CAND-AP-2: list + search, then the detail dialog (labelled; × and backdrop both close it).
+    // The UI is the real check for these two, so a UI failure replaces the earlier API Pass.
     {
-      const advBtn = page.locator('button', { hasText: /Advanced filters/i }).first();
-      if (await advBtn.count()) {
-        await advBtn.click().catch(() => {});
-        const panel = page.locator('[aria-label="Advanced application filters"], .ip-ap-advanced').first();
-        const panelOk = await panel.isVisible().catch(() => false);
-        const nextSelect = panel.locator('select[aria-label="Next step"]');
-        const nextOk = panelOk && (await nextSelect.count()) > 0;
-        const statusInAdv = panelOk
-          ? await panel.locator('span', { hasText: /^Status$/ }).count()
-          : 0;
-        assessUi('CAND-AP-ADV', nextOk && statusInAdv === 0, {
-          panelOk, nextOk, statusInAdv,
+      const assessAp = (id, ok, actual) => {
+        if (cases[id]?.status !== 'Fail') assess(id, ok, actual);
+      };
+      await gotoApp(page, '/candidate/applications');
+      await page.locator('.ip-ap-loading').waitFor({ state: 'detached', timeout: 20_000 }).catch(() => {});
+      const apRows = page.locator('table.ip-ap-list--tworow tbody tr');
+      await apRows.first().waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
+      const apCount = await apRows.count();
+      if (!apCount) {
+        const emptyOk = await visible(page, '.ip-ap-empty');
+        assessAp('CAND-AP-1', emptyOk, { rows: 0, emptyState: emptyOk });
+        blocked('CAND-AP-2', 'test candidate has no applications to open');
+      } else {
+        const title = (await apRows.first().locator('.ip-ph-role').innerText()).trim();
+        const search = page.getByLabel('Search applications');
+        await search.fill(title);
+        await page.waitForTimeout(300);
+        const shown = await apRows.locator('.ip-ph-role').allInnerTexts();
+        const searchOk = shown.length > 0 && shown.every((t) => t.toLowerCase().includes(title.toLowerCase()));
+        await search.fill('no-such-role-xyz');
+        const noneOk = (await visible(page, '.ip-ap-empty')) && (await apRows.count()) === 0;
+        await search.fill('');
+        await apRows.first().waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
+        assessAp('CAND-AP-1', searchOk && noneOk, { rows: apCount, title, shownAfterSearch: shown.length, searchOk, noneOk });
+
+        const dialog = page.getByRole('dialog');
+        await apRows.first().getByRole('button', { name: 'View details' }).click().catch(() => {});
+        const opened = await dialog.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true).catch(() => false);
+        const modal = opened ? await dialog.getAttribute('aria-modal') : null;
+        const labelledBy = opened ? await dialog.getAttribute('aria-labelledby') : null;
+        const heading = labelledBy
+          ? (await page.locator(`[id="${labelledBy}"]`).innerText().catch(() => '')).trim()
+          : '';
+        await dialog.locator('.ip-ap-modal__head button[aria-label="Close"]').click().catch(() => {});
+        const closedByX = await dialog.waitFor({ state: 'detached', timeout: 5_000 }).then(() => true).catch(() => false);
+        await apRows.first().getByRole('button', { name: 'View details' }).click().catch(() => {});
+        await dialog.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
+        await page.locator('.ip-ap-modal__backdrop').click({ position: { x: 5, y: 5 } }).catch(() => {});
+        const closedByBackdrop = await dialog.waitFor({ state: 'detached', timeout: 5_000 }).then(() => true).catch(() => false);
+        assessAp('CAND-AP-2', opened && modal === 'true' && heading === title && closedByX && closedByBackdrop, {
+          opened, modal, heading, title, closedByX, closedByBackdrop,
         });
-      } else {
-        assessUi('CAND-AP-ADV', true, { skipped: 'no Advanced filters button' });
       }
     }
 
-    await checkCandidatePage(page, 'CAND-M-1');
-
-    // CAND-M-2: archive is role-specific — page loads
-    assessUi('CAND-M-2', await visible(page, 'main'), { url: page.url() });
-
-    // CAND-O-1: offers page
-    await gotoApp(page, '/candidate/offers');
-    assessUi('CAND-O-1', await visible(page, 'main, h1, table'),
-      { url: page.url() });
-    assessUi('CAND-O-5', await visible(page, 'main'), { url: page.url() });
-
-    // Offers advanced: no Status field
+    // Filters panel must offer the Status and Next step selects; a missing Filters button is a Fail.
     {
-      const advBtn = page.locator('button', { hasText: /Advanced filters/i }).first();
-      if (await advBtn.count()) {
-        await advBtn.click().catch(() => {});
-        const panel = page.locator('[aria-label="Advanced offer filters"], .ip-of-advanced').first();
-        const panelOk = await panel.isVisible().catch(() => false);
-        const statusInAdv = panelOk
-          ? await panel.locator('span', { hasText: /^Status$/ }).count()
-          : 0;
-        assessUi('CAND-O-ADV', panelOk && statusInAdv === 0, { panelOk, statusInAdv });
-      } else {
-        assessUi('CAND-O-ADV', true, { skipped: 'no Advanced filters button' });
-      }
+      const btn = page.locator('.ip-tf__btn').first();
+      const hasBtn = (await btn.count()) > 0;
+      if (hasBtn) await btn.click().catch(() => {});
+      const panel = page.locator('.ip-tf__panel');
+      const nextOk = (await panel.locator('select[aria-label="Next step"]').count()) > 0;
+      const statusOk = (await panel.locator('select[aria-label="Status"]').count()) > 0;
+      if (hasBtn) await btn.click().catch(() => {});
+      assessUi('CAND-AP-ADV', hasBtn && nextOk && statusOk, { hasBtn, nextOk, statusOk });
     }
 
-    // CAND-R-1: referral page
-    await gotoApp(page, '/candidate/referral');
-    assessUi('CAND-R-1', await visible(page, 'main, h1'),
-      { url: page.url() });
-
-    // CAND-N-1: notifications
-    await gotoApp(page, '/candidate/notifications');
-    assessUi('CAND-N-2', await visible(page, 'main, [role="tablist"], h1'),
-      { url: page.url() });
-
-    // Notifications: Filters + Advanced can both stay open; no When in advanced
-    {
-      const filtersBtn = page.locator('button', { hasText: /^Filters$/i }).first();
-      const advBtn = page.locator('button', { hasText: /Advanced/i }).first();
-      if ((await filtersBtn.count()) && (await advBtn.count())) {
-        await filtersBtn.click().catch(() => {});
-        await advBtn.click().catch(() => {});
-        const filtersOpen = await page.locator('#ip-cn-filters-panel, .ip-cn-filters-panel').first()
-          .isVisible().catch(() => false);
-          const advPanel = page.locator('#ip-cn-advanced-panel, [aria-label="Advanced notification filters"], .ip-cn-advanced').first();
-          const advOpen = await advPanel.isVisible().catch(() => false);
-        const whenInAdv = advOpen
-          ? await advPanel.locator('span', { hasText: /^When$/ }).count()
-          : 0;
-        assessUi('CAND-N-ADV', filtersOpen && advOpen && whenInAdv === 0, {
-          filtersOpen, advOpen, whenInAdv,
-        });
-      } else {
-        assessUi('CAND-N-ADV', true, { skipped: 'filter buttons missing' });
-      }
-    }
-    // ACCT-1: account page
-    await gotoApp(page, '/account');
-    assessUi('ACCT-1', await visible(page, 'main, form, h1'),
-      { url: page.url() });
-    assessUi('ACCT-2', await visible(page, 'main'), { url: page.url() });
+    // CAND-P-2, CAND-B-3, CAND-M-1/2, CAND-O-1/5, CAND-R-1, CAND-N-2, ACCT-1/2, IDEA-3 and the
+    // employer / SuperAdmin pages below → scripts/qa-test-account-cases.mjs (by TC id).
 
     // SHELL-1: sidebar nav (desktop)
     await gotoApp(page, '/candidate');
@@ -1217,11 +1106,6 @@ async function runBrowserSuite(logins) {
     assessUi('CAND-P-3',
       candDashOk,
       'profile reminder shows based on incomplete state — checked as part of dashboard load');
-
-    // Ideas shared
-    await gotoApp(page, '/ideas');
-    assessUi('IDEA-3', await visible(page, 'main, h1, ul'),
-      { url: page.url() });
 
     // Points — just confirming API covered above; UI check
     await gotoApp(page, '/candidate');
@@ -1255,30 +1139,8 @@ async function runBrowserSuite(logins) {
       { url: page.url() },
     );
 
-    await gotoApp(page, '/employer/internships');
-    assessUi('EMP-I-8', await visible(page, 'main, h1, table'),
-      { url: page.url() });
-
-    await gotoApp(page, '/employer/candidates');
-    assessUi('EMP-C-2', await visible(page, 'main, h1'), { url: page.url() });
-
-    await gotoApp(page, '/employer/messages');
-    assessUi('EMP-M-1', await visible(page, 'main, ul, h1'), { url: page.url() });
-
-    await gotoApp(page, '/employer/offers');
-    assessUi('EMP-O-1', await visible(page, 'main, h1'), { url: page.url() });
-
-    await gotoApp(page, '/employer/analytics');
-    assessUi('EMP-AN-1', await visible(page, 'main, h1'), { url: page.url() });
-
     await gotoApp(page, '/employer/viral');
     assessUi('EMP-V-1', await visible(page, 'main, h1'), { url: page.url() });
-
-    await gotoApp(page, '/employer/referral');
-    assessUi('EMP-R-1', await visible(page, 'main, h1'), { url: page.url() });
-
-    await gotoApp(page, '/employer/notifications');
-    assessUi('EMP-N-1', await visible(page, 'main, h1'), { url: page.url() });
 
     // --- SuperAdmin context -------------------------------------------------------
     console.log('browser: superadmin session…');
@@ -1312,18 +1174,9 @@ async function runBrowserSuite(logins) {
     await page.waitForURL(/\/superadmin\/approvals/, { timeout: 25_000 }).catch(() => {});
     assessUi('SA-F-3', /\/superadmin\/approvals/.test(page.url()), { url: page.url(), note: 'retired page → approvals' });
 
-    await gotoApp(page, '/superadmin/approvals');
-    assessUi('SA-A-1', await visible(page, 'main, table, h1'), { url: page.url() });
-
     await gotoApp(page, '/superadmin/requests');
     await page.waitForURL(/\/superadmin\/approvals/, { timeout: 25_000 }).catch(() => {});
     assessUi('SA-R-1', /\/superadmin\/approvals/.test(page.url()), { url: page.url(), note: 'retired page → approvals' });
-
-    await gotoApp(page, '/superadmin/documents');
-    assessUi('SA-DOC-1', await visible(page, 'main, table, h1'), { url: page.url() });
-
-    await gotoApp(page, '/superadmin/postings');
-    assessUi('SA-PO-1', await visible(page, 'main, table, h1'), { url: page.url() });
 
     await gotoApp(page, '/superadmin/promotions');
     assessUi('SA-PR-1', await visible(page, 'main, h1'), { url: page.url() });
@@ -1336,16 +1189,6 @@ async function runBrowserSuite(logins) {
       url: page.url(),
       note: 'SA viral page removed; redirects to /superadmin',
     });
-
-    await gotoApp(page, '/superadmin/login-report');
-    assessUi('SA-L-1', await visible(page, 'main, table, h1'), { url: page.url() });
-    assessUi('SA-L-2', await visible(page, 'main, table'), { url: page.url() });
-
-    await gotoApp(page, '/superadmin/messages');
-    assessUi('SA-M-1', await visible(page, 'main, h1'), { url: page.url() });
-
-    await gotoApp(page, '/superadmin/feature-ideas');
-    assessUi('SA-I-1', await visible(page, 'main, table, h1'), { url: page.url() });
 
     await ctx.close();
     console.log('browser suite finished');
@@ -1367,8 +1210,6 @@ async function main() {
   } else if (ONLY?.startsWith('TC-IS-')) {
     const rem = await runSingleTcIsCase(ONLY, { base: BASE });
     byTcId = rem.byTcId || {};
-  } else if (ONLY && ONLY.split(',').every((id) => id in CANDIDATE_PAGE_CASES)) {
-    await runCandidatePageCasesOnly(ONLY.split(','));
   } else if (ONLY) {
     console.error(`Unknown --only case: ${ONLY}`);
     process.exitCode = 1;

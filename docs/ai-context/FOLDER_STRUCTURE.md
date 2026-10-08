@@ -1,7 +1,7 @@
 # InternSafar — folder structure map
 
 **App root:** `internship-portal/`  
-**Generated from live tree:** 2026-09-26 (QA `scripts/` entries refreshed 2026-10-07)  
+**Generated from live tree:** 2026-09-26 (QA `scripts/` entries refreshed 2026-10-07; `ip-core-account.mjs` added 2026-10-08)  
 **Omits:** `node_modules/`, `.next/`, `.git/`, `test-results/`, scratch `tmp-*`
 
 Use this to **locate** files. Then open the real path.  
@@ -207,9 +207,12 @@ scripts/
 ├── apply-internsafar-qa-xlsx.py            # Writes qa-results.json into the workbook
 ├── qa-employer-reg-verify-approve-login.mjs  # Deep employer register → verify → approve → posting gates
 ├── qa-register-approve-post-apply-smoke.mjs  # Deep register → approve → post → apply smoke
-├── qa-test-account-cases.mjs               # 11 workbook cases on the QA test accounts
-├── qa-temp-employer-cases.mjs              # 6 SuperAdmin lifecycle cases on throwaway employers
+├── qa-test-account-cases.mjs               # 34 workbook cases on the QA test accounts (deep UI + API checks)
+├── qa-temp-employer-cases.mjs              # 8 SuperAdmin lifecycle / referral cases on throwaway employers
 ├── ensure-ip-test-accounts.mjs             # npm run qa:ensure-test-accounts
+├── ip-core-account.mjs                     # npm run ip:core-account — flag core accounts, set their password (backend only)
+├── process-ip-employer-docs-reminder.mjs   # npm run cron:employer-docs-reminder — weekly docs reminder (EC2 crontab)
+├── ip-docs-reminder-contact.mjs            # npm run ip:docs-reminder — list tracking / record a hand-sent email
 ├── build-aws-handoff.ps1
 ├── db_exec_sql_file.js
 ├── assert-db-migrate-allowed.js

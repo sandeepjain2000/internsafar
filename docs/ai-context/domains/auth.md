@@ -68,6 +68,13 @@ Sign-in, registration, sessions, role homes, Google auth helpers, 2FA, account s
 - Transactional mail (2FA codes, employer verify, temp password, employer signup ack, ops alerts) passes `skipUnsubscribe: true`; other single-recipient mail is skipped for addresses with a **processed** unsubscribe request (`isEmailUnsubscribed`, fails open).
 - User-supplied text in email HTML is escaped with `src/lib/escapeHtml.js`.
 
+### Core (shared demo) account password lock (confirmed 2026-10-08, owner decision)
+
+- `ip_users.is_core_account` (BOOLEAN, default false; migration `049_ip_users_core_account.sql` + runtime `ensureIpCoreAccountSchema` in `src/lib/ipCoreAccount.js`). Flagged: core candidate `lawsonlclintern+1@gmail.com` and core employer `placementhubsupport@gmail.com` only — **not** SuperAdmin.
+- For flagged accounts the UI looks and replies exactly the same, but nothing changes: `POST /api/ip/auth/change-password` still validates the rules and the current password (wrong → 400), then skips the password write and skips signing out other sessions while still returning `{ ok: true, signedOutOthers }`. `POST /api/ip/auth/password-reset/confirm` still spends the link (and the user's other open links) and returns the normal success message, but skips the password write and session revoke. Forgot-password / signed-in reset emails still send (they go to the owner's inbox).
+- Core passwords change only from the backend: `npm run ip:core-account -- --set-password=<email>` with `IP_CORE_NEW_PASSWORD` set; `--mark=` / `--unmark=` / `--list` manage the flag (one `--mark`/`--unmark` per run). Never prints passwords. Does not update `.env.local` `IP_QA_CORE_PASSWORD` — do that by hand if the core password changes.
+- Not locked (owner chose password only): email change, 2FA, phone change, sign out other sessions.
+
 Candidates do **not** require email verify before login. Employer email verify table/columns: `ensureIpEmployerEmailVerifySchema` (schema only — fill blanks via temp runner on AWS, never `email_verify_required=false` grandfather).
 
 ## Constraints

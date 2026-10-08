@@ -10,7 +10,8 @@ Read first:
 - `internship-portal/docs/ai-context/domains/deployment.md` and `domains/database.md`
 - `internship-portal/AGENTS.md` — "AWS / RDS database scripts" block
 - `internship-portal/scripts/aws-handoff-docs/PATH-B-NO-DB-MIGRATE.txt`, `AWS-DEPLOY.md`, `DB-REFERENCE.md`
-- Latest workspace plan (outside the app): `UIUX Migration/aws deploy/AWS-PUSH-PLAN-SCHEMA-BACKFILL-<date>.md` — newest is the template (2026-09-29 at time of writing)
+- Latest workspace plan (outside the app): `UIUX Migration/aws deploy/AWS-PUSH-PLAN-SCHEMA-BACKFILL-<date>.md` — newest is the template (2026-10-08 at time of writing; includes a per-account section)
+- Read-only compare script for both DBs (schema diff + per-account rule checks): `UIUX Migration/aws deploy/schema-check-2026-10-08/ro-prod-safety-check.mjs` — adapt the rule checks to the new diff
 - `internship-portal/docs/ai-context/DECISIONS.md`
 
 ## Invariants

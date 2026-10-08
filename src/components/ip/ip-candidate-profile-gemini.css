@@ -1130,6 +1130,22 @@
   font-weight: 600;
 }
 
+.ip-cand-profile .ip-cp-save__goto {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ip-brand);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.ip-cand-profile .ip-cp-save__goto:hover {
+  color: var(--ip-brand-700);
+}
+
 .ip-cand-profile .ip-cp-save__actions {
   display: flex;
   flex-wrap: wrap;

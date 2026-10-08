@@ -1030,11 +1030,11 @@ export default function AccountPage() {
       ) : null}
 
       {modal === 'forgot' ? (
-        <div className="ip-ac-overlay" role="dialog" aria-modal="true">
+        <div className="ip-ac-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-ac-forgot-title">
           <div className="ip-ac-modal">
             <div className="ip-ac-modal-head">
               <div>
-                <h3>Account Password Recovery</h3>
+                <h3 id="ip-ac-forgot-title">Account Password Recovery</h3>
                 <p>Reset credentials via registered email</p>
               </div>
               <button type="button" className="ip-ac-modal-x" onClick={() => setModal(null)} aria-label="Close">
@@ -1065,11 +1065,11 @@ export default function AccountPage() {
       ) : null}
 
       {modal === 'email' ? (
-        <div className="ip-ac-overlay" role="dialog" aria-modal="true">
+        <div className="ip-ac-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-ac-email-title">
           <div className="ip-ac-modal">
             <div className="ip-ac-modal-head">
               <div>
-                <h3>Change Account Login Email</h3>
+                <h3 id="ip-ac-email-title">Change Account Login Email</h3>
                 <p>Requires a 6-digit code sent to the new address</p>
               </div>
               <button type="button" className="ip-ac-modal-x" onClick={() => setModal(null)} aria-label="Close">
@@ -1127,11 +1127,11 @@ export default function AccountPage() {
       ) : null}
 
       {modal === 'phone' ? (
-        <div className="ip-ac-overlay" role="dialog" aria-modal="true">
+        <div className="ip-ac-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-ac-phone-title">
           <div className="ip-ac-modal">
             <div className="ip-ac-modal-head">
               <div>
-                <h3>Change Mobile Phone Number</h3>
+                <h3 id="ip-ac-phone-title">Change Mobile Phone Number</h3>
                 <p>Requires a confirmation code emailed to your login address</p>
               </div>
               <button type="button" className="ip-ac-modal-x" onClick={() => setModal(null)} aria-label="Close">
@@ -1189,10 +1189,10 @@ export default function AccountPage() {
       ) : null}
 
       {modal === 'revoke' && pendingRevoke ? (
-        <div className="ip-ac-overlay" role="dialog" aria-modal="true">
+        <div className="ip-ac-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-ac-revoke-title">
           <div className="ip-ac-modal">
             <div className="ip-ac-modal-body" style={{ textAlign: 'center' }}>
-              <h3 style={{ margin: 0 }}>Revoke Workspace Session?</h3>
+              <h3 id="ip-ac-revoke-title" style={{ margin: 0 }}>Revoke Workspace Session?</h3>
               <p className="ip-ac-note">
                 End active access for <strong>{pendingRevoke.deviceLabel}</strong>? That device will need to
                 sign in again.
@@ -1216,10 +1216,10 @@ export default function AccountPage() {
       ) : null}
 
       {modal === 'signout-all' ? (
-        <div className="ip-ac-overlay" role="dialog" aria-modal="true">
+        <div className="ip-ac-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-ac-signout-title">
           <div className="ip-ac-modal">
             <div className="ip-ac-modal-body" style={{ textAlign: 'center' }}>
-              <h3 style={{ margin: 0 }}>Sign Out All Other Devices?</h3>
+              <h3 id="ip-ac-signout-title" style={{ margin: 0 }}>Sign Out All Other Devices?</h3>
               <p className="ip-ac-note">
                 This ends every other tracked session
                 {currentDevice ? ` except ${currentDevice.deviceLabel}` : ' except this device'}. Other

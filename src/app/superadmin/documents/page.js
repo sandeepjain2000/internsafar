@@ -380,6 +380,11 @@ export default function SuperAdminDocumentsPage() {
                     </td>
                     <td>
                       <span className="ip-saq-pill ip-saq-pill--slate">{d.doc_type || 'Other'}</span>
+                      {d.doc_type === 'Other' && d.doc_label ? (
+                        <span style={{ color: '#475569', overflowWrap: 'anywhere' }}>
+                          {` — ${d.doc_label}`}
+                        </span>
+                      ) : null}
                     </td>
                     <td>
                       {d.url ? (

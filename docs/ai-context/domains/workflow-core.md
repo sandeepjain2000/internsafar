@@ -16,7 +16,7 @@ Cross-role hire pipeline: applications, messaging threads, offers/onboarding, no
 | Candidate pages | `applications`, `messages`, `offers`, `notifications` |
 | Employer pages | workbench applicants, `messages`, `offers`, `notifications` |
 | Libs | `ipMessage*.js`, `ipOffer*.js`, `ipNotify.js`, `ipLinkThreadApplication.js`, `ipApplication*.js` |
-| Cron | `src/app/api/ip/cron/`, `scripts/process-ip-schedule-reminders.mjs`, `scripts/process-ip-export-jobs.mjs`, daily progress report cron |
+| Cron | `src/app/api/ip/cron/`, `scripts/process-ip-schedule-reminders.mjs`, `scripts/process-ip-export-jobs.mjs`, daily progress report cron, weekly employer docs reminder (`cron/employer-docs-reminder`, see `domains/employer.md`) |
 
 ## Mail + unsubscribe (cross-cutting)
 

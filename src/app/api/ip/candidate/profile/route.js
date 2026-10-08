@@ -10,6 +10,7 @@ import { buildCandidateProfileUpdate, locationMismatchError } from '@/lib/ipCand
 import { dayString } from '@/lib/ipCandidateProfileDisplay';
 import { firstPersonNameError } from '@/lib/ipPersonName';
 import { CONTACT_FIELDS, firstContactFieldError, normalizeContactFields } from '@/lib/ipProfileContact';
+import { SETUP_FIELDS, firstSetupFieldError } from '@/lib/ipProfileSetup';
 
 /** Phone is required for account Save / apply unlock; local draft may still omit it. */
 const REQUIRED_FOR_COMPLETE = ['name', 'phone', 'college', 'degree', 'city', 'country', 'resume_url'];
@@ -145,7 +146,8 @@ async function putProfile(request) {
   let nextCode = null;
   {
     const currentPhone = await query(
-      `SELECT phone, phone_country_code, country, state, ${CONTACT_FIELDS.map(([f]) => f).join(', ')}
+      `SELECT phone, phone_country_code, country, state, ${CONTACT_FIELDS.map(([f]) => f).join(', ')},
+              ${SETUP_FIELDS.join(', ')}
        FROM ip_candidates WHERE user_id = $1`,
       [session.user.id],
     );
@@ -169,6 +171,8 @@ async function putProfile(request) {
     if (body.phone_country_code === undefined) body.phone_country_code = nextCode;
     const contactIssue = firstContactFieldError(body, phonePrev, nextCode);
     if (contactIssue) return jsonError(contactIssue.error, 400);
+    const setupIssue = firstSetupFieldError(body, phonePrev);
+    if (setupIssue) return jsonError(setupIssue.error, 400);
     body = normalizeContactFields(body);
   }
 

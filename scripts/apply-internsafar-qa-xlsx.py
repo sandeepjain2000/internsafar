@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from openpyxl import load_workbook
@@ -99,6 +99,33 @@ def col_of(cols, aliases):
     return None
 
 
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def _ran_at(rec, fallback):
+    raw = str(rec.get("executedAt") or fallback or "")
+    try:
+        when = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    return when if when.tzinfo else when.replace(tzinfo=timezone.utc)
+
+
+def pick_record(records, fallback):
+    """A row can be covered by several runners (Playwright, checklist runner, scripts).
+    Newest result wins, except that a Fail from the same IST day as the newest result
+    beats a Pass/Blocked — so a later pass by another runner cannot hide that day's failure."""
+    records = [r for r in records if r]
+    if not records:
+        return None
+    newest = max(records, key=lambda r: _ran_at(r, fallback))
+    day = _ran_at(newest, fallback).astimezone(IST).date()
+    for r in sorted(records, key=lambda r: _ran_at(r, fallback), reverse=True):
+        if r.get("status") == "Fail" and _ran_at(r, fallback).astimezone(IST).date() == day:
+            return r
+    return newest
+
+
 def style_status(cell, status: str):
     fill, font = STYLE.get(status, (NOTRUN_FILL, Font(name="Calibri")))
     cell.value = status
@@ -111,9 +138,10 @@ def main():
     payload = json.loads(RESULTS.read_text(encoding="utf-8"))
     legacy_cases = payload.get("cases") or {}
     extra = payload.get("byTcId") or {}
+    by_results = payload.get("results") or {}
     unified = dict(legacy_cases)
     unified.update(extra)
-    unified.update(payload.get("results") or {})
+    unified.update(by_results)
     executed = payload.get("executedAt") or datetime.now(timezone.utc).isoformat()
     as_of = results_as_of_label()
 
@@ -148,12 +176,19 @@ def main():
                 continue
             if auto_col and str(ws.cell(r, auto_col).value or "").strip() == "Obsolete":
                 continue
-            rec = None
-            if tc_id and str(tc_id) in unified:
-                rec = unified[str(tc_id)]
-            elif legacy and legacy in unified:
-                rec = unified[legacy]
-                seen_legacy.add(legacy)
+            tc_key = str(tc_id) if tc_id else ""
+            for key in (legacy, tc_key):
+                if key and key in legacy_cases:
+                    seen_legacy.add(key)
+            rec = pick_record(
+                [
+                    by_results.get(tc_key),
+                    extra.get(tc_key),
+                    legacy_cases.get(tc_key),
+                    unified.get(legacy) if legacy else None,
+                ],
+                executed,
+            )
             if not rec:
                 continue
             status = rec.get("status") or "Not Run"

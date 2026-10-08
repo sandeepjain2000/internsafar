@@ -4,6 +4,9 @@
  * reset ethics, document supersede). They run on throwaway employers this script registers
  * and hard-deletes at the end — never on core accounts or the shared test employer.
  *
+ *   TC-IS-14-005 Posting blocked while pending; Final Approval → notice + posting unlocks
+ *   TC-IS-18-019 Employer referral link keeps ?ref= to /register/employer; referrer +25 on verify
+ *                (bonus credited to the shared test employer, then reverted)
  *   TC-IS-14-025 New pending document after Final Approval does not block posting
  *   TC-IS-17-006 Re-upload of a document type supersedes the old file (one active per type, max four)
  *   TC-IS-14-026 Suspend blocks login; Restore waits for pending docs (rejected docs do not block);
@@ -20,7 +23,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import pg from 'pg';
-import { apiLogin, apiRequest, fetchLoginCaptcha, requireQaLogin } from './lib/ipQaAuth.mjs';
+import { QA_ACCOUNTS, apiLogin, apiRequest, fetchLoginCaptcha, requireQaLogin } from './lib/ipQaAuth.mjs';
 import { buildEmployerRegisterPersona, isCoreShowcaseEmail, runTag } from './lib/ipQaRealisticPersonas.mjs';
 import { applyQaResultsToWorkbook, recordQaResults } from './lib/recordQaResults.mjs';
 import { gotoReady, launchQaBrowser, newQaPage } from './lib/ipQaBrowser.mjs';
@@ -70,7 +73,7 @@ try {
 const saApi = (path, method = 'GET', body) => apiRequest(BASE, path, { method, cookie: sa.cookie, body });
 
 const TAG = runTag();
-async function createEmployer(label, { approve }) {
+async function createEmployer(label, { approve, referralCode }) {
   const persona = buildEmployerRegisterPersona('domain', { runTag: `${TAG}${label[0].toLowerCase()}` });
   persona.companyName = `${persona.companyName} ${label} ${TAG}`;
   check(!isCoreShowcaseEmail(persona.email), `core email ${persona.email}`);
@@ -88,6 +91,7 @@ async function createEmployer(label, { approve }) {
       businessEntityType: persona.businessEntityType,
       captchaToken: cap.captchaToken,
       captchaAnswer: cap.captchaAnswer,
+      referralCode,
     },
   });
   check(reg.status === 200 || reg.status === 201, `register ${label} → ${reg.status} ${JSON.stringify(reg.data)}`);
@@ -128,6 +132,7 @@ async function createEmployer(label, { approve }) {
   });
   check(put.status === 200 && put.data?.profileComplete, `profile ${label} not complete: ${JSON.stringify(put.data)}`);
   await reviewDoc(pan.data.id, 'approved');
+  emp.prePost = await post(emp, 'draft');
   const ok = await saApi(`/api/ip/superadmin/employers/${emp.eid}`, 'PATCH', { approvalStatus: 'approved' });
   check(ok.status === 200, `final approve ${label} → ${ok.status} ${JSON.stringify(ok.data)}`);
   emp.panId = pan.data.id;
@@ -172,10 +177,62 @@ const toast = (page, text) => page.locator('.ip-saq-toast', { hasText: text }).w
 console.log(`Base ${BASE}`);
 const browser = await launchQaBrowser();
 try {
+  const [referrer] = await db(`SELECT id, referral_code FROM ip_users WHERE lower(email) = lower($1)`, [QA_ACCOUNTS.employer.email]);
+  check(referrer?.referral_code, `test employer ${QA_ACCOUNTS.employer.email} has no referral code`);
+  const refStart = new Date();
   const A = await createEmployer('Alpha', { approve: true });
   const B = await createEmployer('Bravo', { approve: true });
-  const C = await createEmployer('Charlie', { approve: false });
+  const C = await createEmployer('Charlie', { approve: false, referralCode: referrer.referral_code });
   console.log('Throwaway employers ready:', [A, B, C].map((e) => e.persona.email).join(', '));
+
+  await runCase('TC-IS-14-005', async () => {
+    check(A.prePost.status === 403, `posting before Final Approval → ${A.prePost.status} ${JSON.stringify(A.prePost.data)}`);
+    check((await status(A)).approval_status === 'approved', 'approval_status not approved after Final Approval');
+    check(await notice(A, 'Final Employer Approval Granted'), 'no "Final Employer Approval Granted" notice');
+    const p = await post(A, 'draft');
+    check(p.status === 200 || p.status === 201, `posting after Final Approval → ${p.status} ${JSON.stringify(p.data)}`);
+    return 'Verified employer with ethics + complete profile + approved PAN: posting 403 while pending; Final Approval → approved + "Final Employer Approval Granted" notice (mail send not checked here); posting then saved.';
+  });
+
+  await runCase('TC-IS-18-019', async () => {
+    const empPage = await newQaPage(browser, await requireQaLogin(BASE, 'employer'));
+    let hubLink;
+    try {
+      await gotoReady(empPage, BASE, '/employer/referral', 'input[aria-label="Referral link"]');
+      await empPage.waitForFunction(() => /\/r\//.test(document.querySelector('input[aria-label="Referral link"]')?.value || ''), null, { timeout: 30_000 });
+      hubLink = await empPage.locator('input[aria-label="Referral link"]').inputValue();
+    } finally {
+      await empPage.context().close();
+    }
+    check(hubLink.endsWith(`/r/${referrer.referral_code}`), `Refer & Earn link "${hubLink}"`);
+    const page = await newQaPage(browser);
+    let regText;
+    try {
+      await page.goto(hubLink);
+      await page.waitForURL(/\/register\?ref=/, { timeout: 45_000 });
+      await page.getByText(`Referral code applied: ${referrer.referral_code}`).waitFor({ timeout: 30_000 });
+      await page.locator('a.ip-reg-card--employer').click();
+      await page.waitForURL(/\/register\/employer\?ref=/, { timeout: 45_000 });
+      regText = await page.getByText('Registering with code').first().innerText({ timeout: 30_000 });
+    } finally {
+      await page.context().close();
+    }
+    check(regText.includes(referrer.referral_code), `employer register page shows "${regText}"`);
+    const bonus = await db(
+      `SELECT id, delta FROM ip_points_ledger WHERE user_id = $1 AND reason = 'referral_bonus' AND meta->>'referredUserId' = $2`,
+      [referrer.id, C.uid],
+    );
+    const notices = await db(
+      `SELECT id FROM ip_notifications WHERE user_id = $1 AND title = 'Referral bonus earned' AND created_at >= $2`,
+      [referrer.id, refStart],
+    );
+    check(bonus.length === 1 && Number(bonus[0].delta) === 25, `referrer ledger ${JSON.stringify(bonus)}`);
+    check(notices.length >= 1, 'no "Referral bonus earned" notice for the referrer');
+    await db(`UPDATE ip_users SET points = points - $2 WHERE id = $1`, [referrer.id, Number(bonus[0].delta)]);
+    await db(`DELETE FROM ip_points_ledger WHERE id = $1`, [bonus[0].id]);
+    await db(`DELETE FROM ip_notifications WHERE id = ANY($1)`, [notices.map((n) => n.id)]);
+    return `/employer/referral link is /r/{code}; opened signed out → /register?ref= ("Referral code applied") → Employer card keeps ?ref= ("Registering with code ${referrer.referral_code}"); employer registered with the code and verified email → test employer got +25 referral_bonus and a "Referral bonus earned" notice (both reverted after the check).`;
+  });
 
   await runCase('TC-IS-14-025', async () => {
     const docId = await uploadDoc(A, 'Other', 'Replacement registration');
@@ -351,7 +408,7 @@ try {
   });
 } catch (e) {
   console.error(`Setup failed: ${e.message}`);
-  for (const id of ['TC-IS-14-025', 'TC-IS-17-006', 'TC-IS-14-026', 'TC-IS-14-027', 'TC-IS-14-028', 'TC-IS-14-033']) {
+  for (const id of ['TC-IS-14-005', 'TC-IS-18-019', 'TC-IS-14-025', 'TC-IS-17-006', 'TC-IS-14-026', 'TC-IS-14-027', 'TC-IS-14-028', 'TC-IS-14-033']) {
     results[id] ||= { status: 'Blocked', actual: `Blocked: throwaway employer setup failed — ${e.message}` };
   }
 } finally {

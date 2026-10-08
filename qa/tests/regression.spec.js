@@ -726,4 +726,345 @@ test.describe('InternSafar regression', () => {
     await expect(page.locator('#ip-cp-linkedin_url')).toBeVisible({ timeout: 30_000 });
     await expect(panel).toHaveCount(0);
   });
+
+  test('IS-082 candidate profile labels, night-shift hours, note limit and cross-tab save message', async ({ page, request }) => {
+    const put = (data) => apiWithSession(request, candidate.email, 'PUT', '/api/ip/candidate/profile', { data });
+    const read = async () =>
+      (await (await apiWithSession(request, candidate.email, 'GET', '/api/ip/candidate/profile')).json()).profile || {};
+    const before = await read();
+
+    for (const [data, message] of [
+      [{ preferred_hours_start: '9am', preferred_hours_end: '17:00' }, /must be a time/],
+      [{ ongoing_commitment_note: 'x'.repeat(201) }, /too long/],
+    ]) {
+      const res = await put(data);
+      expect(res.status(), JSON.stringify(data).slice(0, 80)).toBe(400);
+      expect(String((await res.json()).error || '')).toMatch(message);
+    }
+    try {
+      expect((await put({ preferred_hours_start: '22:00', preferred_hours_end: '02:00' })).ok()).toBeTruthy();
+      const saved = await read();
+      expect(String(saved.preferred_hours_start || '')).toMatch(/^22:00/);
+      expect(String(saved.preferred_hours_end || '')).toMatch(/^02:00/);
+    } finally {
+      await put({
+        preferred_hours_start: before.preferred_hours_start || '',
+        preferred_hours_end: before.preferred_hours_end || '',
+      });
+    }
+
+    await openWithSession(page, candidate.email, '/candidate/notifications');
+    await page.evaluate(() => localStorage.clear());
+    await page.goto('/candidate/profile', { waitUntil: 'domcontentloaded' });
+    const firstName = page.getByLabel('First Name');
+    await expect(firstName).toBeVisible({ timeout: 30_000 });
+    await expect(firstName).toHaveAttribute('id', 'ip-cp-first_name');
+    await firstName.fill('Priya2');
+    const describedBy = await firstName.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    await expect(page.locator(`[id="${describedBy.split(' ').pop()}"]`)).toContainText('First Name');
+    await firstName.fill(before.first_name || 'Test');
+
+    await page.getByRole('tab', { name: '4. Work Readiness' }).click();
+    await page.getByLabel('Preferred hours from').fill('22:00');
+    await page.getByLabel('Preferred hours to').fill('02:00');
+    await expect(page.locator('#ip-cp-preferred_hours_end')).not.toHaveAttribute('aria-invalid', 'true');
+    await expect(page.getByText(/Preferred hours .* must be/)).toHaveCount(0);
+    await page.getByLabel('Preferred hours from').fill(before.preferred_hours_start ? String(before.preferred_hours_start).slice(0, 5) : '');
+    await page.getByLabel('Preferred hours to').fill(before.preferred_hours_end ? String(before.preferred_hours_end).slice(0, 5) : '');
+
+    await page.getByRole('tab', { name: '5. Privacy & Photo' }).click();
+    await page.locator('#ip-cp-telegram_handle').fill('@ab');
+    await page.getByRole('tab', { name: '1. Basics & Contact' }).click();
+    await page.locator('.ip-cp-save button[type="submit"]').click();
+    const saveError = page.getByTestId('profile-save-error');
+    await expect(saveError).toContainText('Telegram handle must be');
+    await expect(saveError).toContainText('(on the 5. Privacy & Photo tab)');
+    await page.getByTestId('profile-save-error-goto').click();
+    await expect(page.getByRole('tab', { name: '5. Privacy & Photo' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#ip-cp-telegram_handle')).toBeFocused();
+
+    expect((await read()).telegram_handle || '').toBe(before.telegram_handle || '');
+    await page.goto('/candidate/notifications', { waitUntil: 'domcontentloaded' });
+    await page.evaluate(() => localStorage.clear());
+  });
+
+  test('IS-083 core account keeps its password through UI change and reset link', async ({ request }) => {
+    const base = process.env.IP_BASE || process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
+    test.skip(!/localhost|127\.0\.0\.1/.test(base), 'flags a test account in the local database');
+    const pg = require('pg');
+    const bcrypt = require('bcryptjs');
+    const crypto = require('node:crypto');
+    require('dotenv').config({ path: path.join(ROOT, '.env.local'), quiet: true });
+    const { TEST_CANDIDATE_OTHER, getTestPassword } = require('../../scripts/lib/ipTestAccountsConfig');
+    const email = TEST_CANDIDATE_OTHER.email;
+    const oldPw = getTestPassword();
+    const newPw = `Qa!Core${Date.now() % 100000}Z`;
+
+    const coreFlag = (flag) => {
+      const r = spawnSync('node', ['scripts/ip-core-account.mjs', `--${flag}=${email}`], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        shell: process.platform === 'win32',
+      });
+      expect(r.status, r.stderr || r.stdout).toBe(0);
+    };
+    const changePassword = async (currentPassword, newPassword) => {
+      const logged = await apiLogin(base, email, oldPw);
+      expect(logged.ok, `API login failed for ${email}`).toBeTruthy();
+      const Cookie = logged.cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+      return request.post('/api/ip/auth/change-password', {
+        headers: { Cookie },
+        data: { currentPassword, newPassword, signOutOthers: true },
+      });
+    };
+    const db = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+    await db.connect();
+    const user = (await db.query(`SELECT id FROM ip_users WHERE lower(email) = $1`, [email])).rows[0];
+    const storedIs = async (pw) =>
+      bcrypt.compare(pw, (await db.query(`SELECT password_hash FROM ip_users WHERE id = $1`, [user.id])).rows[0].password_hash);
+
+    try {
+      coreFlag('mark');
+
+      const wrong = await changePassword('Not-the-password1!', newPw);
+      expect(wrong.status()).toBe(400);
+      expect((await wrong.json()).error).toBe('Current password is incorrect');
+
+      const changed = await changePassword(oldPw, newPw);
+      expect(changed.status()).toBe(200);
+      expect(await changed.json()).toEqual({ ok: true, signedOutOthers: true });
+      expect(await storedIs(oldPw)).toBe(true);
+
+      const raw = crypto.randomBytes(24).toString('base64url');
+      const resetId = `ip_reset_qa_${Date.now()}`;
+      await db.query(
+        `INSERT INTO ip_password_resets (id, user_id, token, expires_at) VALUES ($1, $2, $3, now() + interval '1 hour')`,
+        [resetId, user.id, crypto.createHash('sha256').update(raw).digest('hex')],
+      );
+      const confirm = () => request.post('/api/ip/auth/password-reset/confirm', { data: { token: raw, newPassword: newPw } });
+      const reset = await confirm();
+      expect(reset.status()).toBe(200);
+      expect((await reset.json()).message).toBe('Password updated. You can sign in now.');
+      expect(await storedIs(oldPw)).toBe(true);
+      expect((await confirm()).status()).toBe(400);
+
+      coreFlag('unmark');
+      expect((await changePassword(oldPw, newPw)).status()).toBe(200);
+      expect(await storedIs(newPw)).toBe(true);
+    } finally {
+      coreFlag('unmark');
+      await db.query(`UPDATE ip_users SET password_hash = $2 WHERE id = $1`, [user.id, await bcrypt.hash(oldPw, 10)]);
+      await db.end();
+    }
+  });
+
+  test('IS-084 my applications sort, status tabs, metric counts, search and column filters', async ({ page }) => {
+    const { pathToFileURL } = require('node:url');
+    const { decorateCandidateApplication } = await import(
+      pathToFileURL(path.join(ROOT, 'src', 'lib', 'ipApplicationPresentation.js')).href
+    );
+    const DAY = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const ago = (days) => new Date(now - days * DAY).toISOString();
+    const future = new Date(now + 30 * DAY).toISOString();
+    const row = (key, title, company, status, days, match, extra = {}) => decorateCandidateApplication({
+      id: `qa_app_${key}`,
+      internship_id: `qa_int_${key}`,
+      employer_id: null,
+      employer_user_id: null,
+      title,
+      company_name: company,
+      status,
+      match_score: match,
+      created_at: ago(days),
+      updated_at: ago(Math.max(days - 1, 0)),
+      work_mode: 'Remote',
+      location: 'Pune',
+      stipend_inr: 15000,
+      stipend_type: 'fixed',
+      internship_status: 'published',
+      apply_ends_at: future,
+      approval_status: 'approved',
+      ...extra,
+    });
+    const items = [
+      row('a', 'Data Analyst Intern', 'Kestrel Analytics', 'applied', 1, 60),
+      row('b', 'Frontend Developer Intern', 'Harborline Logistics', 'shortlisted', 3, 90),
+      row('c', 'Backend Developer Intern', 'Kestrel Analytics', 'interviewing', 5, 75, {
+        interview_at: new Date(now + 2 * DAY).toISOString(),
+      }),
+      row('d', 'Marketing Intern', 'Nimbus Media', 'offered', 7, 40),
+      row('e', 'Content Writer Intern', 'Nimbus Media', 'rejected', 10, 85),
+      row('f', 'QA Intern', 'Harborline Logistics', 'withdrawn', 12, 50),
+      row('g', 'Design Intern', 'Orbit Labs', 'applied', 14, 70, { internship_status: 'closed' }),
+    ];
+    const T = Object.fromEntries(items.map((a) => [a.id.slice(-1), a.title]));
+
+    await openWithSession(page, candidate.email, '/candidate/notifications');
+    await page.route((url) => url.pathname === '/api/ip/candidate/applications', (route) =>
+      route.request().method() === 'GET'
+        ? route.fulfill({ json: { items, total: items.length, page: 1, pageSize: 200 } })
+        : route.continue());
+    await page.route('**/api/ip/table-filter-prefs**', (route) =>
+      route.fulfill({ json: route.request().method() === 'GET' ? { filters: {}, sort: '' } : { ok: true } }));
+    await page.route('**/api/ip/list-presets**', (route) => route.fulfill({ json: { items: [] } }));
+    await page.evaluate(() => localStorage.removeItem('ip_apps_view'));
+    await page.goto('/candidate/applications', { waitUntil: 'domcontentloaded' });
+
+    const rows = page.locator('table.ip-ap-list--tworow tbody tr');
+    const titles = () => rows.locator('.ip-ph-role').allInnerTexts();
+    const expectTitles = async (keys) => expect.poll(titles).toEqual(keys.split('').map((k) => T[k]));
+    await expectTitles('abcdefg');
+
+    const metric = (label) => page.locator('.ip-ap-metric').filter({ hasText: label }).locator('strong');
+    await expect(metric('Total Submitted')).toHaveText('7');
+    await expect(metric('In Review')).toHaveText('2');
+    await expect(metric('Interviews Scheduled')).toHaveText('1');
+    await expect(metric('Offers Received')).toHaveText('1');
+    await expect(page.locator('.ip-ap-chip')).toHaveText('7 Submissions');
+
+    const sort = page.getByLabel('Sort applications');
+    await sort.selectOption('oldest');
+    await expectTitles('gfedcba');
+    await sort.selectOption('match');
+    await expectTitles('becgafd');
+    await sort.selectOption('status');
+    await expectTitles('agcdebf');
+    await sort.selectOption('latest');
+    await expectTitles('abcdefg');
+
+    const tabs = page.locator('.ip-ap-tabs');
+    await expect(tabs.getByRole('button', { name: 'All Applications (7)' })).toBeVisible();
+    for (const [label, keys] of [
+      ['Awaiting Review', 'ag'],
+      ['Under Review', 'b'],
+      ['Interview Scheduled', 'c'],
+      ['Offer Received', 'd'],
+      ['Rejected', 'e'],
+      ['Withdrawn', 'f'],
+    ]) {
+      const tab = tabs.getByRole('button', { name: label, exact: true });
+      await tab.click();
+      await expect(tab).toHaveClass(/is-on/);
+      await expectTitles(keys);
+    }
+    await expect(metric('Total Submitted')).toHaveText('7');
+    await tabs.getByRole('button', { name: /^All Applications/ }).click();
+    await expectTitles('abcdefg');
+
+    const search = page.getByLabel('Search applications');
+    await search.fill('kestrel');
+    await expectTitles('ac');
+    await search.fill('BACKEND');
+    await expectTitles('c');
+    await search.fill('no-such-role-xyz');
+    await expect(rows).toHaveCount(0);
+    await expect(page.getByText('No applications found')).toBeVisible();
+    await page.getByRole('button', { name: 'Clear Status Filters' }).click();
+    await expect(search).toHaveValue('');
+    await expectTitles('abcdefg');
+
+    const filtersBtn = page.locator('.ip-tf__btn');
+    await filtersBtn.click();
+    await expect(filtersBtn).toHaveAttribute('aria-expanded', 'true');
+    await page.getByRole('textbox', { name: 'Employer' }).click();
+    await page.locator('[data-ip-sms-menu]').getByRole('button', { name: 'Nimbus Media' }).click();
+    await expectTitles('de');
+    await expect(page.locator('.ip-tf__chip')).toHaveText('1');
+    await page.getByRole('combobox', { name: 'Status' }).selectOption('Rejected');
+    await expectTitles('e');
+    await expect(page.locator('.ip-tf__chip')).toHaveText('2');
+    await page.locator('.ip-tf__clear').click();
+    await expectTitles('abcdefg');
+    await page.getByRole('combobox', { name: 'Next step' }).selectOption('interviewing');
+    await expectTitles('c');
+    await page.locator('.ip-tf__clear').click();
+    await page.getByLabel('Applied from').fill(items[2].created_at.slice(0, 10));
+    await expectTitles('abc');
+    await page.locator('.ip-tf__clear').click();
+    await expectTitles('abcdefg');
+
+    const withdrawIn = (title) =>
+      rows.filter({ hasText: title }).getByRole('button', { name: 'Withdraw application' });
+    await expect(withdrawIn(T.a)).toBeEnabled();
+    await expect(withdrawIn(T.g)).toBeEnabled();
+    for (const k of 'bcdef') await expect(withdrawIn(T[k])).toBeDisabled();
+
+    await rows.filter({ hasText: T.c }).getByRole('button', { name: 'View details' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('Interview Scheduled');
+    await expect(dialog).toContainText(items[2].next_step);
+    expect(items[2].next_step).toMatch(/^Attend interview /);
+    await expect(dialog.getByRole('button', { name: 'Withdraw application' })).toHaveCount(0);
+    await dialog.locator('.ip-ap-modal__head').getByRole('button', { name: 'Close' }).click();
+    await expect(dialog).toHaveCount(0);
+    await rows.filter({ hasText: T.a }).getByRole('button', { name: 'View details' }).click();
+    await expect(dialog.getByRole('button', { name: 'Withdraw application' })).toBeVisible();
+  });
+
+  test('IS-085 my applications list, search and detail dialog on real data', async ({ page, request }) => {
+    const { pathToFileURL } = require('node:url');
+    const { decorateCandidateApplication } = await import(
+      pathToFileURL(path.join(ROOT, 'src', 'lib', 'ipApplicationPresentation.js')).href
+    );
+    const res = await apiWithSession(request, candidate.email, 'GET', '/api/ip/candidate/applications?pageSize=200');
+    expect(res.status()).toBe(200);
+    const items = (await res.json()).items || [];
+    for (const a of items) {
+      const expected = decorateCandidateApplication(a);
+      expect(
+        { display_status: a.display_status, status_tab: a.status_tab, next_step: a.next_step, in_progress: a.in_progress },
+        `application ${a.id} (${a.status})`,
+      ).toEqual({
+        display_status: expected.display_status,
+        status_tab: expected.status_tab,
+        next_step: expected.next_step,
+        in_progress: expected.in_progress,
+      });
+    }
+    const asEmployer = await apiWithSession(request, employer.email, 'GET', '/api/ip/candidate/applications');
+    expect(asEmployer.status()).toBeGreaterThanOrEqual(400);
+    test.skip(!items.length, 'Test candidate has no applications (npm run qa:ensure-test-accounts, then apply once)');
+
+    await openWithSession(page, candidate.email, '/candidate/notifications');
+    await page.evaluate(() => localStorage.removeItem('ip_apps_view'));
+    await page.goto('/candidate/applications', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.ip-ap-metric').filter({ hasText: 'Total Submitted' }).locator('strong'))
+      .toHaveText(String(items.length), { timeout: 30_000 });
+
+    const first = items[0];
+    const rows = page.locator('table.ip-ap-list--tworow tbody tr');
+    const search = page.getByLabel('Search applications');
+    await search.fill(first.title);
+    await expect(rows.first()).toBeVisible();
+    for (const t of await rows.locator('.ip-ph-role').allInnerTexts()) {
+      expect(t.toLowerCase()).toContain(String(first.title).toLowerCase());
+    }
+
+    const target = rows.filter({ hasText: first.title }).first();
+    await expect(target).toContainText(first.display_status);
+    await target.getByRole('button', { name: 'View details' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveAttribute('aria-modal', 'true');
+    const labelledBy = await dialog.getAttribute('aria-labelledby');
+    await expect(page.locator(`[id="${labelledBy}"]`)).toHaveText(first.title);
+    await expect(dialog).toContainText(first.display_status);
+    await expect(dialog).toContainText(first.next_step);
+    for (const term of ['Stipend', 'Work mode', 'Location', 'Match']) {
+      await expect(dialog.locator('dt', { hasText: term })).toBeVisible();
+    }
+    await dialog.locator('.ip-ap-modal__head').getByRole('button', { name: 'Close' }).click();
+    await expect(dialog).toHaveCount(0);
+
+    await target.getByRole('button', { name: 'View details' }).click();
+    await expect(dialog).toBeVisible();
+    await dialog.locator('.ip-ap-modal__backdrop').click({ position: { x: 5, y: 5 } });
+    await expect(dialog).toHaveCount(0);
+    await expect(page.locator('.ip-ap-modal')).toHaveCount(0);
+    await search.click();
+    await expect(search).toBeFocused();
+  });
 });
