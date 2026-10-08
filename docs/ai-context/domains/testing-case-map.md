@@ -89,6 +89,8 @@ Every runner listed here writes its result to the workbook; "needs setup" rows o
 | TC-IS-06-008 | 06 Candidate Profile | checklist runner | Pass | 2026-10-07 |
 | TC-IS-06-010 | 06 Candidate Profile | checklist runner; Playwright | Pass | 2026-10-07 |
 | TC-IS-06-011 | 06 Candidate Profile | checklist runner; Playwright | Pass | 2026-10-07 |
+| TC-IS-06-012 | 06 Candidate Profile | checklist runner; Playwright | Pass | 2026-10-08 |
+| TC-IS-06-013 | 06 Candidate Profile | checklist runner; Playwright | Pass | 2026-10-08 |
 | TC-IS-07-001 | 07 Browse Save Apply | checklist runner (as CAND-B-1) | Pass | 2026-10-07 |
 | TC-IS-07-002 | 07 Browse Save Apply | checklist runner (as CAND-B-2) | Pass | 2026-10-07 |
 | TC-IS-07-003 | 07 Browse Save Apply | checklist runner (as CAND-B-3) | Pass | 2026-10-07 |

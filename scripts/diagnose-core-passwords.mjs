@@ -74,14 +74,15 @@ try {
     }
     const row = r.rows[0];
     const jsonMatch = await bcrypt.compare(pw, row.password_hash);
-    const oldMatch = await bcrypt.compare('Admin@123', row.password_hash);
+    const qaPw = process.env.IP_QA_CORE_PASSWORD || env.IP_QA_CORE_PASSWORD || '';
+    const oldMatch = qaPw ? await bcrypt.compare(qaPw, row.password_hash) : false;
     console.log(
       JSON.stringify({
         role: row.role,
         email,
         active: row.active,
         json_pw_matches: jsonMatch,
-        old_Admin123_matches: oldMatch,
+        qa_core_password_matches: oldMatch,
         pw_len: pw.length,
         hash_len: row.hash_len,
         updated_at: row.updated_at,

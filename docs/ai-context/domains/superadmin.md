@@ -83,7 +83,7 @@ Once PROCESSED, `sendMail` skips non-transactional single-recipient mail to that
 
 ## Confirmed demo account (from `README.md`)
 
-Bootstrap via `/api/ip/bootstrap` ensures: `support@placementhub.online`. Local/Vercel QA password lives in `scripts/lib/ipCoreSampleConfig.js` (`SUPERADMIN_QA_PASSWORD` — separate from the candidate/employer core password).  
+Bootstrap via `/api/ip/bootstrap` ensures: `support@placementhub.online`. QA sign-in passwords are **not** in source (2026-10-08): `scripts/lib/ipCoreSampleConfig.js` reads `IP_QA_SUPERADMIN_PASSWORD` (separate from the candidate/employer `IP_QA_CORE_PASSWORD`) from the environment or the gitignored `.env.local`, and throws a clear message when unset. The old literal is still in public git history (`7a9407d`) — rotate the SuperAdmin password.  
 Do not invent alternate admin roles. Do not reset password hashes for existing SuperAdmin in bootstrap.
 
 ## Constraints

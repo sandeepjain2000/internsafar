@@ -33,6 +33,7 @@
         "audit:demo-text": "node scripts/audit-demo-text.mjs",
         "test:demo-text": "node scripts/test-demo-text-classifier.mjs",
         "test:person-name": "node scripts/test-ip-person-name.mjs",
+        "test:profile-contact": "node scripts/test-ip-profile-contact.mjs",
         "audit:demo-consistency": "node scripts/audit-demo-consistency.mjs",
         "delete:ip-generated-run": "node scripts/delete-ip-generated-run.mjs",
         "delete:ip-except-cores": "node scripts/delete-ip-generated-run.mjs --mode=except-cores",

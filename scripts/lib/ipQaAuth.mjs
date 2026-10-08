@@ -1,8 +1,8 @@
 /**
  * Shared NextAuth credentials login for IP QA scripts (API cookie jar).
  * Candidate / employers are the disposable test accounts (ipTestAccountsConfig.js) — core demo
- * accounts are never used for testing. Sibling/Vercel: passwords are hardcoded in
- * ipCoreSampleConfig (SuperAdmin has its own).
+ * accounts are never used for testing. Passwords come from .env.local (IP_QA_CORE_PASSWORD /
+ * IP_QA_SUPERADMIN_PASSWORD) via ipCoreSampleConfig.
  */
 import { createRequire } from 'module';
 import { dirname, join } from 'path';

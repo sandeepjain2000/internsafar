@@ -7,6 +7,9 @@
  * @module scripts/lib/ipCoreSampleConfig
  */
 
+const fs = require('fs');
+const path = require('path');
+
 /**
  * SuperAdmin — kept during reset (not deleted). Single account, so it takes the
  * Zoho support address: Zoho does not support plus-addressing, and SuperAdmin
@@ -16,14 +19,52 @@
 const SUPERADMIN_EMAIL = 'support@placementhub.online';
 const LEGACY_SUPERADMIN_EMAIL = 'superadmin@internship.local';
 
+/** Optional: still available for ops scripts that need the JSON file (AWS tooling). */
+const {
+  loadCoreAccountPasswords,
+  corePasswordsFilePath,
+} = require('./loadCoreAccountPasswords');
+
 /**
- * Sibling / Vercel / local Neon QA: hardcoded core passwords. Candidates and
- * employers share CORE_QA_PASSWORD; SuperAdmin has its own.
- * AWS / production packs keep coreaccountspass.json via loadCoreAccountPasswords
- * in the handoff extract — do not bake this hardcode into production tars.
+ * QA sign-in passwords are never in git. Candidates and employers share IP_QA_CORE_PASSWORD;
+ * SuperAdmin uses IP_QA_SUPERADMIN_PASSWORD. Lookup order: process.env → <app>/.env.local →
+ * coreaccountspass.json (AWS / production handoff packs). Quote values containing `#` in .env.local.
  */
-const CORE_QA_PASSWORD = 'Admin@123';
-const SUPERADMIN_QA_PASSWORD = '<IP_QA_SUPERADMIN_PASSWORD>';
+const CORE_PASSWORD_ENV = 'IP_QA_CORE_PASSWORD';
+const SUPERADMIN_PASSWORD_ENV = 'IP_QA_SUPERADMIN_PASSWORD';
+const ENV_LOCAL_PATH = path.resolve(__dirname, '..', '..', '.env.local');
+
+function readEnvLocal(key) {
+  let text;
+  try {
+    text = fs.readFileSync(ENV_LOCAL_PATH, 'utf8').replace(/^\uFEFF/, '');
+  } catch {
+    return '';
+  }
+  for (const line of text.split(/\r?\n/)) {
+    const m = line.match(/^\s*(?:export\s+)?([\w.-]+)\s*=\s*(.*)$/);
+    if (!m || m[1] !== key) continue;
+    const raw = m[2].trim();
+    const quoted = raw.match(/^(["'])(.*)\1$/);
+    return quoted ? quoted[2] : raw.replace(/\s+#.*$/, '');
+  }
+  return '';
+}
+
+function qaPassword(envKey, role) {
+  const value = process.env[envKey] || readEnvLocal(envKey);
+  if (value) return value;
+  try {
+    const fromJson = loadCoreAccountPasswords().byRole.get(role);
+    if (fromJson) return fromJson;
+  } catch {
+    /* no coreaccountspass.json on this machine */
+  }
+  throw new Error(`${envKey} is not set. Add it to internship-portal/.env.local (never commit QA passwords).`);
+}
+
+const coreQaPassword = () => qaPassword(CORE_PASSWORD_ENV, 'candidate');
+const superadminQaPassword = () => qaPassword(SUPERADMIN_PASSWORD_ENV, 'superadmin');
 
 function isSuperadminEmail(email) {
   const e = String(email || '').trim().toLowerCase();
@@ -31,22 +72,16 @@ function isSuperadminEmail(email) {
 }
 
 function getCorePasswordForEmail(email) {
-  return isSuperadminEmail(email) ? SUPERADMIN_QA_PASSWORD : CORE_QA_PASSWORD;
+  return isSuperadminEmail(email) ? superadminQaPassword() : coreQaPassword();
 }
 
 function getCorePasswordForRole(role) {
-  return role === 'superadmin' ? SUPERADMIN_QA_PASSWORD : CORE_QA_PASSWORD;
+  return role === 'superadmin' ? superadminQaPassword() : coreQaPassword();
 }
 
 function getCorePasswordForEmailOrRole(email, role) {
-  return isSuperadminEmail(email) || role === 'superadmin' ? SUPERADMIN_QA_PASSWORD : CORE_QA_PASSWORD;
+  return isSuperadminEmail(email) || role === 'superadmin' ? superadminQaPassword() : coreQaPassword();
 }
-
-/** Optional: still available for ops scripts that need the JSON file (AWS tooling). */
-const {
-  loadCoreAccountPasswords,
-  corePasswordsFilePath,
-} = require('./loadCoreAccountPasswords');
 
 /** Primary showcase candidate — removed on reset, then re-created. */
 const CAND_BASE = 'lawsonlclintern+1@gmail.com';
@@ -198,6 +233,8 @@ module.exports = {
   getCorePasswordForEmail,
   getCorePasswordForRole,
   getCorePasswordForEmailOrRole,
+  CORE_PASSWORD_ENV,
+  SUPERADMIN_PASSWORD_ENV,
   loadCoreAccountPasswords,
   corePasswordsFilePath,
 };

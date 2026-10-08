@@ -1078,6 +1078,36 @@
   color: #64748b;
 }
 
+.ip-cand-profile .ip-cp-load-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 32rem;
+  margin: 2rem auto;
+  padding: 2rem 1.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid #fecaca;
+  background: #fff;
+  text-align: center;
+}
+
+.ip-cand-profile .ip-cp-load-error__icon {
+  color: #dc2626;
+}
+
+.ip-cand-profile .ip-cp-load-error h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.ip-cand-profile .ip-cp-load-error p {
+  font-size: 0.875rem;
+  color: #475569;
+  margin-bottom: 0.5rem;
+}
+
 .ip-cand-profile .ip-cp-save {
   padding: 1rem 1.5rem 1.5rem;
   border-top: 1px solid #f1f5f9;
@@ -1524,11 +1554,22 @@
   .ip-cand-profile .ip-cp-resume-row {
     flex-direction: column;
     align-items: stretch;
+    gap: 0.5rem;
   }
 
   .ip-cand-profile .ip-cp-resume-row .ip-cp-input {
     flex: 1 1 auto;
     width: 100%;
+  }
+
+  /* Column layout: the desktop 14rem flex-basis would become a 14rem-tall box. */
+  .ip-cand-profile .ip-cp-resume-file {
+    flex: 0 0 auto;
+  }
+
+  .ip-cand-profile .ip-cp-resume-row .ip-cp-upload-wrap,
+  .ip-cand-profile .ip-cp-resume-row .ip-cp-upload-wrap button {
+    width: 100% !important;
   }
 
   /* Sticky save bar — patterns.html / profile.html mobile CTA */

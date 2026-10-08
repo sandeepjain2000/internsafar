@@ -665,4 +665,65 @@ test.describe('InternSafar regression', () => {
     await firstName.fill("Anne-Marie O'Neil");
     await expect(page.getByText('First Name can only contain letters', { exact: false })).toHaveCount(0);
   });
+
+  test('IS-080 candidate profile validates links, WhatsApp and Telegram', async ({ page, request }) => {
+    const put = (data) => apiWithSession(request, candidate.email, 'PUT', '/api/ip/candidate/profile', { data });
+    const read = async () =>
+      (await (await apiWithSession(request, candidate.email, 'GET', '/api/ip/candidate/profile')).json()).profile || {};
+    const before = await read();
+
+    for (const [field, value, message] of [
+      ['linkedin_url', 'https://lnkd.in/abc123', /LinkedIn profile link/],
+      ['linkedin_url', 'https://www.linkedin.com/company/acme', /LinkedIn profile link/],
+      ['github_url', 'priya', /must be a web link/],
+      ['personal_website', 'javascript:alert(1)', /must be a web link/],
+      ['whatsapp_number', '12345', /WhatsApp number isn't valid/],
+      ['telegram_handle', '@ab', /Telegram handle must be/],
+    ]) {
+      const res = await put({ [field]: value });
+      expect(res.status(), `${field}=${value}`).toBe(400);
+      expect(String((await res.json()).error || '')).toMatch(message);
+    }
+    const unchanged = await read();
+    expect(unchanged.linkedin_url || '').toBe(before.linkedin_url || '');
+    expect(unchanged.telegram_handle || '').toBe(before.telegram_handle || '');
+
+    try {
+      const res = await put({ linkedin_url: 'linkedin.com/in/qa-profile-links', telegram_handle: 'qa_profile' });
+      expect(res.ok()).toBeTruthy();
+      const saved = await read();
+      expect(saved.linkedin_url).toBe('https://linkedin.com/in/qa-profile-links');
+      expect(saved.telegram_handle).toBe('@qa_profile');
+    } finally {
+      await put({ linkedin_url: before.linkedin_url || '', telegram_handle: before.telegram_handle || '' });
+    }
+
+    await openWithSession(page, candidate.email, '/candidate/profile');
+    const linkedIn = page.locator('.ip-cp-field').filter({ hasText: 'LinkedIn Profile URL' }).locator('input');
+    await expect(linkedIn).toBeVisible({ timeout: 30_000 });
+    await linkedIn.fill('https://lnkd.in/abc123');
+    await expect(page.getByText('Enter your LinkedIn profile link', { exact: false })).toBeVisible();
+    await expect(linkedIn).toHaveAttribute('aria-invalid', 'true');
+    await linkedIn.fill('linkedin.com/in/qa-profile-links');
+    await expect(page.getByText('Enter your LinkedIn profile link', { exact: false })).toHaveCount(0);
+  });
+
+  test('IS-081 candidate profile shows an error with Try again when loading fails', async ({ page }) => {
+    const profileApi = '**/api/ip/candidate/profile';
+    await openWithSession(page, candidate.email, '/candidate/notifications');
+    await page.route(profileApi, (route) =>
+      route.request().method() === 'GET'
+        ? route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"fail"}' })
+        : route.continue());
+    await page.goto('/candidate/profile', { waitUntil: 'domcontentloaded' });
+    const panel = page.getByTestId('profile-load-error');
+    await expect(panel).toBeVisible({ timeout: 30_000 });
+    await expect(panel).toContainText('We couldn’t load your profile');
+    await expect(page.locator('#ip-cp-linkedin_url')).toHaveCount(0);
+
+    await page.unroute(profileApi);
+    await page.getByTestId('profile-retry').click();
+    await expect(page.locator('#ip-cp-linkedin_url')).toBeVisible({ timeout: 30_000 });
+    await expect(panel).toHaveCount(0);
+  });
 });

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  AlertTriangle,
   Briefcase,
   Check,
   Download,
@@ -19,7 +20,11 @@ import {
 import { imageAcceptAttr, resumeAcceptAttr } from '@/lib/ipFileUpload';
 import { validateRequiredPhone, phoneDialOptionsFor } from '@/lib/ipPhoneValidation';
 import { firstPersonNameError, personNameError } from '@/lib/ipPersonName';
+import { firstContactFieldError, normalizeContactFields } from '@/lib/ipProfileContact';
+import { fetchErrorMessage, fetchJsonWithRetry } from '@/lib/fetchJsonWithRetry';
+import { signOutAndEndSession } from '@/lib/ipClientSignOut';
 import IpUploadButton from '@/components/ip/IpUploadButton';
+import { IpListLoading } from '@/components/ip/IpListStatus';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import SearchableSelect from '@/components/ip/SearchableSelect';
 import CitySelectWithOther from '@/components/ip/CitySelectWithOther';
@@ -160,6 +165,9 @@ const BASICS_REQUIRED = [
   { key: 'resume_url', label: 'Resume / CV' },
 ];
 
+/** Links and handles are text inputs (not type="url"), so mobile auto-fixes must be switched off explicitly. */
+const NO_AUTOCORRECT = { spellCheck: false, autoCapitalize: 'none', autoCorrect: 'off' };
+
 function missingBasics(form) {
   if (!form) return [];
   return BASICS_REQUIRED.filter(({ key }) => !String(form[key] ?? '').trim());
@@ -194,6 +202,11 @@ export default function CandidateProfilePage() {
   /** True when UI is showing local draft that is not yet on the account. */
   const [draftNotOnAccount, setDraftNotOnAccount] = useState(false);
   const serverFingerprintRef = useRef('');
+  /** Profile as last loaded/saved on the account — only links/handles changed since then must pass. */
+  const [serverProfile, setServerProfile] = useState(null);
+  /** Profile GET failure: { kind } from fetchJsonWithRetry ('auth' | 'http' | 'server' | 'network' | 'timeout'). */
+  const [loadError, setLoadError] = useState(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const { cityOptions, placeCityOptions, stateOptions, findCity, loading: citiesLoading } = useIpCityCatalog();
   const { countryOptions, loading: countriesLoading } = useIpCountryCatalog();
   const cityChoices = useMemo(() => {
@@ -205,10 +218,15 @@ export default function CandidateProfilePage() {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      fetch('/api/ip/candidate/profile').then((r) => r.json()),
+      fetchJsonWithRetry('/api/ip/candidate/profile'),
       fetch('/api/ip/candidate/academics').then((r) => r.json()).catch(() => ({ items: [] })),
-    ]).then(([d, acad]) => {
+    ]).then(([result, acad]) => {
       if (cancelled) return;
+      if (!result.ok || !result.data?.profile) {
+        setLoadError({ kind: result.ok ? 'server' : result.kind });
+        return;
+      }
+      const d = result.data;
       let nextForm = d.profile;
       let nextAcademics = (acad.items || []).map((a) => ({
         id: a.id,
@@ -222,6 +240,7 @@ export default function CandidateProfilePage() {
       }));
       nextAcademics = nextAcademics.length ? sortAcademicsByYear(nextAcademics) : [emptyAcademicRow()];
       let nextExperiences = sortExperiencesByDate(parseExperienceEntries(d.profile?.prior_experience));
+      setServerProfile(d.profile);
       serverFingerprintRef.current = profileDraftFingerprint(
         d.profile,
         nextAcademics,
@@ -257,13 +276,15 @@ export default function CandidateProfilePage() {
         setWizardUnlockedThru(WIZARD_ORDER.length - 1);
       }
       setDraftReady(true);
-    }).catch(() => setDraftReady(true));
+    }).catch(() => {
+      if (!cancelled) setLoadError({ kind: 'server' });
+    });
     fetch('/api/ip/endorsements')
       .then((r) => r.json())
       .then((d) => { if (!cancelled) setEndorsements(d.items || []); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, []);
+  }, [loadAttempt]);
 
   useEffect(() => {
     if (!draftReady || !form?.user_id) return undefined;
@@ -335,9 +356,14 @@ export default function CandidateProfilePage() {
       throw new Error(phoneCheck.error);
     }
     setPhoneError('');
+    const contactIssue = firstContactFieldError(form, serverProfile, dial);
+    if (contactIssue) {
+      document.getElementById(`ip-cp-${contactIssue.field}`)?.focus();
+      throw new Error(contactIssue.error);
+    }
 
     const payload = {
-      ...form,
+      ...normalizeContactFields(form),
       phone: String(form.phone || '').trim(),
       phone_country_code: dial,
       skills,
@@ -438,13 +464,15 @@ export default function CandidateProfilePage() {
       } else {
         data = await saveProfileBody(orderedExperiences);
       }
-      setForm((current) => (current ? { ...current, profile_complete: data.profileComplete } : current));
+      const savedForm = normalizeContactFields(form);
+      setForm((current) => (current ? { ...normalizeContactFields(current), profile_complete: data.profileComplete } : current));
       if (data.profileComplete) {
         setWizardUnlockedThru(WIZARD_ORDER.length - 1);
       }
       clearProfileDraft(form?.user_id);
       setDraftNotOnAccount(false);
-      serverFingerprintRef.current = profileDraftFingerprint(form, academicsForFingerprint, orderedExperiences);
+      setServerProfile(savedForm);
+      serverFingerprintRef.current = profileDraftFingerprint(savedForm, academicsForFingerprint, orderedExperiences);
       setMessage(
         data.profileComplete
           ? 'Profile saved — applications unlocked. All profile tabs stay open.'
@@ -648,10 +676,43 @@ export default function CandidateProfilePage() {
     }, 120);
     return () => clearTimeout(t);
   }, [pendingScrollId, profileTab, form]);
-  if (!form) {
+  if (loadError) {
+    const expired = loadError.kind === 'auth';
     return (
       <div className="ip-cand-profile">
-        <p className="ip-cp-empty">Loading…</p>
+        <div className="ip-cp-load-error" role="alert" data-testid="profile-load-error">
+          <AlertTriangle className="ip-cp-load-error__icon" size={28} aria-hidden />
+          <h3>{expired ? 'Your session has expired' : 'We couldn\u2019t load your profile'}</h3>
+          <p>
+            {expired
+              ? 'Sign in again to edit your profile.'
+              : `${fetchErrorMessage(loadError.kind)} Your saved details are safe \u2014 please try again.`}
+          </p>
+          {expired ? (
+            <button type="button" className="ip-cp-btn ip-cp-btn--primary" onClick={() => signOutAndEndSession({ callbackUrl: '/' })}>
+              Sign in again
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="ip-cp-btn ip-cp-btn--primary"
+              data-testid="profile-retry"
+              onClick={() => {
+                setLoadError(null);
+                setLoadAttempt((n) => n + 1);
+              }}
+            >
+              Try again
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+  if (!form) {
+    return (
+      <div className="ip-cand-profile" data-testid="profile-loading" aria-busy="true">
+        <IpListLoading label="Loading your profile…" />
       </div>
     );
   }
@@ -663,6 +724,8 @@ export default function CandidateProfilePage() {
   const hasNextStep = isWizardTab && wizardIndex < WIZARD_ORDER.length - 1;
   const missingRequired = showMissing && profileTab === 'basics' ? missingBasics(form) : [];
   const isMissing = (key) => missingRequired.some((f) => f.key === key);
+  const contactError = (field) =>
+    firstContactFieldError({ [field]: form[field] }, serverProfile, form.phone_country_code || '+91')?.error;
   /** City/state catalog is India-only; other countries type their own place. */
   const inIndia = (form?.country || 'India') === 'India';
 
@@ -1017,15 +1080,15 @@ export default function CandidateProfilePage() {
                 </Field>
 
                 <div id="ip-cp-social-links" className="ip-cp-grid">
-                  <Field label="LinkedIn Profile URL" optional>
-                    <input className="ip-cp-input" type="url" value={form.linkedin_url || ''} onChange={(e) => set('linkedin_url', e.target.value)} placeholder="https://linkedin.com/in/..." />
+                  <Field label="LinkedIn Profile URL" optional error={contactError('linkedin_url')}>
+                    <input id="ip-cp-linkedin_url" className="ip-cp-input" type="text" inputMode="url" autoComplete="off" {...NO_AUTOCORRECT} value={form.linkedin_url || ''} aria-invalid={contactError('linkedin_url') ? 'true' : undefined} onChange={(e) => set('linkedin_url', e.target.value)} placeholder="https://linkedin.com/in/..." />
                   </Field>
-                  <Field label="GitHub / Portfolio URL" optional>
-                    <input className="ip-cp-input" type="url" value={form.github_url || ''} onChange={(e) => set('github_url', e.target.value)} placeholder="https://github.com/..." />
+                  <Field label="GitHub / Portfolio URL" optional error={contactError('github_url')}>
+                    <input id="ip-cp-github_url" className="ip-cp-input" type="text" inputMode="url" autoComplete="off" {...NO_AUTOCORRECT} value={form.github_url || ''} aria-invalid={contactError('github_url') ? 'true' : undefined} onChange={(e) => set('github_url', e.target.value)} placeholder="https://github.com/..." />
                   </Field>
                 </div>
-                <Field label="Personal website" optional>
-                  <input className="ip-cp-input" type="url" value={form.personal_website || ''} onChange={(e) => set('personal_website', e.target.value)} placeholder="https://" />
+                <Field label="Personal website" optional error={contactError('personal_website')}>
+                  <input id="ip-cp-personal_website" className="ip-cp-input" type="text" inputMode="url" autoComplete="url" {...NO_AUTOCORRECT} value={form.personal_website || ''} aria-invalid={contactError('personal_website') ? 'true' : undefined} onChange={(e) => set('personal_website', e.target.value)} placeholder="https://" />
                 </Field>
               </div>
             </section>
@@ -1362,11 +1425,11 @@ export default function CandidateProfilePage() {
                 This feature is work in progress. You can save WhatsApp / Telegram preferences now; delivery is not live until a carrier is connected.
               </p>
               <div className="ip-cp-grid">
-                <Field label="WhatsApp number" optional>
-                  <input className="ip-cp-input" type="tel" value={form.whatsapp_number || ''} onChange={(e) => set('whatsapp_number', e.target.value)} placeholder="+91 98765 43210" />
+                <Field label="WhatsApp number" optional error={contactError('whatsapp_number')}>
+                  <input id="ip-cp-whatsapp_number" className="ip-cp-input" type="tel" value={form.whatsapp_number || ''} aria-invalid={contactError('whatsapp_number') ? 'true' : undefined} onChange={(e) => set('whatsapp_number', e.target.value)} placeholder="+91 98765 43210" />
                 </Field>
-                <Field label="Telegram handle" optional>
-                  <input className="ip-cp-input" value={form.telegram_handle || ''} onChange={(e) => set('telegram_handle', e.target.value)} placeholder="@handle" />
+                <Field label="Telegram handle" optional error={contactError('telegram_handle')}>
+                  <input id="ip-cp-telegram_handle" className="ip-cp-input" {...NO_AUTOCORRECT} value={form.telegram_handle || ''} aria-invalid={contactError('telegram_handle') ? 'true' : undefined} onChange={(e) => set('telegram_handle', e.target.value)} placeholder="@handle" />
                 </Field>
                 <label className={`ip-cp-toggle-card is-wa${!waReady ? ' is-disabled' : ''}`}>
                   <span className="ip-cp-im">

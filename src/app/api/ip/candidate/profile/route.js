@@ -9,6 +9,7 @@ import { validateRequiredPhone } from '@/lib/ipPhoneValidation';
 import { buildCandidateProfileUpdate, locationMismatchError } from '@/lib/ipCandidateProfileUpdate';
 import { dayString } from '@/lib/ipCandidateProfileDisplay';
 import { firstPersonNameError } from '@/lib/ipPersonName';
+import { CONTACT_FIELDS, firstContactFieldError, normalizeContactFields } from '@/lib/ipProfileContact';
 
 /** Phone is required for account Save / apply unlock; local draft may still omit it. */
 const REQUIRED_FOR_COMPLETE = ['name', 'phone', 'college', 'degree', 'city', 'country', 'resume_url'];
@@ -144,7 +145,8 @@ async function putProfile(request) {
   let nextCode = null;
   {
     const currentPhone = await query(
-      `SELECT phone, phone_country_code, country, state FROM ip_candidates WHERE user_id = $1`,
+      `SELECT phone, phone_country_code, country, state, ${CONTACT_FIELDS.map(([f]) => f).join(', ')}
+       FROM ip_candidates WHERE user_id = $1`,
       [session.user.id],
     );
     phonePrev = currentPhone.rows[0] || {};
@@ -165,6 +167,9 @@ async function putProfile(request) {
     if (!phoneCheck.ok) return jsonError(phoneCheck.error || 'Mobile phone is required', 400);
     if (body.phone === undefined) body.phone = nextPhone;
     if (body.phone_country_code === undefined) body.phone_country_code = nextCode;
+    const contactIssue = firstContactFieldError(body, phonePrev, nextCode);
+    if (contactIssue) return jsonError(contactIssue.error, 400);
+    body = normalizeContactFields(body);
   }
 
   const phoneChanged = Boolean(

@@ -195,7 +195,7 @@
     "r": 26,
     "v": [
       "Demo logins",
-      "Candidate: lawsonlclintern+1@gmail.com / Admin@123 | Employer: shreekar.nyayapathi23+2@vit.edu / Admin@123 | SA: placementhubsupport@gmail.com / Admin@123",
+      "Candidate: lawsonlclintern+1@gmail.com / <IP_QA_CORE_PASSWORD> | Employer: shreekar.nyayapathi23+2@vit.edu / <IP_QA_CORE_PASSWORD> | SA: placementhubsupport@gmail.com / <IP_QA_CORE_PASSWORD>",
       null
     ]
   },

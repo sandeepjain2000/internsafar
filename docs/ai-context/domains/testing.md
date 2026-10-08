@@ -50,6 +50,8 @@ Defined for local `.env.local` only (also documented in `.env.example`). **Never
 | `IP_QA_2FA_BYPASS_CODE` | Bypass code when bypass enabled |
 | `IP_QA_2FA_WRONG_CODE` | Negative OTP tests |
 | `IP_QA_EMPLOYER_EMAIL_VERIFY_TOKEN_IN_RESPONSE` | `1` → employer register JSON includes `qaVerifyUrl` + `qaOutboundMails` (always off when `VERCEL_ENV=production`) |
+| `IP_QA_CORE_PASSWORD` | Candidate / employer QA sign-in password (`scripts/lib/ipCoreSampleConfig.js`; env → `.env.local` → core-password CSV; throws if unset). Quote if it contains `#` |
+| `IP_QA_SUPERADMIN_PASSWORD` | SuperAdmin QA sign-in password (same lookup). No QA password literals in tracked files (2026-10-08) |
 
 CI: skip OTP success assertions when codes unset, or use bypass. QA sign-ins use the disposable test accounts (§7), never the core candidate / employer.
 
@@ -208,6 +210,10 @@ Specs under `qa/tests/`: `auth.spec.js`, `google-auth.spec.js`, `regression.spec
 **DB integrity check** (`scripts/check-ip-db-integrity.mjs`): a check whose table/column is missing (count `-1`) now **fails** and is listed under `missing_schema` — it no longer passes silently. The retired `ip_employer_requests` dangling checks were removed.
 
 **Candidate name rule (2026-10-07, BUG-PROFILE-001):** `npm run test:person-name` (`scripts/test-ip-person-name.mjs`, unit, DB-free) + regression **IS-079** → **TC-IS-06-011** (API 400 on digits/symbols in First/Middle/Last, name unchanged, inline UI error clears on a valid name). Row added by `scripts/sync-internsafar-xlsx-2026-10-07-name-validation.py` (`--apply`).
+
+**Candidate links / handles rule (2026-10-08):** `npm run test:profile-contact` (`scripts/test-ip-profile-contact.mjs`, unit, DB-free, in `qa:all` unit list) + regression **IS-080** → **TC-IS-06-012** (API 400 on bad LinkedIn / web link / WhatsApp / Telegram, values unchanged, valid bare LinkedIn stored with `https://` and Telegram with `@` then restored, inline UI error clears). Row added by `scripts/sync-internsafar-xlsx-2026-10-08-profile-contact.py` (`--apply`).
+
+**Candidate profile load state (2026-10-08):** regression **IS-081** → **TC-IS-06-013** (route-fails `GET /api/ip/candidate/profile` with 500 → `data-testid="profile-load-error"` panel, no form; unroute + `profile-retry` → form loads). Row added by `scripts/sync-internsafar-xlsx-2026-10-08-profile-load-state.py` (`--apply`).
 
 **Unit scripts and the `@/` alias:** plain `node` can't resolve `@/lib/...`. Unit scripts call `registerAppAlias()` from `scripts/lib/registerAppAlias.mjs` (Node `module.registerHooks`) before importing `src/` files; pass `stubs` (e.g. `@/lib/db` → data: URL) to keep them DB-free (`test-ip-mail-override.mjs`, `test-ip-email-unsubscribe.mjs`, `check-ip-candidate-profile-save.mjs`).
 

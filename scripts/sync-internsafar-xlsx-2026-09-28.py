@@ -44,8 +44,8 @@ EMP = "placementhubsupport@gmail.com"
 EMP_PENDING = "placementhubsupport+3@gmail.com"
 SA = "support@placementhub.online"
 PRECOND_CORE = (
-    f"InternSafar running (sibling internship-portal, npm run dev). Candidate {CAND} / Admin@123. "
-    f"Employer {EMP} / Admin@123. SuperAdmin {SA} / Admin@123. All roles sign in on `/` "
+    f"InternSafar running (sibling internship-portal, npm run dev). Candidate {CAND} / <IP_QA_CORE_PASSWORD>. "
+    f"Employer {EMP} / <IP_QA_CORE_PASSWORD>. SuperAdmin {SA} / <IP_QA_CORE_PASSWORD>. All roles sign in on `/` "
     "(#email / #password + captcha)."
 )
 
@@ -129,9 +129,9 @@ EDITS: dict[str, dict[str, str]] = {
     # ---------- 02 Auth & Access ----------
     "TC-IS-02-001": {
         "Description": (
-            f"1. Open `/`.\n2. Candidate: {CAND} / Admin@123 + captcha → Sign in.\n"
-            f"3. Sign out. Repeat as employer {EMP} / Admin@123.\n"
-            f"4. Sign out. Repeat as SuperAdmin {SA} / Admin@123 on the same form."
+            f"1. Open `/`.\n2. Candidate: {CAND} / <IP_QA_CORE_PASSWORD> + captcha → Sign in.\n"
+            f"3. Sign out. Repeat as employer {EMP} / <IP_QA_CORE_PASSWORD>.\n"
+            f"4. Sign out. Repeat as SuperAdmin {SA} / <IP_QA_CORE_PASSWORD> on the same form."
         ),
         "Suggestion / Expected Behaviour": (
             "Candidate → /candidate. Employer → /employer. SuperAdmin → /superadmin. One home form for all roles."
@@ -158,7 +158,7 @@ EDITS: dict[str, dict[str, str]] = {
         "Issue Summary": "SuperAdmin signs in on home `/`; /superadmin/login only redirects",
         "Description": (
             "1. Signed out, open /superadmin/login.\n2. Observe the URL.\n"
-            f"3. On `/` sign in with {SA} / Admin@123 + captcha.\n"
+            f"3. On `/` sign in with {SA} / <IP_QA_CORE_PASSWORD> + captcha.\n"
             "4. Confirm landing page and SuperAdmin nav."
         ),
         "Suggestion / Expected Behaviour": (
@@ -1025,7 +1025,7 @@ def main(dry_run=False):
             "retired form/manual-request/Google-employer paths removed; employer email verify, Hybrid E documents, "
             "sticky approval, Suspend/Restore/Reject, Reset Ethics, Adjust Points added."
         )
-        idx.cell(26, 2).value = f"Candidate: {CAND} / Admin@123 | Employer: {EMP} / Admin@123 | SuperAdmin: {SA} / Admin@123 (all on `/`)"
+        idx.cell(26, 2).value = f"Candidate: {CAND} / <IP_QA_CORE_PASSWORD> | Employer: {EMP} / <IP_QA_CORE_PASSWORD> | SuperAdmin: {SA} / <IP_QA_CORE_PASSWORD> (all on `/`)"
         stamp_index_for_results(wb)
 
     if "Coverage Matrix" in wb.sheetnames:

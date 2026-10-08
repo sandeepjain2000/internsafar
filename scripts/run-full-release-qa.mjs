@@ -57,6 +57,7 @@ const UNIT_SCRIPTS = [
   'scripts/test-ip-email-unsubscribe.mjs',
   'scripts/test-demo-text-classifier.mjs',
   'scripts/test-ip-person-name.mjs',
+  'scripts/test-ip-profile-contact.mjs',
 ];
 
 console.log(describeSuite('full', SUITE_FULL));
