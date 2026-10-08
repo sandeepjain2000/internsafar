@@ -85,6 +85,7 @@ test-cases/qa-results.json
 tmp-screenshots/
 _tmp_*
 .mail-override-test-*
+.unsub-test-*/
 .local-qa-2fa-bypass-backup/
 .local/
 .tmp/
