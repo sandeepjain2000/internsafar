@@ -21,7 +21,7 @@ import {
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import SharePostingDialog from '@/components/ip/SharePostingDialog';
 import { useClientPagination } from '@/hooks/useClientPagination';
-import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import { IpListEmpty, IpListError, IpListLoading } from '@/components/ip/IpListStatus';
 import '@/components/ip/ip-employer-postings-gemini.css';
 import '@/components/ip/ip-table-filters.css';
 import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
@@ -120,6 +120,7 @@ export default function EmployerInternshipsPage() {
   const router = useRouter();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [cols, setCols] = useState(EMPTY_COLS);
@@ -154,10 +155,17 @@ export default function EmployerInternshipsPage() {
 
   async function load() {
     setLoading(true);
+    setLoadError('');
     try {
       const res = await fetch('/api/ip/employer/internships');
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setLoadError(data.error || 'Something went wrong on our side.');
+        return;
+      }
       setItems(data.items || []);
+    } catch {
+      setLoadError('We could not reach the server. Check your internet connection.');
     } finally {
       setLoading(false);
     }
@@ -480,6 +488,8 @@ export default function EmployerInternshipsPage() {
 
         {loading ? (
           <IpListLoading label="Loading Postings…" />
+        ) : loadError && !items.length ? (
+          <IpListError title="Could not load your postings" message={loadError} onRetry={load} />
         ) : !filtered.length ? (
           <IpListEmpty
             title={items.length ? 'No Matching Postings' : 'No Postings Yet'}

@@ -308,13 +308,15 @@ EDITS: dict[str, dict[str, str]] = {
         "Issue Summary": "Six profile tabs render; Privacy & Photo toggles and messaging opt-ins save",
         "Description": (
             "1. Open /candidate/profile.\n2. Confirm tabs: 1. Basics & Contact, 2. Academic, 3. Skills & Experience, "
-            "4. Work Readiness, 5. Privacy & Photo, 6. Endorsements (Read-Only).\n"
+            "4. Work Readiness, then an 'Optional' divider, then Privacy & Photo and Endorsements (Read-Only) with no number. "
+            "On 1. Basics & Contact the header reads 'Setup step 1 of 4'.\n"
             "3. On Privacy & Photo toggle show photo / searchable / hide phone until shortlist; set WhatsApp/Telegram "
             "opt-in.\n4. Save Privacy Settings and reload."
         ),
         "Suggestion / Expected Behaviour": (
-            "All six tabs visible. Endorsements read-only. Privacy toggles and opt-ins persist via PUT "
-            "/api/ip/candidate/profile."
+            "All six tabs visible. Only the four setup tabs are numbered and show 'Setup step X of 4'; an 'Optional' "
+            "divider separates them from Privacy & Photo and Endorsements, which have no number and no step header. "
+            "Endorsements read-only. Privacy toggles and opt-ins persist via PUT /api/ip/candidate/profile."
         ),
     },
     "TC-IS-06-004": {

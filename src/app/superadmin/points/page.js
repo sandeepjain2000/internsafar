@@ -1,13 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useOverlayDialog } from '@/hooks/useOverlayDialog';
+import { onTablistKeyDown } from '@/lib/tablistKeys';
+import IpToast from '@/components/ip/IpToast';
 import { useSession } from 'next-auth/react';
 import { Coins, Search } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import '@/components/ip/ip-superadmin-queue-gemini.css';
 import '@/components/ip/ip-list-pager.css';
 import IpListPager from '@/components/ip/IpListPager';
-import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import { IpListEmpty, IpListLoading, IpRetryButton } from '@/components/ip/IpListStatus';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import { useLatestRequest } from '@/hooks/useLatestRequest';
 import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
@@ -32,6 +35,8 @@ export default function SuperAdminAdjustPointsPage() {
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const adjustRef = useOverlayDialog(target, busy ? null : () => closeAdjust());
+  const confirmRef = useOverlayDialog(confirmOpen && target, busy ? null : () => setConfirmOpen(false));
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search).get('q');
@@ -84,12 +89,6 @@ export default function SuperAdminAdjustPointsPage() {
       setItems([]);
     }
   }, [sessionRole, sessionStatus, qDebounced, roleFilter]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!toast) return undefined;
-    const t = setTimeout(() => setToast(''), 2800);
-    return () => clearTimeout(t);
-  }, [toast]);
 
   const { page, setPage, totalPages, total, pageItems, pageSize } = useClientPagination(
     items,
@@ -180,11 +179,7 @@ export default function SuperAdminAdjustPointsPage() {
 
   return (
     <div className="ip-sa-q ip-mobile-bleed">
-      {toast ? (
-        <div className="ip-saq-toast" role="status">
-          {toast}
-        </div>
-      ) : null}
+      <IpToast message={toast} onDismiss={() => setToast('')} className="ip-saq-toast" />
 
       <div className="ip-saq-head">
         <div>
@@ -200,15 +195,20 @@ export default function SuperAdminAdjustPointsPage() {
       </div>
 
       {error && !target ? (
-        <Alert variant="destructive" className="mb-4">
+        <Alert variant="destructive" className="mb-4" role="alert">
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            {error}
+            <div>
+              <IpRetryButton onClick={load} />
+            </div>
+          </AlertDescription>
         </Alert>
       ) : null}
 
       <div className="ip-saq-panel">
         <div className="ip-saq-toolbar">
-          <div className="ip-saq-tabs" role="tablist">
+          <div className="ip-saq-tabs" role="tablist" onKeyDown={onTablistKeyDown}>
             {[
               { id: '', label: 'All' },
               { id: 'candidate', label: 'Candidates' },
@@ -304,7 +304,7 @@ export default function SuperAdminAdjustPointsPage() {
       </div>
 
       {target ? (
-        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-pts-title">
+        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-pts-title" ref={adjustRef}>
           <div className="ip-saq-modal">
             <div className="ip-saq-modal__head">
               <div className="ip-saq-modal__title">
@@ -331,9 +331,11 @@ export default function SuperAdminAdjustPointsPage() {
                 </Alert>
               ) : null}
 
-              <div className="ip-saq-tabs" role="tablist" aria-label="Add or deduct">
+              <div className="ip-saq-tabs" role="tablist" onKeyDown={onTablistKeyDown} aria-label="Add or deduct">
                 <button
                   type="button"
+                  role="tab"
+                  aria-selected={mode === 'add'}
                   className={`ip-saq-tab${mode === 'add' ? ' ip-saq-tab--on' : ''}`}
                   onClick={() => setMode('add')}
                 >
@@ -341,6 +343,8 @@ export default function SuperAdminAdjustPointsPage() {
                 </button>
                 <button
                   type="button"
+                  role="tab"
+                  aria-selected={mode === 'deduct'}
                   className={`ip-saq-tab${mode === 'deduct' ? ' ip-saq-tab--on' : ''}`}
                   onClick={() => setMode('deduct')}
                 >
@@ -403,7 +407,7 @@ export default function SuperAdminAdjustPointsPage() {
       ) : null}
 
       {confirmOpen && target && previewDelta != null ? (
-        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-pts-confirm">
+        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-pts-confirm" ref={confirmRef}>
           <div className="ip-saq-modal">
             <div className="ip-saq-modal__head">
               <div className="ip-saq-modal__title">

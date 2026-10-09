@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useOverlayDialog } from '@/hooks/useOverlayDialog';
+import { onTablistKeyDown } from '@/lib/tablistKeys';
+import IpToast from '@/components/ip/IpToast';
 import Link from 'next/link';
 import {
   Check,
@@ -115,6 +118,9 @@ export default function CandidateOffersPage() {
   const [tab, setTab] = useState('all');
   const [confirm, setConfirm] = useState(null);
   const [shareFor, setShareFor] = useState(null);
+  const confirmRef = useOverlayDialog(confirm, () => setConfirm(null));
+  const shareRef = useOverlayDialog(shareFor, () => setShareFor(null));
+  const rateRef = useOverlayDialog(rateFor, () => setRateFor(null));
   const [phoneNote, setPhoneNote] = useState('');
   const onPhone = usePhoneShareDevice();
   const [error, setError] = useState('');
@@ -146,7 +152,6 @@ export default function CandidateOffersPage() {
 
   function showToast(msg) {
     setToast(msg);
-    setTimeout(() => setToast(''), 2800);
   }
 
   function resetFilters() {
@@ -308,6 +313,8 @@ export default function CandidateOffersPage() {
       <button
         key={t.id}
         type="button"
+        role="tab"
+        aria-selected={tab === t.id}
         className={`ip-of-tab${tab === t.id ? ' ip-of-tab--on' : ''}`}
         onClick={() => setTab(t.id)}
       >
@@ -320,7 +327,7 @@ export default function CandidateOffersPage() {
 
   return (
     <div className="ip-offers ip-mobile-bleed">
-      {toast ? <div className="ip-of-toast">{toast}</div> : null}
+      <IpToast message={toast} onDismiss={() => setToast('')} className="ip-of-toast" />
 
       <div className="ip-of-header">
         <div>
@@ -384,7 +391,7 @@ export default function CandidateOffersPage() {
         </IpTableFiltersShell>
       </div>
 
-      <div className="ip-of-tabs" role="tablist" aria-label="Offer status">
+      <div className="ip-of-tabs" role="tablist" onKeyDown={onTablistKeyDown} aria-label="Offer status">
         {TABS.map(renderTabButton)}
         <div className="ip-of-view-toggle">
           <ViewModeToggle value={viewMode} onChange={setViewMode} />
@@ -697,9 +704,9 @@ export default function CandidateOffersPage() {
       ) : null}
 
       {confirm ? (
-        <div className="ip-of-overlay" role="dialog" aria-modal="true">
+        <div className="ip-of-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-of-confirm-title" ref={confirmRef}>
           <div className="ip-of-modal">
-            <h3>{confirm.action === 'accepted' ? 'Accept internship offer?' : 'Decline internship offer?'}</h3>
+            <h3 id="ip-of-confirm-title">{confirm.action === 'accepted' ? 'Accept internship offer?' : 'Decline internship offer?'}</h3>
             <p>
               You are about to {confirm.action === 'accepted' ? 'accept' : 'decline'} the{' '}
               <strong>{confirm.offer.role_title || confirm.offer.title}</strong> offer from{' '}
@@ -727,9 +734,9 @@ export default function CandidateOffersPage() {
       ) : null}
 
       {shareFor ? (
-        <div className="ip-of-overlay" role="dialog" aria-modal="true">
+        <div className="ip-of-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-of-share-title" ref={shareRef}>
           <div className="ip-of-modal">
-            <h3>Share offer</h3>
+            <h3 id="ip-of-share-title">Share offer</h3>
             <p>
               {shareFor.role_title || shareFor.title} — {shareFor.company_name}
             </p>
@@ -756,9 +763,9 @@ export default function CandidateOffersPage() {
       ) : null}
 
       {rateFor ? (
-        <div className="ip-of-overlay" role="dialog" aria-modal="true">
+        <div className="ip-of-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-of-rate-title" ref={rateRef}>
           <div className="ip-of-modal">
-            <h3>Rate {rateFor.company_name}</h3>
+            <h3 id="ip-of-rate-title">Rate {rateFor.company_name}</h3>
             <p>Mutual rating after accepted offer</p>
             <div className="ip-of-stars">
               {[1, 2, 3, 4, 5].map((n) => (

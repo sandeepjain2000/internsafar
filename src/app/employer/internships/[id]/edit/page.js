@@ -294,7 +294,7 @@ export default function EditInternshipPage() {
               </TabsList>
 
               <TabsContent value="details" className="grid gap-4 overflow-visible sm:grid-cols-2">
-                <Field className="sm:col-span-2"><FieldLabel>Title</FieldLabel><Input value={form.title || ''} onChange={(e) => set('title', e.target.value)} required /></Field>
+                <Field className="sm:col-span-2"><FieldLabel>Title <span className="text-destructive" aria-hidden>*</span></FieldLabel><Input value={form.title || ''} onChange={(e) => set('title', e.target.value)} required /></Field>
                 <Field className="sm:col-span-2"><FieldLabel>Description</FieldLabel><Textarea rows={4} value={form.description || ''} onChange={(e) => set('description', e.target.value)} /></Field>
                 <Field className="sm:col-span-2 overflow-visible">
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -313,8 +313,9 @@ export default function EditInternshipPage() {
                   </div>
                 </Field>
                 <Field className="sm:col-span-2">
-                  <FieldLabel>Work Mode</FieldLabel>
+                  <FieldLabel>Work Mode <span className="text-destructive" aria-hidden>*</span></FieldLabel>
                   <WorkModeRadios
+                    required
                     name={`edit-internship-work-mode-${form.id || 'x'}`}
                     value={form.work_mode || ''}
                     onChange={(mode) => set('work_mode', mode)}

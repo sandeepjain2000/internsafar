@@ -4,6 +4,7 @@ import '@/components/ip/ip-gemini-dark-surface.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { ToastProvider } from '@/components/ToastProvider';
 import { Providers } from '@/components/Providers';
+import RouteTitle from '@/components/RouteTitle';
 
 export const metadata = {
   title: 'InternSafar',
@@ -30,6 +31,7 @@ export default function RootLayout({ children }) {
       </head>
       <body suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <RouteTitle />
         <ThemeProvider>
           <ToastProvider>
             <Providers>{children}</Providers>

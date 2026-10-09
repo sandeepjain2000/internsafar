@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { createContext, useContext, useId, useMemo } from 'react'
 
 import { cva } from 'class-variance-authority'
 
@@ -64,19 +64,29 @@ const fieldVariants = cva('group/field data-[invalid=true]:text-destructive flex
   }
 })
 
+/** Id of the Field's FieldLabel. Input/Textarea without their own label point aria-labelledby at it. */
+const FieldLabelIdContext = createContext(null)
+
+function useFieldLabelId() {
+  return useContext(FieldLabelIdContext)
+}
+
 function Field({
   className,
   orientation = 'vertical',
   ...props
 }) {
+  const labelId = useId()
   return (
-    <div
-      role='group'
-      data-slot='field'
-      data-orientation={orientation}
-      className={cn(fieldVariants({ orientation }), className)}
-      {...props}
-    />
+    <FieldLabelIdContext.Provider value={labelId}>
+      <div
+        role='group'
+        data-slot='field'
+        data-orientation={orientation}
+        className={cn(fieldVariants({ orientation }), className)}
+        {...props}
+      />
+    </FieldLabelIdContext.Provider>
   )
 }
 
@@ -91,8 +101,10 @@ function FieldContent({ className, ...props }) {
 }
 
 function FieldLabel({ className, ...props }) {
+  const labelId = useFieldLabelId()
   return (
     <Label
+      id={props.htmlFor ? undefined : labelId || undefined}
       data-slot='field-label'
       className={cn(
         'group/field-label peer/field-label has-data-checked:border-primary/30 has-data-checked:bg-primary/5 dark:has-data-checked:border-primary/20 dark:has-data-checked:bg-primary/10 flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 has-[>[data-slot=field]]:rounded-md has-[>[data-slot=field]]:border *:data-[slot=field]:p-3',
@@ -211,5 +223,6 @@ export {
   FieldSeparator,
   FieldSet,
   FieldContent,
-  FieldTitle
+  FieldTitle,
+  useFieldLabelId
 }

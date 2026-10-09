@@ -94,7 +94,7 @@ CORRECTED = {
     "AUTH-1": "Candidate/employer: Gmail+ cores on `/` with captcha.",
     "AUTH-15": "SuperAdmin: support@placementhub.online on /superadmin/login (#sa-email, #sa-password).",
     "BOOT-1": "Bootstrap keeps support@placementhub.online and the Gmail+ showcase users.",
-    "CAND-P-1": "Profile is five tabs: Basics, Academic, Work Readiness, Privacy & Photo, Endorsements (read-only).",
+    "CAND-P-1": "Profile is six tabs: setup steps 1. Basics & Contact, 2. Academic, 3. Skills & Experience, 4. Work Readiness ('Setup step X of 4'), then unnumbered Privacy & Photo and Endorsements (read-only).",
     "CAND-P-2": "Photo/privacy on tab 4; academics via /api/ip/candidate/academics.",
     "CAND-P-3": "Incomplete-profile banner on /candidate and /candidate/profile.",
     "ACA-1": "Academic rows save through the academics API.",

@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useOverlayDialog } from '@/hooks/useOverlayDialog';
+import { onTablistKeyDown } from '@/lib/tablistKeys';
+import IpToast from '@/components/ip/IpToast';
 import { useSession } from 'next-auth/react';
 import {
   AlertTriangle,
@@ -99,6 +102,8 @@ export default function FeatureIdeasPage() {
   const [formCategoryId, setFormCategoryId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [detail, setDetail] = useState(null);
+  const formRef = useOverlayDialog(formOpen && canSubmit, () => setFormOpen(false));
+  const detailRef = useOverlayDialog(detail, () => setDetail(null));
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const commentsReqRef = useRef(0);
@@ -107,7 +112,6 @@ export default function FeatureIdeasPage() {
 
   function showToast(msg) {
     setToast(msg);
-    window.setTimeout(() => setToast(''), 2800);
   }
 
   /** Never throws; a failed refresh keeps the ideas already on screen. */
@@ -290,11 +294,7 @@ export default function FeatureIdeasPage() {
 
   return (
     <div className="ip-cand-ideas">
-      {toast ? (
-        <div className="ip-ci-toast" role="status">
-          {toast}
-        </div>
-      ) : null}
+      <IpToast message={toast} onDismiss={() => setToast('')} className="ip-ci-toast" />
 
       <div className="ip-ci-header">
         <div>
@@ -351,7 +351,7 @@ export default function FeatureIdeasPage() {
             </select>
           </div>
         </div>
-        <div className="ip-ci-tabs" role="tablist" aria-label="Idea status">
+        <div className="ip-ci-tabs" role="tablist" onKeyDown={onTablistKeyDown} aria-label="Idea status">
           {STATUS_TABS.map((tab) => (
             <button
               key={tab.id}
@@ -594,7 +594,7 @@ export default function FeatureIdeasPage() {
       )}
 
       {formOpen && canSubmit ? (
-        <div className="ip-ci-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-ci-suggest-title">
+        <div className="ip-ci-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-ci-suggest-title" ref={formRef}>
           <div className="ip-ci-modal">
             <div className="ip-ci-modal__head">
               <div>
@@ -699,7 +699,7 @@ export default function FeatureIdeasPage() {
       ) : null}
 
       {liveDetail ? (
-        <div className="ip-ci-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-ci-detail-title">
+        <div className="ip-ci-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-ci-detail-title" ref={detailRef}>
           <div className="ip-ci-modal ip-ci-modal--wide">
             <div className="ip-ci-modal__head">
               <div className="ip-ci-badges">
@@ -727,7 +727,7 @@ export default function FeatureIdeasPage() {
                 <h2 id="ip-ci-detail-title" style={{ margin: 0, fontSize: '1.125rem' }}>
                   {liveDetail.title}
                 </h2>
-                <p style={{ margin: '0.375rem 0 0', fontSize: '0.75rem', color: '#94a3b8' }}>
+                <p style={{ margin: '0.375rem 0 0', fontSize: '0.75rem', color: '#64748b' }}>
                   Suggested by <strong style={{ color: '#334155' }}>{liveDetail.author_name || 'Unknown'}</strong>
                   {liveDetail.author_user_id === userId ? ' (you)' : ''} • {formatWhen(liveDetail.created_at)} •{' '}
                   {liveDetail.vote_count || 0} votes

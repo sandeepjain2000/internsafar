@@ -126,6 +126,10 @@
   background: #eef2ff;
 }
 
+.ip-cand-nf .ip-ph-list tr.is-unread .ip-cn-table-context {
+  color: #475569;
+}
+
 .ip-cand-nf .sr-only {
   position: absolute;
   width: 1px;
@@ -275,7 +279,7 @@
   transform: translateY(-50%);
   width: 1rem;
   height: 1rem;
-  color: #94a3b8;
+  color: #64748b;
   pointer-events: none;
 }
 
@@ -306,7 +310,7 @@
   transform: translateY(-50%);
   border: 0;
   background: none;
-  color: #94a3b8;
+  color: #64748b;
   cursor: pointer;
   padding: 0.25rem;
 }
@@ -600,7 +604,7 @@
 .ip-cand-nf .ip-cn-sr {
   font-size: 0.7rem;
   font-weight: 700;
-  color: #94a3b8;
+  color: #64748b;
   min-width: 1.25rem;
   text-align: center;
 }
@@ -675,7 +679,7 @@
 .ip-cand-nf .ip-cn-row__chev {
   width: 1rem;
   height: 1rem;
-  color: #94a3b8;
+  color: #64748b;
   flex-shrink: 0;
   transition: transform 0.15s ease;
 }
@@ -752,13 +756,13 @@
 
 .ip-cand-nf .ip-cn-icon--offers {
   background: #fffbeb;
-  color: #d97706;
+  color: #b45309;
   border-color: #fde68a;
 }
 
 .ip-cand-nf .ip-cn-icon--interviews {
   background: #ecfdf5;
-  color: #059669;
+  color: #047857;
   border-color: #a7f3d0;
 }
 
@@ -822,7 +826,7 @@
 
 .ip-cand-nf .ip-cn-company {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #64748b;
   font-weight: 500;
 }
 
@@ -835,13 +839,13 @@
 
 .ip-cand-nf .ip-cn-time {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #64748b;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .ip-cand-nf .ip-cn-read {
   font-size: 0.625rem;
-  color: #94a3b8;
+  color: #64748b;
   font-weight: 500;
 }
 
@@ -949,7 +953,7 @@
   margin: 0 auto 1rem;
   border-radius: 1rem;
   background: #f1f5f9;
-  color: #94a3b8;
+  color: #64748b;
   display: flex;
   align-items: center;
   justify-content: center;

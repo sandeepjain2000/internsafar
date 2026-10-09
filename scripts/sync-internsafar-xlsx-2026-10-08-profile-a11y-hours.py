@@ -34,14 +34,14 @@ NEW_CASE = {
         "2. Click the 'First Name' label — the First Name box gets focus. Type 'Priya2' (screen reader reads the error with the field).\n"
         "3. 4. Work Readiness → Preferred working hours: from 22:00, to 02:00 (night shift). Save.\n"
         "4. Ongoing commitment? = Other → Commitment note: try to type more than 200 characters.\n"
-        "5. 5. Privacy & Photo → Telegram '@ab'. Go back to 1. Basics & Contact and click Save.\n"
-        "6. Click 'Go to 5. Privacy & Photo' in the save message."
+        "5. Open the Privacy & Photo tab → Telegram '@ab'. Go back to 1. Basics & Contact and click Save.\n"
+        "6. Click 'Go to Privacy & Photo' in the save message."
     ),
     "Suggestion / Expected Behaviour": (
         "Step 2: label focuses the input; the name error is announced with it. "
         "Step 3: no error — night-shift hours (\"to\" earlier than \"from\") save as entered. "
         "Step 4: the box stops at 200 characters (API also returns 400 above 200). "
-        "Step 5: 'Not saved — Telegram handle must be … (on the 5. Privacy & Photo tab)' with a 'Go to 5. Privacy & Photo' link. "
+        "Step 5: 'Not saved — Telegram handle must be … (on the Privacy & Photo tab)' with a 'Go to Privacy & Photo' link. "
         "Step 6: the Privacy tab opens and the Telegram box is focused. "
         "PUT /api/ip/candidate/profile returns 400 only when an hours value is not a time (e.g. '9am') or the note is over 200 characters."
     ),

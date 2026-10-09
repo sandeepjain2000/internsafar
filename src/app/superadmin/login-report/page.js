@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useOverlayDialog } from '@/hooks/useOverlayDialog';
 import {
   Activity,
   Eye,
@@ -14,7 +15,7 @@ import {
 import '@/components/ip/ip-superadmin-queue-gemini.css';
 import '@/components/ip/ip-list-pager.css';
 import IpListPager from '@/components/ip/IpListPager';
-import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import { IpListEmpty, IpListLoading, IpRetryButton } from '@/components/ip/IpListStatus';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import { useLatestRequest } from '@/hooks/useLatestRequest';
 import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
@@ -43,6 +44,7 @@ export default function LoginReportPage() {
   const [rangeTotals, setRangeTotals] = useState({ '24h': 0, '7d': 0, '30d': 0, all: 0 });
   const [error, setError] = useState('');
   const [inspect, setInspect] = useState(null);
+  const inspectRef = useOverlayDialog(inspect, () => setInspect(null));
   const [loading, setLoading] = useState(true);
 
   async function loadRangeTotals() {
@@ -150,7 +152,14 @@ export default function LoginReportPage() {
         </div>
       </div>
 
-      {error ? <div className="ip-saq-error">{error}</div> : null}
+      {error ? (
+        <div className="ip-saq-error" role="alert">
+          {error}
+          <div>
+            <IpRetryButton onClick={load} />
+          </div>
+        </div>
+      ) : null}
 
       <div className="ip-saq-metrics">
         <div className="ip-saq-metric">
@@ -246,6 +255,7 @@ export default function LoginReportPage() {
               <input
                 type="search"
                 placeholder="Search email, IP, location..."
+                aria-label="Search sign-in records"
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
@@ -282,7 +292,7 @@ export default function LoginReportPage() {
                 <tbody>
                   {pageItems.map((ev, idx) => (
                     <tr key={ev.id}>
-                      <td style={{ color: '#94a3b8' }}>{serialOffset + idx + 1}</td>
+                      <td style={{ color: '#64748b' }}>{serialOffset + idx + 1}</td>
                       <td>{ev.created_at ? new Date(ev.created_at).toLocaleString() : '—'}</td>
                       <td>{ev.email || '—'}</td>
                       <td>
@@ -331,7 +341,7 @@ export default function LoginReportPage() {
       </div>
 
       {inspect ? (
-        <div className="ip-saq-overlay" role="dialog" aria-modal="true">
+        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-login-title" ref={inspectRef}>
           <div className="ip-saq-modal">
             <div className="ip-saq-modal__head">
               <div className="ip-saq-modal__title">
@@ -339,7 +349,7 @@ export default function LoginReportPage() {
                   <Eye size={18} aria-hidden />
                 </div>
                 <div>
-                  <h3>Inspect auth event</h3>
+                  <h3 id="ip-saq-login-title">Inspect auth event</h3>
                   <span>{inspect.email}</span>
                 </div>
               </div>

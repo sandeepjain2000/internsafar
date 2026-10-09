@@ -245,7 +245,7 @@ const LoginCaptchaField = forwardRef(function LoginCaptchaField(
         <div className="ip-gemini-security__head">
           <div className="ip-gemini-security__title">
             <ShieldCheck className="size-3.5 text-indigo-600" aria-hidden="true" />
-            <span>Security Verification</span>
+            <span id={`${inputId}-title`}>Security Verification</span>
           </div>
           <button
             type="button"
@@ -259,12 +259,13 @@ const LoginCaptchaField = forwardRef(function LoginCaptchaField(
         </div>
 
         <div className="ip-gemini-security__row">
-          <div className="ip-gemini-security__badge" aria-live="polite">
+          <div className="ip-gemini-security__badge" id={`${inputId}-question`} aria-live="polite">
             {equationBadge}
           </div>
           <input
             ref={inputRef}
             id={inputId}
+            aria-labelledby={`${inputId}-title ${inputId}-question`}
             name={`${inputId}-not-a-password`}
             type="text"
             inputMode="numeric"

@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { requireSession, jsonOk } from '@/lib/apiAuth';
 import { ensureIpMessageArchiveSchema } from '@/lib/ensureIpMessageArchiveSchema';
 import { ensureIpNotificationCategorySchema } from '@/lib/ensureIpNotificationCategorySchema';
+import { ensureCandidateSavedClosingNotices } from '@/lib/ipCandidateNotificationPresentation';
 
 /**
  * Compact sidebar badge counts for candidate / employer.
@@ -17,6 +18,10 @@ export async function GET() {
   const userId = session.user.id;
   const role = session.user.role;
   const badges = {};
+
+  if (role === 'candidate') {
+    await ensureCandidateSavedClosingNotices(userId).catch((e) => console.warn('[saved closing notices]', e.message));
+  }
 
   const unreadNotifs = await query(
     `SELECT count(*)::int AS n FROM ip_notifications

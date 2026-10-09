@@ -28,6 +28,8 @@ import {
 } from 'lucide-react';
 import '@/components/ip/ip-superadmin-candidates.css';
 import { useLatestRequest } from '@/hooks/useLatestRequest';
+import { onTablistKeyDown } from '@/lib/tablistKeys';
+import { IpToastItem } from '@/components/ip/IpToast';
 import {
   APPLICATION_STATUSES,
   APPS_FILTER_LABEL,
@@ -116,7 +118,6 @@ export default function SuperAdminCandidatesPage() {
   const toast = useCallback((msg) => {
     const id = `${Date.now()}-${Math.random()}`;
     setToasts((t) => [...t, { id, msg }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2800);
   }, []);
 
   useEffect(() => {
@@ -484,11 +485,11 @@ export default function SuperAdminCandidatesPage() {
   function appsCell(c) {
     const n = c.applications.length;
     const nco = new Set(c.applications.map((a) => a.employerId)).size;
-    if (!n) return <span className="text-slate-400 font-semibold">0</span>;
+    if (!n) return <span className="text-slate-500 font-semibold">0</span>;
     return (
       <>
         <div className="font-extrabold text-[14px] text-slate-900">{n}</div>
-        <div className="text-[11px] text-slate-400 whitespace-nowrap">
+        <div className="text-[11px] text-slate-500 whitespace-nowrap">
           across {nco} compan{nco === 1 ? 'y' : 'ies'}
         </div>
       </>
@@ -505,7 +506,7 @@ export default function SuperAdminCandidatesPage() {
             <span className="font-bold text-slate-800 truncate max-w-[130px]">{companyName(a.employerId)}</span>
             <StatusPill status={a.status} />
           </div>
-          <div className="text-[11px] text-slate-400 mt-0.5 truncate max-w-[220px]">
+          <div className="text-[11px] text-slate-500 mt-0.5 truncate max-w-[220px]">
             {a.postingTitle} · {relativeDate(a.updatedAt)}
           </div>
         </>
@@ -533,7 +534,7 @@ export default function SuperAdminCandidatesPage() {
         <div className="font-semibold text-slate-800 truncate max-w-[210px]" title={line}>
           {line || <span className="sac-na">Not added</span>}
         </div>
-        {c.gradYear ? <div className="text-[11px] text-slate-400">Class of {c.gradYear}</div> : null}
+        {c.gradYear ? <div className="text-[11px] text-slate-500">Class of {c.gradYear}</div> : null}
       </>
     );
   }
@@ -556,9 +557,10 @@ export default function SuperAdminCandidatesPage() {
       <th
         className={`sac-th sac-th--sortable ${extra}`}
         aria-sort={on ? (S.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-        onClick={() => sortBy(key)}
       >
-        {label} <span>{on ? (S.dir === 'asc' ? '↑' : '↓') : ''}</span>
+        <button type="button" className="sac-sort-btn" onClick={() => sortBy(key)}>
+          {label} <span aria-hidden>{on ? (S.dir === 'asc' ? '↑' : '↓') : ''}</span>
+        </button>
       </th>
     );
   }
@@ -590,7 +592,7 @@ export default function SuperAdminCandidatesPage() {
 
   const header = (
     <>
-      <div className="text-[12px] font-medium text-slate-400 mb-1">
+      <div className="text-[12px] font-medium text-slate-500 mb-1">
         SuperAdmin / <span className="text-slate-600">Candidates</span>
       </div>
     </>
@@ -757,7 +759,7 @@ export default function SuperAdminCandidatesPage() {
 
       <div className="sac-card p-4 md:p-5 flex flex-col gap-4">
         <div className="flex flex-col lg:flex-row justify-between gap-3 lg:items-center">
-          <div className="sac-seg" role="tablist" aria-label="Profile status">
+          <div className="sac-seg" role="tablist" onKeyDown={onTablistKeyDown} aria-label="Profile status">
             {[
               ['all', 'All'],
               ['complete', 'Complete'],
@@ -839,11 +841,11 @@ export default function SuperAdminCandidatesPage() {
                         >
                           <span className="flex-1 min-w-0">
                             <span className="block truncate">{c.name}</span>
-                            <span className="block text-[11px] font-medium text-slate-400">
+                            <span className="block text-[11px] font-medium text-slate-500">
                               {[c.city, c.nameHidden ? 'name hidden on posting' : ''].filter(Boolean).join(' · ') || '—'}
                             </span>
                           </span>
-                          <span className="text-[11px] text-slate-400 whitespace-nowrap">{c.applied} applied</span>
+                          <span className="text-[11px] text-slate-500 whitespace-nowrap">{c.applied} applied</span>
                         </button>
                       ))
                     ) : (
@@ -902,7 +904,7 @@ export default function SuperAdminCandidatesPage() {
                   {selectField('state', 'State', panelOptions.state, locOff)}
                   {selectField('city', 'City', panelOptions.city, locOff)}
                   {locOff ? (
-                    <div className="text-[11px] text-slate-400">State and city are listed for India only.</div>
+                    <div className="text-[11px] text-slate-500">State and city are listed for India only.</div>
                   ) : null}
                 </div>
                 <div className="space-y-3">
@@ -1327,10 +1329,15 @@ export default function SuperAdminCandidatesPage() {
 
       <div className="sac-toasts" aria-live="polite">
         {toasts.map((t) => (
-          <div key={t.id} className="sac-toast">
+          <IpToastItem
+            key={t.id}
+            message={t.msg}
+            onDismiss={() => setToasts((all) => all.filter((x) => x.id !== t.id))}
+            className="sac-toast"
+          >
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden />
             <span>{t.msg}</span>
-          </div>
+          </IpToastItem>
         ))}
       </div>
     </div>

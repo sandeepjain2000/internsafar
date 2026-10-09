@@ -114,11 +114,12 @@ src/
 │   ├── ip/                      # Product UI + scoped *-gemini.css
 │   ├── ui/                      # shadcn primitives
 │   ├── auth/                    # Shared auth widgets
-│   ├── Providers.jsx, ThemeProvider.js, ToastProvider.js, …
+│   ├── Providers.jsx, ThemeProvider.js, ToastProvider.js, RouteTitle.jsx (per-page document.title), …
 │   ├── DataTableToolbar.jsx, PageLoading.jsx, ThemeToggleButton.jsx
 ├── lib/                         # Auth, DB, mail, S3, domain helpers, ensureIp*.js
+│   ├── ipPageTitle.js, tablistKeys.js   # a11y helpers (see domains/ui-ux.md)
 │   └── ipHelpChat/              # Help chatbot knowledge/runtime
-├── hooks/
+├── hooks/                       # incl. useOverlayDialog.js (dialog focus/Escape)
 ├── config/menu.js
 └── styles/shadcn.css
 ```

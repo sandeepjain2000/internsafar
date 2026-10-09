@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Archive,
@@ -22,10 +22,12 @@ import {
   X,
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import { onTablistKeyDown } from '@/lib/tablistKeys';
 import { refreshNavBadges } from '@/lib/ipNavBadges';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import IpListPager from '@/components/ip/IpListPager';
+import IpToast from '@/components/ip/IpToast';
 import {
   IpDateRangeFilter,
   IpSingleSelectFilter,
@@ -33,7 +35,7 @@ import {
   IP_RECEIVED_WINDOW_OPTIONS,
   inReceivedWindow,
 } from '@/components/ip/IpTableFiltersShell';
-import { IpListLoading } from '@/components/ip/IpListStatus';
+import { IpListError, IpListLoading } from '@/components/ip/IpListStatus';
 import '@/components/ip/ip-employer-notifications-gemini.css';
 import '@/components/ip/ip-table-filters.css';
 import '@/components/ip/ip-list-pager.css';
@@ -188,7 +190,7 @@ function ContextPreview({ text, expanded, onToggle }) {
     <p className="ip-en-table-context">
       <span>{expanded || !needsMore ? full : preview}</span>
       {needsMore ? (
-        <button type="button" className="ip-en-context-more" onClick={onToggle}>
+        <button type="button" className="ip-en-context-more" aria-expanded={!!expanded} onClick={onToggle}>
           {expanded ? ' less' : ' or more'}
         </button>
       ) : null}
@@ -221,14 +223,13 @@ export default function EmployerNotificationsPage() {
   const [cols, setCols] = useState(EMPTY_COLS);
   const [toastMsg, setToastMsg] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [presetResetKey, setPresetResetKey] = useState(0);
   const [folder, setFolder] = useState('inbox');
   const [selected, setSelected] = useState(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
-  const toastTimerRef = useRef(null);
-
   const snapshot = useMemo(
     () => ({ filters: { search, cols }, sort: '' }),
     [search, cols],
@@ -255,11 +256,26 @@ export default function EmployerNotificationsPage() {
   });
 
   async function load({ badges = false } = {}) {
-    const notifRes = await fetch('/api/ip/notifications');
-    const notifData = await notifRes.json().catch(() => ({}));
-    setItems(notifData.items || []);
-    setLoading(false);
-    if (badges) refreshNavBadges();
+    try {
+      const notifRes = await fetch('/api/ip/notifications');
+      const notifData = await notifRes.json().catch(() => ({}));
+      if (!notifRes.ok) {
+        setLoadError(notifData.error || 'Something went wrong on our side.');
+        return;
+      }
+      setLoadError('');
+      setItems(notifData.items || []);
+      if (badges) refreshNavBadges();
+    } catch {
+      setLoadError('We could not reach the server. Check your internet connection.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function retryLoad() {
+    setLoading(true);
+    load();
   }
 
   useEffect(() => {
@@ -270,8 +286,6 @@ export default function EmployerNotificationsPage() {
 
   function showToast(msg) {
     setToastMsg(msg);
-    window.clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = window.setTimeout(() => setToastMsg(null), 3000);
   }
 
   async function markAllRead() {
@@ -390,12 +404,10 @@ export default function EmployerNotificationsPage() {
 
   return (
     <div className="ip-emp-notif ip-mobile-bleed">
-      {toastMsg ? (
-        <div className="ip-en-toast" role="status">
-          <Check size={16} aria-hidden />
-          <span>{toastMsg}</span>
-        </div>
-      ) : null}
+      <IpToast message={toastMsg} onDismiss={() => setToastMsg(null)} className="ip-en-toast">
+        <Check size={16} aria-hidden />
+        <span>{toastMsg}</span>
+      </IpToast>
 
       <div className="ip-en-toolbar">
         <div className="ip-en-crumb">
@@ -480,7 +492,7 @@ export default function EmployerNotificationsPage() {
             onTo={(dateTo) => setCols((c) => ({ ...c, dateTo }))}
           />
         </IpTableFiltersShell>
-        <div className="ip-en-folders" role="tablist" aria-label="Notification folders">
+        <div className="ip-en-folders" role="tablist" onKeyDown={onTablistKeyDown} aria-label="Notification folders">
           <button
             type="button"
             role="tab"
@@ -537,6 +549,8 @@ export default function EmployerNotificationsPage() {
 
       {loading ? (
         <IpListLoading label="Please Wait…" />
+      ) : loadError && !items.length ? (
+        <IpListError title="Could not load notifications" message={loadError} onRetry={retryLoad} />
       ) : !folderItems.length ? (
         <div className="ip-en-empty ip-en-empty--dash">
           <div className="ip-en-empty__icon">

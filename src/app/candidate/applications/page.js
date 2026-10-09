@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useOverlayDialog } from '@/hooks/useOverlayDialog';
+import { IpListError } from '@/components/ip/IpListStatus';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -154,6 +156,7 @@ export default function MyApplicationsPage() {
   const [cols, setCols] = useState(EMPTY_COLS);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [detail, setDetail] = useState(null);
+  const detailRef = useOverlayDialog(detail, () => setDetail(null));
   const [displayMode, setViewMode, { stored: viewMode }] = useViewMode('ip_apps_view', 'list');
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -281,6 +284,8 @@ export default function MyApplicationsPage() {
       const list = Array.isArray(data.items) ? data.items : [];
       setItems(list);
       setTotalServer(Number(data.total) || list.length);
+    } catch {
+      setLoadError('We could not reach the server. Check your internet connection.');
     } finally {
       setLoading(false);
     }
@@ -398,8 +403,6 @@ export default function MyApplicationsPage() {
           <ViewModeToggle value={viewMode} onChange={setViewMode} />
         </div>
       </div>
-
-      {loadError ? <p className="ip-ap-empty" style={{ margin: '0.75rem 0' }}>{loadError}</p> : null}
 
       {appliedId ? (
         <div className="ip-ap-applied" role="status" data-testid="apply-confirmation">
@@ -562,6 +565,8 @@ export default function MyApplicationsPage() {
       <div className="ip-ap-sheet">
         {loading ? (
           <p className="ip-ap-loading">Loading applications…</p>
+        ) : loadError ? (
+          <IpListError title="Could not load your applications" message={loadError} onRetry={load} />
         ) : (
           <>
         {displayMode === 'cards' ? (
@@ -708,7 +713,7 @@ export default function MyApplicationsPage() {
         </div>
         ) : null}
 
-        {!loading && !filtered.length ? (
+        {!loading && !loadError && !filtered.length ? (
           <div className="ip-ap-empty">
             <h3>No applications found</h3>
             <p>
@@ -762,7 +767,7 @@ export default function MyApplicationsPage() {
       </section>
 
       {detail ? (
-        <div className="ip-ap-modal" role="dialog" aria-modal="true" aria-labelledby="ip-ap-detail-title">
+        <div className="ip-ap-modal" role="dialog" aria-modal="true" aria-labelledby="ip-ap-detail-title" ref={detailRef}>
           <button type="button" className="ip-ap-modal__backdrop" aria-label="Close" onClick={() => setDetail(null)} />
           <div className="ip-ap-modal__card">
             <div className="ip-ap-modal__head">

@@ -2,6 +2,14 @@ import { query } from '@/lib/db';
 import { notifyUser } from '@/lib/ipNotify';
 import { offerDeadlineEnd, offerDaysRemainingLabel, offerIsExpired } from '@/lib/ipOfferPresentation';
 import { ensureIpNotificationCategorySchema } from '@/lib/ensureIpNotificationCategorySchema';
+import { ensureIpAccountSettingsSchema } from '@/lib/ensureIpAccountSettingsSchema';
+import { CANDIDATE_VISIBLE_SQL } from '@/lib/ipInternshipVisibility';
+import { candidateFacingCompany } from '@/lib/ipEmployerIdentity';
+import { formatIstDateTime } from '@/lib/ipIstTime';
+
+/** Saved internships closing within this many hours get a one-time in-app alert. */
+export const SAVED_CLOSING_ALERT_HOURS = 72;
+const SAVED_CLOSING_KIND = 'saved_closing';
 
 function parseMeta(raw) {
   if (!raw) return {};
@@ -19,6 +27,7 @@ function blobOf(n) {
 
 /** Filter bucket for the candidate inbox. Uses stored category first, then link/title. */
 export function resolveCandidateBucket(n) {
+  if (parseMeta(n.meta).kind === SAVED_CLOSING_KIND) return 'applications';
   const stored = String(n.category || '').toLowerCase();
   if (stored === 'offer') return 'offers';
   if (stored === 'interview') return 'interviews';
@@ -174,6 +183,17 @@ export function decorateCandidateNotification(n, { offers = [], interviews = [],
     }
   } else if (bucket === 'messages') {
     company = meta.company || company;
+  } else if (meta.kind === SAVED_CLOSING_KIND) {
+    const closesAt = meta.closesAt ? new Date(meta.closesAt) : null;
+    const applied = applications.some(
+      (a) => a.internship_id === meta.internshipId && String(a.status || '').toLowerCase() !== 'withdrawn',
+    );
+    if (applied || !closesAt || Number.isNaN(closesAt.getTime()) || closesAt.getTime() <= Date.now()) {
+      deadlineText = null;
+    } else {
+      deadlineText = `Closes ${formatIstDateTime(closesAt)}`;
+      priority = closesAt.getTime() - Date.now() <= 24 * 60 * 60 * 1000 ? 'urgent' : 'action_required';
+    }
   } else if (bucket === 'applications') {
     company = meta.company || company;
     // Older "You applied to {role}" bodies without company — match by title text
@@ -201,7 +221,9 @@ export function decorateCandidateNotification(n, { offers = [], interviews = [],
     || priority === 'action_required'
     || Boolean(deadlineText);
 
-  const contextLine = [company, internshipTitle].filter(Boolean).join(' · ')
+  const contextLine = [company, internshipTitle, meta.kind === SAVED_CLOSING_KIND ? deadlineText : null]
+    .filter(Boolean)
+    .join(' · ')
     || (deadlineText || null)
     || String(n.body || '').trim()
     || '';
@@ -251,7 +273,7 @@ export async function loadCandidateNotificationContext(userId) {
     [candidateId],
   );
   const applications = await query(
-    `SELECT a.id, i.title AS internship_title, e.company_name
+    `SELECT a.id, a.internship_id, a.status, i.title AS internship_title, e.company_name
      FROM ip_applications a
      JOIN ip_internships i ON i.id = a.internship_id
      JOIN ip_employers e ON e.id = i.employer_id
@@ -265,6 +287,64 @@ export async function loadCandidateNotificationContext(userId) {
     interviews: interviews.rows,
     applications: applications.rows,
   };
+}
+
+/**
+ * One in-app alert per saved internship (per deadline) when applications close within
+ * SAVED_CLOSING_ALERT_HOURS and the candidate has not applied. The fixed notification id makes
+ * concurrent callers (nav badges + notifications list) safe; an extended deadline gets a new alert.
+ */
+export async function ensureCandidateSavedClosingNotices(userId) {
+  await ensureIpNotificationCategorySchema();
+  await ensureIpAccountSettingsSchema();
+  const due = await query(
+    `SELECT i.id, i.title, i.apply_ends_at, i.show_employer_identity, e.company_name,
+            'ip_notif_sc_' || c.user_id || '_' || i.id || '_' || floor(extract(epoch FROM i.apply_ends_at))::bigint AS notif_id
+       FROM ip_saved_internships s
+       JOIN ip_candidates c ON c.id = s.candidate_id
+       JOIN ip_internships i ON i.id = s.internship_id
+       JOIN ip_employers e ON e.id = i.employer_id
+      WHERE c.user_id = $1
+        AND ${CANDIDATE_VISIBLE_SQL}
+        AND i.apply_ends_at IS NOT NULL
+        AND i.apply_ends_at <= now() + make_interval(hours => $2::int)
+        AND NOT EXISTS (
+          SELECT 1 FROM ip_applications a
+           WHERE a.candidate_id = c.id AND a.internship_id = i.id
+             AND lower(coalesce(a.status, '')) <> 'withdrawn'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM ip_notification_preferences p
+           WHERE p.user_id = c.user_id AND p.category = 'application' AND p.in_app = false
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM ip_notifications n
+           WHERE n.id = 'ip_notif_sc_' || c.user_id || '_' || i.id || '_' || floor(extract(epoch FROM i.apply_ends_at))::bigint
+        )
+      ORDER BY i.apply_ends_at ASC
+      LIMIT 20`,
+    [userId, SAVED_CLOSING_ALERT_HOURS],
+  );
+  for (const row of due.rows) {
+    const company = candidateFacingCompany(row.company_name, row.show_employer_identity);
+    const role = row.title || 'this internship';
+    await notifyUser({
+      id: row.notif_id,
+      userId,
+      title: 'Saved internship closing soon',
+      body: `Applications for ${role}${company ? ` at ${company}` : ''} close on ${formatIstDateTime(row.apply_ends_at)}. You saved it but have not applied yet.`,
+      link: `/candidate/internships/${encodeURIComponent(row.id)}`,
+      category: 'application',
+      skipEmail: true,
+      meta: {
+        kind: SAVED_CLOSING_KIND,
+        internshipId: row.id,
+        internshipTitle: row.title || null,
+        company,
+        closesAt: new Date(row.apply_ends_at).toISOString(),
+      },
+    });
+  }
 }
 
 /** Insert a real expiry notice for pending offers that expire within 3 days (once per offer). */

@@ -110,7 +110,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-browse .ip-br-cost p {
@@ -154,7 +154,7 @@
   top: 50%;
   width: 1rem;
   height: 1rem;
-  color: #94a3b8;
+  color: #64748b;
   transform: translateY(-50%);
   pointer-events: none;
 }
@@ -267,6 +267,7 @@
 
 .ip-browse .ip-br-sort select {
   width: auto;
+  min-height: 1.5rem;
   border: none;
   background: transparent;
   padding: 0;
@@ -362,7 +363,7 @@
 }
 
 .ip-browse .ip-br-tabs__list button.is-on .lucide-bookmark {
-  color: #d97706;
+  color: #b45309;
 }
 
 .ip-browse .ip-br-tabs__list button:hover {
@@ -414,7 +415,7 @@
 }
 
 .ip-browse .ip-br-num {
-  color: #94a3b8;
+  color: #64748b;
   font-variant-numeric: tabular-nums;
   width: 2.5rem;
 }
@@ -554,7 +555,7 @@
 .ip-browse .ip-br-bookmark {
   border: none;
   background: transparent;
-  color: #94a3b8;
+  color: #64748b;
   padding: 0.25rem;
   cursor: pointer;
 }
@@ -626,7 +627,7 @@
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-browse .ip-br-card__foot strong {
@@ -660,7 +661,7 @@
 }
 
 .ip-browse .ip-br-status-empty {
-  color: #94a3b8;
+  color: #64748b;
   font-size: 0.8125rem;
 }
 
@@ -719,7 +720,7 @@
   height: 3rem;
   border-radius: 999px;
   background: #f1f5f9;
-  color: #94a3b8;
+  color: #64748b;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -780,7 +781,7 @@
 
 .ip-browse .ip-br-empty__icon.is-good {
   background: #ecfdf5;
-  color: #059669;
+  color: #047857;
 }
 
 .ip-browse .ip-br-error__icon {
@@ -959,7 +960,7 @@
 }
 .ip-browse .ip-br-city-empty {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 .ip-browse .ip-br-city-options {
   display: flex;
@@ -1028,7 +1029,7 @@
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-browse .ip-br-facts b {
@@ -1193,7 +1194,7 @@
     transform: translateY(-50%);
     border: none;
     background: transparent;
-    color: #94a3b8;
+    color: #64748b;
     font-size: 1.1rem;
     line-height: 1;
     cursor: pointer;

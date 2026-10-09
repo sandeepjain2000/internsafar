@@ -126,12 +126,12 @@
 
 .ip-sa-dash .ip-sad-metric__ico--amber {
   background: #fffbeb;
-  color: #d97706;
+  color: #b45309;
 }
 
 .ip-sa-dash .ip-sad-metric__ico--green {
   background: #ecfdf5;
-  color: #059669;
+  color: #047857;
 }
 
 .ip-sa-dash .ip-sad-metric__ico--purple {
@@ -266,7 +266,7 @@
   font-size: 0.75rem;
   font-weight: 700;
   color: #fff;
-  background: #d97706;
+  background: #b45309;
   border: none;
   border-radius: 0.75rem;
   cursor: pointer;
@@ -274,7 +274,7 @@
 }
 
 .ip-sa-dash .ip-sad-alert-btn:hover {
-  background: #b45309;
+  background: #92400e;
 }
 
 .ip-sa-dash .ip-sad-card {
@@ -326,7 +326,7 @@
   left: 0.75rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #94a3b8;
+  color: #64748b;
   pointer-events: none;
 }
 
@@ -437,14 +437,14 @@
   padding: 2rem;
   text-align: center;
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-sa-dash .ip-sad-toast {
   position: fixed;
-  bottom: 1.5rem;
+  bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
   right: 1.5rem;
-  z-index: 60;
+  z-index: 10000;
   background: #0f172a;
   color: #fff;
   padding: 0.75rem 1rem;
@@ -520,7 +520,7 @@
   padding: 0.25rem;
   background: none;
   border: none;
-  color: #94a3b8;
+  color: #64748b;
   cursor: pointer;
   border-radius: 0.5rem;
 }
@@ -602,14 +602,14 @@
   font-size: 0.75rem;
   font-weight: 700;
   color: #fff;
-  background: #059669;
+  background: #047857;
   border: none;
   border-radius: 0.75rem;
   cursor: pointer;
 }
 
 .ip-sa-dash .ip-sad-btn-approve:hover {
-  background: #047857;
+  background: #065f46;
 }
 
 .ip-sa-dash .ip-sad-btn-approve:disabled,
@@ -735,6 +735,7 @@
   .ip-sa-dash .ip-sad-table td {
     display: block;
     width: 100%;
+    min-width: 0;
     box-sizing: border-box;
   }
 
@@ -843,7 +844,7 @@
   .ip-sa-dash .ip-sad-toast {
     left: 1rem;
     right: 1rem;
-    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
   }
 }
 

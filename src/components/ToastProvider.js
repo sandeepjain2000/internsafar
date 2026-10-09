@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { IpToastItem } from '@/components/ip/IpToast';
 
 const ToastContext = createContext(null);
 
@@ -12,14 +13,10 @@ export function ToastProvider({ children }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const addToast = useCallback(
-    (message, type = 'info', duration = 4000) => {
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      setToasts((prev) => [...prev, { id, message, type }]);
-      window.setTimeout(() => removeToast(id), duration);
-    },
-    [removeToast],
-  );
+  const addToast = useCallback((message, type = 'info') => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setToasts((prev) => [...prev, { id, message, type }]);
+  }, []);
 
   const info = useCallback((message) => addToast(message, 'info'), [addToast]);
   const warn = useCallback((message) => addToast(message, 'warning'), [addToast]);
@@ -29,10 +26,16 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={{ addToast, info, warn, success, error }}>
       {children}
-      <div className="pointer-events-none fixed right-4 bottom-4 z-[10000] flex w-full max-w-sm flex-col gap-2">
+      <div
+        className="pointer-events-none fixed right-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] z-[10000] flex w-full max-w-sm flex-col gap-2"
+        role="status"
+        aria-live="polite"
+      >
         {toasts.map((t) => (
-          <div
+          <IpToastItem
             key={t.id}
+            message={t.message}
+            onDismiss={() => removeToast(t.id)}
             className={cn(
               'pointer-events-auto rounded-lg border px-3 py-2 text-sm shadow-lg',
               t.type === 'error' && 'border-destructive/40 bg-destructive/10 text-destructive',
@@ -40,10 +43,9 @@ export function ToastProvider({ children }) {
               t.type === 'success' && 'border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300',
               t.type === 'info' && 'border-border bg-card text-foreground',
             )}
-            role="status"
           >
-            {t.message}
-          </div>
+            <span>{t.message}</span>
+          </IpToastItem>
         ))}
       </div>
     </ToastContext.Provider>

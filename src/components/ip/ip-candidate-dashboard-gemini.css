@@ -57,7 +57,7 @@
   align-items: center;
   padding: 0.4rem 0.85rem;
   border-radius: 0.4rem;
-  background: #f59e0b;
+  background: #b45309;
   color: #fff !important;
   font-size: 0.8125rem;
   font-weight: 600;
@@ -66,7 +66,7 @@
 }
 
 .ip-cand-dash .ip-cd-draft-alert__cta:hover {
-  background: #d97706;
+  background: #92400e;
   color: #fff !important;
 }
 
@@ -360,7 +360,7 @@
   margin: 0.25rem 0 0;
   font-size: 0.625rem;
   line-height: 1.35;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-cand-dash .ip-cd-stat .ip-cd-pill {
@@ -629,7 +629,7 @@
   border: none;
   border-radius: 0.45rem;
   background: transparent;
-  color: #94a3b8;
+  color: #64748b;
   cursor: pointer;
 }
 

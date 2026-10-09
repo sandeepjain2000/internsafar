@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Archive,
@@ -13,10 +13,13 @@ import {
   X,
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
+import { onTablistKeyDown } from '@/lib/tablistKeys';
 import { refreshNavBadges } from '@/lib/ipNavBadges';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import IpListPager from '@/components/ip/IpListPager';
+import IpToast from '@/components/ip/IpToast';
+import { IpListError } from '@/components/ip/IpListStatus';
 import {
   IpDateRangeFilter,
   IpSingleSelectFilter,
@@ -127,7 +130,7 @@ function ContextPreview({ text, expanded, onToggle, moreClassName = 'ip-cn-conte
     <p className="ip-cn-table-context">
       <span>{expanded || !needsMore ? full : preview}</span>
       {needsMore ? (
-        <button type="button" className={moreClassName} onClick={onToggle}>
+        <button type="button" className={moreClassName} aria-expanded={!!expanded} onClick={onToggle}>
           {expanded ? ' less' : ' or more'}
         </button>
       ) : null}
@@ -162,6 +165,7 @@ export default function CandidateNotificationsPage() {
   const [cols, setCols] = useState(EMPTY_COLS);
   const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [selected, setSelected] = useState(() => new Set());
@@ -169,8 +173,6 @@ export default function CandidateNotificationsPage() {
   const [markAllBusy, setMarkAllBusy] = useState(false);
   const [presetResetKey, setPresetResetKey] = useState(0);
   const [folder, setFolder] = useState('inbox');
-  const toastTimerRef = useRef(null);
-
   const snapshot = useMemo(
     () => ({ filters: { search, cols }, sort: '' }),
     [search, cols],
@@ -202,16 +204,29 @@ export default function CandidateNotificationsPage() {
 
   function showToast(msg) {
     setToast(msg);
-    window.clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = window.setTimeout(() => setToast(''), 2800);
   }
 
   async function load({ badges = false } = {}) {
-    const res = await fetch('/api/ip/notifications');
-    const data = await res.json().catch(() => null);
-    setItems(data?.items || []);
-    setLoading(false);
-    if (badges) refreshNavBadges();
+    try {
+      const res = await fetch('/api/ip/notifications');
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setLoadError(data?.error || 'Something went wrong on our side.');
+        return;
+      }
+      setLoadError('');
+      setItems(data?.items || []);
+      if (badges) refreshNavBadges();
+    } catch {
+      setLoadError('We could not reach the server. Check your internet connection.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function retryLoad() {
+    setLoading(true);
+    load();
   }
 
   useEffect(() => {
@@ -356,11 +371,7 @@ export default function CandidateNotificationsPage() {
 
   return (
     <div className="ip-cand-nf">
-      {toast ? (
-        <div className="ip-cn-toast" role="status">
-          {toast}
-        </div>
-      ) : null}
+      <IpToast message={toast} onDismiss={() => setToast('')} className="ip-cn-toast" />
 
       <div className="ip-cn-header">
         <div>
@@ -456,7 +467,7 @@ export default function CandidateNotificationsPage() {
             onTo={(dateTo) => setCols((c) => ({ ...c, dateTo }))}
           />
         </IpTableFiltersShell>
-        <div className="ip-cn-tabs" role="tablist" aria-label="Notification folders">
+        <div className="ip-cn-tabs" role="tablist" onKeyDown={onTablistKeyDown} aria-label="Notification folders">
           <button
             type="button"
             role="tab"
@@ -515,6 +526,8 @@ export default function CandidateNotificationsPage() {
         <div className="ip-cn-empty">
           <p>Loading notifications…</p>
         </div>
+      ) : loadError && !items.length ? (
+        <IpListError title="Could not load notifications" message={loadError} onRetry={retryLoad} />
       ) : filtered.length ? (
         <>
           <div className="ip-ph-list-wrap ip-cn-table-wrap">

@@ -709,7 +709,7 @@ await runCase('TC-IS-06-002', async () => {
   const toggle = () => page.locator('label.ip-cp-toggle-card', { hasText: 'Show completed internships' }).locator('input[type="checkbox"]');
   const openPrivacy = async () => {
     await gotoReady(page, BASE, '/candidate/profile', tabsSel, 180_000);
-    await page.getByRole('tab', { name: /5\. Privacy & Photo/ }).click();
+    await page.getByRole('tab', { name: 'Privacy & Photo' }).click();
     await toggle().waitFor({ timeout: 30_000 });
   };
   const save = async () => {
@@ -721,15 +721,22 @@ await runCase('TC-IS-06-002', async () => {
   try {
     await gotoReady(page, BASE, '/candidate/profile', tabsSel, 180_000);
     const tabs = (await page.locator(tabsSel).allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
-    const want = ['1. Basics & Contact', '2. Academic', '3. Skills & Experience', '4. Work Readiness', '5. Privacy & Photo', '6. Endorsements (Read-Only)'];
+    const want = ['1. Basics & Contact', '2. Academic', '3. Skills & Experience', '4. Work Readiness', 'Privacy & Photo', 'Endorsements (Read-Only)'];
     check(tabs.length === 6 && want.every((w, i) => tabs[i]?.includes(w)), `profile tabs ${JSON.stringify(tabs)}`);
-    await page.getByRole('tab', { name: /6\. Endorsements/ }).click();
+    check(!/^\d+\./.test(tabs[4]) && !/^\d+\./.test(tabs[5]), `only the four setup steps are numbered ${JSON.stringify(tabs)}`);
+    const splitBeforePrivacy = await page.locator('.ip-cp-tabs__split + [role="tab"]').innerText().catch(() => '');
+    check(/Privacy & Photo/.test(splitBeforePrivacy), `"Optional" divider should sit right before Privacy & Photo (got "${splitBeforePrivacy}")`);
+    await page.getByRole('tab', { name: '1. Basics & Contact' }).click();
+    const stepHead = (await page.locator('.ip-cp-wizard__top').innerText()).replace(/\s+/g, ' ').trim();
+    check(/setup step 1 of 4/i.test(stepHead), `Basics step header reads "${stepHead}", expected "Setup step 1 of 4"`);
+    await page.getByRole('tab', { name: 'Endorsements (Read-Only)' }).click();
     await page.getByRole('heading', { name: 'Employer Endorsements (Read-Only)' }).waitFor({ timeout: 20_000 });
     const editable = await page.locator('[role="tabpanel"] :is(input:not([type="hidden"]), textarea, select)').count();
     check(editable === 0, `Endorsements tab has ${editable} editable field(s)`);
 
-    await page.getByRole('tab', { name: /5\. Privacy & Photo/ }).click();
+    await page.getByRole('tab', { name: 'Privacy & Photo' }).click();
     await toggle().waitFor({ timeout: 30_000 });
+    check((await page.locator('.ip-cp-wizard').count()) === 0, 'Privacy & Photo shows a setup step header');
     check((await toggle().isChecked()) === before, 'Show completed internships toggle does not match the stored value');
     await toggle().setChecked(!before);
     await save();
@@ -739,7 +746,7 @@ await runCase('TC-IS-06-002', async () => {
     await toggle().setChecked(before);
     await save();
     check((await colRow()) === before, 'toggle not restored');
-    return `Six tabs in order (${tabs.join(' | ')}); Endorsements tab has no editable fields; Privacy & Photo "Show completed internships" ${before} → ${!before} saved via PUT /api/ip/candidate/profile, still ${!before} after reload, then restored to ${before}.`;
+    return `Six tabs in order (${tabs.join(' | ')}); only setup tabs numbered, "Optional" divider before Privacy & Photo, Basics header "${stepHead}", no step header on Privacy & Photo; Endorsements tab has no editable fields; Privacy & Photo "Show completed internships" ${before} → ${!before} saved via PUT /api/ip/candidate/profile, still ${!before} after reload, then restored to ${before}.`;
   } finally {
     await page.context().close();
     await db(`UPDATE ip_candidates SET show_completed_internships = $2 WHERE id = $1`, [candRow.cid, before]);

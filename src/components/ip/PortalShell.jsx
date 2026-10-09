@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { signOutAndEndSession } from '@/lib/ipClientSignOut';
 import { readResponseJson } from '@/lib/readResponseJson';
 import { NAV_BADGES_REFRESH_EVENT } from '@/lib/ipNavBadges';
@@ -93,6 +93,7 @@ export default function PortalShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const signingOutRef = useRef(false);
   const [modKey, setModKey] = useState('Ctrl');
   const [navBadges, setNavBadges] = useState({});
   const homePath = ROLE_HOME[role] || '/';
@@ -146,13 +147,36 @@ export default function PortalShell({
 
   async function handleSignOut(returnHere) {
     if (signingOut) return;
+    signingOutRef.current = true;
     setSigningOut(true);
     try {
       await signOutAndEndSession({ callbackUrl: returnHere === true ? loginWithReturn() : loginHref });
     } catch {
+      signingOutRef.current = false;
       setSigningOut(false);
     }
   }
+
+  // Browser Back after sign-out can restore this page from the back/forward cache with its
+  // state frozen ("Signing out…", or stale signed-in content). Send it to sign-in instead.
+  useEffect(() => {
+    const onPageShow = (e) => {
+      if (!e.persisted) return;
+      if (signingOutRef.current) {
+        window.location.replace(loginWithReturn());
+        return;
+      }
+      fetch('/api/auth/session', { cache: 'no-store', credentials: 'include' })
+        .then((r) => readResponseJson(r, {}))
+        .then((s) => {
+          if (!s?.user) window.location.replace(loginWithReturn());
+        })
+        .catch(() => {});
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loginHref]);
 
   useEffect(() => {
     if (status === 'unauthenticated' && !signingOut) router.replace(loginWithReturn());

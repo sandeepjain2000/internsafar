@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useOverlayDialog } from '@/hooks/useOverlayDialog';
+import IpToast from '@/components/ip/IpToast';
 import {
   AlertOctagon,
   Briefcase,
@@ -15,7 +17,7 @@ import {
 import '@/components/ip/ip-superadmin-queue-gemini.css';
 import '@/components/ip/ip-list-pager.css';
 import IpListPager from '@/components/ip/IpListPager';
-import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import { IpListEmpty, IpListLoading, IpRetryButton } from '@/components/ip/IpListStatus';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import { useLatestRequest } from '@/hooks/useLatestRequest';
 import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
@@ -55,6 +57,8 @@ export default function SuperAdminPostingsPage() {
   const [toast, setToast] = useState('');
   const [inspect, setInspect] = useState(null);
   const [takedown, setTakedown] = useState(null);
+  const inspectRef = useOverlayDialog(inspect, () => setInspect(null));
+  const takedownRef = useOverlayDialog(takedown, () => setTakedown(null));
   const [reason, setReason] = useState('');
 
   const beginLoad = useLatestRequest();
@@ -89,12 +93,6 @@ export default function SuperAdminPostingsPage() {
   useEffect(() => {
     load();
   }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!toast) return undefined;
-    const t = setTimeout(() => setToast(''), 2800);
-    return () => clearTimeout(t);
-  }, [toast]);
 
   const companies = useMemo(
     () => [...new Set(items.map((i) => i.company_name).filter(Boolean))].sort(),
@@ -160,7 +158,7 @@ export default function SuperAdminPostingsPage() {
 
   return (
     <div className="ip-sa-q ip-mobile-bleed">
-      {toast ? <div className="ip-saq-toast" role="status">{toast}</div> : null}
+      <IpToast message={toast} onDismiss={() => setToast('')} className="ip-saq-toast" />
 
       <div className="ip-saq-head">
         <div>
@@ -192,7 +190,14 @@ export default function SuperAdminPostingsPage() {
         </div>
       </div>
 
-      {error ? <div className="ip-saq-error">{error}</div> : null}
+      {error ? (
+        <div className="ip-saq-error" role="alert">
+          {error}
+          <div>
+            <IpRetryButton onClick={load} />
+          </div>
+        </div>
+      ) : null}
 
       <div className="ip-saq-metrics">
         <div className="ip-saq-metric">
@@ -290,6 +295,7 @@ export default function SuperAdminPostingsPage() {
               <input
                 type="search"
                 placeholder="Search posting title, category..."
+                aria-label="Search postings"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -333,6 +339,7 @@ export default function SuperAdminPostingsPage() {
                     <td>
                       <input
                         type="checkbox"
+                        aria-label={`Select ${i.title}`}
                         checked={selected.includes(i.id)}
                         onChange={(e) =>
                           setSelected((prev) =>
@@ -437,7 +444,7 @@ export default function SuperAdminPostingsPage() {
       </div>
 
       {inspect ? (
-        <div className="ip-saq-overlay" role="dialog" aria-modal="true">
+        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-posting-title" ref={inspectRef}>
           <div className="ip-saq-modal ip-saq-modal--wide">
             <div className="ip-saq-modal__head">
               <div className="ip-saq-modal__title">
@@ -445,7 +452,7 @@ export default function SuperAdminPostingsPage() {
                   <Briefcase size={18} aria-hidden />
                 </div>
                 <div>
-                  <h3>{inspect.title}</h3>
+                  <h3 id="ip-saq-posting-title">{inspect.title}</h3>
                   <span>
                     {inspect.company_name} • Posted {fmtDate(inspect.created_at)}
                   </span>
@@ -507,7 +514,7 @@ export default function SuperAdminPostingsPage() {
       ) : null}
 
       {takedown ? (
-        <div className="ip-saq-overlay" role="dialog" aria-modal="true">
+        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-takedown-title" ref={takedownRef}>
           <div className="ip-saq-modal">
             <div className="ip-saq-modal__head">
               <div className="ip-saq-modal__title">
@@ -515,7 +522,7 @@ export default function SuperAdminPostingsPage() {
                   <AlertOctagon size={18} aria-hidden />
                 </div>
                 <div>
-                  <h3>Take Down Internship Posting</h3>
+                  <h3 id="ip-saq-takedown-title">Take Down Internship Posting</h3>
                   <span>{takedown.title}</span>
                 </div>
               </div>

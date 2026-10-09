@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
+import IpToast from '@/components/ip/IpToast';
 import '@/components/ip/ip-notifications-gemini.css';
 
 const FILTERS = [
@@ -116,7 +117,6 @@ export default function IpNotificationsInbox({ tableKey = 'shared.notifications'
 
   function showToast(msg) {
     setToastMsg(msg);
-    window.setTimeout(() => setToastMsg(null), 3000);
   }
 
   async function markAllRead() {
@@ -154,14 +154,12 @@ export default function IpNotificationsInbox({ tableKey = 'shared.notifications'
 
   return (
     <div className="ip-notif">
-      {toastMsg ? (
-        <div className="ip-nf-toast" role="status">
-          <span className="ip-nf-toast-ico">
-            <Check aria-hidden />
-          </span>
-          <span>{toastMsg}</span>
-        </div>
-      ) : null}
+      <IpToast message={toastMsg} onDismiss={() => setToastMsg(null)} className="ip-nf-toast">
+        <span className="ip-nf-toast-ico">
+          <Check aria-hidden />
+        </span>
+        <span>{toastMsg}</span>
+      </IpToast>
 
       <div className="ip-nf-header">
         <div>

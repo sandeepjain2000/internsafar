@@ -31,6 +31,8 @@ import {
 } from 'lucide-react';
 import '@/components/ip/ip-superadmin-candidates.css';
 import { useLatestRequest } from '@/hooks/useLatestRequest';
+import { onTablistKeyDown } from '@/lib/tablistKeys';
+import { IpToastItem } from '@/components/ip/IpToast';
 import {
   ACTOR_LABEL,
   ACTOR_TONE,
@@ -111,7 +113,7 @@ function Stat({ label, value, sub, className = 'text-slate-900' }) {
     <div className="sac-card p-4">
       <div className="sac-lbl">{label}</div>
       <div className={`text-[22px] font-black leading-none mt-2 ${className}`}>{value}</div>
-      {sub ? <div className="text-[11px] text-slate-400 mt-1">{sub}</div> : null}
+      {sub ? <div className="text-[11px] text-slate-500 mt-1">{sub}</div> : null}
     </div>
   );
 }
@@ -168,7 +170,6 @@ export default function SuperAdminCandidateDetailPage() {
   const toast = useCallback((msg) => {
     const key = `${Date.now()}-${Math.random()}`;
     setToasts((t) => [...t, { id: key, msg }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== key)), 2800);
   }, []);
 
   useEffect(() => {
@@ -283,7 +284,7 @@ export default function SuperAdminCandidateDetailPage() {
 
   const crumbs = (name) => (
     <>
-      <nav className="text-[12px] font-medium text-slate-400 mb-1 flex flex-wrap items-center gap-1" aria-label="Breadcrumb">
+      <nav className="text-[12px] font-medium text-slate-500 mb-1 flex flex-wrap items-center gap-1" aria-label="Breadcrumb">
         <span>SuperAdmin</span>
         <span>/</span>
         <Link href={backHref} className="hover:text-indigo-600">
@@ -386,7 +387,7 @@ export default function SuperAdminCandidateDetailPage() {
               <span className="text-[13px] font-semibold text-slate-800">{statusLabel(e.type)}</span>
               <Pill tone={ACTOR_TONE[e.actor] || 'slate'}>{ACTOR_LABEL[e.actor] || capitalize(e.actor)}</Pill>
             </div>
-            <div className="text-[11px] text-slate-400 mt-0.5">
+            <div className="text-[11px] text-slate-500 mt-0.5">
               {e.before ? `Before ${formatDate(e.at)}` : formatDate(e.at)}
             </div>
           </li>
@@ -509,7 +510,7 @@ export default function SuperAdminCandidateDetailPage() {
                     ) : null}
                   </div>
                   <div className="text-[13px] text-slate-600 mt-0.5">{a.postingTitle}</div>
-                  <div className="text-[11px] text-slate-400 mt-1">
+                  <div className="text-[11px] text-slate-500 mt-1">
                     Applied {formatDate(a.appliedAt)} · Updated {relativeDate(a.updatedAt)}
                     {a.matchScore != null ? ` · Match ${Math.round(a.matchScore)}%` : ''}
                   </div>
@@ -582,7 +583,7 @@ export default function SuperAdminCandidateDetailPage() {
                 ))}
               </div>
               {dates.length ? (
-                <div className="text-[11px] text-slate-400 mt-2">
+                <div className="text-[11px] text-slate-500 mt-2">
                   First interaction {formatDate(dates[0])} · Last {relativeDate(dates[dates.length - 1])}
                 </div>
               ) : null}
@@ -639,7 +640,7 @@ export default function SuperAdminCandidateDetailPage() {
               <span className="text-[13px] font-semibold text-slate-800">{e.text}</span>
               <Pill tone={ACTOR_TONE[e.actor] || 'slate'}>{ACTOR_LABEL[e.actor] || capitalize(e.actor)}</Pill>
             </div>
-            <div className="text-[11px] text-slate-400 mt-0.5">
+            <div className="text-[11px] text-slate-500 mt-0.5">
               {e.before ? `Before ${formatDate(e.at)}` : formatDate(e.at)}
             </div>
           </li>
@@ -678,7 +679,7 @@ export default function SuperAdminCandidateDetailPage() {
               )}
             </div>
             <div className="text-[13px] text-slate-600 font-medium mt-1 break-all">{c.email}</div>
-            <div className="text-[12px] text-slate-400 mt-1.5 flex flex-wrap gap-x-2 gap-y-1">
+            <div className="text-[12px] text-slate-500 mt-1.5 flex flex-wrap gap-x-2 gap-y-1">
               <span>Registered {formatDate(c.registeredAt)}</span>
               <span>·</span>
               <span>Last login {c.returned ? relativeDate(c.lastLoginAt) : 'not since sign-up'}</span>
@@ -748,7 +749,7 @@ export default function SuperAdminCandidateDetailPage() {
 
       <div className="sac-card">
         <div className="px-4 md:px-5 pt-4 pb-3 border-b border-slate-100 overflow-x-auto">
-          <div className="sac-seg" role="tablist" aria-label="Candidate sections">
+          <div className="sac-seg" role="tablist" onKeyDown={onTablistKeyDown} aria-label="Candidate sections">
             {TABS.map(([k, l, Icon]) => (
               <button
                 key={k}
@@ -770,10 +771,15 @@ export default function SuperAdminCandidateDetailPage() {
 
       <div className="sac-toasts" aria-live="polite">
         {toasts.map((t) => (
-          <div key={t.id} className="sac-toast">
+          <IpToastItem
+            key={t.id}
+            message={t.msg}
+            onDismiss={() => setToasts((all) => all.filter((x) => x.id !== t.id))}
+            className="sac-toast"
+          >
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden />
             <span>{t.msg}</span>
-          </div>
+          </IpToastItem>
         ))}
       </div>
     </div>

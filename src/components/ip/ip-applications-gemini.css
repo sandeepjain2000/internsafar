@@ -106,7 +106,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-apps .ip-ap-metric strong {
@@ -117,9 +117,9 @@
   color: #0f172a;
 }
 
-.ip-apps .ip-ap-metric strong.is-amber { color: #d97706; }
+.ip-apps .ip-ap-metric strong.is-amber { color: #b45309; }
 .ip-apps .ip-ap-metric strong.is-brand { color: var(--ip-brand); }
-.ip-apps .ip-ap-metric strong.is-ok { color: #059669; }
+.ip-apps .ip-ap-metric strong.is-ok { color: #047857; }
 
 .ip-apps .ip-ap-metric__ico {
   width: 2.5rem;
@@ -137,9 +137,9 @@
 }
 
 .ip-apps .ip-ap-metric__ico.is-slate { background: #f1f5f9; color: #475569; }
-.ip-apps .ip-ap-metric__ico.is-amber { background: #fffbeb; color: #d97706; }
+.ip-apps .ip-ap-metric__ico.is-amber { background: #fffbeb; color: #b45309; }
 .ip-apps .ip-ap-metric__ico.is-brand { background: #eef2ff; color: var(--ip-brand); }
-.ip-apps .ip-ap-metric__ico.is-ok { background: #ecfdf5; color: #059669; }
+.ip-apps .ip-ap-metric__ico.is-ok { background: #ecfdf5; color: #047857; }
 
 .ip-apps .ip-ap-toolbar {
   padding: 0.85rem 1.25rem;
@@ -203,7 +203,7 @@
   top: 50%;
   width: 1rem;
   height: 1rem;
-  color: #94a3b8;
+  color: #64748b;
   transform: translateY(-50%);
   pointer-events: none;
 }
@@ -305,7 +305,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-apps .ip-ap-table td {
@@ -316,7 +316,7 @@
 
 .ip-apps .ip-ap-num {
   width: 2.5rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-apps .ip-ap-title {
@@ -338,7 +338,7 @@
 
 .ip-apps .ip-ap-verified {
   margin-left: 0.25rem;
-  color: #059669;
+  color: #047857;
   font-weight: 700;
 }
 
@@ -572,6 +572,8 @@
   background: transparent;
   color: #64748b;
   width: 2rem;
+  min-width: 1.75rem;
+  flex-shrink: 0;
   height: 2rem;
   border-radius: 0.4rem;
   cursor: pointer;
@@ -698,7 +700,7 @@
 
 .ip-apps .ip-ap-modal__body dt {
   font-size: 0.6875rem;
-  color: #94a3b8;
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -767,7 +769,7 @@
 
 .ip-apps .ip-ap-card__meta {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-apps .ip-ap-card__foot {
@@ -883,7 +885,7 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
     font-weight: 700;
-    color: #94a3b8;
+    color: #64748b;
     order: 2;
   }
 
@@ -1023,7 +1025,7 @@
   height: 1.25rem;
   flex-shrink: 0;
   margin-top: 0.1rem;
-  color: #059669;
+  color: #047857;
 }
 .ip-apps .ip-ap-applied__body {
   flex: 1;

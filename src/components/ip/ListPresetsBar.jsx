@@ -141,7 +141,7 @@ export default function ListPresetsBar({
           {presetError}
         </span>
       ) : null}
-      <span className="text-[11px] font-semibold text-slate-400">{presets.length}/5</span>
+      <span className="text-[11px] font-semibold text-slate-500">{presets.length}/5</span>
     </div>
   );
 }

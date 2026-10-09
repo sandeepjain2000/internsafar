@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useOverlayDialog } from '@/hooks/useOverlayDialog';
+import { onTablistKeyDown } from '@/lib/tablistKeys';
+import IpToast from '@/components/ip/IpToast';
 import {
   AlertCircle,
   CheckCircle2,
@@ -39,7 +42,7 @@ import {
   IpSingleSelectFilter,
   IpTableFiltersShell,
 } from '@/components/ip/IpTableFiltersShell';
-import { IpListLoading } from '@/components/ip/IpListStatus';
+import { IpListError, IpListLoading } from '@/components/ip/IpListStatus';
 import { PhoneOnlyNote, PhoneOnlyTag } from '@/components/ip/PhoneOnlyShare';
 import { isPhoneShareDevice, phoneOnlyShareMessage } from '@/lib/ipShareDevice';
 import { linkedInComposeUrl, shareOnLinkedIn } from '@/lib/ipLinkedInShare';
@@ -153,6 +156,7 @@ function countActiveCols(cols, empty) {
 export default function CandidateReferralPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [ledger, setLedger] = useState([]);
   const [ledgerBalance, setLedgerBalance] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -163,6 +167,7 @@ export default function CandidateReferralPage() {
   const [refFiltersOpen, setRefFiltersOpen] = useState(false);
   const [ledgerFiltersOpen, setLedgerFiltersOpen] = useState(false);
   const [modal, setModal] = useState(null);
+  const modalRef = useOverlayDialog(modal, () => setModal(null));
   const [phoneNote, setPhoneNote] = useState('');
   const onPhone = usePhoneShareDevice();
 
@@ -197,11 +202,11 @@ export default function CandidateReferralPage() {
 
   function showToast(msg) {
     setToast(msg);
-    window.setTimeout(() => setToast(''), 2800);
   }
 
   async function load() {
     setLoading(true);
+    setLoadError('');
     try {
       const [refRes, ledRes] = await Promise.all([
         fetch('/api/ip/referral'),
@@ -209,9 +214,16 @@ export default function CandidateReferralPage() {
       ]);
       const refJson = await refRes.json().catch(() => null);
       const ledJson = await ledRes.json().catch(() => null);
-      setData(refJson);
-      setLedger(ledJson?.items || []);
-      setLedgerBalance(ledJson?.balance ?? refJson?.points ?? null);
+      if (!refRes.ok || !ledRes.ok) {
+        setLoadError(refJson?.error || ledJson?.error || 'Something went wrong on our side.');
+      }
+      if (refRes.ok) setData(refJson);
+      if (ledRes.ok) {
+        setLedger(ledJson?.items || []);
+        setLedgerBalance(ledJson?.balance ?? refJson?.points ?? null);
+      }
+    } catch {
+      setLoadError('We could not reach the server. Check your internet connection.');
     } finally {
       setLoading(false);
     }
@@ -360,11 +372,7 @@ export default function CandidateReferralPage() {
 
   return (
     <div className="ip-cand-ref">
-      {toast ? (
-        <div className="ip-cr-toast" role="status">
-          {toast}
-        </div>
-      ) : null}
+      <IpToast message={toast} onDismiss={() => setToast('')} className="ip-cr-toast" />
 
       <div className="ip-cr-header">
         <div>
@@ -631,7 +639,7 @@ export default function CandidateReferralPage() {
             </h2>
             <p>Track referred candidates, verification progress, and reward status.</p>
           </div>
-          <div className="ip-cr-tabs" role="tablist" aria-label="Referral status">
+          <div className="ip-cr-tabs" role="tablist" onKeyDown={onTablistKeyDown} aria-label="Referral status">
             {FILTERS.map((f) => (
               <button
                 key={f.id}
@@ -693,6 +701,8 @@ export default function CandidateReferralPage() {
 
         {loading ? (
           <IpListLoading label="Loading Referrals…" />
+        ) : loadError && !referrals.length ? (
+          <IpListError title="Could not load referrals" message={loadError} onRetry={load} />
         ) : !referrals.length ? (
           <div className="ip-cr-empty">
             <div className="ip-cr-empty__icon">
@@ -850,6 +860,8 @@ export default function CandidateReferralPage() {
 
         {loading ? (
           <IpListLoading label="Loading Ledger…" />
+        ) : loadError && !ledger.length ? (
+          <IpListError title="Could not load points history" message={loadError} onRetry={load} />
         ) : !ledger.length ? (
           <div className="ip-cr-empty">
             <div className="ip-cr-empty__icon">
@@ -984,7 +996,7 @@ export default function CandidateReferralPage() {
       </div>
 
       {modal === 'invite' ? (
-        <div className="ip-cr-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-cr-invite-title">
+        <div className="ip-cr-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-cr-invite-title" ref={modalRef}>
           <div className="ip-cr-modal">
             <div className="ip-cr-modal__head">
               <h3 id="ip-cr-invite-title">
@@ -1001,7 +1013,7 @@ export default function CandidateReferralPage() {
                 <p>Hi! I&apos;m using PlacementHub Internship Portal to apply for internships.</p>
                 <p>Sign up using my invite link to create your candidate profile and start applying:</p>
                 <div className="ip-cr-preview-link">{link}</div>
-                <p style={{ fontStyle: 'italic', color: '#94a3b8', fontSize: '0.6875rem' }}>
+                <p style={{ fontStyle: 'italic', color: '#64748b', fontSize: '0.6875rem' }}>
                   (Note: I receive +{REFERRAL_POINTS} application points after you register. Gmail
                   signups credit immediately; form signups credit after SuperAdmin approval.)
                 </p>
@@ -1021,7 +1033,7 @@ export default function CandidateReferralPage() {
       ) : null}
 
       {modal === 'rules' ? (
-        <div className="ip-cr-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-cr-rules-title">
+        <div className="ip-cr-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-cr-rules-title" ref={modalRef}>
           <div className="ip-cr-modal">
             <div className="ip-cr-modal__head">
               <h3 id="ip-cr-rules-title">

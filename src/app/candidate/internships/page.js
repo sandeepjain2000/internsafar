@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, Bookmark, CalendarDays, CheckCircle2, LayoutGrid, LogIn, Search, Sparkles, Star } from 'lucide-react';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
+import { onTablistKeyDown } from '@/lib/tablistKeys';
 import ViewModeToggle from '@/components/ip/ViewModeToggle';
 import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
@@ -669,7 +670,7 @@ export default function BrowseInternshipsPage() {
         </div>
 
         <div className="ip-br-tabs">
-          <div className="ip-br-tabs__list" role="tablist" aria-label="Browse views">
+          <div className="ip-br-tabs__list" role="tablist" onKeyDown={onTablistKeyDown} aria-label="Browse views">
             {BROWSE_TABS.map((t) => {
               const count = browseTabCount(counts, t.id);
               return (

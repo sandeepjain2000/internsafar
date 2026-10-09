@@ -29,6 +29,13 @@ Outbound mail may append an unsubscribe footer (`src/lib/mail.js` → `ipEmailUn
 - Notifications unread badge counts **Inbox only**. Candidate **My applications** badge = in-progress apps: `shortlisted`/`interviewing` always; `applied`/`pending` only while posting not `closed` and `apply_ends_at` not passed.
 - Pages call `refreshNavBadges()` (`src/lib/ipNavBadges.js`) after mutations; `PortalShell` refetches on that event and on route change.
 
+## Candidate deadline alerts (on load, no cron)
+
+- **Offer expiring** — `ensureCandidateOfferExpiryNotices` (`GET /api/ip/notifications`): once per pending offer within 3 days (`meta.kind = 'offer_expiring'`).
+- **Saved internship closing soon (2026-10-09)** — `ensureCandidateSavedClosingNotices` in `src/lib/ipCandidateNotificationPresentation.js`, run by `GET /api/ip/nav-badges` (every page change) and `GET /api/ip/notifications`. One in-app alert when a saved internship is still candidate-visible, closes within `SAVED_CLOSING_ALERT_HOURS` (72) and the candidate has no non-withdrawn application. Category `application`, no email; skipped when the candidate turned off in-app application alerts. Fixed id `ip_notif_sc_<userId>_<internshipId>_<deadline epoch>` + `notifyUser({ id })` → `ON CONFLICT (id) DO NOTHING`, so concurrent calls cannot duplicate and an extended deadline gets a fresh alert. Row shows `company · title · Closes <IST>`; urgent under 24 h; no deadline once applied/closed. Confidential postings use `candidateFacingCompany`. No schema change.
+- `notifyUser({ id })` (`src/lib/ipNotify.js`): optional fixed id for once-only notices — returns null (no email) when the row already exists or in-app is off.
+- Employer "posting launches / applications closing soon" reminders (`processScheduleReminders`, `POST /api/ip/cron/schedule-reminders`) only fire when the employer ticked them **and** something calls the cron — it is **not** in `vercel.json` crons nor the documented EC2 crontab (2026-10-09).
+
 ## Offer lifecycle (2026-09-29)
 
 - `ip_offers` is **one row per application** (`UNIQUE (application_id)`); status check is `pending|accepted|declined|expired|withdrawn` (`withdrawn` added by migration **046**; `expired` = deadline passed, `withdrawn` = employer changed the application).

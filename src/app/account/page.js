@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import {
@@ -26,9 +26,12 @@ import {
   X,
 } from 'lucide-react';
 import '@/components/ip/ip-account-gemini.css';
+import { useOverlayDialog } from '@/hooks/useOverlayDialog';
+import { onTablistKeyDown } from '@/lib/tablistKeys';
+import IpToast from '@/components/ip/IpToast';
 
 function passwordStrength(pw) {
-  if (!pw) return { score: 0, label: 'Not Entered', color: '#94a3b8' };
+  if (!pw) return { score: 0, label: 'Not Entered', color: '#64748b' };
   let score = 0;
   if (pw.length >= 8) score += 1;
   if (/[A-Z]/.test(pw)) score += 1;
@@ -67,6 +70,7 @@ export default function AccountPage() {
   const [showBanner, setShowBanner] = useState(true);
   const [toastMsg, setToastMsg] = useState(null);
   const [modal, setModal] = useState(null);
+  const modalRef = useOverlayDialog(modal, () => setModal(null));
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -77,6 +81,8 @@ export default function AccountPage() {
   const [signOutOthersOnPw, setSignOutOthersOnPw] = useState(true);
   const [pwBusy, setPwBusy] = useState(false);
   const [pwError, setPwError] = useState('');
+  const [pwTried, setPwTried] = useState(false);
+  const confirmPwRef = useRef(null);
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -123,10 +129,11 @@ export default function AccountPage() {
     }),
     [newPassword],
   );
+  // A blank confirm only counts as a mismatch once Update Password was pressed, not while typing.
+  const confirmMismatch = confirmPassword ? newPassword !== confirmPassword : pwTried && Boolean(newPassword);
 
   function showToast(msg) {
     setToastMsg(msg);
-    window.setTimeout(() => setToastMsg(null), 3600);
   }
 
   async function loadProfile() {
@@ -246,6 +253,7 @@ export default function AccountPage() {
   async function submitPassword(e) {
     e.preventDefault();
     setPwError('');
+    setPwTried(true);
     if (!currentPassword) {
       setPwError('Please enter your current or temporary password.');
       return;
@@ -259,7 +267,12 @@ export default function AccountPage() {
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPwError('New passwords do not match.');
+      setPwError(
+        confirmPassword
+          ? 'New passwords do not match.'
+          : 'New passwords do not match. Re-enter your new password in Confirm New Password.',
+      );
+      confirmPwRef.current?.focus();
       return;
     }
     setPwBusy(true);
@@ -278,6 +291,7 @@ export default function AccountPage() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      setPwTried(false);
       setShowBanner(false);
       if (json.signedOutOthers) {
         showToast('Password updated. Other sessions were signed out.');
@@ -487,14 +501,12 @@ export default function AccountPage() {
 
   return (
     <div className="ip-account">
-      {toastMsg ? (
-        <div className="ip-ac-toast" role="status">
-          <span className="ip-ac-toast-ico">
-            <Check aria-hidden />
-          </span>
-          <span>{toastMsg}</span>
-        </div>
-      ) : null}
+      <IpToast message={toastMsg} onDismiss={() => setToastMsg(null)} className="ip-ac-toast">
+        <span className="ip-ac-toast-ico">
+          <Check aria-hidden />
+        </span>
+        <span>{toastMsg}</span>
+      </IpToast>
 
       {showBanner ? (
         <div className="ip-ac-banner">
@@ -529,7 +541,7 @@ export default function AccountPage() {
         </p>
       </div>
 
-      <div className="ip-ac-tabs" role="tablist">
+      <div className="ip-ac-tabs" role="tablist" onKeyDown={onTablistKeyDown}>
         <button
           type="button"
           role="tab"
@@ -588,15 +600,16 @@ export default function AccountPage() {
                 Forgot current password?
               </button>
             </div>
-            <form className="ip-ac-card-body" onSubmit={submitPassword}>
+            <form className="ip-ac-card-body" onSubmit={submitPassword} noValidate>
               <div className="ip-ac-field">
                 <div className="ip-ac-field-label">
-                  <span>
+                  <label htmlFor="ip-ac-current-pw">
                     Current Password <span className="req">*</span>
-                  </span>
+                  </label>
                 </div>
                 <div className="ip-ac-input-wrap">
                   <input
+                    id="ip-ac-current-pw"
                     type={showCurrent ? 'text' : 'password'}
                     autoComplete="current-password"
                     value={currentPassword}
@@ -617,16 +630,20 @@ export default function AccountPage() {
 
               <div className="ip-ac-field">
                 <div className="ip-ac-field-label">
-                  <span>
+                  <label htmlFor="ip-ac-new-pw">
                     New Password <span className="req">*</span>
-                  </span>
+                  </label>
                 </div>
                 <div className="ip-ac-input-wrap">
                   <input
+                    id="ip-ac-new-pw"
                     type={showNew ? 'text' : 'password'}
                     autoComplete="new-password"
                     value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
+                    onChange={(e) => {
+                      setNewPassword(e.target.value);
+                      setPwError('');
+                    }}
                     placeholder="Enter new password..."
                     required
                   />
@@ -643,18 +660,25 @@ export default function AccountPage() {
 
               <div className="ip-ac-field">
                 <div className="ip-ac-field-label">
-                  <span>
+                  <label htmlFor="ip-ac-confirm-pw">
                     Confirm New Password <span className="req">*</span>
-                  </span>
+                  </label>
                 </div>
                 <div className="ip-ac-input-wrap">
                   <input
+                    id="ip-ac-confirm-pw"
+                    ref={confirmPwRef}
                     type={showConfirm ? 'text' : 'password'}
                     autoComplete="new-password"
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      setPwError('');
+                    }}
                     placeholder="Re-enter new password..."
                     required
+                    aria-invalid={confirmMismatch ? 'true' : undefined}
+                    aria-describedby={confirmMismatch || confirmPassword ? 'ip-ac-confirm-match' : undefined}
                   />
                   <button
                     type="button"
@@ -665,9 +689,9 @@ export default function AccountPage() {
                     {showConfirm ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
                   </button>
                 </div>
-                {confirmPassword ? (
-                  <span className={`ip-ac-match${newPassword === confirmPassword ? ' is-ok' : ' is-bad'}`}>
-                    {newPassword === confirmPassword ? '✓ Passwords match' : '✗ Passwords do not match'}
+                {confirmPassword || confirmMismatch ? (
+                  <span id="ip-ac-confirm-match" className={`ip-ac-match${confirmMismatch ? ' is-bad' : ' is-ok'}`}>
+                    {confirmMismatch ? '✗ Passwords do not match' : '✓ Passwords match'}
                   </span>
                 ) : null}
               </div>
@@ -715,7 +739,11 @@ export default function AccountPage() {
                 </span>
               </label>
 
-              {pwError ? <p className="ip-ac-error">{pwError}</p> : null}
+              {pwError ? (
+                <p className="ip-ac-error" role="alert" data-testid="account-password-error">
+                  {pwError}
+                </p>
+              ) : null}
 
               <div className="ip-ac-actions">
                 <button
@@ -726,6 +754,7 @@ export default function AccountPage() {
                     setNewPassword('');
                     setConfirmPassword('');
                     setPwError('');
+                    setPwTried(false);
                   }}
                 >
                   Clear Form
@@ -831,14 +860,14 @@ export default function AccountPage() {
             <form className="ip-ac-card-body" onSubmit={submitProfile}>
               <div className="ip-ac-field">
                 <div className="ip-ac-field-label">
-                  <span>Full Name</span>
+                  <label htmlFor="ip-ac-full-name">Full Name</label>
                 </div>
-                <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+                <input id="ip-ac-full-name" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
               </div>
 
               <div className="ip-ac-field">
                 <div className="ip-ac-field-label">
-                  <span>Primary Account Email</span>
+                  <label htmlFor="ip-ac-email">Primary Account Email</label>
                   {emailVerifiedAt ? (
                     <span className="ip-ac-badge is-ok">
                       <CheckCircle2 aria-hidden />
@@ -849,7 +878,7 @@ export default function AccountPage() {
                   )}
                 </div>
                 <div className="ip-ac-row">
-                  <input type="email" value={email} readOnly />
+                  <input id="ip-ac-email" type="email" value={email} readOnly />
                   <button
                     type="button"
                     className="ip-ac-btn-outline"
@@ -871,7 +900,7 @@ export default function AccountPage() {
               {isCandidate ? (
                 <div className="ip-ac-field">
                   <div className="ip-ac-field-label">
-                    <span>Mobile Phone Number</span>
+                    <label htmlFor="ip-ac-phone">Mobile Phone Number</label>
                     {phoneVerifiedAt ? (
                       <span className="ip-ac-badge is-ok">
                         <CheckCircle2 aria-hidden />
@@ -882,7 +911,7 @@ export default function AccountPage() {
                     ) : null}
                   </div>
                   <div className="ip-ac-row">
-                    <input type="text" value={phone || 'No number saved'} readOnly />
+                    <input id="ip-ac-phone" type="text" value={phone || 'No number saved'} readOnly />
                     <button
                       type="button"
                       className="ip-ac-btn-outline"
@@ -991,7 +1020,7 @@ export default function AccountPage() {
                   <h3>{row.label}</h3>
                   <p>{row.hint}</p>
                 </div>
-                <div className="ip-ac-pref-channels">
+                <div className="ip-ac-pref-channels" role="group" aria-label={`${row.label} channels`}>
                   <label>
                     <input
                       type="checkbox"
@@ -1030,7 +1059,7 @@ export default function AccountPage() {
       ) : null}
 
       {modal === 'forgot' ? (
-        <div className="ip-ac-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-ac-forgot-title">
+        <div className="ip-ac-overlay" role="dialog" aria-modal="true" ref={modalRef} aria-labelledby="ip-ac-forgot-title">
           <div className="ip-ac-modal">
             <div className="ip-ac-modal-head">
               <div>
@@ -1065,7 +1094,7 @@ export default function AccountPage() {
       ) : null}
 
       {modal === 'email' ? (
-        <div className="ip-ac-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-ac-email-title">
+        <div className="ip-ac-overlay" role="dialog" aria-modal="true" ref={modalRef} aria-labelledby="ip-ac-email-title">
           <div className="ip-ac-modal">
             <div className="ip-ac-modal-head">
               <div>
@@ -1127,7 +1156,7 @@ export default function AccountPage() {
       ) : null}
 
       {modal === 'phone' ? (
-        <div className="ip-ac-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-ac-phone-title">
+        <div className="ip-ac-overlay" role="dialog" aria-modal="true" ref={modalRef} aria-labelledby="ip-ac-phone-title">
           <div className="ip-ac-modal">
             <div className="ip-ac-modal-head">
               <div>
@@ -1189,7 +1218,7 @@ export default function AccountPage() {
       ) : null}
 
       {modal === 'revoke' && pendingRevoke ? (
-        <div className="ip-ac-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-ac-revoke-title">
+        <div className="ip-ac-overlay" role="dialog" aria-modal="true" ref={modalRef} aria-labelledby="ip-ac-revoke-title">
           <div className="ip-ac-modal">
             <div className="ip-ac-modal-body" style={{ textAlign: 'center' }}>
               <h3 id="ip-ac-revoke-title" style={{ margin: 0 }}>Revoke Workspace Session?</h3>
@@ -1216,7 +1245,7 @@ export default function AccountPage() {
       ) : null}
 
       {modal === 'signout-all' ? (
-        <div className="ip-ac-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-ac-signout-title">
+        <div className="ip-ac-overlay" role="dialog" aria-modal="true" ref={modalRef} aria-labelledby="ip-ac-signout-title">
           <div className="ip-ac-modal">
             <div className="ip-ac-modal-body" style={{ textAlign: 'center' }}>
               <h3 id="ip-ac-signout-title" style={{ margin: 0 }}>Sign Out All Other Devices?</h3>

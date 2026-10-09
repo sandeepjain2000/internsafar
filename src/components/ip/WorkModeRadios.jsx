@@ -15,6 +15,7 @@ export default function WorkModeRadios({
   onChange,
   name = 'work-mode',
   disabled = false,
+  required = false,
   className,
 }) {
   return (
@@ -25,6 +26,7 @@ export default function WorkModeRadios({
       onValueChange={(next) => onChange?.(next)}
       className={cn('grid gap-2.5', className)}
       aria-label="Work Mode"
+      aria-required={required || undefined}
     >
       {WORK_MODES.map((mode) => {
         const id = `${name}-${mode.toLowerCase().replace(/\s+/g, '-')}`;

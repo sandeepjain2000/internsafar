@@ -1,4 +1,8 @@
 /* Shared pager — same visual language as applications / employer posting footers */
+.ip-list-pager button {
+  min-height: 1.5rem;
+}
+
 .ip-list-pager {
   display: flex;
   flex-wrap: wrap;

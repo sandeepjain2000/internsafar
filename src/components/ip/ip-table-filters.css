@@ -52,7 +52,7 @@
   font-weight: 800;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #64748b;
+  color: #475569;
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
 }
@@ -123,7 +123,7 @@
 
 .ip-tf__empty {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-tf__select {
@@ -198,7 +198,7 @@
 
 .ip-tf__dates-sep {
   font-size: 0.7rem;
-  color: #94a3b8;
+  color: #64748b;
   flex-shrink: 0;
 }
 

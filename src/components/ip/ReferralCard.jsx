@@ -15,6 +15,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useClientPagination } from '@/hooks/useClientPagination';
+import IpToast from '@/components/ip/IpToast';
 import {
   POINTS_PER_APPLICATION,
   POINTS_PER_POST,
@@ -86,7 +87,6 @@ export default function ReferralCard({ role }) {
     setCopied(true);
     setToast(true);
     setTimeout(() => setCopied(false), 2000);
-    setTimeout(() => setToast(false), 3000);
   }
 
   const liHref = link
@@ -107,11 +107,11 @@ export default function ReferralCard({ role }) {
 
   return (
     <div className="ip-refer">
-      {toast ? (
-        <div className="ip-rf-toast" role="status">
-          Referral link copied to clipboard!
-        </div>
-      ) : null}
+      <IpToast
+        message={toast ? 'Referral link copied to clipboard!' : ''}
+        onDismiss={() => setToast(false)}
+        className="ip-rf-toast"
+      />
 
       <div className="ip-rf-top">
         <div>

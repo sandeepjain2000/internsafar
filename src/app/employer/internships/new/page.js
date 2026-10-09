@@ -263,7 +263,10 @@ export default function NewInternshipPage() {
                   <span className="ip-pq__dot" aria-hidden>
                     {done ? <Check size={11} strokeWidth={3} /> : null}
                   </span>
-                  <span>{c.label}</span>
+                  <span>
+                    <span className="sr-only">{done ? 'Done: ' : 'Not done: '}</span>
+                    {c.label}
+                  </span>
                   {c.optional ? <span className="ip-pq__opt">Optional</span> : null}
                 </li>
               );
@@ -271,7 +274,15 @@ export default function NewInternshipPage() {
           </ul>
 
           <div className="ip-pq__progress">
-            <div className="ip-pq__bar" role="progressbar" aria-valuenow={doneCount} aria-valuemin={0} aria-valuemax={QUALITY_CHECKS.length}>
+            <div
+              className="ip-pq__bar"
+              role="progressbar"
+              aria-label="Checklist progress"
+              aria-valuenow={doneCount}
+              aria-valuemin={0}
+              aria-valuemax={QUALITY_CHECKS.length}
+              aria-valuetext={`${doneCount} of ${QUALITY_CHECKS.length} complete`}
+            >
               <span style={{ width: `${progressPct}%` }} />
             </div>
             <span className="ip-pq__count">
@@ -318,7 +329,7 @@ export default function NewInternshipPage() {
               </TabsList>
 
               <TabsContent value="details" className="grid gap-4 overflow-visible sm:grid-cols-2">
-                <Field className="sm:col-span-2"><FieldLabel>Title</FieldLabel><Input required value={form.title} onChange={(e) => set('title', e.target.value)} /></Field>
+                <Field className="sm:col-span-2"><FieldLabel>Title <span className="text-destructive" aria-hidden>*</span></FieldLabel><Input required value={form.title} onChange={(e) => set('title', e.target.value)} /></Field>
                 <Field className="sm:col-span-2"><FieldLabel>Description</FieldLabel><Textarea rows={4} value={form.description} onChange={(e) => set('description', e.target.value)} /></Field>
                 <Field className="sm:col-span-2 overflow-visible">
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -334,8 +345,9 @@ export default function NewInternshipPage() {
                   </div>
                 </Field>
                 <Field className="sm:col-span-2">
-                  <FieldLabel>Work Mode</FieldLabel>
+                  <FieldLabel>Work Mode <span className="text-destructive" aria-hidden>*</span></FieldLabel>
                   <WorkModeRadios
+                    required
                     name="new-internship-work-mode"
                     value={form.workMode}
                     onChange={(mode) => set('workMode', mode)}

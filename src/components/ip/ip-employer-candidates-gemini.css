@@ -449,8 +449,8 @@
 .ip-emp-cand .ip-ec-toast {
   position: fixed;
   right: 1rem;
-  bottom: 1rem;
-  z-index: 60;
+  bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+  z-index: 10000;
   background: #4f46e5;
   color: #fff;
   padding: 0.75rem 1rem;

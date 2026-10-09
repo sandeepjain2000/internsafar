@@ -152,7 +152,7 @@
 }
 
 .ip-emp-postings .ip-epo-stat strong.ip-epo-stat--green {
-  color: #059669;
+  color: #047857;
 }
 
 .ip-emp-postings .ip-epo-stat strong.ip-epo-stat--indigo {
@@ -214,7 +214,7 @@
   transform: translateY(-50%);
   width: 1rem;
   height: 1rem;
-  color: #94a3b8;
+  color: #64748b;
   pointer-events: none;
 }
 
@@ -308,7 +308,7 @@
 }
 
 .ip-emp-postings td.ip-epo-num {
-  color: #94a3b8;
+  color: #64748b;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.75rem;
 }
@@ -327,7 +327,7 @@
   display: block;
   margin-top: 0.125rem;
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #64748b;
   font-weight: 400;
 }
 
@@ -356,7 +356,7 @@
 .ip-emp-postings .ip-epo-apps svg {
   width: 1rem;
   height: 1rem;
-  color: #94a3b8;
+  color: #64748b;
   flex-shrink: 0;
 }
 

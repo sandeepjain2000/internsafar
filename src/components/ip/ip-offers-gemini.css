@@ -61,7 +61,7 @@
   transform: translateY(-50%);
   width: 1rem;
   height: 1rem;
-  color: #94a3b8;
+  color: #64748b;
   pointer-events: none;
 }
 
@@ -240,7 +240,7 @@
 }
 
 .ip-offers .ip-of-tab--on .ip-of-count {
-  background: rgba(255, 255, 255, 0.2);
+  background: #3730a3;
   color: #fff;
 }
 
@@ -330,11 +330,18 @@
 }
 
 .ip-offers .ip-of-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   padding: 0.25rem 0.625rem;
   border-radius: 9999px;
   font-size: 0.6875rem;
   font-weight: 800;
+  line-height: 1.25;
+}
+
+.ip-offers .ip-of-foot--ok .ip-of-badge {
+  align-self: center;
+  white-space: nowrap;
 }
 
 .ip-offers .ip-of-badge--warn {
@@ -396,7 +403,7 @@
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-offers .ip-of-grid {
@@ -421,7 +428,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-offers .ip-of-grid dd {
@@ -478,9 +485,9 @@
   color: #0f172a;
 }
 
-.ip-offers .ip-of-recruiter span {
+.ip-offers .ip-of-recruiter span:not(.ip-of-chip) {
   font-size: 0.625rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-offers .ip-of-chip {
@@ -509,7 +516,7 @@
   align-items: center;
   justify-content: space-between;
   font-size: 0.6875rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-offers .ip-of-note-foot a {
@@ -576,7 +583,7 @@
 
 .ip-offers .ip-of-btn--success {
   padding: 0.625rem 1.5rem;
-  background: #059669;
+  background: #047857;
   color: #fff;
 }
 
@@ -654,7 +661,7 @@
   width: 2rem;
   height: 2rem;
   border-radius: 9999px;
-  background: #059669;
+  background: #047857;
   color: #fff;
   display: flex;
   align-items: center;
@@ -846,9 +853,9 @@
 
 .ip-offers .ip-of-toast {
   position: fixed;
-  bottom: 1.25rem;
+  bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
   right: 1.25rem;
-  z-index: 60;
+  z-index: 10000;
   background: #0f172a;
   color: #fff;
   padding: 0.75rem 1rem;
@@ -955,7 +962,7 @@
   }
 
   .ip-offers .ip-of-tabs .ip-of-tab--on .ip-of-count {
-    background: rgba(255, 255, 255, 0.2);
+    background: #3730a3;
     color: #fff;
   }
 
@@ -1066,7 +1073,7 @@
   .ip-offers .ip-of-toast {
     left: 1rem;
     right: 1rem;
-    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
   }
 }
 

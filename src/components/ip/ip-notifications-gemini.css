@@ -168,7 +168,7 @@
   font-weight: 800;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #64748b;
+  color: #475569;
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
 }
@@ -256,7 +256,7 @@
   transform: translateY(-50%);
   width: 0.875rem;
   height: 0.875rem;
-  color: #94a3b8;
+  color: #64748b;
   pointer-events: none;
 }
 
@@ -290,7 +290,7 @@
   padding: 0.25rem;
   border: none;
   background: transparent;
-  color: #94a3b8;
+  color: #64748b;
   cursor: pointer;
 }
 
@@ -375,7 +375,7 @@
 
 .ip-notif .ip-nf-icon--referral {
   background: #fffbeb;
-  color: #d97706;
+  color: #b45309;
   border-color: #fde68a;
 }
 
@@ -457,7 +457,7 @@
 .ip-notif .ip-nf-time {
   font-size: 0.6875rem;
   font-weight: 500;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-notif .ip-nf-actions {
@@ -487,7 +487,7 @@
   border: none;
   border-radius: 0.5rem;
   background: transparent;
-  color: #94a3b8;
+  color: #64748b;
   cursor: pointer;
 }
 
@@ -520,7 +520,7 @@
   height: 3.5rem;
   border-radius: 9999px;
   background: #f1f5f9;
-  color: #94a3b8;
+  color: #64748b;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -569,14 +569,14 @@
   gap: 1rem;
   padding: 0.5rem 0.5rem 0;
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-notif .ip-nf-toast {
   position: fixed;
-  bottom: 1.5rem;
+  bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
   right: 1.5rem;
-  z-index: 50;
+  z-index: 10000;
   display: flex;
   align-items: center;
   gap: 0.75rem;

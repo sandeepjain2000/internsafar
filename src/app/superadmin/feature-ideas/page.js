@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useOverlayDialog } from '@/hooks/useOverlayDialog';
+import IpToast from '@/components/ip/IpToast';
 import Link from 'next/link';
 import {
   ArrowUp,
@@ -17,7 +19,7 @@ import {
 import '@/components/ip/ip-superadmin-queue-gemini.css';
 import '@/components/ip/ip-list-pager.css';
 import IpListPager from '@/components/ip/IpListPager';
-import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import { IpListEmpty, IpListLoading, IpRetryButton } from '@/components/ip/IpListStatus';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
 
@@ -99,6 +101,7 @@ export default function FeatureIdeasTriagePage() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [triage, setTriage] = useState(null);
+  const triageRef = useOverlayDialog(triage, () => setTriage(null));
   const [editStatus, setEditStatus] = useState('Under review');
   const [editPriority, setEditPriority] = useState('High');
   const [editCategoryId, setEditCategoryId] = useState('none');
@@ -130,12 +133,6 @@ export default function FeatureIdeasTriagePage() {
   useEffect(() => {
     load();
   }, []);
-
-  useEffect(() => {
-    if (!toast) return undefined;
-    const t = setTimeout(() => setToast(''), 2800);
-    return () => clearTimeout(t);
-  }, [toast]);
 
   const kpi = useMemo(() => {
     const pending = items.filter((i) => i.status === 'Pending approval' || i.status === 'Under review').length;
@@ -233,11 +230,7 @@ export default function FeatureIdeasTriagePage() {
 
   return (
     <div className="ip-sa-q ip-mobile-bleed">
-      {toast ? (
-        <div className="ip-saq-toast" role="status">
-          {toast}
-        </div>
-      ) : null}
+      <IpToast message={toast} onDismiss={() => setToast('')} className="ip-saq-toast" />
 
       <div className="ip-saq-head">
         <div>
@@ -257,7 +250,14 @@ export default function FeatureIdeasTriagePage() {
         </div>
       </div>
 
-      {error ? <div className="ip-saq-error">{error}</div> : null}
+      {error ? (
+        <div className="ip-saq-error" role="alert">
+          {error}
+          <div>
+            <IpRetryButton onClick={load} />
+          </div>
+        </div>
+      ) : null}
 
       <div className="ip-saq-metrics">
         <div className="ip-saq-metric">
@@ -367,6 +367,7 @@ export default function FeatureIdeasTriagePage() {
               <input
                 type="search"
                 placeholder="Search idea title..."
+                aria-label="Search feature ideas"
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
@@ -430,6 +431,7 @@ export default function FeatureIdeasTriagePage() {
                         <td>
                           <input
                             type="checkbox"
+                            aria-label={`Select ${idea.title}`}
                             checked={selected.includes(idea.id)}
                             onChange={(e) =>
                               setSelected((prev) =>
@@ -493,7 +495,7 @@ export default function FeatureIdeasTriagePage() {
       </div>
 
       {triage ? (
-        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-idea-title">
+        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-idea-title" ref={triageRef}>
           <div className="ip-saq-modal ip-saq-modal--wide">
             <div className="ip-saq-modal__head">
               <div className="ip-saq-modal__title">

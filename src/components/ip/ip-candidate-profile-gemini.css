@@ -135,7 +135,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-cand-profile .ip-cp-complete__row strong {
@@ -172,6 +172,7 @@
   text-align: left;
   font: inherit;
   font-size: 0.75rem;
+  min-height: 1.5rem;
   color: #4f46e5;
   cursor: pointer;
   text-decoration: underline;
@@ -340,6 +341,20 @@
   font-family: inherit;
 }
 
+.ip-cand-profile .ip-cp-tabs__split {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin: 0.625rem 0.25rem 0.625rem 0.5rem;
+  padding-left: 0.875rem;
+  border-left: 1px solid #cbd5e1;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
 .ip-cand-profile .ip-cp-tabs button[role='tab'] svg {
   width: 1rem;
   height: 1rem;
@@ -443,12 +458,12 @@
 }
 
 .ip-cand-profile .ip-cp-req {
-  color: #f43f5e;
+  color: #e11d48;
 }
 
 .ip-cand-profile .ip-cp-opt {
   font-weight: 400;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-cand-profile .ip-cp-hint {
@@ -550,7 +565,7 @@
 .ip-cand-profile .ip-cp-email__label svg {
   width: 1rem;
   height: 1rem;
-  color: #d97706;
+  color: #b45309;
 }
 
 .ip-cand-profile .ip-cp-email__label h4 {
@@ -653,12 +668,12 @@
 }
 
 .ip-cand-profile .ip-cp-btn--ok {
-  background: #059669;
+  background: #047857;
   color: #fff;
 }
 
 .ip-cand-profile .ip-cp-btn--ok:hover:not(:disabled) {
-  background: #047857;
+  background: #065f46;
 }
 
 .ip-cand-profile .ip-cp-btn--outline {
@@ -686,6 +701,7 @@
   background: transparent;
   color: #334155;
   padding: 0.25rem 0.5rem;
+  min-height: 1.5rem;
 }
 
 .ip-cand-profile .ip-cp-btn--ghost:hover:not(:disabled) {
@@ -997,7 +1013,7 @@
 .ip-cand-profile .ip-cp-note svg {
   width: 1.25rem;
   height: 1.25rem;
-  color: #d97706;
+  color: #b45309;
   flex-shrink: 0;
   margin-top: 0.125rem;
 }
@@ -1521,6 +1537,11 @@
 
   .ip-cand-profile .ip-cp-tabs::-webkit-scrollbar {
     display: none;
+  }
+
+  .ip-cand-profile .ip-cp-tabs__split {
+    margin: 0.5rem 0.15rem 0.5rem 0.35rem;
+    padding-left: 0.6rem;
   }
 
   .ip-cand-profile .ip-cp-tabs button[role='tab'] {

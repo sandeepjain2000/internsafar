@@ -263,9 +263,10 @@ values expire at 23:59:59.999 local.
 - `/candidate/notifications` - 11 filters, mark one or all read, max 500 rows.
 - `/candidate/referral` - referral link (`/register/candidate?ref=CODE`) and viral link
   (`/r/CODE`), points ledger with running balance, referral history with masked identities.
-- `/candidate/profile` - 5 tabs: Basics & Contact, Academic & Skills, Work Readiness,
-  Privacy & Photo, Endorsements (read-only). The first three are a sequenced wizard; later
-  steps unlock via "Save & Next". Multi-row education history lives in
+- `/candidate/profile` - 6 tabs: 1. Basics & Contact, 2. Academic, 3. Skills & Experience,
+  4. Work Readiness, then an "Optional" divider and unnumbered Privacy & Photo and Endorsements (read-only). The four
+  numbered tabs are a sequenced setup wizard ("Setup step X of 4"); later steps unlock via
+  "Save & Next". Privacy & Photo and Endorsements are always open. Multi-row education history lives in
   `ip_candidate_academics`; row 0 mirrors into the flat `ip_candidates` columns on save.
   Work experience is stored as a **JSON string** in `ip_candidates.prior_experience` and is
   rendered through `src/lib/ipCandidateExperience.js` (never as raw JSON).

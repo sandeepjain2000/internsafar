@@ -134,11 +134,11 @@
 }
 
 .ip-emp-offers .ip-eo-metric-sub--ok {
-  color: #059669;
+  color: #047857;
 }
 
 .ip-emp-offers .ip-eo-metric-sub--warn {
-  color: #d97706;
+  color: #b45309;
 }
 
 .ip-emp-offers .ip-eo-metric-icon {
@@ -158,12 +158,12 @@
 
 .ip-emp-offers .ip-eo-metric-icon--ok {
   background: #ecfdf5;
-  color: #059669;
+  color: #047857;
 }
 
 .ip-emp-offers .ip-eo-metric-icon--warn {
   background: #fffbeb;
-  color: #d97706;
+  color: #b45309;
 }
 
 .ip-emp-offers .ip-eo-panel {
@@ -319,7 +319,7 @@
   left: 0.875rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #94a3b8;
+  color: #64748b;
   pointer-events: none;
 }
 
@@ -360,7 +360,7 @@
   padding: 0.875rem 1.5rem;
   font-size: 0.6875rem;
   font-weight: 700;
-  color: #94a3b8;
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -382,7 +382,7 @@
 .ip-emp-offers .ip-eo-empty {
   padding: 3rem 1.5rem;
   text-align: center;
-  color: #94a3b8;
+  color: #64748b;
   font-weight: 500;
 }
 

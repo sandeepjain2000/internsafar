@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useOverlayDialog } from '@/hooks/useOverlayDialog';
+import IpToast from '@/components/ip/IpToast';
 import Link from 'next/link';
 import { Search, ShieldCheck } from 'lucide-react';
 import { useClientPagination } from '@/hooks/useClientPagination';
@@ -13,7 +15,7 @@ import useIpCityCatalog from '@/hooks/useIpCityCatalog';
 import useIpCountryCatalog from '@/hooks/useIpCountryCatalog';
 import { experienceSummaryLabel } from '@/lib/ipCandidateExperience';
 import { IpTableFiltersShell } from '@/components/ip/IpTableFiltersShell';
-import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import { IpListEmpty, IpListError, IpListLoading } from '@/components/ip/IpListStatus';
 import '@/components/ip/ip-employer-candidates-gemini.css';
 import '@/components/ip/ip-table-filters.css';
 
@@ -79,6 +81,7 @@ export default function CandidateSearchPage() {
   const { countryOptions, loading: countriesLoading } = useIpCountryCatalog();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [summary, setSummary] = useState({ found: 0, roleMatches: 0, shortlisted: 0, invitesPending: 0 });
   const [q, setQ] = useState('');
   const [cities, setCities] = useState([]);
@@ -109,6 +112,9 @@ export default function CandidateSearchPage() {
   const [statusMsg, setStatusMsg] = useState('');
   const [toast, setToast] = useState('');
   const [busy, setBusy] = useState(false);
+  const whyRef = useOverlayDialog(whyText, () => setWhyText(''));
+  const inviteRef = useOverlayDialog(inviteTarget, () => setInviteTarget(null));
+  const offerRef = useOverlayDialog(offerTarget, () => setOfferTarget(null));
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { page, setPage, totalPages, total, pageItems } = useClientPagination(items, PAGE_SIZE);
   const [viewMode, setViewMode] = useViewMode('ip_emp_cand_view', 'cards');
@@ -142,7 +148,6 @@ export default function CandidateSearchPage() {
 
   function showToast(msg) {
     setToast(msg);
-    setTimeout(() => setToast(''), 3200);
   }
 
   async function load() {
@@ -163,11 +168,18 @@ export default function CandidateSearchPage() {
     if (Number(minCgpa) > 0) params.set('minCgpa', minCgpa);
     if (freshnessDays) params.set('freshnessDays', freshnessDays);
     const res = await fetch(`/api/ip/employer/candidates?${params.toString()}`);
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setLoadError(data.error || 'Something went wrong on our side.');
+      return;
+    }
+    setLoadError('');
     setItems(data.items || []);
     setSummary(data.summary || { found: (data.items || []).length, roleMatches: 0, shortlisted: 0, invitesPending: 0 });
     setMatchReady(Boolean(data.matchReady));
     setPage(1);
+    } catch {
+      setLoadError('We could not reach the server. Check your internet connection.');
     } finally {
       setLoading(false);
     }
@@ -280,7 +292,7 @@ export default function CandidateSearchPage() {
 
   return (
     <div className="ip-emp-cand ip-mobile-bleed">
-      {toast ? <div className="ip-ec-toast">{toast}</div> : null}
+      <IpToast message={toast} onDismiss={() => setToast('')} className="ip-ec-toast" />
 
       <div className="ip-ec-head">
         <div>
@@ -434,6 +446,8 @@ export default function CandidateSearchPage() {
         <div className="ip-ec-results">
           {loading ? (
             <IpListLoading label="Loading Candidates…" />
+          ) : loadError ? (
+            <IpListError title="Could not load candidates" message={loadError} onRetry={load} />
           ) : !items.length ? (
             <IpListEmpty
               title="No Candidates Match These Filters"
@@ -559,23 +573,23 @@ export default function CandidateSearchPage() {
       </div>
 
       {whyText ? (
-        <div className="ip-ec-backdrop" role="dialog" onClick={() => setWhyText('')}>
+        <div className="ip-ec-backdrop" role="dialog" aria-modal="true" aria-labelledby="ip-ec-why-title" ref={whyRef} onClick={() => setWhyText('')}>
           <div className="ip-ec-modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
-            <div className="ip-ec-mhead"><h2>Why this match?</h2><button type="button" className="ip-ec-sbtn" onClick={() => setWhyText('')}>×</button></div>
+            <div className="ip-ec-mhead"><h2 id="ip-ec-why-title">Why this match?</h2><button type="button" className="ip-ec-sbtn" aria-label="Close" onClick={() => setWhyText('')}>×</button></div>
             <div className="ip-ec-mbody"><p>{whyText}</p></div>
           </div>
         </div>
       ) : null}
 
       {inviteTarget ? (
-        <div className="ip-ec-backdrop" role="dialog">
+        <div className="ip-ec-backdrop" role="dialog" aria-modal="true" aria-labelledby="ip-ec-invite-title" ref={inviteRef}>
           <div className="ip-ec-modal" style={{ maxWidth: 560 }}>
             <div className="ip-ec-mhead">
               <div>
-                <h2>Invite candidate to apply</h2>
+                <h2 id="ip-ec-invite-title">Invite candidate to apply</h2>
                 <p style={{ margin: '4px 0 0', fontSize: 11, color: '#667085' }}>Choose the exact internship before sending the invitation.</p>
               </div>
-              <button type="button" className="ip-ec-sbtn" onClick={() => setInviteTarget(null)}>×</button>
+              <button type="button" className="ip-ec-sbtn" aria-label="Close" onClick={() => setInviteTarget(null)}>×</button>
             </div>
             <div className="ip-ec-mbody">
               {statusMsg ? <div className="ip-ec-alert">{statusMsg}</div> : (
@@ -605,11 +619,11 @@ export default function CandidateSearchPage() {
       ) : null}
 
       {offerTarget ? (
-        <div className="ip-ec-backdrop" role="dialog">
+        <div className="ip-ec-backdrop" role="dialog" aria-modal="true" aria-labelledby="ip-ec-offer-title" ref={offerRef}>
           <div className="ip-ec-modal">
             <div className="ip-ec-mhead">
-              <h2>Make offer to {offerTarget.name}</h2>
-              <button type="button" className="ip-ec-sbtn" onClick={() => setOfferTarget(null)}>×</button>
+              <h2 id="ip-ec-offer-title">Make offer to {offerTarget.name}</h2>
+              <button type="button" className="ip-ec-sbtn" aria-label="Close" onClick={() => setOfferTarget(null)}>×</button>
             </div>
             <div className="ip-ec-mbody">
               {statusMsg ? <div className="ip-ec-alert">{statusMsg}</div> : (
@@ -622,10 +636,10 @@ export default function CandidateSearchPage() {
               </select>
               <label htmlFor="ip-ec-offer-msg">Message (optional)</label>
               <textarea id="ip-ec-offer-msg" value={offerMessage} onChange={(e) => setOfferMessage(e.target.value)} />
-              <label>Start date</label>
-              <input type="date" value={offerExtras.startDate} onChange={(e) => setOfferExtras((f) => ({ ...f, startDate: e.target.value }))} />
-              <label>Valid until</label>
-              <input type="date" value={offerExtras.validUntil} onChange={(e) => setOfferExtras((f) => ({ ...f, validUntil: e.target.value }))} />
+              <label htmlFor="ip-ec-offer-start">Start date</label>
+              <input id="ip-ec-offer-start" type="date" value={offerExtras.startDate} onChange={(e) => setOfferExtras((f) => ({ ...f, startDate: e.target.value }))} />
+              <label htmlFor="ip-ec-offer-valid">Valid until</label>
+              <input id="ip-ec-offer-valid" type="date" value={offerExtras.validUntil} onChange={(e) => setOfferExtras((f) => ({ ...f, validUntil: e.target.value }))} />
             </div>
             <div className="ip-ec-mact">
               <button type="button" className="ip-ec-sbtn" onClick={() => setOfferTarget(null)}>Cancel</button>

@@ -1,6 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useOverlayDialog } from '@/hooks/useOverlayDialog';
+import { onTablistKeyDown } from '@/lib/tablistKeys';
+import IpToast from '@/components/ip/IpToast';
+import { IpRetryButton } from '@/components/ip/IpListStatus';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import {
@@ -52,9 +56,12 @@ export default function SuperAdminApprovalsPage() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [loadFailed, setLoadFailed] = useState(false);
   const [toast, setToast] = useState('');
   const [auditRow, setAuditRow] = useState(null);
   const [rejectRow, setRejectRow] = useState(null);
+  const auditRef = useOverlayDialog(auditRow, () => setAuditRow(null));
+  const rejectRef = useOverlayDialog(rejectRow, () => setRejectRow(null));
   const [rejectPreset, setRejectPreset] = useState(REJECT_PRESETS[0]);
   const [rejectNote, setRejectNote] = useState('');
   const beginLoad = useLatestRequest();
@@ -63,6 +70,7 @@ export default function SuperAdminApprovalsPage() {
     const isCurrent = beginLoad();
     setLoading(true);
     setError('');
+    setLoadFailed(false);
     try {
       const res = await fetch(`/api/ip/superadmin/employers?status=${filter}&meta=1`, {
         credentials: 'same-origin',
@@ -71,6 +79,7 @@ export default function SuperAdminApprovalsPage() {
       if (!isCurrent()) return;
       if (!res.ok) {
         setError(data.error || `Failed To Load (${res.status})`);
+        setLoadFailed(true);
         setItems([]);
         return;
       }
@@ -80,6 +89,7 @@ export default function SuperAdminApprovalsPage() {
     } catch (e) {
       if (!isCurrent()) return;
       setError(e.message || 'Failed To Load');
+      setLoadFailed(true);
       setItems([]);
     } finally {
       if (isCurrent()) setLoading(false);
@@ -101,12 +111,6 @@ export default function SuperAdminApprovalsPage() {
       setItems([]);
     }
   }, [sessionRole, sessionStatus, filter]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!toast) return undefined;
-    const t = setTimeout(() => setToast(''), 2800);
-    return () => clearTimeout(t);
-  }, [toast]);
 
   const enriched = useMemo(
     () =>
@@ -302,11 +306,7 @@ export default function SuperAdminApprovalsPage() {
 
   return (
     <div className="ip-sa-q ip-mobile-bleed">
-      {toast ? (
-        <div className="ip-saq-toast" role="status">
-          {toast}
-        </div>
-      ) : null}
+      <IpToast message={toast} onDismiss={() => setToast('')} className="ip-saq-toast" />
 
       <div className="ip-saq-head">
         <div>
@@ -411,7 +411,7 @@ export default function SuperAdminApprovalsPage() {
         <Alert variant="destructive" className="mb-4" role="alert">
           <AlertTriangle className="size-4" aria-hidden />
           <AlertTitle>
-            {/forbidden|unauthorized|role|sign in|sign out/i.test(error)
+            {loadFailed || /forbidden|unauthorized|role|sign in|sign out/i.test(error)
               ? 'Could not load Approvals'
               : /Cannot restore/i.test(error)
                 ? 'Review pending documents before Restore'
@@ -431,6 +431,11 @@ export default function SuperAdminApprovalsPage() {
               >
                 Open Documents
               </Link>
+            ) : null}
+            {loadFailed ? (
+              <div>
+                <IpRetryButton onClick={load} />
+              </div>
             ) : null}
           </AlertDescription>
         </Alert>
@@ -493,7 +498,7 @@ export default function SuperAdminApprovalsPage() {
 
       <div className="ip-saq-panel">
         <div className="ip-saq-toolbar">
-          <div className="ip-saq-tabs" role="tablist">
+          <div className="ip-saq-tabs" role="tablist" onKeyDown={onTablistKeyDown}>
             {[
               { id: 'pending', label: 'Pending', count: meta.pending },
               { id: 'approved', label: 'Approved', count: null },
@@ -758,7 +763,7 @@ export default function SuperAdminApprovalsPage() {
       </div>
 
       {auditRow ? (
-        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-audit-title">
+        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-audit-title" ref={auditRef}>
           <div className="ip-saq-modal ip-saq-modal--wide">
             <div className="ip-saq-modal__head">
               <div className="ip-saq-modal__title">
@@ -819,7 +824,7 @@ export default function SuperAdminApprovalsPage() {
                           <ExternalLink size={12} aria-hidden />
                         </a>
                       ) : (
-                        <span style={{ color: '#94a3b8' }}>No URL</span>
+                        <span style={{ color: '#64748b' }}>No URL</span>
                       )}
                     </div>
                   ))
@@ -907,7 +912,7 @@ export default function SuperAdminApprovalsPage() {
       ) : null}
 
       {rejectRow ? (
-        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-reject-title">
+        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-reject-title" ref={rejectRef}>
           <div className="ip-saq-modal">
             <div className="ip-saq-modal__head">
               <div className="ip-saq-modal__title">

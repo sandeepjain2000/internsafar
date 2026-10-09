@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import {
@@ -14,6 +14,7 @@ import {
   User,
 } from 'lucide-react';
 import RatingsReceivedCard from '@/components/ip/RatingsReceivedCard';
+import { IpListError } from '@/components/ip/IpListStatus';
 import { POINTS_PER_APPLICATION } from '@/lib/pointsEconomy';
 import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
 import {
@@ -136,10 +137,17 @@ export default function CandidateDashboard() {
   const [dashReady, setDashReady] = useState(false);
   const [profileReady, setProfileReady] = useState(false);
   const [draftBanner, setDraftBanner] = useState('');
+  const [loadFailed, setLoadFailed] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoadFailed(false);
+    setDashReady(false);
+    setProfileReady(false);
     fetch('/api/ip/candidate/profile')
-      .then((r) => readResponseJson(r, {}))
+      .then(async (r) => {
+        if (!r.ok) throw new Error('profile');
+        return readResponseJson(r, {});
+      })
       .then(async (d) => {
         setProfile(d.profile);
         const userId = d.profile?.user_id;
@@ -171,16 +179,24 @@ export default function CandidateDashboard() {
           setDraftBanner(PROFILE_DRAFT_DASH_MESSAGE);
         }
       })
-      .catch(() => {})
+      .catch(() => setLoadFailed(true))
       .finally(() => setProfileReady(true));
+    const okJson = async (r) => {
+      if (!r.ok) throw new Error(String(r.status));
+      return readResponseJson(r, {});
+    };
     Promise.all([
-      fetch('/api/ip/candidate/applications?pageSize=200', { cache: 'no-store', credentials: 'include' }).then((r) => readResponseJson(r, {})),
-      fetch('/api/ip/offers').then((r) => readResponseJson(r, {})),
+      fetch('/api/ip/candidate/applications?pageSize=200', { cache: 'no-store', credentials: 'include' }).then(okJson),
+      fetch('/api/ip/offers').then(okJson),
     ]).then(([appData, offerData]) => {
       setApps(appData.items || []);
       setOffers(offerData.items || []);
-    }).catch(() => {}).finally(() => setDashReady(true));
+    }).catch(() => setLoadFailed(true)).finally(() => setDashReady(true));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const points = Number(profile?.points ?? 0);
   const activeApps = apps.filter((a) => a.in_progress).length;
@@ -265,6 +281,14 @@ export default function CandidateDashboard() {
         </Link>
       </div>
 
+      {loadFailed ? (
+        <IpListError
+          title="Could not load your dashboard"
+          message="Some of your numbers and pending items could not be loaded. They are not lost."
+          onRetry={load}
+        />
+      ) : null}
+
       {draftBanner ? (
         <div className="ip-cd-draft-alert" role="status">
           <p>{draftBanner}</p>
@@ -286,7 +310,9 @@ export default function CandidateDashboard() {
           <span className="ip-cd-pending__count">
             {!dashReady || !profileReady
               ? 'Loading…'
-              : `${pendingItems.length} Item${pendingItems.length === 1 ? '' : 's'} Need Attention`}
+              : loadFailed
+                ? 'Could not load'
+                : `${pendingItems.length} Item${pendingItems.length === 1 ? '' : 's'} Need Attention`}
           </span>
         </div>
         {!dashReady || !profileReady ? (

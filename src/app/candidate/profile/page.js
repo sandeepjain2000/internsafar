@@ -1,6 +1,6 @@
 'use client';
 
-import { cloneElement, isValidElement, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Fragment, cloneElement, isValidElement, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
@@ -18,6 +18,7 @@ import {
   User,
 } from 'lucide-react';
 import { imageAcceptAttr, resumeAcceptAttr } from '@/lib/ipFileUpload';
+import { onTablistKeyDown } from '@/lib/tablistKeys';
 import { validateRequiredPhone, phoneDialOptionsFor } from '@/lib/ipPhoneValidation';
 import { firstPersonNameError, personNameError } from '@/lib/ipPersonName';
 import { firstContactFieldError, normalizeContactFields } from '@/lib/ipProfileContact';
@@ -54,8 +55,8 @@ const PROFILE_TABS = [
   { id: 'academic', label: '2. Academic', Icon: GraduationCap, saveLabel: 'Save Academic', wizardStep: 2 },
   { id: 'skills', label: '3. Skills & Experience', Icon: Sparkles, saveLabel: 'Save Skills & Experience', wizardStep: 3 },
   { id: 'readiness', label: '4. Work Readiness', Icon: Briefcase, saveLabel: 'Save Work Readiness', wizardStep: 4 },
-  { id: 'privacy', label: '5. Privacy & Photo', Icon: Lock, saveLabel: 'Save Privacy Settings' },
-  { id: 'history', label: '6. Endorsements (Read-Only)', Icon: Star },
+  { id: 'privacy', label: 'Privacy & Photo', Icon: Lock, saveLabel: 'Save Privacy Settings' },
+  { id: 'history', label: 'Endorsements (Read-Only)', Icon: Star },
 ];
 
 const WIZARD_ORDER = ['basics', 'academic', 'skills', 'readiness'];
@@ -843,29 +844,36 @@ export default function CandidateProfilePage() {
       </div>
 
       <form className="ip-cp-sheet" onSubmit={save}>
-        <div className="ip-cp-tabs" role="tablist" aria-label="Profile sections">
+        <div className="ip-cp-tabs" role="tablist" onKeyDown={onTablistKeyDown} aria-label="Profile sections">
           {PROFILE_TABS.map((tab) => {
             const Icon = tab.Icon;
             const selected = profileTab === tab.id;
             const locked = tabIsLocked(tab.id);
+            const firstOptional = tab.id === PROFILE_TABS.find((t) => !t.wizardStep)?.id;
             return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                aria-disabled={locked}
-                disabled={locked}
-                title={locked ? 'Complete the previous step with Save & Next first' : undefined}
-                className={[
-                  tab.id === 'history' ? 'is-star' : '',
-                  locked ? 'is-locked' : '',
-                ].filter(Boolean).join(' ') || undefined}
-                onClick={() => selectTab(tab.id)}
-              >
-                {locked ? <Lock /> : <Icon />}
-                <span>{tab.label}</span>
-              </button>
+              <Fragment key={tab.id}>
+                {firstOptional ? (
+                  <span className="ip-cp-tabs__split" aria-hidden="true">
+                    Optional
+                  </span>
+                ) : null}
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  aria-disabled={locked}
+                  disabled={locked}
+                  title={locked ? 'Complete the previous step with Save & Next first' : undefined}
+                  className={[
+                    tab.id === 'history' ? 'is-star' : '',
+                    locked ? 'is-locked' : '',
+                  ].filter(Boolean).join(' ') || undefined}
+                  onClick={() => selectTab(tab.id)}
+                >
+                  {locked ? <Lock /> : <Icon />}
+                  <span>{tab.label}</span>
+                </button>
+              </Fragment>
             );
           })}
         </div>
@@ -873,7 +881,7 @@ export default function CandidateProfilePage() {
         {isWizardTab ? (
           <div className="ip-cp-wizard" aria-label={`Profile setup step ${wizardIndex + 1} of ${WIZARD_ORDER.length}`}>
             <div className="ip-cp-wizard__top">
-              <span>Step {wizardIndex + 1} of {WIZARD_ORDER.length}</span>
+              <span>Setup step {wizardIndex + 1} of {WIZARD_ORDER.length}</span>
               <strong>{PROFILE_TABS.find((t) => t.id === profileTab)?.label?.replace(/^\d+\.\s*/, '')}</strong>
             </div>
             <div className="ip-cp-wizard__bar" aria-hidden>
@@ -882,7 +890,7 @@ export default function CandidateProfilePage() {
             <p className="ip-cp-wizard__hint">
               {unlocked
                 ? 'Your profile meets the minimum for applying — all sections stay open. Use the tabs freely.'
-                : 'First-time setup: use Save & Next through these three steps. Later steps stay locked until you advance. After you unlock applying, all tabs stay open on refresh. Privacy and endorsements stay available above.'}
+                : 'First-time setup: use Save & Next through the four numbered steps. Later steps stay locked until you advance. After you unlock applying, all tabs stay open on refresh. Privacy & Photo and Endorsements are optional sections outside setup and stay available above.'}
             </p>
           </div>
         ) : null}
@@ -1376,9 +1384,9 @@ export default function CandidateProfilePage() {
                   type="button"
                   className="ip-cp-photo__preview"
                   disabled={photoBusy}
-                  title="Upload new logo."
-                  aria-label="Upload new logo."
-                  data-tip="Upload new logo."
+                  title="Upload new photo."
+                  aria-label="Upload new photo."
+                  data-tip="Upload new photo."
                   onClick={() => photoInputRef.current?.click()}
                 >
                   {photoPreview || (form.profile_picture_url && !photoImgFailed) ? (
@@ -1410,7 +1418,7 @@ export default function CandidateProfilePage() {
                       type="button"
                       className="ip-cp-btn ip-cp-btn--outline"
                       disabled={photoBusy}
-                      title="Upload new logo."
+                      title="Upload new photo."
                       onClick={() => photoInputRef.current?.click()}
                     >
                       {photoBusy ? 'Uploading…' : 'Choose File'}

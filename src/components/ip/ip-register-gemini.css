@@ -345,7 +345,7 @@
 .ip-gemini-register .ip-reg-shell__head p {
   margin: 0.25rem 0 0;
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-gemini-register .ip-reg-back {
@@ -358,7 +358,7 @@
   align-items: center;
   gap: 0.25rem;
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #64748b;
   cursor: pointer;
   text-decoration: none;
 }
@@ -437,7 +437,7 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-gemini-register .ip-reg-field {
@@ -456,7 +456,7 @@
 .ip-gemini-register .ip-reg-field .hint {
   margin: 0;
   font-size: 11px;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-gemini-register .ip-reg-input,
@@ -631,7 +631,7 @@
 }
 
 .ip-gemini-register .ip-reg-info-links span {
-  color: #94a3b8;
+  color: #64748b;
 }
 
 /* ---------------------------------------------------------------------------

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import IpUploadButton from '@/components/ip/IpUploadButton';
+import { onTablistKeyDown } from '@/lib/tablistKeys';
 import SearchableSelect from '@/components/ip/SearchableSelect';
 import CitySelectWithOther from '@/components/ip/CitySelectWithOther';
 import useIpCityCatalog from '@/hooks/useIpCityCatalog';
@@ -294,7 +295,7 @@ export default function EmployerProfilePage() {
 
       {message ? <div className="ip-ep-alert">{message}</div> : null}
 
-      <div className="ip-ep-tabs" role="tablist" aria-label="Employer profile sections">
+      <div className="ip-ep-tabs" role="tablist" onKeyDown={onTablistKeyDown} aria-label="Employer profile sections">
         {PROFILE_TABS.map((tab) => (
           <button
             key={tab.id}

@@ -773,15 +773,15 @@ test.describe('InternSafar regression', () => {
     await page.getByLabel('Preferred hours from').fill(before.preferred_hours_start ? String(before.preferred_hours_start).slice(0, 5) : '');
     await page.getByLabel('Preferred hours to').fill(before.preferred_hours_end ? String(before.preferred_hours_end).slice(0, 5) : '');
 
-    await page.getByRole('tab', { name: '5. Privacy & Photo' }).click();
+    await page.getByRole('tab', { name: 'Privacy & Photo' }).click();
     await page.locator('#ip-cp-telegram_handle').fill('@ab');
     await page.getByRole('tab', { name: '1. Basics & Contact' }).click();
     await page.locator('.ip-cp-save button[type="submit"]').click();
     const saveError = page.getByTestId('profile-save-error');
     await expect(saveError).toContainText('Telegram handle must be');
-    await expect(saveError).toContainText('(on the 5. Privacy & Photo tab)');
+    await expect(saveError).toContainText('(on the Privacy & Photo tab)');
     await page.getByTestId('profile-save-error-goto').click();
-    await expect(page.getByRole('tab', { name: '5. Privacy & Photo' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'Privacy & Photo' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('#ip-cp-telegram_handle')).toBeFocused();
 
     expect((await read()).telegram_handle || '').toBe(before.telegram_handle || '');
@@ -1066,5 +1066,89 @@ test.describe('InternSafar regression', () => {
     await expect(page.locator('.ip-ap-modal')).toHaveCount(0);
     await search.click();
     await expect(search).toBeFocused();
+  });
+
+  test('IS-086 account change password shows mismatch for empty or different confirm', async ({ page }) => {
+    let changeCalls = 0;
+    page.on('request', (r) => {
+      if (r.url().includes('/api/ip/auth/change-password')) changeCalls += 1;
+    });
+    await openWithSession(page, candidate.email, '/account');
+    const confirm = page.getByPlaceholder('Re-enter new password...', { exact: true });
+    await expect(confirm).toBeVisible({ timeout: 30_000 });
+    const form = page.locator('form', { has: confirm });
+    const match = page.locator('#ip-ac-confirm-match');
+    const error = page.getByTestId('account-password-error');
+    const update = form.getByRole('button', { name: 'Update Password' });
+
+    await page.getByPlaceholder('Enter temporary or current password...', { exact: true }).fill('Qa!NotSubmitted1');
+    await page.getByPlaceholder('Enter new password...', { exact: true }).fill('Qa!Mismatch123');
+    await update.click();
+    await expect(match).toHaveText('✗ Passwords do not match');
+    await expect(error).toHaveText('New passwords do not match. Re-enter your new password in Confirm New Password.');
+    await expect(confirm).toBeFocused();
+    await expect(confirm).toHaveAttribute('aria-invalid', 'true');
+    await expect(confirm).toHaveAttribute('aria-describedby', 'ip-ac-confirm-match');
+
+    await confirm.fill('Qa!Mismatch124');
+    await expect(error).toHaveCount(0);
+    await expect(match).toHaveText('✗ Passwords do not match');
+    await update.click();
+    await expect(error).toHaveText('New passwords do not match.');
+
+    await confirm.fill('Qa!Mismatch123');
+    await expect(error).toHaveCount(0);
+    await expect(match).toHaveText('✓ Passwords match');
+    await expect(confirm).not.toHaveAttribute('aria-invalid', 'true');
+
+    await form.getByRole('button', { name: 'Clear Form' }).click();
+    await expect(match).toHaveCount(0);
+    await expect(error).toHaveCount(0);
+    expect(changeCalls, 'no change-password request may be sent').toBe(0);
+  });
+
+  test('IS-087 browser Back after sign-out returns to sign-in, not a stuck Signing out page', async ({ playwright, baseURL }) => {
+    // Playwright launches Chromium with --disable-back-forward-cache; real browsers restore the page from that cache.
+    const opts = { headless: true, ignoreDefaultArgs: ['--disable-back-forward-cache'] };
+    const browser = await playwright.chromium
+      .launch(opts)
+      .catch(() => playwright.chromium.launch({ ...opts, channel: 'chrome' }));
+    try {
+      const context = await browser.newContext({ baseURL: process.env.IP_BASE || baseURL });
+      await context.addInitScript(() => {
+        window.addEventListener('pageshow', (e) => {
+          if (e.persisted) sessionStorage.setItem('qa_bfcache_restores', String(Number(sessionStorage.getItem('qa_bfcache_restores') || 0) + 1));
+        });
+      });
+      const page = await context.newPage();
+      const restores = () => page.evaluate(() => Number(sessionStorage.getItem('qa_bfcache_restores') || 0));
+      const signOutBtn = page.getByRole('button', { name: /sign out/i }).first();
+      await openWithSession(page, candidate.email, '/candidate/offers');
+
+      await page.goto('/help', { waitUntil: 'domcontentloaded' });
+      await page.goBack({ waitUntil: 'commit' });
+      await expect(page).toHaveURL(/\/candidate\/offers$/);
+      await expect(signOutBtn).toBeVisible({ timeout: 20_000 });
+      expect(await restores(), 'signed-in Back should come from the back/forward cache').toBeGreaterThan(0);
+      const restoresBeforeSignOut = await restores();
+
+      await signOutBtn.click();
+      await page.waitForURL((u) => new URL(u).pathname === '/', { timeout: 30_000 });
+      await expect(page.locator('#email')).toBeVisible({ timeout: 20_000 });
+
+      await page.goBack({ waitUntil: 'commit' });
+      await expect(page).toHaveURL(/\/\?next=%2Fcandidate%2Foffers$/, { timeout: 20_000 });
+      await expect(page.locator('#email')).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText('Signing out…')).toHaveCount(0);
+      expect(await restores(), 'Back after sign-out should restore from the back/forward cache').toBeGreaterThan(
+        restoresBeforeSignOut,
+      );
+
+      await page.goto('/candidate/messages', { waitUntil: 'domcontentloaded' });
+      await expect(page).toHaveURL(/\/\?next=%2Fcandidate%2Fmessages$/, { timeout: 20_000 });
+      await expect(page.locator('#email')).toBeVisible({ timeout: 20_000 });
+    } finally {
+      await browser.close();
+    }
   });
 });

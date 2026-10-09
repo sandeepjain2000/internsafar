@@ -264,7 +264,7 @@
 
 .ip-emp-dash .ip-ed-stat-ico--green {
   background: #ecfdf5;
-  color: #059669;
+  color: #047857;
 }
 .ip-emp-dash .ip-ed-stat-ico--brand {
   background: var(--ip-indigo-50);
@@ -272,7 +272,7 @@
 }
 .ip-emp-dash .ip-ed-stat-ico--amber {
   background: #fffbeb;
-  color: #d97706;
+  color: #b45309;
 }
 .ip-emp-dash .ip-ed-stat-ico--purple {
   background: var(--ip-indigo-50);
@@ -324,7 +324,7 @@
 .ip-emp-dash .ip-ed-stat > p {
   margin: 0.5rem 0 0;
   font-size: 0.6875rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-emp-dash .ip-ed-grid {

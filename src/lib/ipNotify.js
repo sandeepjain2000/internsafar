@@ -14,6 +14,8 @@ import { escapeHtml } from '@/lib/escapeHtml';
  *
  * skipEmail: caller will send a richer email if the email channel is on.
  * forceEmail: send email even when category defaults to in-app only (important employer events).
+ * id: fixed notification id for once-only notices — an existing row with that id means "already sent"
+ *     (returns null, no email), so concurrent callers cannot create duplicates.
  */
 const NOTIFY_CATEGORIES = ['application', 'referral', 'system', 'offer', 'interview', 'message'];
 
@@ -27,6 +29,7 @@ export async function notifyUser({
   client,
   skipEmail = false,
   forceEmail = false,
+  id: fixedId = null,
 }) {
   if (!userId || !title) return null;
   const cat = NOTIFY_CATEGORIES.includes(category) ? category : 'system';
@@ -36,34 +39,35 @@ export async function notifyUser({
   } catch (e) {
     console.warn('[ipNotify prefs]', e.message);
   }
+  if (fixedId && !channels.inApp) return null;
 
   let id = null;
   if (channels.inApp) {
-    id = newId('ip_notif');
+    id = fixedId || newId('ip_notif');
+    const onConflict = fixedId ? ' ON CONFLICT (id) DO NOTHING' : '';
+    const run = (sql, params) => (client ? client.query(sql, params) : query(sql, params));
     const metaJson = JSON.stringify(meta && typeof meta === 'object' ? meta : {});
-    const sql = `INSERT INTO ip_notifications (id, user_id, title, body, link, category, meta) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)`;
+    const sql = `INSERT INTO ip_notifications (id, user_id, title, body, link, category, meta) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)${onConflict}`;
     const params = [id, userId, title, body, link, cat, metaJson];
+    let res = null;
     try {
       if (!client) await ensureIpNotificationCategorySchema();
-      if (client) await client.query(sql, params);
-      else await query(sql, params);
+      res = await run(sql, params);
     } catch (e) {
       try {
-        const withCat = `INSERT INTO ip_notifications (id, user_id, title, body, link, category) VALUES ($1,$2,$3,$4,$5,$6)`;
-        if (client) await client.query(withCat, [id, userId, title, body, link, cat]);
-        else await query(withCat, [id, userId, title, body, link, cat]);
+        const withCat = `INSERT INTO ip_notifications (id, user_id, title, body, link, category) VALUES ($1,$2,$3,$4,$5,$6)${onConflict}`;
+        res = await run(withCat, [id, userId, title, body, link, cat]);
       } catch (e2) {
         try {
-          const fallback = `INSERT INTO ip_notifications (id, user_id, title, body, link) VALUES ($1,$2,$3,$4,$5)`;
-          const fbParams = [id, userId, title, body, link];
-          if (client) await client.query(fallback, fbParams);
-          else await query(fallback, fbParams);
+          const fallback = `INSERT INTO ip_notifications (id, user_id, title, body, link) VALUES ($1,$2,$3,$4,$5)${onConflict}`;
+          res = await run(fallback, [id, userId, title, body, link]);
         } catch (e3) {
           console.error('[ipNotify]', e3.message || e2.message || e.message);
           id = null;
         }
       }
     }
+    if (fixedId && res && res.rowCount === 0) return null;
   }
 
   if ((channels.email || forceEmail) && !skipEmail && !client) {

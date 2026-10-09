@@ -1,6 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useOverlayDialog } from '@/hooks/useOverlayDialog';
+import { onTablistKeyDown } from '@/lib/tablistKeys';
+import IpToast from '@/components/ip/IpToast';
+import { IpRetryButton } from '@/components/ip/IpListStatus';
 import { useSession } from 'next-auth/react';
 import {
   AlertTriangle,
@@ -54,6 +58,8 @@ export default function SuperAdminDocumentsPage() {
   const [toast, setToast] = useState('');
   const [audit, setAudit] = useState(null);
   const [rejectRow, setRejectRow] = useState(null);
+  const auditRef = useOverlayDialog(audit, () => setAudit(null));
+  const rejectRef = useOverlayDialog(rejectRow, () => setRejectRow(null));
   const [rejectPreset, setRejectPreset] = useState(REJECT_PRESETS[0]);
   const [rejectNote, setRejectNote] = useState('');
 
@@ -102,12 +108,6 @@ export default function SuperAdminDocumentsPage() {
       setItems([]);
     }
   }, [sessionRole, sessionStatus, tab]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!toast) return undefined;
-    const t = setTimeout(() => setToast(''), 2800);
-    return () => clearTimeout(t);
-  }, [toast]);
 
   const enriched = useMemo(
     () =>
@@ -185,7 +185,7 @@ export default function SuperAdminDocumentsPage() {
 
   return (
     <div className="ip-sa-q ip-mobile-bleed">
-      {toast ? <div className="ip-saq-toast" role="status">{toast}</div> : null}
+      <IpToast message={toast} onDismiss={() => setToast('')} className="ip-saq-toast" />
 
       <div className="ip-saq-head">
         <div>
@@ -220,7 +220,12 @@ export default function SuperAdminDocumentsPage() {
         <Alert variant="destructive" className="mb-4" role="alert">
           <AlertTriangle className="size-4" aria-hidden />
           <AlertTitle>Could not load Documents</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            {error}
+            <div>
+              <IpRetryButton onClick={load} />
+            </div>
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -281,7 +286,7 @@ export default function SuperAdminDocumentsPage() {
 
       <div className="ip-saq-panel">
         <div className="ip-saq-toolbar">
-          <div className="ip-saq-tabs" role="tablist">
+          <div className="ip-saq-tabs" role="tablist" onKeyDown={onTablistKeyDown}>
             {[
               { id: 'all', label: `All (${meta.total ?? 0})` },
               { id: 'pending', label: `Pending (${meta.pending ?? 0})` },
@@ -291,6 +296,8 @@ export default function SuperAdminDocumentsPage() {
               <button
                 key={t.id}
                 type="button"
+                role="tab"
+                aria-selected={tab === t.id}
                 className={`ip-saq-tab${tab === t.id ? ' ip-saq-tab--on' : ''}`}
                 onClick={() => {
                   if (t.id !== tab) setLoading(true);
@@ -314,6 +321,7 @@ export default function SuperAdminDocumentsPage() {
               <input
                 type="search"
                 placeholder="Search company, file, email..."
+                aria-label="Search documents"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -360,6 +368,7 @@ export default function SuperAdminDocumentsPage() {
                       {d.status === 'pending' ? (
                         <input
                           type="checkbox"
+                          aria-label={`Select document from ${d.company_name}`}
                           checked={selected.includes(d.id)}
                           onChange={(e) =>
                             setSelected((prev) =>
@@ -459,7 +468,7 @@ export default function SuperAdminDocumentsPage() {
       </div>
 
       {audit ? (
-        <div className="ip-saq-overlay" role="dialog" aria-modal="true">
+        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-doc-title" ref={auditRef}>
           <div className="ip-saq-modal ip-saq-modal--wide">
             <div className="ip-saq-modal__head">
               <div className="ip-saq-modal__title">
@@ -467,7 +476,7 @@ export default function SuperAdminDocumentsPage() {
                   <FileSearch size={18} aria-hidden />
                 </div>
                 <div>
-                  <h3>{audit.file_name || 'Document'}</h3>
+                  <h3 id="ip-saq-doc-title">{audit.file_name || 'Document'}</h3>
                   <span>
                     {audit.doc_type} • {audit.company_name}
                   </span>
@@ -521,7 +530,7 @@ export default function SuperAdminDocumentsPage() {
       ) : null}
 
       {rejectRow ? (
-        <div className="ip-saq-overlay" role="dialog" aria-modal="true">
+        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-doc-reject-title" ref={rejectRef}>
           <div className="ip-saq-modal">
             <div className="ip-saq-modal__head">
               <div className="ip-saq-modal__title">
@@ -529,7 +538,7 @@ export default function SuperAdminDocumentsPage() {
                   <X size={18} aria-hidden />
                 </div>
                 <div>
-                  <h3>Rejection reason</h3>
+                  <h3 id="ip-saq-doc-reject-title">Rejection reason</h3>
                   <span>{rejectRow.file_name}</span>
                 </div>
               </div>

@@ -43,6 +43,7 @@ Every runner listed here writes its result to the workbook; "needs setup" rows o
 | TC-IS-02-026 | 02 Auth & Access | checklist runner; Playwright | Pass | 2026-10-08 |
 | TC-IS-02-028 | 02 Auth & Access | `scripts/qa-register-approve-post-apply-smoke.mjs` | Pass | 2026-10-07 |
 | TC-IS-02-029 | 02 Auth & Access | `scripts/qa-register-approve-post-apply-smoke.mjs` | Pass | 2026-10-07 |
+| TC-IS-02-030 | 02 Auth & Access | checklist runner; Playwright | Pass | 2026-10-09 |
 | TC-IS-03-001 | 03 Registration | manual (no test code) | Pass | 2026-09-15 |
 | TC-IS-03-002 | 03 Registration | checklist runner | Pass | 2026-10-08 |
 | TC-IS-03-003 | 03 Registration | checklist runner | Pass | 2026-10-08 |
@@ -76,12 +77,13 @@ Every runner listed here writes its result to the workbook; "needs setup" rows o
 | TC-IS-04-008 | 04 Permissions & Role | checklist runner (as PERM-8) | Pass | 2026-10-08 |
 | TC-IS-04-009 | 04 Permissions & Role | checklist runner (as PERM-9) | Pass | 2026-10-08 |
 | TC-IS-05-001 | 05 Account & Security | `scripts/qa-test-account-cases.mjs` | Pass | 2026-10-08 |
-| TC-IS-05-002 | 05 Account & Security | `scripts/qa-test-account-cases.mjs` | Fail | 2026-10-08 |
+| TC-IS-05-002 | 05 Account & Security | `scripts/qa-test-account-cases.mjs` | Pass | 2026-10-08 |
 | TC-IS-05-003 | 05 Account & Security | checklist runner (as ACCT-3) | Pass | 2026-10-08 |
 | TC-IS-05-005 | 05 Account & Security | checklist runner (as ACCT-5) | Pass | 2026-10-08 |
 | TC-IS-05-006 | 05 Account & Security | checklist runner; Playwright | Pass | 2026-10-08 |
+| TC-IS-05-007 | 05 Account & Security | checklist runner; Playwright | Pass | 2026-10-09 |
 | TC-IS-06-001 | 06 Candidate Profile | checklist runner (as CAND-P-1) | Pass | 2026-10-08 |
-| TC-IS-06-002 | 06 Candidate Profile | `scripts/qa-test-account-cases.mjs` | Pass | 2026-10-08 |
+| TC-IS-06-002 | 06 Candidate Profile | `scripts/qa-test-account-cases.mjs` | Pass | 2026-10-09 |
 | TC-IS-06-003 | 06 Candidate Profile | checklist runner (as CAND-P-3) | Pass | 2026-10-08 |
 | TC-IS-06-004 | 06 Candidate Profile | checklist runner (as CAND-X-1) | Pass | 2026-10-08 |
 | TC-IS-06-005 | 06 Candidate Profile | checklist runner (as ACA-1) | Pass | 2026-10-08 |
@@ -187,11 +189,11 @@ Every runner listed here writes its result to the workbook; "needs setup" rows o
 | TC-IS-14-005 | 14 SuperAdmin Ops | `scripts/qa-temp-employer-cases.mjs` | Pass | 2026-10-08 |
 | TC-IS-14-006 | 14 SuperAdmin Ops | checklist runner (as SA-A-2) | Pass | 2026-10-08 |
 | TC-IS-14-007 | 14 SuperAdmin Ops | checklist runner (as SA-A-3) | Pass | 2026-10-08 |
-| TC-IS-14-010 | 14 SuperAdmin Ops | `scripts/qa-test-account-cases.mjs` | Fail | 2026-10-08 |
+| TC-IS-14-010 | 14 SuperAdmin Ops | `scripts/qa-test-account-cases.mjs` | Pass | 2026-10-08 |
 | TC-IS-14-011 | 14 SuperAdmin Ops | `scripts/qa-test-account-cases.mjs` | Pass | 2026-10-08 |
 | TC-IS-14-012 | 14 SuperAdmin Ops | checklist runner; Playwright | Pass | 2026-10-08 |
 | TC-IS-14-014 | 14 SuperAdmin Ops | `scripts/qa-test-account-cases.mjs` | Pass | 2026-10-08 |
-| TC-IS-14-015 | 14 SuperAdmin Ops | `scripts/qa-test-account-cases.mjs` | Fail | 2026-10-08 |
+| TC-IS-14-015 | 14 SuperAdmin Ops | `scripts/qa-test-account-cases.mjs` | Pass | 2026-10-08 |
 | TC-IS-14-016 | 14 SuperAdmin Ops | `scripts/qa-test-account-cases.mjs` | Pass | 2026-10-08 |
 | TC-IS-14-017 | 14 SuperAdmin Ops | `scripts/qa-test-account-cases.mjs` | Pass | 2026-10-08 |
 | TC-IS-14-018 | 14 SuperAdmin Ops | checklist runner (as SA-E-1) | Pass | 2026-10-08 |

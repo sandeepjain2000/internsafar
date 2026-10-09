@@ -5,6 +5,7 @@ import { ensureIpApplicationInterviewSchema } from '@/lib/ensureIpApplicationInt
 import {
   decorateCandidateNotification,
   ensureCandidateOfferExpiryNotices,
+  ensureCandidateSavedClosingNotices,
   loadCandidateNotificationContext,
 } from '@/lib/ipCandidateNotificationPresentation';
 import { decorateEmployerNotifications } from '@/lib/ipEmployerNotificationPresentation';
@@ -18,6 +19,7 @@ export async function GET(request) {
 
   if (session.user.role === 'candidate') {
     await ensureCandidateOfferExpiryNotices(session.user.id).catch(() => {});
+    await ensureCandidateSavedClosingNotices(session.user.id).catch((e) => console.warn('[saved closing notices]', e.message));
   }
 
   const withMeta = new URL(request.url).searchParams.get('meta') === '1';

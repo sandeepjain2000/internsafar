@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useOverlayDialog } from '@/hooks/useOverlayDialog';
+import IpToast from '@/components/ip/IpToast';
 import { useRouter } from 'next/navigation';
 import {
   Bell,
@@ -19,7 +21,7 @@ import {
 import '@/components/ip/ip-superadmin-queue-gemini.css';
 import '@/components/ip/ip-list-pager.css';
 import IpListPager from '@/components/ip/IpListPager';
-import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import { IpListEmpty, IpListLoading, IpRetryButton } from '@/components/ip/IpListStatus';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
 import { readResponseJson } from '@/lib/readResponseJson';
@@ -100,6 +102,7 @@ export default function SuperAdminMessagesPage() {
   const [selected, setSelected] = useState([]);
   const [inspect, setInspect] = useState(null);
   const [busy, setBusy] = useState(false);
+  const inspectRef = useOverlayDialog(inspect, () => setInspect(null));
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
@@ -129,12 +132,6 @@ export default function SuperAdminMessagesPage() {
   useEffect(() => {
     load();
   }, []);
-
-  useEffect(() => {
-    if (!toast) return undefined;
-    const t = setTimeout(() => setToast(''), 2800);
-    return () => clearTimeout(t);
-  }, [toast]);
 
   const enriched = useMemo(
     () =>
@@ -241,11 +238,7 @@ export default function SuperAdminMessagesPage() {
 
   return (
     <div className="ip-sa-q ip-mobile-bleed">
-      {toast ? (
-        <div className="ip-saq-toast" role="status">
-          {toast}
-        </div>
-      ) : null}
+      <IpToast message={toast} onDismiss={() => setToast('')} className="ip-saq-toast" />
 
       <div className="ip-saq-head">
         <div>
@@ -266,7 +259,14 @@ export default function SuperAdminMessagesPage() {
         </div>
       </div>
 
-      {error ? <div className="ip-saq-error">{error}</div> : null}
+      {error ? (
+        <div className="ip-saq-error" role="alert">
+          {error}
+          <div>
+            <IpRetryButton onClick={load} />
+          </div>
+        </div>
+      ) : null}
 
       <div className="ip-saq-metrics">
         <div className="ip-saq-metric">
@@ -427,6 +427,7 @@ export default function SuperAdminMessagesPage() {
                           {n.unresolved ? (
                             <input
                               type="checkbox"
+                              aria-label={`Select ${n.title}`}
                               checked={selected.includes(n.id)}
                               onChange={(e) =>
                                 setSelected((prev) =>
@@ -531,7 +532,7 @@ export default function SuperAdminMessagesPage() {
       </div>
 
       {inspect ? (
-        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-msg-title">
+        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-msg-title" ref={inspectRef}>
           <div className="ip-saq-modal">
             <div className="ip-saq-modal__head">
               <div className="ip-saq-modal__title">

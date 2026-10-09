@@ -125,7 +125,7 @@
   padding: 0.125rem 0.5rem;
   border-radius: 9999px;
   background: #f1f5f9;
-  color: #64748b;
+  color: #475569;
 }
 
 .ip-emp-profile .ip-ep-stack {
@@ -311,7 +311,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
+  color: #64748b;
   cursor: pointer;
   flex-shrink: 0;
   overflow: visible;
@@ -574,7 +574,7 @@
 
 .ip-emp-profile .ip-ep-doc__meta {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-emp-profile .ip-ep-upload-panel {
@@ -632,7 +632,7 @@
   background: #f8fafc;
   padding: 0 0.5rem;
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-emp-profile .ip-ep-upload-wrap {

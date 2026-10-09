@@ -20,6 +20,8 @@ import ListPresetsBar from '@/components/ip/ListPresetsBar';
 import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import IpListPager from '@/components/ip/IpListPager';
+import IpToast from '@/components/ip/IpToast';
+import { IpListError } from '@/components/ip/IpListStatus';
 import { isStoredMeetUrl, meetJoinLabel } from '@/lib/ipInterviewMeetUrl';
 import {
   formatBytes,
@@ -342,6 +344,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
   const [draft, setDraft] = useState('');
   const [pendingFile, setPendingFile] = useState(null);
   const [loadingList, setLoadingList] = useState(true);
+  const [listError, setListError] = useState('');
   const [loadingThread, setLoadingThread] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
@@ -408,7 +411,6 @@ export default function MessagesSplitPane({ role = 'employer' }) {
 
   function showToast(msg) {
     setToast(msg);
-    setTimeout(() => setToast(''), 2800);
   }
 
   const beginThreadsLoad = useLatestRequest();
@@ -420,6 +422,11 @@ export default function MessagesSplitPane({ role = 'employer' }) {
       const res = await fetch(`/api/ip/messages/threads${qs}`);
       const data = await readResponseJson(res, {});
       if (!isCurrent()) return;
+      if (!res.ok) {
+        setListError(data.error || 'Something went wrong on our side.');
+        return;
+      }
+      setListError('');
       const items = data.items || [];
       setThreads(items);
       if (tab !== 'archived') {
@@ -429,7 +436,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
         });
       }
     } catch {
-      if (isCurrent()) setThreads([]);
+      if (isCurrent()) setListError('We could not reach the server. Check your internet connection.');
     } finally {
       if (isCurrent()) setLoadingList(false);
     }
@@ -676,7 +683,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
   const showOffer = !isEmployer && thread && (String(thread.application_status || '').toLowerCase() === 'offered' || thread.offer_id);
   const meetUrl = isStoredMeetUrl(thread?.interview_meet_url) ? thread.interview_meet_url : '';
 
-  const toastEl = toast ? <div className="ip-cm-toast">{toast}</div> : null;
+  const toastEl = <IpToast message={toast} onDismiss={() => setToast('')} className="ip-cm-toast" />;
 
   if (!isEmployer) {
     return (
@@ -898,6 +905,8 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                     </tbody>
                   </table>
                 </>
+              ) : listError ? (
+                <IpListError title="Could not load conversations" message={listError} onRetry={loadThreads} />
               ) : (
                 <div className="ip-cm-empty-list">
                   <p style={{ fontWeight: 800, color: '#334155', margin: 0 }}>No conversations found</p>
@@ -1049,7 +1058,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                     );
                   })}
                   {!messages.length ? (
-                    <p style={{ textAlign: 'center', fontSize: '0.75rem', color: '#94a3b8' }}>
+                    <p style={{ textAlign: 'center', fontSize: '0.75rem', color: '#64748b' }}>
                       No messages yet — reply below when the employer writes first.
                     </p>
                   ) : null}
@@ -1069,7 +1078,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                   <div className="ip-cm-attach-bar">
                     <span>
                       <strong>{pendingFile.name}</strong>{' '}
-                      <span style={{ color: '#94a3b8' }}>({formatBytes(pendingFile.size)})</span>
+                      <span style={{ color: '#64748b' }}>({formatBytes(pendingFile.size)})</span>
                     </span>
                     <button
                       type="button"
@@ -1417,6 +1426,8 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                   </tbody>
                 </table>
               </>
+            ) : listError ? (
+              <IpListError title="Could not load conversations" message={listError} onRetry={loadThreads} />
             ) : (
               <div className="ip-cm-empty-list">
                 <p style={{ fontWeight: 800, color: '#334155', margin: 0 }}>No conversations found</p>
@@ -1521,7 +1532,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                   );
                 })}
                 {!messages.length ? (
-                  <p style={{ textAlign: 'center', fontSize: '0.75rem', color: '#94a3b8' }}>
+                  <p style={{ textAlign: 'center', fontSize: '0.75rem', color: '#64748b' }}>
                     No messages yet — open the conversation with a short intro below.
                   </p>
                 ) : null}
@@ -1531,7 +1542,7 @@ export default function MessagesSplitPane({ role = 'employer' }) {
                 <div className="ip-cm-attach-bar">
                   <span>
                     <strong>{pendingFile.name}</strong>{' '}
-                    <span style={{ color: '#94a3b8' }}>({formatBytes(pendingFile.size)})</span>
+                    <span style={{ color: '#64748b' }}>({formatBytes(pendingFile.size)})</span>
                   </span>
                   <button
                     type="button"

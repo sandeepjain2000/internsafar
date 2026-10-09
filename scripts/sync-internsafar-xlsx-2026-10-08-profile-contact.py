@@ -37,7 +37,7 @@ NEW_CASE = {
         "2. LinkedIn Profile URL: type 'https://lnkd.in/abc123', then a company page "
         "'https://www.linkedin.com/company/acme'.\n"
         "3. GitHub / Portfolio URL: type 'priya'. Personal website: type 'javascript:alert(1)'.\n"
-        "4. 5. Privacy & Photo → Instant Messaging Alerts: WhatsApp '12345', Telegram '@ab'.\n"
+        "4. Open the Privacy & Photo tab → Instant Messaging Alerts: WhatsApp '12345', Telegram '@ab'.\n"
         "5. Click Save after each, then replace with valid values: 'linkedin.com/in/your-name', "
         "'github.com/your-name', '9876543210', 'your_name'."
     ),

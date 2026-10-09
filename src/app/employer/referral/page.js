@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useOverlayDialog } from '@/hooks/useOverlayDialog';
+import { onTablistKeyDown } from '@/lib/tablistKeys';
+import IpToast from '@/components/ip/IpToast';
 import {
   Check,
   CheckCircle2,
@@ -28,7 +31,7 @@ import {
   IpSearchableMultiFilter,
   IpTableFiltersShell,
 } from '@/components/ip/IpTableFiltersShell';
-import { IpListLoading } from '@/components/ip/IpListStatus';
+import { IpListError, IpListLoading } from '@/components/ip/IpListStatus';
 import { PhoneOnlyNote, PhoneOnlyTag } from '@/components/ip/PhoneOnlyShare';
 import { isPhoneShareDevice, phoneOnlyShareMessage } from '@/lib/ipShareDevice';
 import { linkedInComposeUrl, shareOnLinkedIn } from '@/lib/ipLinkedInShare';
@@ -123,6 +126,7 @@ function countActiveCols(cols) {
 export default function EmployerReferralPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState('');
   const [phoneNote, setPhoneNote] = useState('');
@@ -132,6 +136,7 @@ export default function EmployerReferralPage() {
   const [cols, setCols] = useState(EMPTY_COLS);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
+  const inviteRef = useOverlayDialog(showInvite, () => setShowInvite(false));
   const [inviteEmail, setInviteEmail] = useState('');
 
   const snapshot = useMemo(() => ({ filters: { q, filter, cols }, sort: '' }), [q, filter, cols]);
@@ -161,14 +166,25 @@ export default function EmployerReferralPage() {
   const points = Number(data?.points ?? 0);
   const affordPosts = POINTS_PER_POST > 0 ? Math.floor(points / POINTS_PER_POST) : 0;
 
-  useEffect(() => {
+  const load = useCallback(() => {
     setLoading(true);
+    setLoadError('');
     fetch('/api/ip/referral')
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => setData(null))
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          setLoadError(d.error || 'Something went wrong on our side.');
+          return;
+        }
+        setData(d);
+      })
+      .catch(() => setLoadError('We could not reach the server. Check your internet connection.'))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const link = data?.viralLink || data?.referralLink || '';
 
@@ -214,7 +230,6 @@ export default function EmployerReferralPage() {
 
   function showToast(msg) {
     setToast(msg);
-    setTimeout(() => setToast(''), 3200);
   }
 
   function copy() {
@@ -255,11 +270,7 @@ export default function EmployerReferralPage() {
 
   return (
     <div className="ip-emp-ref ip-mobile-bleed">
-      {toast ? (
-        <div className="ip-er-toast" role="status">
-          {toast}
-        </div>
-      ) : null}
+      <IpToast message={toast} onDismiss={() => setToast('')} className="ip-er-toast" />
 
       <div className="ip-er-toolbar">
         <div className="ip-er-crumb">
@@ -477,7 +488,7 @@ export default function EmployerReferralPage() {
                 aria-label="Search points earned"
               />
             </div>
-            <div className="ip-er-tabs" role="tablist" aria-label="Points earned status">
+            <div className="ip-er-tabs" role="tablist" onKeyDown={onTablistKeyDown} aria-label="Points earned status">
               {FILTERS.map((f) => (
                 <button
                   key={f}
@@ -535,6 +546,8 @@ export default function EmployerReferralPage() {
 
         {loading ? (
           <IpListLoading label="Loading Points Earned…" />
+        ) : loadError && !historyRows.length ? (
+          <IpListError title="Could not load your referral points" message={loadError} onRetry={load} />
         ) : !historyRows.length ? (
           <div className="ip-er-empty">
             <div className="ip-er-empty__icon">
@@ -674,7 +687,7 @@ export default function EmployerReferralPage() {
       </div>
 
       {showInvite ? (
-        <div className="ip-er-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-er-invite-title">
+        <div className="ip-er-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-er-invite-title" ref={inviteRef}>
           <form className="ip-er-modal" onSubmit={openInviteMail}>
             <div className="ip-er-modal__head">
               <div className="ip-er-modal__icon">

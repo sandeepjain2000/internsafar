@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useOverlayDialog } from '@/hooks/useOverlayDialog';
+import { IpRetryButton } from '@/components/ip/IpListStatus';
+import IpToast from '@/components/ip/IpToast';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -129,6 +132,7 @@ export default function SuperAdminDashboard() {
   const [rejectPreset, setRejectPreset] = useState(REJECT_PRESETS[0]);
   const [rejectNote, setRejectNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const approvalRef = useOverlayDialog(selectedApproval, () => setSelectedApproval(null));
 
   function setSelectedApproval(row) {
     setSelectedApprovalState(row);
@@ -169,7 +173,6 @@ export default function SuperAdminDashboard() {
 
   function showToast(msg) {
     setToast(msg);
-    setTimeout(() => setToast(''), 3500);
   }
 
   async function exportAudit() {
@@ -247,11 +250,7 @@ export default function SuperAdminDashboard() {
 
   return (
     <div className="ip-sa-dash ip-mobile-bleed">
-      {toast ? (
-        <div className="ip-sad-toast" role="status">
-          {toast}
-        </div>
-      ) : null}
+      <IpToast message={toast} onDismiss={() => setToast('')} className="ip-sad-toast" />
 
       <div className="ip-sad-head">
         <div>
@@ -264,7 +263,14 @@ export default function SuperAdminDashboard() {
         </button>
       </div>
 
-      {error ? <div className="ip-sad-error">{error}</div> : null}
+      {error ? (
+        <div className="ip-sad-error" role="alert">
+          {error}
+          <div>
+            <IpRetryButton onClick={load} />
+          </div>
+        </div>
+      ) : null}
 
       <div className="ip-sad-metrics">
         <div className="ip-sad-metric">
@@ -417,7 +423,7 @@ export default function SuperAdminDashboard() {
       </div>
 
       {selectedApproval ? (
-        <div className="ip-sad-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-sad-approve-title">
+        <div className="ip-sad-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-sad-approve-title" ref={approvalRef}>
           <div className="ip-sad-modal">
             <div className="ip-sad-modal__head">
               <div className="ip-sad-modal__title">

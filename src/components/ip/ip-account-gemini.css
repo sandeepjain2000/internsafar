@@ -229,13 +229,13 @@
 }
 
 .ip-account .ip-ac-field-label span.req {
-  color: #ef4444;
+  color: #dc2626;
 }
 
 .ip-account .ip-ac-field-hint {
   font-size: 0.6875rem;
   font-weight: 400;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-account .ip-ac-input-wrap {
@@ -286,7 +286,7 @@
   transform: translateY(-50%);
   border: none;
   background: transparent;
-  color: #94a3b8;
+  color: #64748b;
   cursor: pointer;
   padding: 0.25rem;
 }
@@ -357,7 +357,7 @@
 }
 
 .ip-account .ip-ac-req.is-ok {
-  color: #059669;
+  color: #047857;
   font-weight: 500;
 }
 
@@ -582,7 +582,7 @@
   font-size: 0.75rem;
   font-weight: 500;
   font-family: inherit;
-  color: #94a3b8;
+  color: #64748b;
   cursor: pointer;
   padding: 0.25rem;
 }
@@ -599,9 +599,9 @@
 
 .ip-account .ip-ac-toast {
   position: fixed;
-  bottom: 1.5rem;
+  bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
   right: 1.5rem;
-  z-index: 50;
+  z-index: 10000;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -790,7 +790,7 @@
 }
 
 .ip-account .ip-ac-match.is-ok {
-  color: #059669;
+  color: #047857;
 }
 
 .ip-account .ip-ac-match.is-bad {
@@ -1018,7 +1018,7 @@
 .ip-account .ip-ac-modal-x {
   border: none;
   background: transparent;
-  color: #94a3b8;
+  color: #64748b;
   cursor: pointer;
   padding: 0.25rem;
 }

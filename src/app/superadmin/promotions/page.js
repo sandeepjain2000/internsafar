@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useOverlayDialog } from '@/hooks/useOverlayDialog';
+import IpToast from '@/components/ip/IpToast';
 import {
   Check,
   CheckCheck,
@@ -15,7 +17,7 @@ import {
 import '@/components/ip/ip-superadmin-queue-gemini.css';
 import '@/components/ip/ip-list-pager.css';
 import IpListPager from '@/components/ip/IpListPager';
-import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import { IpListEmpty, IpListLoading, IpRetryButton } from '@/components/ip/IpListStatus';
 import { useClientPagination } from '@/hooks/useClientPagination';
 import { LINKEDIN_PROMO_POINTS } from '@/lib/pointsEconomy';
 import { SA_PAGE_SIZE } from '@/lib/ipSuperadminList';
@@ -54,6 +56,8 @@ export default function SuperAdminPromotionsPage() {
   const [toast, setToast] = useState('');
   const [audit, setAudit] = useState(null);
   const [rejectRow, setRejectRow] = useState(null);
+  const auditRef = useOverlayDialog(audit, () => setAudit(null));
+  const rejectRef = useOverlayDialog(rejectRow, () => setRejectRow(null));
   const [notes, setNotes] = useState('');
 
   async function load() {
@@ -81,12 +85,6 @@ export default function SuperAdminPromotionsPage() {
   useEffect(() => {
     load();
   }, []);
-
-  useEffect(() => {
-    if (!toast) return undefined;
-    const t = setTimeout(() => setToast(''), 2800);
-    return () => clearTimeout(t);
-  }, [toast]);
 
   const counts = useMemo(() => {
     const pending = items.filter((p) => isPending(p.status)).length;
@@ -151,7 +149,7 @@ export default function SuperAdminPromotionsPage() {
 
   return (
     <div className="ip-sa-q ip-mobile-bleed">
-      {toast ? <div className="ip-saq-toast" role="status">{toast}</div> : null}
+      <IpToast message={toast} onDismiss={() => setToast('')} className="ip-saq-toast" />
 
       <div className="ip-saq-head">
         <div>
@@ -174,7 +172,14 @@ export default function SuperAdminPromotionsPage() {
         </button>
       </div>
 
-      {error ? <div className="ip-saq-error">{error}</div> : null}
+      {error ? (
+        <div className="ip-saq-error" role="alert">
+          {error}
+          <div>
+            <IpRetryButton onClick={load} />
+          </div>
+        </div>
+      ) : null}
 
       <div className="ip-saq-metrics">
         <div className="ip-saq-metric">
@@ -255,6 +260,7 @@ export default function SuperAdminPromotionsPage() {
             <input
               type="search"
               placeholder="Search company, share code, URL..."
+              aria-label="Search promotions"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -278,6 +284,7 @@ export default function SuperAdminPromotionsPage() {
                   <th>
                     <input
                       type="checkbox"
+                      aria-label="Select all pending"
                       checked={
                         pendingSelectable.length > 0 && pendingSelectable.every((p) => selected.includes(p.id))
                       }
@@ -301,6 +308,7 @@ export default function SuperAdminPromotionsPage() {
                       {isPending(p.status) ? (
                         <input
                           type="checkbox"
+                          aria-label={`Select ${p.company_name}${p.title ? ` – ${p.title}` : ''}`}
                           checked={selected.includes(p.id)}
                           onChange={(e) =>
                             setSelected((prev) =>
@@ -374,7 +382,7 @@ export default function SuperAdminPromotionsPage() {
       </div>
 
       {audit ? (
-        <div className="ip-saq-overlay" role="dialog" aria-modal="true">
+        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-promo-title" ref={auditRef}>
           <div className="ip-saq-modal">
             <div className="ip-saq-modal__head">
               <div className="ip-saq-modal__title">
@@ -382,7 +390,7 @@ export default function SuperAdminPromotionsPage() {
                   <Eye size={18} aria-hidden />
                 </div>
                 <div>
-                  <h3>Audit posting share claim</h3>
+                  <h3 id="ip-saq-promo-title">Audit posting share claim</h3>
                   <span>{audit.token}</span>
                 </div>
               </div>
@@ -456,7 +464,7 @@ export default function SuperAdminPromotionsPage() {
       ) : null}
 
       {rejectRow ? (
-        <div className="ip-saq-overlay" role="dialog" aria-modal="true">
+        <div className="ip-saq-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-saq-promo-reject-title" ref={rejectRef}>
           <div className="ip-saq-modal">
             <div className="ip-saq-modal__head">
               <div className="ip-saq-modal__title">
@@ -464,7 +472,7 @@ export default function SuperAdminPromotionsPage() {
                   <X size={18} aria-hidden />
                 </div>
                 <div>
-                  <h3>Reject promo claim</h3>
+                  <h3 id="ip-saq-promo-reject-title">Reject promo claim</h3>
                   <span>{rejectRow.token}</span>
                 </div>
               </div>

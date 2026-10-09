@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useOverlayDialog } from '@/hooks/useOverlayDialog';
+import { onTablistKeyDown } from '@/lib/tablistKeys';
 import Link from 'next/link';
 import {
   CheckCircle2,
@@ -172,6 +174,9 @@ export default function EmployerOffersPage() {
   const [endorseForm, setEndorseForm] = useState({ periodLabel: '', skillsEndorsed: '' });
   const [rateFor, setRateFor] = useState(null);
   const [stars, setStars] = useState(5);
+  const letterRef = useOverlayDialog(letterOffer, () => setLetterOffer(null));
+  const endorseRef = useOverlayDialog(endorseFor, () => setEndorseFor(null));
+  const rateRef = useOverlayDialog(rateFor, () => setRateFor(null));
   const [cols, setCols] = useState(EMPTY_COLS);
   const [colFiltersOpen, setColFiltersOpen] = useState(false);
 
@@ -504,7 +509,7 @@ export default function EmployerOffersPage() {
 
       <div className="ip-eo-panel">
         <div className="ip-eo-toolbar">
-          <div className="ip-eo-tabs" role="tablist" aria-label="Offer status">
+          <div className="ip-eo-tabs" role="tablist" onKeyDown={onTablistKeyDown} aria-label="Offer status">
             {TABS.map((t) => (
               <button
                 key={t}
@@ -683,7 +688,7 @@ export default function EmployerOffersPage() {
       </div>
 
       {letterOffer ? (
-        <div className="ip-eo-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-eo-letter-title">
+        <div className="ip-eo-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-eo-letter-title" ref={letterRef}>
           <div className="ip-eo-modal">
             <h2 id="ip-eo-letter-title">Offer details — {letterOffer.candidate_name}</h2>
             <p>
@@ -708,7 +713,7 @@ export default function EmployerOffersPage() {
       ) : null}
 
       {endorseFor ? (
-        <div className="ip-eo-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-eo-endorse-title">
+        <div className="ip-eo-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-eo-endorse-title" ref={endorseRef}>
           <div className="ip-eo-modal">
             <h2 id="ip-eo-endorse-title">Endorse {endorseFor.candidate_name}</h2>
             <label htmlFor="ip-eo-period">Period (e.g. Jan–Mar 2026)</label>
@@ -742,7 +747,7 @@ export default function EmployerOffersPage() {
       ) : null}
 
       {rateFor ? (
-        <div className="ip-eo-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-eo-rate-title">
+        <div className="ip-eo-overlay" role="dialog" aria-modal="true" aria-labelledby="ip-eo-rate-title" ref={rateRef}>
           <div className="ip-eo-modal">
             <h2 id="ip-eo-rate-title">Rate {rateFor.candidate_name}</h2>
             <div className="ip-eo-stars" role="group" aria-label="Star rating">

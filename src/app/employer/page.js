@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import {
@@ -18,6 +18,7 @@ import {
 import '@/components/ip/ip-employer-dashboard-gemini.css';
 import { formatInternshipStipend } from '@/lib/ipInternshipStipend';
 import { readResponseJson } from '@/lib/readResponseJson';
+import { IpListError } from '@/components/ip/IpListStatus';
 
 function stipendLabel(i) {
   return formatInternshipStipend(i, { unpaidLabel: 'Stipend TBD' }) || 'Stipend TBD';
@@ -34,14 +35,27 @@ export default function EmployerDashboard() {
   const { data: session } = useSession();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true);
+    setLoadError('');
     fetch('/api/ip/employer/dashboard')
-      .then((r) => readResponseJson(r, {}))
-      .then((d) => setData(d))
-      .catch(() => {})
+      .then(async (r) => {
+        const d = await readResponseJson(r, {});
+        if (!r.ok) {
+          setLoadError(d.error || 'Something went wrong on our side.');
+          return;
+        }
+        setData(d);
+      })
+      .catch(() => setLoadError('We could not reach the server. Check your internet connection.'))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const employer = data?.employer;
   const stats = data?.stats || {};
@@ -114,6 +128,20 @@ export default function EmployerDashboard() {
           <h2>Workspace Shortcuts</h2>
           <p className="ip-ed-empty">Loading…</p>
         </div>
+      </div>
+    );
+  }
+
+  if (loadError && !data) {
+    return (
+      <div className="ip-emp-dash ip-mobile-bleed">
+        <div className="ip-ed-banner">
+          <div>
+            <span className="ip-ed-org-pill">Organization Portal</span>
+            <h1>Welcome back, {session?.user?.name || 'Employer'}!</h1>
+          </div>
+        </div>
+        <IpListError title="Could not load your dashboard" message={loadError} onRetry={load} />
       </div>
     );
   }
@@ -223,7 +251,7 @@ export default function EmployerDashboard() {
           </div>
           <div className="ip-ed-stat-row">
             <strong>
-              {stats.points ?? 0} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#94a3b8' }}>pts</span>
+              {stats.points ?? 0} <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#64748b' }}>pts</span>
             </strong>
             <span className="ip-ed-chip ip-ed-chip--purple">
               {stats.postingsLeft ?? 0} Postings Left

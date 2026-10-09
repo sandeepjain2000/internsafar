@@ -916,6 +916,7 @@ export default function ApplicantsPipelinePage() {
             <Button size="sm" variant="secondary" onClick={() => setBulkMsgOpen(true)}>Message…</Button>
             <select
               className="h-8 min-h-11 sm:min-h-8 rounded-md border px-2 text-sm"
+              aria-label="Add selected applicants to a list"
               defaultValue=""
               onChange={(e) => {
                 if (e.target.value) bulk('add_to_list', { listId: e.target.value });

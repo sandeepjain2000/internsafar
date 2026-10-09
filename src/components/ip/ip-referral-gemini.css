@@ -74,7 +74,7 @@
   border-radius: 0.75rem;
   background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 158, 11, 0.2);
-  color: #d97706;
+  color: #b45309;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -83,7 +83,7 @@
 .ip-refer .ip-rf-balance__label {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #94a3b8;
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -149,7 +149,7 @@
 }
 
 .ip-refer .ip-rf-stat__sub .ok {
-  color: #059669;
+  color: #047857;
   font-weight: 600;
 }
 
@@ -214,7 +214,7 @@
   display: flex;
   align-items: center;
   padding-left: 0.875rem;
-  color: #94a3b8;
+  color: #64748b;
   pointer-events: none;
 }
 
@@ -423,7 +423,7 @@
   font-size: 0.6875rem;
   text-transform: uppercase;
   font-weight: 600;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-refer .ip-rf-table th,
@@ -460,7 +460,7 @@
 
 .ip-refer .ip-rf-user span {
   font-size: 0.6875rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .ip-refer .ip-rf-badge {
@@ -489,9 +489,9 @@
 
 .ip-refer .ip-rf-toast {
   position: fixed;
-  bottom: 1.5rem;
+  bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
   right: 1.5rem;
-  z-index: 50;
+  z-index: 10000;
   background: #0f172a;
   color: #fff;
   padding: 0.75rem 1rem;
