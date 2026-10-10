@@ -20,7 +20,7 @@ Open the folders below only when the task needs them.
 | `qa-samples-for-internsafar` | Sample QA / nested IP / Playwright bits | Sampling only — not the primary app |
 | `_local-backups-internship-portal` | Dated page/UI backups | Restore/compare old UI only |
 | `task-docs` | InternSafar change/UX notes | Feature placement / showcase notes |
-| `prompts` | Prompt DOCX library (workspace; Google Drive catalog via Master Document Links) | Finding / editing Cursor prompts |
+| `prompts` | Prompt DOCX library (workspace; Google Drive catalog via Master Document Links); testing prompts listed below | Finding / editing Cursor prompts; writing or auditing test cases |
 | `new prompt files` | Design-system / handoff prompt drafts | New prompt authoring |
 | `prompt-test-extract` | Unpacked `v3_prompts` + `code-review-final` + no-secrets IP zip extract + review outputs | Testing / iterating code-review prompts; **not** the live edit tree |
 | `Development prompts for cursor to use` | Plan / build / verify standing prompts | Plan / build / verify modes |
@@ -54,7 +54,24 @@ Also mirrored in-app: `internship-portal/InternSafar_Business_Requirements.txt`.
 |------|------|
 | `internship-portal/prompts/` | Full prompts library (Development, Mobile, Projects, Testing, UI Design, Websites) |
 | `internship-portal/prompts/Testing/` | Test creation, frontend/backend QA prompts, regression checklists |
+| `…/prompts/Testing/test-case-generation-prompts.txt` | Generic SaaS case-design prompts (meta-prompt + suites such as the E2E / smoke matrix); design only, no results |
+| `…/prompts/Testing/Use the manual-test-case-generator.txt` | Manual QA case prompt: every case traces to code-visible behaviour; happy / negative / edge / permission / regression; no invented behaviour or secrets |
+| `…/prompts/Testing/backend_qa_prompt v3.pdf`, `frontend_qa_prompt v3.pdf` | Backend / frontend QA review prompts |
 | `…/prompts/Testing/boarders_latest_update_test_checklist.xlsx` | **Format reference only** for regression checklists |
+| `…/prompts/Testing/Enrolment Admin test cases.xlsx`, `Web_ticketing_test_checklist (2).xlsx` | Example workbooks from other products (format only) |
+
+## Testing prompts library (workspace, added to the pack 2026-10-10)
+
+Under `UIUX Migration/prompts/` (DOCX copies of the same rules plus test-plan skills). Use with the in-app folder above when writing, auditing or retiring workbook cases.
+
+| Path (under `UIUX Migration/prompts/`) | Role |
+|------|------|
+| `PROMPT (QA test plan and test making).md` | Combined InternSafar QA prompt: risk-based test plan with requirement → case matrix, test data, then four-bucket verify report |
+| `test-case-generation-prompts.docx` | DOCX of the in-app case-writing rules |
+| `Use the manual-test-case-generator.docx` | DOCX of the in-app manual case template |
+| `SKILL.md(test plan generation).docx`, `SKILL.md(test generation).docx` | Test plan / test generation skills |
+| `PROMPT (Code review v3 - test+lint execution).docx` | Test + lint step of the code-review prompts (four-bucket reporting) |
+| `_build_testing_cortex_docs.mjs` | Builds the testing DOCX copies |
 
 Domain guide: `domains/testing.md`.
 

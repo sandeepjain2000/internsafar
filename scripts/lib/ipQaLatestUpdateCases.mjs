@@ -117,7 +117,9 @@ export async function runLatestUpdateTcIsCases(ctx) {
   // TC-IS-02-027: manual Pass recorded in Excel — skipped here so apply does not re-Block.
 
   // Browser: register Google OAuth start, disabled/login errors, help UI
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium
+    .launch({ headless: true })
+    .catch(() => chromium.launch({ headless: true, channel: 'chrome' }));
   try {
     const page = await browser.newPage();
     await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
@@ -126,9 +128,8 @@ export async function runLatestUpdateTcIsCases(ctx) {
       .locator('button.ip-gemini-google-btn')
       .isVisible({ timeout: 3_000 })
       .catch(() => false);
-    if (homeGoogleBtn) {
-      assess('TC-IS-18-030', false, 'Home still shows Google sign-in button (expected email/password only)');
-    }
+    // TC-IS-02-024 also covers home sign-in staying email/password only (no Google button there).
+    const homeOk = homeEmail && !homeGoogleBtn;
 
     await page.goto(`${BASE}/register/candidate`, {
       waitUntil: 'domcontentloaded',
@@ -137,15 +138,11 @@ export async function runLatestUpdateTcIsCases(ctx) {
     const googleBtn = page.locator('button.ip-crg-google-btn').first();
     const googleVisible = await googleBtn.isVisible({ timeout: 20_000 }).catch(() => false);
     if (!googleVisible) {
-      assess('TC-IS-02-024', false, 'Candidate register Google button not visible (GOOGLE_* missing?)');
-      if (!homeGoogleBtn) {
-        assess('TC-IS-18-030', homeEmail && cand.ok, {
-          homeEmailPassword: homeEmail,
-          homeNoGoogleBtn: !homeGoogleBtn,
-          registerGoogleVisible: false,
-          credentialsOk: cand.ok,
-        });
-      }
+      assess('TC-IS-02-024', false, {
+        error: 'Candidate register Google button not visible (GOOGLE_* missing?)',
+        homeEmailPassword: homeEmail,
+        homeNoGoogleBtn: !homeGoogleBtn,
+      });
     } else {
       try {
         const reachedGoogle = await clickUntil(
@@ -167,14 +164,10 @@ export async function runLatestUpdateTcIsCases(ctx) {
           Boolean(url.searchParams.get('client_id')) &&
           /\/api\/auth\/callback\/google$/.test(redirectUri) &&
           originOk;
-        assess('TC-IS-02-024', googleStartOk, {
+        assess('TC-IS-02-024', googleStartOk && homeOk, {
           client_id: Boolean(url.searchParams.get('client_id')),
           redirectUri,
           path: 'register/candidate',
-        });
-        assess('TC-IS-18-030', googleStartOk && cand.ok && homeEmail && !homeGoogleBtn, {
-          googleStart: googleStartOk,
-          credentialsOk: cand.ok,
           homeEmailPassword: homeEmail,
           homeNoGoogleBtn: !homeGoogleBtn,
         });
@@ -182,7 +175,6 @@ export async function runLatestUpdateTcIsCases(ctx) {
         // Do not abort the rest of latest-update cases (help/ops) on Google timing flakes.
         const msg = e?.message || String(e);
         assess('TC-IS-02-024', false, { error: msg.slice(0, 240), url: page.url() });
-        assess('TC-IS-18-030', false, { error: msg.slice(0, 240), credentialsOk: cand.ok });
         await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 60_000 }).catch(() => {});
       }
     }

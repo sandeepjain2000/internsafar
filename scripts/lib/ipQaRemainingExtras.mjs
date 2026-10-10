@@ -80,13 +80,21 @@ async function ensureCandidateRow(client, userId, email, name) {
   return id;
 }
 
-/** Login that can complete 2FA when otpChallengeId + otpCode are passed. */
-export async function apiAttemptLoginWithOtp(base, { email, password, otpChallengeId, otpCode }) {
-  const jar = cookieJar();
-  const capRes = await fetch(`${base}/api/auth/captcha`);
+/**
+ * Login that can complete 2FA when otpChallengeId + otpCode are passed.
+ * Pass the previous result's `jar` for the code step: the challenge is bound to the 2FA cookie set on step 1.
+ */
+export async function apiAttemptLoginWithOtp(base, { email, password, otpChallengeId, otpCode, jar: priorJar }) {
+  const jar = priorJar || cookieJar();
+  const capRes = await fetch(`${base}/api/auth/captcha`, { headers: { Cookie: jar.header() } });
   jar.store(capRes);
   const cap = await capRes.json();
-  const answer = cap.dummyAnswer ?? 7;
+  const answer =
+    cap.dummyAnswer ??
+    (() => {
+      const m = String(cap.question || '').match(/(\d+)\s*\+\s*(\d+)/);
+      return m ? Number(m[1]) + Number(m[2]) : 7;
+    })();
   const csrfRes = await fetch(`${base}/api/auth/csrf`, { headers: { Cookie: jar.header() } });
   jar.store(csrfRes);
   const csrf = await csrfRes.json();
@@ -117,12 +125,23 @@ export async function apiAttemptLoginWithOtp(base, { email, password, otpChallen
   const sessionRes = await fetch(`${base}/api/auth/session`, { headers: { Cookie: jar.header() } });
   jar.store(sessionRes);
   const session = await sessionRes.json().catch(() => null);
+  const errMatch = String(rawText).match(/[?&]error=([^&"]+)/);
+  let loginError = null;
+  if (errMatch) {
+    try {
+      loginError = decodeURIComponent(errMatch[1].replace(/\+/g, ' '));
+    } catch {
+      loginError = errMatch[1];
+    }
+  }
   return {
     ok: Boolean(session?.user?.email),
     role: session?.user?.role,
     cookie: jar.header(),
     cookies: jar.playwrightCookies(base),
+    jar,
     otpRequiredChallengeId: challenge,
+    loginError,
     session,
   };
 }
@@ -152,20 +171,22 @@ export async function runTcIs02023({ BASE, assess, blocked }) {
     await ensureCandidateRow(db, t, twoFaEmail, 'QA Login DT 2FA');
   });
 
+  const loginStart = new Date(Date.now() - 30_000);
+  const unknownEmail = `qa-unknown-user-${run}@example.com`;
   const wrongPw = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, 'WRONG-password-xyz!');
-  const unknown = await apiLogin(BASE, `qa-unknown-user-${run}@example.com`, PW);
+  const unknown = await apiLogin(BASE, unknownEmail, PW);
   const pending = await apiLogin(BASE, pendingEmail, PW);
   const inactive = await apiLogin(BASE, inactiveEmail, PW);
-  const candOk = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, PW);
-  const empOk = await apiLogin(BASE, QA_ACCOUNTS.employer.email, PW);
-  const saOk = await apiLogin(BASE, QA_ACCOUNTS.superadmin.email, PW);
+  const candOk = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, QA_ACCOUNTS.candidate.password);
+  const empOk = await apiLogin(BASE, QA_ACCOUNTS.employer.email, QA_ACCOUNTS.employer.password);
+  const saOk = await apiLogin(BASE, QA_ACCOUNTS.superadmin.email, QA_ACCOUNTS.superadmin.password);
 
   await setTwoFactorFlag(twoFaEmail, true);
   const otpStart = await apiAttemptLoginWithOtp(BASE, { email: twoFaEmail, password: PW });
   const challengeId = otpStart.otpRequiredChallengeId;
   const wrongOtp = challengeId
     ? await apiAttemptLoginWithOtp(BASE, {
-        email: twoFaEmail, password: PW, otpChallengeId: challengeId, otpCode: '999999',
+        email: twoFaEmail, password: PW, otpChallengeId: challengeId, otpCode: '999999', jar: otpStart.jar,
       })
     : { ok: true };
 
@@ -176,57 +197,61 @@ export async function runTcIs02023({ BASE, assess, blocked }) {
     const again = await apiAttemptLoginWithOtp(BASE, { email: twoFaEmail, password: PW });
     const cid = again.otpRequiredChallengeId || challengeId;
     goodOtp = await apiAttemptLoginWithOtp(BASE, {
-      email: twoFaEmail, password: PW, otpChallengeId: cid, otpCode: LOGIN_CODE,
+      email: twoFaEmail, password: PW, otpChallengeId: cid, otpCode: LOGIN_CODE, jar: again.jar,
     });
     goodOtp.skipped = false;
   }
   await setTwoFactorFlag(twoFaEmail, false).catch(() => {});
 
+  // Login report (SuperAdmin) reads these reasons from ip_login_events.
+  const loggedReasons = await withDb(async (db) => {
+    const r = await db.query(
+      `SELECT lower(email) AS email, failure_reason FROM ip_login_events
+        WHERE success = false AND created_at >= $1 AND lower(email) = ANY($2::text[])`,
+      [loginStart, [inactiveEmail.toLowerCase(), unknownEmail.toLowerCase()]],
+    );
+    const has = (email, reason) => r.rows.some((x) => x.email === email.toLowerCase() && x.failure_reason === reason);
+    return { inactive: has(inactiveEmail, 'Inactive account'), unknown: has(unknownEmail, 'Unknown account') };
+  });
+
+  const GENERIC_LOGIN_ERROR = 'Invalid email or password';
   const baseOk =
     !wrongPw.ok
     && !unknown.ok
+    && wrongPw.loginError === GENERIC_LOGIN_ERROR
+    && unknown.loginError === GENERIC_LOGIN_ERROR
     && !pending.ok
     && !inactive.ok
     && candOk.ok && candOk.role === 'candidate'
     && empOk.ok && empOk.role === 'employer'
     && saOk.ok && saOk.role === 'superadmin'
     && Boolean(challengeId)
-    && !wrongOtp.ok;
+    && !wrongOtp.ok
+    && loggedReasons.inactive && loggedReasons.unknown;
 
   const otpOk = goodOtp.skipped || goodOtp.ok;
-  if (!LOGIN_CODE && baseOk) {
-    // Matrix without good-OTP still Pass; captcha-fail not asserted (bypass).
-    assess('TC-IS-02-023', true, {
-      wrongPw: wrongPw.ok,
-      unknown: unknown.ok,
-      pending: pending.ok,
-      inactive: inactive.ok,
-      candRole: candOk.role,
-      empRole: empOk.role,
-      saRole: saOk.role,
-      otpChallenge: Boolean(challengeId),
-      wrongOtpRejected: !wrongOtp.ok,
-      goodOtp: 'skipped — set IP_QA_2FA_LOGIN_CODE in .env.local (from Zoho) to assert success path',
-      captchaFailBranch: 'skipped — CAPTCHA_BYPASS_FOR_TESTING',
-    });
-    return;
-  }
-  if (!LOGIN_CODE) {
-    blocked('TC-IS-02-023', 'Login matrix incomplete and IP_QA_2FA_LOGIN_CODE not set');
-    return;
-  }
+  // A failed branch is a Fail even without the good-OTP code; the code only adds the success path.
   assess('TC-IS-02-023', baseOk && otpOk, {
-    wrongPw: wrongPw.ok,
-    unknown: unknown.ok,
-    pending: pending.ok,
-    inactive: inactive.ok,
-    candRole: candOk.role,
-    empRole: empOk.role,
-    saRole: saOk.role,
+    wrongPwAccepted: wrongPw.ok,
+    wrongPwError: wrongPw.loginError,
+    unknownAccepted: unknown.ok,
+    unknownError: unknown.loginError,
+    pendingAccepted: pending.ok,
+    pendingError: pending.loginError,
+    inactiveAccepted: inactive.ok,
+    inactiveError: inactive.loginError,
+    loginReportReasons: loggedReasons,
+    cand: { ok: candOk.ok, role: candOk.role, error: candOk.loginError },
+    emp: { ok: empOk.ok, role: empOk.role, error: empOk.loginError },
+    sa: { ok: saOk.ok, role: saOk.role, error: saOk.loginError },
     otpChallenge: Boolean(challengeId),
+    otpStartError: challengeId ? undefined : otpStart.loginError,
     wrongOtpRejected: !wrongOtp.ok,
-    goodOtp: goodOtp.ok,
-    captchaFailBranch: 'skipped — CAPTCHA_BYPASS_FOR_TESTING',
+    wrongOtpError: wrongOtp.loginError,
+    goodOtp: goodOtp.skipped
+      ? 'skipped — set IP_QA_2FA_LOGIN_CODE in .env.local (from Zoho) to assert success path'
+      : goodOtp.ok,
+    captchaFailBranch: 'covered by TC-IS-02-022 (AUTH-4)',
   });
 }
 
@@ -415,147 +440,6 @@ export async function runTcIs06007({ BASE, assess, blocked }) {
   } else {
     assess('TC-IS-06-007', false, { request: req.status, wrong: wrong.status, error: req.data?.error });
   }
-}
-
-/**
- * TC-IS-11-016 / 11-017 — throwaway apps/offers: accept/decline then DB revert.
- */
-export async function runTcIs11016_017({ BASE, assess, blocked, emp }) {
-  const emailA = QA_ALIAS.offerAccept;
-  const emailD = QA_ALIAS.offerDecline;
-
-  await withDb(async (db) => {
-    const ua = await ensureUser(db, { email: emailA, role: 'candidate', name: 'QA Offer Accept', points: 80, profileComplete: true });
-    await ensureCandidateRow(db, ua, emailA, 'QA Offer Accept');
-    const ud = await ensureUser(db, { email: emailD, role: 'candidate', name: 'QA Offer Decline', points: 80, profileComplete: true });
-    await ensureCandidateRow(db, ud, emailD, 'QA Offer Decline');
-  });
-
-  const pubA = await apiRequest(BASE, '/api/ip/employer/internships', {
-    method: 'POST', cookie: emp.cookie,
-    body: {
-      title: QA_LABEL.offerAcceptTarget, status: 'published', workMode: 'Remote',
-      location: 'Remote', description: 'QA fixture listing for accept-offer test', stipendInr: 8000,
-    },
-  });
-  const pubD = await apiRequest(BASE, '/api/ip/employer/internships', {
-    method: 'POST', cookie: emp.cookie,
-    body: {
-      title: QA_LABEL.offerDeclineTarget, status: 'published', workMode: 'Remote',
-      location: 'Remote', description: 'QA fixture listing for decline-offer test', stipendInr: 8000,
-    },
-  });
-  const intA = pubA.data?.id;
-  const intD = pubD.data?.id;
-  if (!intA || !intD) {
-    blocked('TC-IS-11-016', `Could not publish accept target: ${pubA.status} ${pubA.data?.error || ''}`);
-    blocked('TC-IS-11-017', `Could not publish decline target: ${pubD.status} ${pubD.data?.error || ''}`);
-    return;
-  }
-
-  const loginA = await apiLogin(BASE, emailA, PW);
-  const loginD = await apiLogin(BASE, emailD, PW);
-  const applyA = await apiRequest(BASE, '/api/ip/candidate/applications', {
-    method: 'POST', cookie: loginA.cookie, body: { internshipId: intA },
-  });
-  const applyD = await apiRequest(BASE, '/api/ip/candidate/applications', {
-    method: 'POST', cookie: loginD.cookie, body: { internshipId: intD },
-  });
-
-  const appsA = await apiRequest(BASE, '/api/ip/candidate/applications', { cookie: loginA.cookie });
-  const appsD = await apiRequest(BASE, '/api/ip/candidate/applications', { cookie: loginD.cookie });
-  const appAId = applyA.data?.id || applyA.data?.applicationId
-    || (appsA.data?.items || appsA.data?.applications || []).find((a) => a.internship_id === intA)?.id;
-  const appDId = applyD.data?.id || applyD.data?.applicationId
-    || (appsD.data?.items || appsD.data?.applications || []).find((a) => a.internship_id === intD)?.id;
-
-  const offerA = appAId
-    ? await apiRequest(BASE, '/api/ip/offers', {
-        method: 'POST', cookie: emp.cookie, body: { applicationId: appAId, roleTitle: QA_LABEL.offerAcceptRole },
-      })
-    : { status: 0 };
-  const offerD = appDId
-    ? await apiRequest(BASE, '/api/ip/offers', {
-        method: 'POST', cookie: emp.cookie, body: { applicationId: appDId, roleTitle: QA_LABEL.offerDeclineRole },
-      })
-    : { status: 0 };
-
-  let resolvedA = offerA.data?.id;
-  let resolvedD = offerD.data?.id;
-  if (!resolvedA || !resolvedD) {
-    const empOffers = await apiRequest(BASE, '/api/ip/offers', { cookie: emp.cookie });
-    const rows = empOffers.data?.items || [];
-    if (!resolvedA) resolvedA = rows.find((o) => o.application_id === appAId)?.id;
-    if (!resolvedD) resolvedD = rows.find((o) => o.application_id === appDId)?.id;
-  }
-
-  async function snapshot(offerId, applicationId) {
-    return withDb(async (db) => {
-      const o = await db.query(`SELECT id, status, responded_at FROM ip_offers WHERE id=$1`, [offerId]);
-      const a = await db.query(`SELECT id, status FROM ip_applications WHERE id=$1`, [applicationId]);
-      return { offer: o.rows[0], app: a.rows[0] };
-    });
-  }
-  async function restore(snap) {
-    if (!snap?.offer?.id) return;
-    await withDb(async (db) => {
-      await db.query(
-        `UPDATE ip_offers SET status=$2, responded_at=$3 WHERE id=$1`,
-        [snap.offer.id, snap.offer.status, snap.offer.responded_at],
-      );
-      if (snap.app?.id) {
-        await db.query(`UPDATE ip_applications SET status=$2, updated_at=now() WHERE id=$1`, [snap.app.id, snap.app.status]);
-      }
-    });
-  }
-
-  if (!resolvedA || !appAId) {
-    assess('TC-IS-11-016', false, {
-      apply: applyA.status, offer: offerA.status, error: offerA.data?.error || applyA.data?.error,
-    });
-  } else {
-    const snap = await snapshot(resolvedA, appAId);
-    const acc = await apiRequest(BASE, `/api/ip/offers/${resolvedA}`, {
-      method: 'PATCH', cookie: loginA.cookie, body: { status: 'accepted' },
-    });
-    const after = await withDb(async (db) => {
-      const o = await db.query(`SELECT status FROM ip_offers WHERE id=$1`, [resolvedA]);
-      const a = await db.query(`SELECT status FROM ip_applications WHERE id=$1`, [appAId]);
-      return { offer: o.rows[0]?.status, app: a.rows[0]?.status };
-    });
-    await restore(snap);
-    const restored = await snapshot(resolvedA, appAId);
-    assess('TC-IS-11-016', acc.status === 200 && after.offer === 'accepted' && after.app === 'hired' && restored.offer?.status === snap.offer.status, {
-      patch: acc.status,
-      after,
-      restoredOffer: restored.offer?.status,
-      restoredApp: restored.app?.status,
-    });
-  }
-
-  if (!resolvedD || !appDId) {
-    assess('TC-IS-11-017', false, {
-      apply: applyD.status, offer: offerD.status, error: offerD.data?.error || applyD.data?.error,
-    });
-    return;
-  }
-  const snapD = await snapshot(resolvedD, appDId);
-  const dec = await apiRequest(BASE, `/api/ip/offers/${resolvedD}`, {
-    method: 'PATCH', cookie: loginD.cookie, body: { status: 'declined' },
-  });
-  const afterD = await withDb(async (db) => {
-    const o = await db.query(`SELECT status FROM ip_offers WHERE id=$1`, [resolvedD]);
-    const a = await db.query(`SELECT status FROM ip_applications WHERE id=$1`, [appDId]);
-    return { offer: o.rows[0]?.status, app: a.rows[0]?.status };
-  });
-  await restore(snapD);
-  const restoredD = await snapshot(resolvedD, appDId);
-  assess('TC-IS-11-017', dec.status === 200 && afterD.offer === 'declined' && afterD.app === 'declined_offer' && restoredD.offer?.status === snapD.offer.status, {
-    patch: dec.status,
-    after: afterD,
-    restoredOffer: restoredD.offer?.status,
-    restoredApp: restoredD.app?.status,
-  });
 }
 
 const TK_CAND_INTERNS = 'candidate.internships';
@@ -756,18 +640,23 @@ export async function runNotRunEleven({ BASE, assess, blocked, cand, emp }) {
     const browse = await apiRequest(BASE, '/api/ip/candidate/internships', { cookie: cand.cookie });
     const items = browse.data?.items || browse.data?.internships || [];
     const sample = items.slice(0, 5);
-    const hasScoreFields = sample.length === 0 || sample.some((x) =>
-      x.match_percent != null || x.matchScore != null || x.skill_match_percent != null
-      || x.validation_score != null || x.validationScore != null || x.match != null);
-    assess('TC-IS-07-020', bandsOk && browse.status === 200, {
-      bandsOk, browse: browse.status, sampleN: sample.length, hasScoreFields,
-      note: 'Band thresholds unit-checked; browse API 200. UI ScoreInsightBar covered with 07-017/021 Playwright.',
+    const inRange = (v) => typeof v === 'number' && v >= 0 && v <= 100;
+    const badScores = sample
+      .filter((x) => !inRange(x.match_score) || !inRange(Number(x.validation_score ?? 0)))
+      .map((x) => ({ id: x.id, match: x.match_score, validation: x.validation_score }));
+    assess('TC-IS-07-020', bandsOk && browse.status === 200 && sample.length > 0 && badScores.length === 0, {
+      bandsOk, browse: browse.status, sampleN: sample.length, badScores,
+      note: 'Band thresholds unit-checked; browse items carry numeric 0–100 match/validation scores. UI ScoreInsightBar covered with 07-017/021 Playwright.',
     });
   } catch (e) {
     blocked('TC-IS-07-020', String(e.message || e));
   }
 
   try {
+    const empPoints = () => withDb(async (db) => (await db.query(
+      `SELECT points FROM ip_users WHERE lower(email) = lower($1)`, [QA_ACCOUNTS.employer.email],
+    )).rows[0]?.points);
+    const pointsBefore = await empPoints();
     const create = await apiRequest(BASE, '/api/ip/employer/internships', {
       method: 'POST', cookie: emp.cookie,
       body: {
@@ -787,12 +676,28 @@ export async function runNotRunEleven({ BASE, assess, blocked, cand, emp }) {
     const get = id
       ? await apiRequest(BASE, `/api/ip/employer/internships/${id}`, { cookie: emp.cookie })
       : { status: 0 };
-    const elig = get.data?.eligibility || get.data?.item?.eligibility || {};
-    const skillsOk = Array.isArray(elig.skills) ? elig.skills.includes('React') : false;
-    const reqOk = String(elig.requirements_text || '').toLowerCase().includes('react');
-    assess('TC-IS-09-014', (create.status === 200 || create.status === 201) && Boolean(id) && (skillsOk || reqOk || get.status === 200), {
-      create: create.status, id, get: get.status, skillsOk, reqOk, error: create.data?.error,
-    });
+    const pointsAfter = await empPoints();
+    if (id) {
+      await withDb((db) => db.query(`DELETE FROM ip_internships WHERE id = $1 AND status = 'draft'`, [id]))
+        .catch(() => apiRequest(BASE, `/api/ip/employer/internships/${id}`, { method: 'DELETE', cookie: emp.cookie }));
+    }
+    const row = get.data?.internship || {};
+    const elig = typeof row.eligibility === 'string' ? JSON.parse(row.eligibility || '{}') : row.eligibility || {};
+    const roundTrip = {
+      skills: Array.isArray(elig.skills) && elig.skills.includes('React') && elig.skills.includes('SQL'),
+      requirements: elig.requirements_text === 'Must know React basics',
+      ideal: elig.ideal_candidate_text === 'Curious learner',
+      description: row.description === 'About the role for QA body sections.',
+      location: row.location === 'Pune',
+      status: row.status === 'draft',
+    };
+    const pointsUnchanged = Number(pointsBefore) === Number(pointsAfter);
+    assess(
+      'TC-IS-09-014',
+      (create.status === 200 || create.status === 201) && Boolean(id) && get.status === 200
+        && Object.values(roundTrip).every(Boolean) && pointsUnchanged,
+      { create: create.status, id, get: get.status, roundTrip, pointsBefore, pointsAfter, error: create.data?.error },
+    );
   } catch (e) {
     blocked('TC-IS-09-014', String(e.message || e));
   }

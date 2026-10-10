@@ -3,8 +3,8 @@
   "tc_id": "TC-IS-03-013",
   "automation": "API",
   "status": "Pass",
-  "actual": "API Pass 2026-10-07 (local): Free-email register-employer with existing test employer placementhubsupport+qa1@gmail.com → 409 (An account with this email already exists).",
-  "executed": "2026-10-07T10:53:33.601Z",
+  "actual": "API Pass 2026-10-10 (local): Free-email register-employer with existing test employer placementhubsupport+qa1@gmail.com → 409 (An account with this email already exists).",
+  "executed": "2026-10-10T09:02:07.267Z",
   "log": [
     "Base http://localhost:3000",
     "Duplicate Free-email register attempt {\"email\":\"placementhubsupport+qa1@gmail.com\"}",

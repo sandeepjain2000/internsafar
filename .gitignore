@@ -64,7 +64,7 @@ desktop.ini
 .env.vercel.local
 VERCEL.local.md
 /deploy.ps1
-/scripts/deploy.bat
+/deploy.bat
 .netlify/
 
 # TypeScript

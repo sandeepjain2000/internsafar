@@ -219,7 +219,6 @@ async function runCaptchaAndRegistrationGapCases(ctx) {
   const run = (qaRunLabel().replace(/[^a-zA-Z0-9]/g, '').slice(-10) || String(Date.now()).slice(-8));
 
   // ── AUTH-4 / TC-IS-02-022: wrong captcha must block login (bypass is false) ──
-  let loginCaptchaBlocked = null;
   if (CAPTCHA_BYPASS_FOR_TESTING) {
     blocked(
       'AUTH-4',
@@ -251,7 +250,6 @@ async function runCaptchaAndRegistrationGapCases(ctx) {
     const sessionRes = await fetch(`${BASE}/api/auth/session`, { headers: { Cookie: jar.header() } });
     const session = await sessionRes.json().catch(() => null);
     const noSession = !session?.user?.email;
-    loginCaptchaBlocked = noSession;
     const text = await cb.text().catch(() => '');
     const ok = noSession && cb.status !== 200;
     assess('AUTH-4', ok || noSession, {
@@ -291,10 +289,13 @@ async function runCaptchaAndRegistrationGapCases(ctx) {
   }
 
   {
-    const r = await postCandidate({ email: `qa.fix.${run}@yahoo.com`, name: 'QA NonGmail' });
-    const ok = r.status === 400 && /only gmail/i.test(String(r.data?.error || ''));
-    assess('REG-C-2', ok, { status: r.status, error: r.data?.error });
-    assess('TC-IS-03-002', ok, { status: r.status, error: r.data?.error });
+    const nonGmail = `qa.fix.${run}@yahoo.com`;
+    const r = await postCandidate({ email: nonGmail, name: 'QA NonGmail' });
+    const userRows = await withDb(async (db) =>
+      (await db.query(`SELECT 1 FROM ip_users WHERE lower(email) = lower($1)`, [nonGmail])).rows.length);
+    const ok = r.status === 400 && /only gmail/i.test(String(r.data?.error || '')) && userRows === 0;
+    assess('REG-C-2', ok, { status: r.status, error: r.data?.error, userRowsCreated: userRows });
+    assess('TC-IS-03-002', ok, { status: r.status, error: r.data?.error, userRowsCreated: userRows });
   }
 
   // Without IP_ALLOW_UNVERIFIED_GOOGLE_REGISTER the Google-token gate (401) runs before the
@@ -361,15 +362,16 @@ async function runCaptchaAndRegistrationGapCases(ctx) {
       if (!(r.status === 400 && re.test(String(r.data?.error || '')))) allOk = false;
     }
     if (!CAPTCHA_BYPASS_FOR_TESTING) {
-      const cap = await fetchLoginCaptcha(BASE);
-      const r = await postEmployer({
-        ...employerBase(),
-        email: `hr.badcap.${run}@acme-example.com`,
-        captchaToken: cap.captchaToken,
-        captchaAnswer: '999999',
-      });
-      results.badCaptcha = r.status;
-      if (!(r.status === 400 && WRONG_CAPTCHA_RE.test(String(r.data?.error || '')))) allOk = false;
+      const badCaptcha = [
+        ['badCaptchaDomain', { ...employerBase(), email: `hr.badcap.${run}@acme-example.com` }],
+        ['badCaptchaFreeEmail', { ...employerBase(), path: 'free_email', website: '', email: `qa.badcap.${run}@gmail.com` }],
+      ];
+      for (const [key, body] of badCaptcha) {
+        const cap = await fetchLoginCaptcha(BASE);
+        const r = await postEmployer({ ...body, captchaToken: cap.captchaToken, captchaAnswer: '999999' });
+        results[key] = r.status;
+        if (!(r.status === 400 && WRONG_CAPTCHA_RE.test(String(r.data?.error || '')))) allOk = false;
+      }
     }
     assess('REG-E-5', allOk, results);
     assess('TC-IS-03-012', allOk, results);
@@ -445,79 +447,8 @@ async function runCaptchaAndRegistrationGapCases(ctx) {
     }
   }
 
-  // ── REGX-3 / TC-IS-18-032: wrong captcha fails closed on employer register, forgot-password, login ──
-  if (CAPTCHA_BYPASS_FOR_TESTING) {
-    blocked('REGX-3', 'CAPTCHA_BYPASS_FOR_TESTING=true — negative captcha path skipped');
-    blocked('TC-IS-18-032', 'CAPTCHA_BYPASS_FOR_TESTING=true — negative captcha path skipped');
-  } else {
-    const forgotCap = await fetchLoginCaptcha(BASE);
-    const forgotBad = await apiRequest(BASE, '/api/ip/auth/password-reset/request', {
-      method: 'POST',
-      body: { email: QA_ACCOUNTS.candidate.email, captchaToken: forgotCap.captchaToken, captchaAnswer: '999999' },
-    });
-    const regCap = await fetchLoginCaptcha(BASE);
-    const regBad = await postEmployer({
-      ...employerBase(),
-      email: `hr.regx3.${run}@acme-example.com`,
-      captchaToken: regCap.captchaToken,
-      captchaAnswer: '999999',
-    });
-    const ok =
-      (forgotBad.status === 400 || forgotBad.status === 422) &&
-      regBad.status === 400 && WRONG_CAPTCHA_RE.test(String(regBad.data?.error || '')) &&
-      loginCaptchaBlocked === true;
-    const evidence = {
-      forgot: forgotBad.status,
-      employerRegister: regBad.status,
-      employerRegisterErr: regBad.data?.error,
-      loginBlocked: loginCaptchaBlocked,
-    };
-    assess('REGX-3', ok, evidence);
-    assess('TC-IS-18-032', ok, evidence);
-  }
-
-  // ── Not Run fixes ──
-  {
-    const cand = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, PW);
-    assess('TC-IS-02-026', cand.ok === true, {
-      email: QA_ACCOUNTS.candidate.email,
-      ok: cand.ok,
-      note: 'Credentials login independent of Google provider',
-    });
-  }
-
-  {
-    // Unlinked error UX (full live Google consent half still needs human)
-    const pageCheck = await apiRequest(BASE, '/?error=GoogleAccountNotLinked', { method: 'GET' });
-    // HTML page — status 200 is enough for route; friendly copy covered in regression/02-025
-    assess(
-      'TC-IS-03-021',
-      pageCheck.status === 200,
-      {
-        status: pageCheck.status,
-        note:
-          'Automated: unlinked error route reachable. Completing live Google consent with an unlinked account remains manual.',
-      },
-    );
-  }
-
-  // TC-IS-02-027: manual Pass (linked home Sign in) — do not auto-Block; apply script skips it.
-
-  // True Google-browser / inbox cases — keep Blocked with accurate reason.
-  // Do NOT include EMP-R-1 / TC-IS-18-019 (employer refer hub — API+UI in run-internsafar-qa.mjs).
-  const LIVE_GOOGLE =
-    'Requires live Google OAuth consent / inbox — not an automation gap in API coverage';
-  for (const id of [
-    // REG-C-9 / TC-IS-03-015 — self-referral (Google-gated): scripts/manual/run-tc-is-03-015-…
-    'REG-E-1', // TC-IS-03-008 — live company Google domain register
-    // REG-E-6 / TC-IS-03-013 — duplicate employer email 409: scripts/manual/run-tc-is-03-013-…
-    'TC-IS-03-008',
-    'TC-IS-03-020',
-    // TC-IS-03-019 — Manual Pass (Google candidate register); do not auto-Block
-    // TC-IS-03-022 — non-Gmail reject without OAuth: scripts/manual/run-tc-is-03-022-…
-  ]) {
-    blocked(id, LIVE_GOOGLE);
-  }
+  // Wrong captcha on login is AUTH-4 above, on employer register REG-E-5, on forgot-password AUTH-10
+  // (run-internsafar-qa.mjs). TC-IS-03-008 (Domain register) is recorded by qa-employer-reg-verify-approve-login.mjs.
 }
 
 export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, cand, emp, sa }) {
@@ -543,9 +474,47 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     assess('AUTH-3', !r.ok, { ok: r.ok });
   });
 
+  // AUTH-5 / TC-IS-02-004: the jwt callback ends a session 12h after sign-in, or 30 days with Remember.
+  // Re-signs the real login token with an older authTime (local NEXTAUTH_SECRET) and asks NextAuth.
   await tryCase('AUTH-5', async () => {
-    const r = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, PW);
-    assess('AUTH-5', r.ok, { note: 'remember-device cookie issued on successful credentials login', ok: r.ok });
+    const secret = process.env.NEXTAUTH_SECRET;
+    if (!secret) {
+      blocked('AUTH-5', 'NEXTAUTH_SECRET is not set in .env.local — cannot re-sign session tokens');
+      return;
+    }
+    const { decode, encode } = require('next-auth/jwt');
+    const sessionCookie = (cookie) => cookie.match(/(?:^|;\s*)((?:__Secure-)?next-auth\.session-token)=([^;]+)/);
+    const short = await sharedApiLogin(BASE, QA_ACCOUNTS.candidate.email, PW, { rememberMe: false });
+    const long = await sharedApiLogin(BASE, QA_ACCOUNTS.candidate.email, PW, { rememberMe: true });
+    const sc = sessionCookie(short.cookie);
+    const lc = sessionCookie(long.cookie);
+    if (!short.ok || !long.ok || !sc || !lc) {
+      assess('AUTH-5', false, { shortLogin: short.ok, longLogin: long.ok, shortCookie: Boolean(sc), longCookie: Boolean(lc) });
+      return;
+    }
+    const claims = async (raw) => {
+      const { iat: _iat, exp: _exp, jti: _jti, ...rest } = (await decode({ token: raw, secret })) || {};
+      return rest;
+    };
+    const shortClaims = await claims(sc[2]);
+    const longClaims = await claims(lc[2]);
+    const now = Math.floor(Date.now() / 1000);
+    const signedInWith = async (name, base, ageSec) => {
+      const token = await encode({ token: { ...base, authTime: now - ageSec }, secret, maxAge: 60 * 60 * 24 * 30 });
+      const r = await apiRequest(BASE, '/api/auth/session', { cookie: `${name}=${token}` });
+      return Boolean(r.data?.user?.email);
+    };
+    const result = {
+      rememberFlag: { unchecked: shortClaims.rememberMe, checked: longClaims.rememberMe },
+      unchecked11h: await signedInWith(sc[1], shortClaims, 11 * 3600),
+      unchecked13h: await signedInWith(sc[1], shortClaims, 13 * 3600),
+      checked13h: await signedInWith(lc[1], longClaims, 13 * 3600),
+      checked31d: await signedInWith(lc[1], longClaims, 31 * 86400),
+    };
+    assess('AUTH-5',
+      shortClaims.rememberMe === false && longClaims.rememberMe === true
+        && result.unchecked11h && !result.unchecked13h && result.checked13h && !result.checked31d,
+      result);
   });
 
   await tryCase('AUTH-7', async () => {
@@ -588,20 +557,70 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
       { change: ch.status, midOk: mid.ok, back: back.status, again: again.ok });
   });
 
-  await tryCase('AUTH-22', async () => {
-    const rep = await api('/api/ip/superadmin/login-report', { cookie: sa.cookie });
-    const blob = JSON.stringify(rep.data || {});
-    assess('AUTH-22', rep.status === 200 && blob.toLowerCase().includes('lawsonlclintern'),
-      { status: rep.status, hit: blob.toLowerCase().includes('lawsonlclintern') });
+  // ACCT-3 / TC-IS-05-003: one category's email switch persists without touching the others, then is restored.
+  await tryCase('ACCT-3', async () => {
+    const before = await api('/api/ip/account/notification-preferences', { cookie: cand.cookie });
+    const items = before.data?.items || [];
+    const target = items.find((i) => i.id === 'offer') || items[0];
+    if (before.status !== 200 || !target) {
+      assess('ACCT-3', false, { get: before.status, categories: items.length });
+      return;
+    }
+    const pick = (list) => list.map(({ id, in_app: inApp, email, sms }) => ({ id, in_app: inApp, email, sms }));
+    const original = pick(items);
+    const toggled = original.map((i) => (i.id === target.id ? { ...i, email: !i.email } : i));
+    let put = null;
+    let after = null;
+    let restore = null;
+    try {
+      put = await api('/api/ip/account/notification-preferences', { method: 'PUT', cookie: cand.cookie, body: { items: toggled } });
+      after = await api('/api/ip/account/notification-preferences', { cookie: cand.cookie });
+    } finally {
+      restore = await api('/api/ip/account/notification-preferences', { method: 'PUT', cookie: cand.cookie, body: { items: original } });
+    }
+    const afterItems = pick(after?.data?.items || []);
+    const flipped = afterItems.find((i) => i.id === target.id);
+    const othersSame = JSON.stringify(afterItems.filter((i) => i.id !== target.id))
+      === JSON.stringify(original.filter((i) => i.id !== target.id));
+    const restored = JSON.stringify(pick(restore?.data?.items || [])) === JSON.stringify(original);
+    const empPut = await api('/api/ip/account/notification-preferences', { method: 'PUT', cookie: emp.cookie, body: { items: original } });
+    assess('ACCT-3',
+      put?.status === 200 && after?.status === 200 && flipped?.email === !target.email && othersSame
+        && restore?.status === 200 && restored && empPut.status === 403,
+      { category: target.id, emailBefore: target.email, emailAfterSave: flipped?.email, othersSame, restored, employerPut: empPut.status });
   });
 
-  await tryCase('ACCT-3', async () => {
-    const put = await api('/api/ip/account/notification-preferences', {
-      method: 'PUT', cookie: cand.cookie,
-      body: { items: [{ channel: 'email', enabled: false }] },
-    });
-    const get = await api('/api/ip/account/notification-preferences', { cookie: cand.cookie });
-    assess('ACCT-3', put.status === 200 && get.status === 200, { put: put.status, get: get.status });
+  // CAND-P-3 / TC-IS-06-003 (API half): reminder rules for an incomplete throwaway candidate.
+  await tryCase('CAND-P-3', async () => {
+    const email = `lawsonlclintern+qa-reminder-${run}@gmail.com`;
+    let userId = null;
+    try {
+      await withDb(async (db) => {
+        userId = await ensureUser(db, { email, role: 'candidate', name: 'QA Reminder', profileComplete: false });
+        await db.query(
+          `UPDATE ip_users SET profile_reminder_last_shown_at = NULL, profile_reminder_last_login_count = 0 WHERE id = $1`,
+          [userId],
+        );
+        await ensureCandidateRow(db, userId, email, 'QA Reminder');
+      });
+      const login = await sharedApiLogin(BASE, email, PW);
+      const first = await api('/api/ip/profile-reminder', { cookie: login.cookie });
+      const shown = await api('/api/ip/profile-reminder', { method: 'POST', cookie: login.cookie, body: { action: 'shown' } });
+      const sameLogin = await api('/api/ip/profile-reminder', { cookie: login.cookie });
+      await withDb((db) => db.query(`UPDATE ip_users SET profile_complete = true WHERE id = $1`, [userId]));
+      const complete = await api('/api/ip/profile-reminder', { cookie: login.cookie });
+      const testCand = await api('/api/ip/profile-reminder', { cookie: cand.cookie });
+      const r = (x) => [x.status, x.data?.shouldShow, x.data?.reason];
+      assess('CAND-P-3',
+        login.ok && first.data?.shouldShow === true && /^milestone_1$/.test(first.data?.reason || '')
+          && shown.status === 200 && sameLogin.data?.shouldShow === false
+          && sameLogin.data?.reason === 'already_shown_for_this_login_count'
+          && complete.data?.shouldShow === false && complete.data?.reason === 'complete'
+          && testCand.data?.shouldShow === false && testCand.data?.reason === 'complete',
+        { firstLogin: r(first), afterShown: r(sameLogin), afterComplete: r(complete), completeTestCandidate: r(testCand) });
+    } finally {
+      if (userId) await withDb((db) => hardDeleteIpUser(db, { userId })).catch(() => {});
+    }
   });
 
   await tryCase('ACCT-4', async () => {
@@ -660,34 +679,6 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
       body: { title: 'Zero Publish Guard', status: 'published', description: `should fail ${run}` },
     });
     assess('EMP-I-3', r.status === 403, { status: r.status, error: r.data?.error });
-  });
-
-  await tryCase('EMP-I-4', async () => {
-    const pending = await apiLogin(BASE, QA_ACCOUNTS.employerPending.email, PW);
-    if (!pending.ok) {
-      assess('EMP-I-4', true, 'pending employer cannot sign in');
-      return;
-    }
-    const r = await api('/api/ip/employer/internships', {
-      method: 'POST', cookie: pending.cookie,
-      body: { title: 'Should Block', status: 'draft' },
-    });
-    assess('EMP-I-4', r.status === 403, { status: r.status, loginOk: pending.ok });
-  });
-
-  await tryCase('EMP-I-5', async () => {
-    const email = `qa-incomplete-employer-${run}@example.com`;
-    await withDb(async (db) => {
-      const id = await ensureUser(db, { email, role: 'employer', name: 'QA Incomplete Employer', points: 200, profileComplete: false });
-      await ensureEmployerRow(db, id, email, `QA Incomplete Co ${run}`, 'approved');
-      await db.query(`UPDATE ip_users SET profile_complete=false WHERE id=$1`, [id]);
-    });
-    const login = await apiLogin(BASE, email, PW);
-    const r = await api('/api/ip/employer/internships', {
-      method: 'POST', cookie: login.cookie,
-      body: { title: 'Incomplete should block', status: 'draft' },
-    });
-    assess('EMP-I-5', r.status === 403, { status: r.status, error: r.data?.error });
   });
 
   await tryCase('EMP-I-7', async () => {
@@ -930,11 +921,6 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     });
   });
 
-  await tryCase('OFF-R-1', async () => {
-    const r = await api(`/api/ip/offers/${offerId || 'missing'}/remind`, { method: 'POST', cookie: emp.cookie });
-    assess('OFF-R-1', r.status === 200 || r.status === 201 || r.status === 400, { status: r.status, error: r.data?.error });
-  });
-
   await tryCase('CAND-O-2', async () => {
     const email = `lawsonlclintern+qa-offer-decline-${run}@gmail.com`;
     let candId;
@@ -956,28 +942,39 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
         [oid, internId, empRow.rows[0]?.id, candId, appId],
       );
       await db.query(`UPDATE ip_applications SET status = 'offered', updated_at = now() WHERE id = $1`, [appId]);
-      offerId = offerId || oid;
     });
     const login = await apiLogin(BASE, email, PW);
     const offers = await api('/api/ip/offers', { cookie: login.cookie });
     const mine = (offers.data?.items || offers.data?.offers || []).find((o) => o.status === 'pending');
+    const declinedAt = new Date();
     const r = mine
       ? await api(`/api/ip/offers/${mine.id}`, { method: 'PATCH', cookie: login.cookie, body: { status: 'declined' } })
       : { status: 0 };
-    let appAfter = '';
+    // TC-IS-11-002: offer declined, application declined_offer, employer gets "Offer declined".
+    let after = {};
     if (r.status === 200 && mine?.id) {
-      await withDb(async (db) => {
+      after = await withDb(async (db) => {
         const row = await db.query(
-          `SELECT a.status FROM ip_offers o JOIN ip_applications a ON a.id = o.application_id WHERE o.id = $1`,
+          `SELECT o.status AS offer, a.status AS app, o.employer_id
+             FROM ip_offers o JOIN ip_applications a ON a.id = o.application_id WHERE o.id = $1`,
           [mine.id],
         );
-        appAfter = row.rows[0]?.status || '';
+        const notice = await db.query(
+          `SELECT n.id FROM ip_notifications n
+             JOIN ip_employers e ON e.user_id = n.user_id
+            WHERE e.id = $1 AND n.title = 'Offer declined' AND n.created_at >= $2`,
+          [row.rows[0]?.employer_id, declinedAt],
+        );
+        if (notice.rows.length) {
+          await db.query(`DELETE FROM ip_notifications WHERE id = ANY($1::text[])`, [notice.rows.map((n) => n.id)]);
+        }
+        return { offerStatus: row.rows[0]?.offer, app: row.rows[0]?.app, employerNotified: notice.rows.length > 0 };
       });
     }
-    assess('CAND-O-2', r.status === 200 && appAfter === 'declined_offer', {
+    assess('CAND-O-2', r.status === 200 && after.offerStatus === 'declined' && after.app === 'declined_offer' && after.employerNotified, {
       status: r.status,
       offer: mine?.id,
-      appAfter,
+      ...after,
     });
   });
 
@@ -1220,22 +1217,19 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     assess('FILE-1', r.status === 400 || r.status === 503, { status: r.status });
   });
 
+  // MAIL-1 / TC-IS-18-027: the running server's override state matches this host's env. Who receives
+  // each mail (real user AND the override inbox) is proven by npm run test:mail-override.
   await tryCase('MAIL-1', async () => {
+    const flag = String(process.env.ISM_TEST_ENVIRONMENT ?? process.env.OUTBOUND_EMAIL_OVERRIDE_ENABLED ?? '').trim().toLowerCase();
+    const address = String(process.env.OUTBOUND_EMAIL_OVERRIDE || '').trim();
+    const expected = ['true', '1', 'yes', 'on'].includes(flag) && address.includes('@');
     const r = await api('/api/ip/account/2fa', { cookie: cand.cookie });
-    assess('MAIL-1', r.status === 200 && (r.data?.mailOverrideActive === true || r.data?.enabled === false || r.data?.enabled === true),
-      { status: r.status, mailOverrideActive: r.data?.mailOverrideActive });
+    if (!expected) {
+      blocked('MAIL-1', 'Mail override is not enabled in this host env — enable it on a QA host to test this case');
+      return;
+    }
+    assess('MAIL-1', r.status === 200 && r.data?.mailOverrideActive === true,
+      { status: r.status, serverOverrideActive: r.data?.mailOverrideActive, hostEnvExpectsOverride: expected });
   });
 
-  await tryCase('REGX-2', async () => {
-    const ok = await withDb(async (db) => {
-      const r = await db.query(`SELECT to_regclass('public.ip_users') AS t`);
-      return Boolean(r.rows[0]?.t);
-    });
-    assess('REGX-2', ok, { ip_users: ok });
-  });
-
-  await tryCase('EMP-I-8', async () => {
-    const r = await api('/api/ip/employer/internships', { cookie: emp.cookie });
-    assess('EMP-I-8', r.status === 200, { status: r.status });
-  });
 }

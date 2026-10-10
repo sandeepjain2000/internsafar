@@ -23,7 +23,7 @@ const reportPath = resolve(
 const TITLE_TO_TC = [
   [/IS-001/, ['TC-IS-01-001']],
   [/IS-002/, ['TC-IS-01-002']],
-  [/IS-003|no Google sign-in button|home has email\/password login and no Google/, ['TC-IS-18-030']],
+  [/IS-003|no Google sign-in button|home has email\/password login and no Google/, ['TC-IS-02-024']],
   [/IS-004b|GoogleLoginDisabled/, ['TC-IS-02-025']],
   [/IS-004\b|GoogleAccountNotLinked/, ['TC-IS-02-025']],
   [/IS-005|candidate register Google control/, ['TC-IS-03-005']],
@@ -81,7 +81,7 @@ const TITLE_TO_TC = [
   [/IS-087/, ['TC-IS-02-030']],
   [/Posting Share Rewards|\/superadmin\/promotions/, ['TC-IS-14-012']],
   [/JOURNEY-SA-01|same-status publish|skips change/, ['TC-IS-14-023']],
-  [/candidate register Google reaches Google OAuth|matching redirect_uri/, ['TC-IS-02-024', 'TC-IS-18-030']],
+  [/candidate register Google reaches Google OAuth|matching redirect_uri/, ['TC-IS-02-024']],
   [/candidate register Google/, ['TC-IS-03-005']],
   [/Credentials login still works/, ['TC-IS-02-026']],
 ];

@@ -37,8 +37,8 @@ TC_RE = re.compile(r"TC-IS-\d\d-\d{3}")
 SCRIPT_RUNNERS = {
     "TC-IS-03-013": "scripts/manual/run-tc-is-03-013-duplicate-employer.mjs",
     "TC-IS-03-015": "scripts/manual/run-tc-is-03-015-self-referral.mjs",
-    "TC-IS-03-022": "scripts/manual/run-tc-is-03-022-register-reject.mjs",
     "TC-IS-06-007": "scripts/manual/run-tc-is-06-007-email-change.mjs",
+    "TC-IS-03-008": "scripts/qa-employer-reg-verify-approve-login.mjs",
     "TC-IS-03-026": "scripts/qa-employer-reg-verify-approve-login.mjs",
     "TC-IS-03-030": "scripts/qa-employer-reg-verify-approve-login.mjs",
     "TC-IS-14-024": "scripts/qa-employer-reg-verify-approve-login.mjs",
@@ -70,7 +70,6 @@ SCRIPT_RUNNERS = {
 # Scripted, but only reach Pass/Fail with extra setup; otherwise they report Blocked, which the
 # workbook writer does not store for these ids. Listed apart so --strict does not fail on them.
 NEEDS_SETUP = {
-    "TC-IS-03-008": "live Google OAuth consent by a person (checklist runner reports Blocked)",
     "TC-IS-03-015": "local server with IP_ALLOW_UNVERIFIED_GOOGLE_REGISTER=1",
     "TC-IS-06-007": "a person pastes the emailed code into IP_QA_EMAIL_CHANGE_CODE",
 }

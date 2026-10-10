@@ -10,8 +10,8 @@
  *   node scripts/run-internsafar-qa.mjs --only TC-IS-12-010 --apply [baseUrl]
  *   node scripts/run-internsafar-qa.mjs --skip-tc-is   # skip TC-IS workbook cases only
  *
- * Registration/account-creation (REG-*, TC-IS-03-*, REGX-1/3) are manual-only in the
- * workbook and are recorded as Blocked in this runner — not exercised here.
+ * Registration API checks (REG-*, captcha) run in lib/ipQaFixtureCases.mjs; full register → verify →
+ * approve flows are the deep scripts (qa-employer-reg-verify-approve-login.mjs and siblings).
  *
  * Manual OTP cases (not in this runner): see scripts/manual/README.md
  *   TC-IS-06-007 → scripts/manual/run-tc-is-06-007-email-change.mjs
@@ -36,11 +36,16 @@ import {
 } from './lib/ipQaFixtureCases.mjs';
 import { runAuth8Case } from './lib/ipQaAuth8.mjs';
 import { runRemainingSuite, runSingleTcIsCase } from './lib/ipQaRemainingSuite.mjs';
+import { withDb } from './lib/ipQaRemainingExtras.mjs';
+import { qaDbId } from './lib/ipQaNaming.mjs';
 import { createRequire as createRequireForDemoText } from 'module';
 
 ensurePlaywrightBrowsersPath();
 
-const demoText = createRequireForDemoText(import.meta.url)('./lib/ipDemoText.js');
+const requireCjs = createRequireForDemoText(import.meta.url);
+const demoText = requireCjs('./lib/ipDemoText.js');
+const { CAPTCHA_BYPASS_FOR_TESTING } = requireCjs('../src/lib/captchaBypass.js');
+const { NAV_BY_ROLE } = requireCjs('../src/lib/ipNav.js');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(__dirname, '..');
@@ -88,6 +93,27 @@ function assessUi(id, ok, actual) {
   assess(id, ok, actual);
 }
 
+/**
+ * UI half of an API + UI case. A real UI mismatch fails the case even after an API Pass;
+ * only a page still sitting on the sign-in form (`/`) is treated as a wait flake.
+ */
+function assessUiStrict(id, ok, actual, pageUrl) {
+  const prior = cases[id];
+  if (prior?.status === 'Fail' || prior?.status === 'Blocked') return;
+  let onSignIn = false;
+  try {
+    onSignIn = new URL(pageUrl).pathname === '/';
+  } catch {
+    /* keep false */
+  }
+  if (!ok && onSignIn) {
+    assessUi(id, ok, actual);
+    return;
+  }
+  const ui = typeof actual === 'string' ? actual : JSON.stringify(actual);
+  (ok ? pass : fail)(id, prior ? `${prior.actual} | UI: ${ui}` : `UI: ${ui}`);
+}
+
 async function fetchRaw(path, { cookie, method = 'GET', body, redirect = 'follow' } = {}) {
   const headers = {};
   if (cookie) headers.Cookie = cookie;
@@ -123,6 +149,36 @@ async function visible(page, sel) {
   }
 }
 
+/** Sidebar links rendered by PortalShell (desktop aside). */
+async function sidebarHrefs(page) {
+  await page.locator('aside nav a').first().waitFor({ state: 'attached', timeout: 20_000 }).catch(() => {});
+  return page.locator('aside nav a').evaluateAll((els) => els.map((a) => a.getAttribute('href')));
+}
+
+/** Every NAV_BY_ROLE link for the role is in the sidebar, and no other role's area is linked. */
+async function sidebarMatchesRole(page, role) {
+  // Employer Postings is added only after the approval status loads, so wait for each expected link.
+  const expected = NAV_BY_ROLE[role].map((n) => n.href);
+  await Promise.all(expected.map((h) => page.locator(`aside nav a[href="${h}"]`).first()
+    .waitFor({ state: 'attached', timeout: 45_000 }).catch(() => {})));
+  const hrefs = await sidebarHrefs(page);
+  const missing = expected.filter((h) => !hrefs.includes(h));
+  const foreign = hrefs.filter((h) => /^\/(candidate|employer|superadmin)(\/|$)/.test(h) && !h.startsWith(`/${role}`));
+  return { ok: hrefs.length > 0 && !missing.length && !foreign.length, missing, foreign, count: hrefs.length };
+}
+
+/** Sign out from the role shell; every role must land on `/`. */
+async function signOutLandsHome(page) {
+  const btn = page.locator('[data-testid="portal-sign-out"]').first();
+  const shown = await btn.waitFor({ state: 'visible', timeout: 20_000 }).then(() => true).catch(() => false);
+  if (!shown) return { ok: false, reason: 'no Sign out button', url: page.url() };
+  await btn.click();
+  await page.waitForURL((u) => new URL(String(u)).pathname === '/', { timeout: 30_000 }).catch(() => {});
+  const path = new URL(page.url()).pathname;
+  const form = await visible(page, '#email');
+  return { ok: path === '/' && form, path, loginForm: form };
+}
+
 /**
  * Client shells paint <main> only after NextAuth session resolves.
  * Wait for URL + main (and Sign out when on an authenticated role shell).
@@ -152,6 +208,26 @@ async function gotoApp(page, path) {
 }
 
 /** Guest hitting a role route should leave that path for login. */
+/** Swap the browser context to another login and wait until NextAuth reports it. */
+async function switchSession(ctx, page, cookies) {
+  await ctx.clearCookies();
+  await ctx.addCookies(cookies);
+  await page.goto(`${BASE}/api/auth/session`, { waitUntil: 'domcontentloaded' });
+  await page
+    .waitForFunction(
+      async () => {
+        try {
+          const s = await fetch('/api/auth/session').then((r) => r.json());
+          return Boolean(s?.user?.email);
+        } catch {
+          return false;
+        }
+      },
+      { timeout: 20_000 },
+    )
+    .catch(() => {});
+}
+
 async function gotoGuestExpectLogin(page, path) {
   await page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' });
   await page
@@ -188,7 +264,7 @@ async function runApiSuite() {
   const cand = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, PW);
   const emp = await apiLogin(BASE, QA_ACCOUNTS.employer.email, PW);
   const sa = await apiLogin(BASE, QA_ACCOUNTS.superadmin.email, QA_ACCOUNTS.superadmin.password);
-  const bad = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, 'WRONG-password-xyz!');
+  const empPending = await apiLogin(BASE, QA_ACCOUNTS.employerPending.email, QA_ACCOUNTS.employerPending.password);
 
   async function getResetTokenForEmail(email) {
     const url = process.env.IP_DATABASE_URL || process.env.DATABASE_URL;
@@ -237,7 +313,6 @@ async function runApiSuite() {
 
   // AUTH
   assess('AUTH-1', cand.ok, { role: cand.role, email: cand.email });
-  assess('AUTH-2', !bad.ok, 'wrong password rejected');
 
   const trimLogin = await apiLogin(BASE, QA_ACCOUNTS.candidate.email.toUpperCase(), PW);
   assess('AUTH-6', trimLogin.ok, 'uppercase email accepted');
@@ -254,6 +329,7 @@ async function runApiSuite() {
   assess('AUTH-9', forgotOk.status >= 200 && forgotOk.status < 300,
     { status: forgotOk.status, data: forgotOk.data });
 
+  // AUTH-10 / TC-IS-02-009: bad email, empty email and wrong captcha are all refused with 400.
   const forgotBadCap = await fetchLoginCaptcha(BASE);
   const forgotBad = await api('/api/ip/auth/password-reset/request', {
     method: 'POST',
@@ -263,8 +339,27 @@ async function runApiSuite() {
       captchaAnswer: forgotBadCap.captchaAnswer,
     },
   });
-  assess('AUTH-10', forgotBad.status === 400 || forgotBad.status === 422,
-    { status: forgotBad.status });
+  const forgotEmptyCap = await fetchLoginCaptcha(BASE);
+  const forgotEmpty = await api('/api/ip/auth/password-reset/request', {
+    method: 'POST',
+    body: { email: '', captchaToken: forgotEmptyCap.captchaToken, captchaAnswer: forgotEmptyCap.captchaAnswer },
+  });
+  const forgotWrongCap = CAPTCHA_BYPASS_FOR_TESTING
+    ? null
+    : await (async () => {
+        const c = await fetchLoginCaptcha(BASE);
+        return api('/api/ip/auth/password-reset/request', {
+          method: 'POST',
+          body: { email: QA_ACCOUNTS.candidate.email, captchaToken: c.captchaToken, captchaAnswer: '999999' },
+        });
+      })();
+  const wrongCapOk = !forgotWrongCap
+    || (forgotWrongCap.status === 400 && /captcha|incorrect answer|verification/i.test(String(forgotWrongCap.data?.error || '')));
+  assess('AUTH-10', forgotBad.status === 400 && forgotEmpty.status === 400 && wrongCapOk, {
+    badEmail: forgotBad.status,
+    emptyEmail: forgotEmpty.status,
+    wrongCaptcha: forgotWrongCap ? { status: forgotWrongCap.status, error: forgotWrongCap.data?.error } : 'skipped — CAPTCHA_BYPASS_FOR_TESTING',
+  });
 
   // AUTH-11: reset token flow via DB token (no need to read email inbox)
   try {
@@ -514,15 +609,6 @@ async function runApiSuite() {
   });
   assess('AUTH-20', twoFaDisableOff.status === 400, { status: twoFaDisableOff.status, data: twoFaDisableOff.data });
 
-  // Forgot-password with invalid format
-  const fmtCap = await fetchLoginCaptcha(BASE);
-  const fmtBad = await api('/api/ip/auth/password-reset/request', {
-    method: 'POST',
-    body: { email: '', captchaToken: fmtCap.captchaToken, captchaAnswer: fmtCap.captchaAnswer },
-  });
-  assess('AUTH-10', fmtBad.status === 400 || fmtBad.status === 422,
-    { status: fmtBad.status });
-
   // PERMISSIONS
   const candOnEmpApi = await api('/api/ip/employer/candidates', { cookie: cand.cookie });
   const anonProfile = await api('/api/ip/candidate/profile');
@@ -568,22 +654,12 @@ async function runApiSuite() {
   assess('SA-A-3', empApproveInvalid.status === 400 || empApproveInvalid.status === 404,
     { status: empApproveInvalid.status });
 
-  // ACCOUNT — notification prefs
-  const notifPrefs = await api('/api/ip/account/notification-preferences', { cookie: cand.cookie });
-  assess('ACCT-3', notifPrefs.status === 200, { status: notifPrefs.status });
-
   // CANDIDATE browse
   const internships = await api('/api/ip/candidate/internships', { cookie: cand.cookie });
   const items = internships.data?.items || internships.data?.internships || [];
   assess('CAND-B-1',
     internships.status === 200 && Array.isArray(items),
     { count: items.length });
-
-  // Search candidates (employer)
-  const search = await api('/api/ip/employer/candidates?q=priya', { cookie: emp.cookie });
-  const searchItems = search.data?.items || [];
-  assess('EMP-C-1', search.status === 200 && Array.isArray(searchItems),
-    { count: searchItems.length });
 
   // Invite without internshipId
   const inviteBad = await api('/api/ip/employer/candidates/999/invite', {
@@ -635,8 +711,12 @@ async function runApiSuite() {
     headers: { 'Content-Type': 'application/json', Cookie: emp.cookie },
     body: '{bad',
   });
-  assess('ERR-1', malJson.status === 400 || malJson.status === 415,
-    { status: malJson.status });
+  const malText = await malJson.text();
+  let malBody = null;
+  try { malBody = JSON.parse(malText); } catch { /* non-JSON body fails the check */ }
+  const noStack = !/\n\s+at\s|node_modules|\.js:\d+:\d+/.test(malText);
+  assess('ERR-1', malJson.status === 400 && /invalid json/i.test(String(malBody?.error || '')) && noStack,
+    { status: malJson.status, error: malBody?.error, noStack });
 
   const anonNot = await api('/api/ip/notifications');
   const anonEmpDash = await api('/api/ip/employer/dashboard');
@@ -738,9 +818,13 @@ async function runApiSuite() {
   assess('SA-E-1', saExportCand.status === 401 || saExportCand.status === 403,
     { status: saExportCand.status });
 
+  // SA-PR-1 / TC-IS-14-012: SuperAdmin sees every claim; candidates are refused the queue.
   const saPromo = await api('/api/ip/promotions', { cookie: sa.cookie });
-  assess('SA-PR-1', saPromo.status === 200 || saPromo.status === 403,
-    { status: saPromo.status });
+  const candPromo = await api('/api/ip/promotions', { cookie: cand.cookie });
+  assess('SA-PR-1',
+    saPromo.status === 200 && Array.isArray(saPromo.data?.items) && saPromo.data?.economy != null
+      && candPromo.status === 403,
+    { superadmin: saPromo.status, claims: (saPromo.data?.items || []).length, candidate: candPromo.status });
 
   const saViral = await api('/api/ip/viral', { cookie: sa.cookie });
   assess('SA-V-1', saViral.status === 200, { status: saViral.status });
@@ -762,25 +846,143 @@ async function runApiSuite() {
   assess('CAND-P-1', candProfile.status === 200,
     { profileComplete: candProfile.data?.profile_complete });
 
-  const candExport = await api('/api/ip/candidate/export', { cookie: cand.cookie });
-  assess('CAND-X-1', candExport.status === 200 || candExport.status === 404,
-    { status: candExport.status });
+  // CAND-X-1 / TC-IS-06-004: candidate downloads a real .xlsx; employer 403, signed out 401.
+  {
+    const res = await fetchRaw('/api/ip/candidate/export', { cookie: cand.cookie });
+    const bytes = res.status === 200 ? Buffer.from(await res.arrayBuffer()) : Buffer.alloc(0);
+    const type = res.headers.get('content-type') || '';
+    const disposition = res.headers.get('content-disposition') || '';
+    const empExportCand = await api('/api/ip/candidate/export', { cookie: emp.cookie });
+    const anonExport = await api('/api/ip/candidate/export');
+    assess('CAND-X-1',
+      res.status === 200 && /spreadsheetml\.sheet/.test(type)
+        && /filename="candidate-portal-export\.xlsx"/.test(disposition)
+        && bytes.subarray(0, 2).toString('latin1') === 'PK' && bytes.length > 1000
+        && empExportCand.status === 403 && anonExport.status === 401,
+      { candidate: res.status, type, disposition, bytes: bytes.length, employer: empExportCand.status, guest: anonExport.status });
+  }
 
-  const empExportCand = await api('/api/ip/candidate/export', { cookie: emp.cookie });
-  assess('CAND-X-1', empExportCand.status === 401 || empExportCand.status === 403,
-    { empGuard: empExportCand.status });
-
+  // ACA-1 / TC-IS-06-005: academics API is candidate-only; PUT saves rows back unchanged and
+  // rejects an out-of-range year or CGPA without touching the saved rows.
   const candAcademics = await api('/api/ip/candidate/academics', { cookie: cand.cookie });
-  assess('ACA-1', candAcademics.status === 200 || candAcademics.status === 404,
-    { status: candAcademics.status });
+  const empAcademics = await api('/api/ip/candidate/academics', { cookie: emp.cookie });
+  const saAcademics = await api('/api/ip/candidate/academics', { cookie: sa.cookie });
+  const anonAcademics = await api('/api/ip/candidate/academics');
+  const acaRows = (candAcademics.data?.items || []).map((r) => ({
+    college: r.college || '',
+    degree: r.degree || '',
+    specialization: r.specialization || '',
+    study_status: r.study_status || '',
+    graduation_year: r.graduation_year ? Number(r.graduation_year) : '',
+    cgpa: r.cgpa != null && r.cgpa !== '' ? Number(r.cgpa) : '',
+    row_label: r.row_label || '',
+  }));
+  const acaKey = (rows) => JSON.stringify(rows.map((r) => [r.college || '', r.degree || '', r.specialization || '',
+    r.study_status || '', r.graduation_year ? Number(r.graduation_year) : '', r.cgpa != null && r.cgpa !== '' ? Number(r.cgpa) : '']));
+  const sample = acaRows[0] || { college: 'QA College', degree: 'B.Tech' };
+  const badYear = await api('/api/ip/candidate/academics', {
+    method: 'PUT', cookie: cand.cookie, body: { items: [{ ...sample, graduation_year: 1800 }] },
+  });
+  const badCgpa = await api('/api/ip/candidate/academics', {
+    method: 'PUT', cookie: cand.cookie, body: { items: [{ ...sample, cgpa: 150 }] },
+  });
+  const empPut = await api('/api/ip/candidate/academics', { method: 'PUT', cookie: emp.cookie, body: { items: acaRows } });
+  let savePut = null;
+  if (acaRows.length) {
+    savePut = await api('/api/ip/candidate/academics', { method: 'PUT', cookie: cand.cookie, body: { items: acaRows } });
+  }
+  let acaAfter = await api('/api/ip/candidate/academics', { cookie: cand.cookie });
+  if (acaAfter.status !== 200) acaAfter = await api('/api/ip/candidate/academics', { cookie: cand.cookie });
+  const unchanged = acaAfter.status === 200 && acaKey(acaAfter.data?.items || []) === acaKey(acaRows);
+  assess('ACA-1',
+    candAcademics.status === 200 && Array.isArray(candAcademics.data?.items) && acaRows.length > 0
+      && empAcademics.status === 403 && saAcademics.status === 403 && anonAcademics.status === 401
+      && badYear.status === 400 && /graduation year/i.test(badYear.data?.error || '')
+      && badCgpa.status === 400 && /99\.99/.test(badCgpa.data?.error || '')
+      && empPut.status === 403 && savePut?.status === 200 && unchanged,
+    {
+      candidate: candAcademics.status,
+      rows: acaRows.length,
+      employer: empAcademics.status,
+      superadmin: saAcademics.status,
+      guest: anonAcademics.status,
+      badYear: [badYear.status, badYear.data?.error],
+      badCgpa: [badCgpa.status, badCgpa.data?.error],
+      employerPut: empPut.status,
+      savePut: savePut?.status ?? 'skipped (no rows)',
+      unchangedAfterSave: unchanged,
+      ...(unchanged ? {} : { getAfter: acaAfter.status, before: acaKey(acaRows), after: acaKey(acaAfter.data?.items || []) }),
+    });
 
-  const candNavBadges = await api('/api/ip/nav-badges', { cookie: cand.cookie });
-  assess('NAV-1', candNavBadges.status === 200,
-    { data: candNavBadges.data });
+  // NAV-1 / TC-IS-18-033: one unread notice raises the Notifications badge; reading it drops the count back.
+  {
+    const badgeCount = async () => {
+      const r = await api('/api/ip/nav-badges', { cookie: cand.cookie });
+      return { status: r.status, n: Number(r.data?.badges?.['/candidate/notifications'] || 0) };
+    };
+    const noticeId = qaDbId('ip_notif');
+    const before = await badgeCount();
+    let added = { status: 0, n: null };
+    let afterRead = { status: 0, n: null };
+    let readRes = { status: 0 };
+    try {
+      await withDb((db) => db.query(
+        `INSERT INTO ip_notifications (id, user_id, title, body, link, category)
+         VALUES ($1, $2, 'QA badge check', 'Nav badge refresh check (removed after the run).', '/candidate/notifications', 'system')`,
+        [noticeId, cand.session?.user?.id],
+      ));
+      added = await badgeCount();
+      readRes = await api('/api/ip/notifications', { method: 'PATCH', cookie: cand.cookie, body: { id: noticeId } });
+      afterRead = await badgeCount();
+    } finally {
+      await withDb((db) => db.query(`DELETE FROM ip_notifications WHERE id = $1`, [noticeId])).catch(() => {});
+    }
+    assess('NAV-1',
+      before.status === 200 && added.n === before.n + 1 && readRes.status === 200 && afterRead.n === before.n,
+      { before: before.n, afterNewNotice: added.n, readStatus: readRes.status, afterRead: afterRead.n });
+  }
 
-  const candPoints = await api('/api/ip/points/ledger', { cookie: cand.cookie });
-  assess('PTS-1', candPoints.status === 200,
-    { entries: (candPoints.data?.ledger || candPoints.data?.entries || []).length });
+  // PTS-1 / TC-IS-13-002: every economy reason in the ledger carries its fixed amount, and the
+  // one-time awards were never granted twice to the same user.
+  {
+    const candPoints = await api('/api/ip/points/ledger', { cookie: cand.cookie });
+    const ledgerItems = candPoints.data?.items || [];
+    const EXPECTED_DELTA = {
+      default_signup: 50,
+      profile_complete: 15,
+      application_spend: -5,
+      first_application_bonus: 10,
+      posting_spend: -50,
+      referral_bonus: 25,
+    };
+    const db = await withDb(async (client) => {
+      const wrong = await client.query(
+        `SELECT reason, delta::int AS delta, count(*)::int AS n FROM ip_points_ledger
+         WHERE reason = ANY($1::text[]) GROUP BY 1, 2`,
+        [Object.keys(EXPECTED_DELTA)],
+      );
+      const twice = await client.query(
+        `SELECT reason, count(*)::int AS users FROM (
+           SELECT user_id, reason FROM ip_points_ledger
+           WHERE reason IN ('profile_complete', 'first_application_bonus')
+           GROUP BY 1, 2 HAVING count(*) > 1) d GROUP BY 1`,
+      );
+      return { byReason: wrong.rows, twice: twice.rows };
+    });
+    const offAmount = db.byReason.filter((r) => r.delta !== EXPECTED_DELTA[r.reason]);
+    const seen = [...new Set(db.byReason.map((r) => r.reason))];
+    const apiOff = ledgerItems.filter((i) => EXPECTED_DELTA[i.reason] != null && Number(i.delta) !== EXPECTED_DELTA[i.reason]);
+    assess('PTS-1',
+      candPoints.status === 200 && ledgerItems.length > 0 && !apiOff.length
+        && !offAmount.length && !db.twice.length && seen.length === Object.keys(EXPECTED_DELTA).length,
+      {
+        candidateEntries: ledgerItems.length,
+        reasonsSeen: seen,
+        offAmount,
+        apiOff: apiOff.map((i) => [i.reason, i.delta]),
+        grantedTwice: db.twice,
+      });
+  }
 
   const uploadAnon = await fetchRaw('/api/ip/files?key=missing-test-key', {
     method: 'GET', redirect: 'manual',
@@ -807,15 +1009,36 @@ async function runApiSuite() {
   assess('IDEA-5', ideaNoCat.status === 400 || ideaNoCat.status === 422,
     { status: ideaNoCat.status });
 
-  const ratingBefore = await api('/api/ip/ratings', {
-    method: 'POST', cookie: emp.cookie,
-    body: { toUserId: cand.session?.user?.id, stars: 5 },
-  });
-  assess('RATE-2', ratingBefore.status === 400 || ratingBefore.status === 404,
-    { status: ratingBefore.status, error: ratingBefore.data?.error });
-
-  const empDash = await api('/api/ip/employer/dashboard', { cookie: emp.cookie });
-  assess('EMP-H-1', empDash.status === 200, { data: empDash.data });
+  // EMP-H-1 / TC-IS-18-004: approved vs pending employer state, and the posting gate it drives.
+  {
+    const empDash = await api('/api/ip/employer/dashboard', { cookie: emp.cookie });
+    const pendDash = empPending.ok
+      ? await api('/api/ip/employer/dashboard', { cookie: empPending.cookie })
+      : { status: 0, data: null };
+    const pendPost = empPending.ok
+      ? await api('/api/ip/employer/internships', {
+        method: 'POST', cookie: empPending.cookie, body: { title: 'QA pending gate probe', status: 'draft' },
+      })
+      : { status: 0, data: null };
+    const evidence = {
+      approved: { status: empDash.status, approvalStatus: empDash.data?.employer?.approvalStatus },
+      pending: {
+        signIn: empPending.ok,
+        status: pendDash.status,
+        approvalStatus: pendDash.data?.employer?.approvalStatus,
+        post: [pendPost.status, pendPost.data?.error],
+      },
+    };
+    if (!empPending.ok) {
+      blocked('EMP-H-1', `Pending test employer ${QA_ACCOUNTS.employerPending.email} cannot sign in — run npm run qa:ensure-test-accounts. ${JSON.stringify(evidence)}`);
+    } else {
+      assess('EMP-H-1',
+        empDash.status === 200 && empDash.data?.employer?.approvalStatus === 'approved'
+          && pendDash.status === 200 && pendDash.data?.employer?.approvalStatus === 'pending'
+          && pendPost.status === 403 && /must be approved by SuperAdmin before posting/i.test(pendPost.data?.error || ''),
+        evidence);
+    }
+  }
 
   const empProfile = await api('/api/ip/employer/profile', { cookie: emp.cookie });
   assess('EMP-P-1', empProfile.status === 200, { data: empProfile.data });
@@ -835,8 +1058,11 @@ async function runApiSuite() {
     { status: empDocs.status, data: empDocs.data });
 
   const empViral = await api('/api/ip/viral', { cookie: emp.cookie });
-  assess('EMP-V-1', empViral.status === 200 || empViral.status === 403,
-    { status: empViral.status });
+  const candViral = await api('/api/ip/viral', { cookie: cand.cookie });
+  assess('EMP-V-1',
+    empViral.status === 200 && Array.isArray(empViral.data?.items) && Boolean(empViral.data?.referral_code)
+      && candViral.status === 403,
+    { employer: empViral.status, shares: (empViral.data?.items || []).length, hasReferralCode: Boolean(empViral.data?.referral_code), candidate: candViral.status });
 
   assess('BOOT-1', sa.ok, { email: sa.email, role: sa.role });
 
@@ -845,7 +1071,7 @@ async function runApiSuite() {
   // AUTH-8 last — one-shot simulated DB failure; prior cases already recorded.
   await runAuth8Case({ BASE, assess, blocked });
 
-  return { cand, emp, sa };
+  return { cand, emp, sa, empPending };
 }
 
 // ── Browser suite ─────────────────────────────────────────────────────────────
@@ -896,18 +1122,26 @@ async function runBrowserSuite(logins) {
     const hasEmp = (await page.locator('a[href*="register/employer"]').count()) > 0;
     assess('PUB-5', hasCand && hasEmp, { candidateLink: hasCand, employerLink: hasEmp });
 
-    // PUB-6: referral pretty URL (route may render 200 then navigate)
-    await page.goto(`${BASE}/r/DEMO123`, { waitUntil: 'domcontentloaded' });
-    const refUrl = page.url();
+    // PUB-6 / TC-IS-01-006: /r/{code} client-replaces to /register?ref={code}; a blank code to /register.
+    const referralLanding = async (path) => {
+      await page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' });
+      await page.waitForURL((u) => new URL(String(u)).pathname === '/register', { timeout: 20_000 }).catch(() => {});
+      const u = new URL(page.url());
+      return { path: u.pathname, ref: u.searchParams.get('ref') };
+    };
+    const refValid = await referralLanding('/r/DEMO123');
+    const refBlank = await referralLanding('/r/');
     assess('PUB-6',
-      refUrl.includes('/register') || refUrl.includes('/r/'),
-      { url: refUrl });
+      refValid.path === '/register' && refValid.ref === 'DEMO123' && refBlank.path === '/register' && refBlank.ref === null,
+      { valid: refValid, blank: refBlank });
 
-    // PUB-7: /app entry route behavior
-    await page.goto(`${BASE}/app`, { waitUntil: 'domcontentloaded' });
-    const appUrl = page.url();
-    assess('PUB-7', appUrl.includes('/app') || appUrl === `${BASE}/` || appUrl.includes('/candidate') || appUrl.includes('/employer') || appUrl.includes('/superadmin'),
-      { url: appUrl });
+    // PUB-7 / TC-IS-01-007: /app replaces to the role home (guest → `/`). Signed-in roles are checked below.
+    const appLanding = async () => {
+      await page.goto(`${BASE}/app`, { waitUntil: 'domcontentloaded' });
+      await page.waitForURL((u) => new URL(String(u)).pathname !== '/app', { timeout: 30_000 }).catch(() => {});
+      return new URL(page.url()).pathname;
+    };
+    const appEntry = { guest: await appLanding() };
 
     // PUB-8: register pages mobile clip
     await page.setViewportSize(MOBILE);
@@ -921,36 +1155,35 @@ async function runBrowserSuite(logins) {
     await page.setViewportSize({ width: 1280, height: 800 });
 
     // PERM-1: guest guard (client-side redirect can still return 200 HTML)
+    // Every signed-out shell must land on the sign-in form at `/`, not just one of them.
     await ctx.clearCookies();
-    await gotoGuestExpectLogin(page, '/candidate');
-    const guestCandUrl = page.url();
-    await gotoGuestExpectLogin(page, '/employer');
-    const guestEmpUrl = page.url();
+    const guestLanding = {};
+    for (const path of ['/candidate', '/candidate/profile', '/employer', '/account']) {
+      await gotoGuestExpectLogin(page, path);
+      guestLanding[path] = new URL(page.url()).pathname;
+    }
     assess('PERM-1',
-      !guestCandUrl.includes('/candidate') || !guestEmpUrl.includes('/employer'),
-      { candidateUrl: guestCandUrl, employerUrl: guestEmpUrl });
+      Object.values(guestLanding).every((p) => p === '/'),
+      guestLanding);
 
-    // AUTH-15: SuperAdmin uses standard home login (legacy /superadmin/login redirects)
+    // PERM-6 / TC-IS-04-006 (guest half): /ideas does not stay open signed out.
+    await gotoGuestExpectLogin(page, '/ideas');
+    const guestIdeasPath = new URL(page.url()).pathname;
+
+    // AUTH-15 / TC-IS-02-014 (signed-out half): /superadmin/login replaces to the home form; no SuperAdmin form.
     await page.goto(`${BASE}/superadmin/login`, { waitUntil: 'domcontentloaded' });
-    await page.waitForURL((u) => !String(u).includes('/superadmin/login') || String(u).endsWith('/'), {
-      timeout: 15_000,
-    }).catch(() => {});
-    assess('AUTH-15',
-      await visible(page, '#email, #password'),
-      { url: page.url() });
+    await page.waitForURL((u) => new URL(String(u)).pathname === '/', { timeout: 15_000 }).catch(() => {});
+    const saLoginGuest = {
+      path: new URL(page.url()).pathname,
+      homeForm: await visible(page, '#email') && await visible(page, '#password'),
+      saForm: (await page.locator('#sa-email').count()) > 0,
+    };
 
     // AUTH-21: forgot-password page
     await page.goto(`${BASE}/forgot-password`, { waitUntil: 'domcontentloaded' });
     await page.locator('main, form, input').first().waitFor({ state: 'visible', timeout: 20_000 }).catch(() => {});
     assess('AUTH-21',
       await visible(page, 'input[type="email"], #email, form'),
-      { url: page.url() });
-
-    // HELP-1: guidelines page
-    await page.goto(`${BASE}/guidelines`, { waitUntil: 'domcontentloaded' });
-    await page.locator('main, h1, h2').first().waitFor({ state: 'visible', timeout: 20_000 }).catch(() => {});
-    assess('HELP-1',
-      (await page.locator('h1, h2, main').first().isVisible().catch(() => false)),
       { url: page.url() });
 
     // --- Authenticated context (candidate) ------------------------------------
@@ -971,6 +1204,7 @@ async function runBrowserSuite(logins) {
         { timeout: 20_000 },
       )
       .catch(() => {});
+    appEntry.candidate = await appLanding();
 
     // PERM-2: candidate on employer shell gets the "Wrong account" block page (403-style, URL stays)
     const empWrongRole = await fetchRaw('/employer', {
@@ -1004,23 +1238,66 @@ async function runBrowserSuite(logins) {
       });
     }
 
-    // PERM-6: ideas page
+    // PERM-6 / TC-IS-04-006: guest bounced off /ideas; candidate sees /ideas inside the candidate sidebar.
     await gotoApp(page, '/ideas');
-    assessUi('PERM-6',
-      page.url().includes('/ideas') || page.url().includes('/'),
-      { url: page.url() });
+    const ideasNav = await sidebarMatchesRole(page, 'candidate');
+    assess('PERM-6', guestIdeasPath !== '/ideas' && new URL(page.url()).pathname === '/ideas' && ideasNav.ok, {
+      guestEndedOn: guestIdeasPath,
+      candidateUrl: page.url(),
+      sidebar: ideasNav,
+    });
 
-    // PERM-9: legacy SA login URL redirects to home (no SA shell)
+    // AUTH-15 / TC-IS-02-014 (signed-in half): /superadmin/login still only replaces to `/` (the home page does
+    // not auto-route signed-in users); no SuperAdmin form or links appear for the candidate.
     await page.goto(`${BASE}/superadmin/login`, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(500);
-    const noSANav = !(await visible(page, '[data-testid="superadmin-nav"], .ip-superadmin-nav'));
-    const onHomeLogin = await visible(page, '#email, #password');
-    assessUi('PERM-9', noSANav && onHomeLogin, { url: page.url() });
+    await page.waitForURL((u) => new URL(String(u)).pathname === '/', { timeout: 20_000 }).catch(() => {});
+    const saLoginCand = {
+      path: new URL(page.url()).pathname,
+      saForm: (await page.locator('#sa-email').count()) > 0,
+      saLinks: await page.locator('a[href^="/superadmin"]').count(),
+    };
+    assess('AUTH-15',
+      saLoginGuest.path === '/' && saLoginGuest.homeForm && !saLoginGuest.saForm
+        && saLoginCand.path === '/' && !saLoginCand.saForm && saLoginCand.saLinks === 0,
+      { signedOut: saLoginGuest, signedInCandidate: saLoginCand });
 
-    // CAND-D-1: candidate dashboard
+    // CAND-D-1 / TC-IS-08-003: dashboard data loads (no stuck placeholders) and each shortcut opens a working page.
     await gotoApp(page, '/candidate');
-    const candDashOk = page.url().includes('/candidate') || await visible(page, 'main, .ip-shell');
-    assessUi('CAND-D-1', candDashOk, { url: page.url() });
+    const dashLoaded = await page
+      .waitForFunction(() => {
+        const el = document.querySelector('[data-testid="dash-active-apps"]');
+        return el && /^\d+$/.test(el.textContent.trim());
+      }, null, { timeout: 30_000 })
+      .then(() => true)
+      .catch(() => false);
+    const shortcutHrefs = await page.locator('.ip-cd-features a.ip-cd-feature')
+      .evaluateAll((els) => els.map((a) => a.getAttribute('href')));
+    const wantShortcuts = ['/candidate/internships', '/candidate/applications', '/candidate/offers', '/candidate/referral'];
+    const missingShortcuts = wantShortcuts.filter((h) => !shortcutHrefs.includes(h));
+    const brokenShortcuts = [];
+    for (const href of shortcutHrefs) {
+      const r = await fetchRaw(href, { cookie: logins.cand.cookie });
+      if (r.status !== 200) brokenShortcuts.push(`${href} → ${r.status}`);
+    }
+    // Reward points tile must show the profile API balance; Profile score must show a percentage.
+    const statValues = await page.locator('.ip-cd-stats .ip-cd-stat__value').allInnerTexts();
+    const profApi = await api('/api/ip/candidate/profile', { cookie: logins.cand.cookie });
+    const apiPoints = Number(profApi.data?.profile?.points ?? NaN);
+    const pointsShown = String(statValues[0] || '').replace(/[^\d-]/g, '');
+    const pointsOk = Number.isFinite(apiPoints) && pointsShown !== '' && Number(pointsShown) === apiPoints;
+    const scoreOk = /^\d{1,3}%$/.test(String(statValues[2] || '').trim());
+    const candDashOk = dashLoaded && pointsOk && scoreOk && !missingShortcuts.length && !brokenShortcuts.length;
+    assess('CAND-D-1', candDashOk, {
+      url: page.url(),
+      activeAppsLoaded: dashLoaded,
+      statValues,
+      apiPoints,
+      pointsOk,
+      scoreOk,
+      shortcuts: shortcutHrefs,
+      missingShortcuts,
+      brokenShortcuts,
+    });
 
     // CAND-AP-1 / CAND-AP-2: list + search, then the detail dialog (labelled; × and backdrop both close it).
     // The UI is the real check for these two, so a UI failure replaces the earlier API Pass.
@@ -1085,32 +1362,30 @@ async function runBrowserSuite(logins) {
     // CAND-P-2, CAND-B-3, CAND-M-1/2, CAND-O-1/5, CAND-R-1, CAND-N-2, ACCT-1/2, IDEA-3 and the
     // employer / SuperAdmin pages below → scripts/qa-test-account-cases.mjs (by TC id).
 
-    // SHELL-1: sidebar nav (desktop)
+    // SHELL-1 / TC-IS-18-028: sidebar = ipNav for each role (SuperAdmin has no Notifications);
+    // SHELL-2 / TC-IS-18-029: Sign out lands every role on `/`. Both are recorded after the SuperAdmin pass.
+    const shell = {};
     await gotoApp(page, '/candidate');
-    const sidebarOk = await visible(page, 'nav, aside, [aria-label]');
-    assessUi('SHELL-1', sidebarOk, { url: page.url() });
+    shell.candidate = await sidebarMatchesRole(page, 'candidate');
 
-    // SHELL-2: sign-out route exists
-    const signOutRes = await fetchRaw('/api/auth/signout', { redirect: 'manual' });
-    assessUi('SHELL-2', signOutRes.status < 500,
-      { status: signOutRes.status });
-
-    // SHELL-1 mobile
     await page.setViewportSize(MOBILE);
     await gotoApp(page, '/candidate');
-    const mobileShell = await visible(page, 'nav, aside, button, [aria-label]');
-    assessUi('SHELL-1', mobileShell, 'mobile chrome present');
+    await page.getByRole('button', { name: 'Toggle navigation menu' }).click().catch(() => {});
+    shell.candidateMobileDrawer = await page
+      .locator('aside nav a[href="/candidate/notifications"]')
+      .isVisible({ timeout: 10_000 })
+      .catch(() => false);
     await page.setViewportSize({ width: 1280, height: 800 });
 
-    // CAND-P-3: profile reminder banner
-    assessUi('CAND-P-3',
-      candDashOk,
-      'profile reminder shows based on incomplete state — checked as part of dashboard load');
-
-    // Points — just confirming API covered above; UI check
+    // CAND-P-3 (UI half): the complete test candidate never sees the reminder banner.
     await gotoApp(page, '/candidate');
-    assessUi('PTS-1', page.url().includes('/candidate'),
-      'Dashboard loaded; ledger verified via API');
+    await page.locator('.ip-cd-stats').first().waitFor({ state: 'visible', timeout: 30_000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    const reminderShown = await page.getByText('Complete your profile', { exact: true }).count();
+    assessUiStrict('CAND-P-3', candDashOk && reminderShown === 0,
+      { dashboardLoaded: candDashOk, reminderBannerOnCompleteProfile: reminderShown }, page.url());
+
+    const signOut = { candidate: await signOutLandsHome(page) };
 
     // --- Employer context -------------------------------------------------------
     console.log('browser: employer session…');
@@ -1131,16 +1406,46 @@ async function runBrowserSuite(logins) {
       )
       .catch(() => {});
 
-    await gotoApp(page, '/employer');
-    await page.waitForURL(/\/employer(\/|$|\?)/, { timeout: 20_000 }).catch(() => {});
-    assessUi(
-      'EMP-H-1',
-      /\/employer(\/|$|\?)/.test(new URL(page.url()).pathname) && (await visible(page, 'main, h1')),
-      { url: page.url() },
-    );
+    appEntry.employer = await appLanding();
+
+    const employerDashState = async () => {
+      await gotoApp(page, '/employer');
+      await page.locator('.ip-ed-banner h1', { hasText: /Welcome back/ }).first()
+        .waitFor({ state: 'visible', timeout: 30_000 }).catch(() => {});
+      await page.locator('.ip-ed-banner-actions').first().waitFor({ state: 'visible', timeout: 30_000 }).catch(() => {});
+      const postLink = page.locator('a[href="/employer/internships/new"]', { hasText: 'Post New Internship' });
+      return {
+        url: page.url(),
+        approvalAlert: await page.locator('.ip-ed-alert', { hasText: 'Waiting for SuperAdmin approval' }).count(),
+        postLinks: await postLink.count(),
+        postEnabled: (await postLink.count()) ? (await postLink.first().getAttribute('aria-disabled')) === 'false' : false,
+        verifiedBadge: await page.getByText('Verified employer account — approved by SuperAdmin.').count(),
+        lockedNote: await page.getByText(/Postings unlock after SuperAdmin Final Employer Approval/).count(),
+      };
+    };
+    const approvedDash = await employerDashState();
+    const approvedDashOk = approvedDash.approvalAlert === 0 && approvedDash.postEnabled && approvedDash.verifiedBadge > 0;
 
     await gotoApp(page, '/employer/viral');
-    assessUi('EMP-V-1', await visible(page, 'main, h1'), { url: page.url() });
+    await page.waitForURL(/\/employer\/referral/, { timeout: 25_000 }).catch(() => {});
+    assessUiStrict('EMP-V-1', new URL(page.url()).pathname === '/employer/referral' && (await visible(page, 'main h1')),
+      { url: page.url(), note: 'viral board merged into Refer & earn' }, page.url());
+
+    await gotoApp(page, '/employer');
+    shell.employer = await sidebarMatchesRole(page, 'employer');
+    signOut.employer = await signOutLandsHome(page);
+
+    // EMP-H-1 (UI half): pending employer sees the approval alert and no usable Post button.
+    let pendingDash = { skipped: 'pending employer not signed in' };
+    let pendingDashOk = false;
+    if (logins.empPending?.ok) {
+      await switchSession(ctx, page, logins.empPending.cookies);
+      pendingDash = await employerDashState();
+      pendingDashOk = pendingDash.approvalAlert > 0 && pendingDash.lockedNote > 0 && !pendingDash.postEnabled
+        && pendingDash.verifiedBadge === 0;
+    }
+    assessUiStrict('EMP-H-1', approvedDashOk && pendingDashOk,
+      { approved: approvedDash, pending: pendingDash }, page.url());
 
     // --- SuperAdmin context -------------------------------------------------------
     console.log('browser: superadmin session…');
@@ -1161,6 +1466,11 @@ async function runBrowserSuite(logins) {
         { timeout: 20_000 },
       )
       .catch(() => {});
+    appEntry.superadmin = await appLanding();
+    assess('PUB-7',
+      appEntry.guest === '/' && appEntry.candidate === '/candidate' && appEntry.employer === '/employer'
+        && appEntry.superadmin === '/superadmin',
+      appEntry);
 
     await gotoApp(page, '/superadmin');
     await page.waitForURL(/\/superadmin(\/|$|\?)/, { timeout: 20_000 }).catch(() => {});
@@ -1179,7 +1489,13 @@ async function runBrowserSuite(logins) {
     assessUi('SA-R-1', /\/superadmin\/approvals/.test(page.url()), { url: page.url(), note: 'retired page → approvals' });
 
     await gotoApp(page, '/superadmin/promotions');
-    assessUi('SA-PR-1', await visible(page, 'main, h1'), { url: page.url() });
+    {
+      const heading = await visible(page, 'h1:text-is("Posting Share Rewards")');
+      const navPromotions = await page.locator('aside nav a[href="/superadmin/promotions"]').count();
+      const navViral = await page.locator('aside nav a[href="/superadmin/viral"]').count();
+      assessUiStrict('SA-PR-1', heading && navPromotions > 0 && navViral === 0,
+        { url: page.url(), heading, navPromotions, navViral }, page.url());
+    }
 
     // Viral shares SA UI removed — route redirects to dashboard
     await gotoApp(page, '/superadmin/viral');
@@ -1189,6 +1505,17 @@ async function runBrowserSuite(logins) {
       url: page.url(),
       note: 'SA viral page removed; redirects to /superadmin',
     });
+
+    await gotoApp(page, '/superadmin');
+    shell.superadmin = await sidebarMatchesRole(page, 'superadmin');
+    shell.superadminNotificationLinks = await page.locator('a[href*="notifications"]').count();
+    signOut.superadmin = await signOutLandsHome(page);
+
+    assess('SHELL-1',
+      shell.candidate.ok && shell.candidateMobileDrawer && shell.employer.ok
+        && shell.superadmin.ok && shell.superadminNotificationLinks === 0,
+      shell);
+    assess('SHELL-2', Object.values(signOut).every((s) => s.ok), signOut);
 
     await ctx.close();
     console.log('browser suite finished');

@@ -175,7 +175,7 @@ await runCase('TC-IS-14-029', async () => {
       await row.getByRole('button', { name: /Adjust/ }).click();
       const dlg = page.locator('[aria-labelledby="ip-saq-pts-title"]');
       await dlg.waitFor();
-      await dlg.getByRole('button', { name: mode === 'add' ? /^Add$/ : /^Deduct$/ }).click();
+      await dlg.getByRole('tab', { name: mode === 'add' ? /^Add$/ : /^Deduct$/ }).click();
       await dlg.locator('input[aria-label="Points amount"]').fill(String(amount));
       if (note) await dlg.locator('[aria-label="Note or reason"]').fill(note);
       await dlg.getByRole('button', { name: /Continue/ }).click();
@@ -184,7 +184,7 @@ await runCase('TC-IS-14-029', async () => {
       const expected = mode === 'add' ? `Added ${amount} point` : `Removed ${amount} point`;
       const toast = page.locator('.ip-saq-toast', { hasText: expected });
       await toast.waitFor({ timeout: 30_000 });
-      return toast.innerText();
+      return (await toast.innerText()).replace(/×\s*$/, '').trim();
     }
     const addToast = await adjust('add', 25, '');
     check(/25/.test(addToast), `add toast "${addToast}"`);
@@ -349,7 +349,14 @@ await runCase('TC-IS-09-020', async () => {
   if (!candRow.resume_url) throw new Blocked('Test candidate has no CV on file');
   const page = await newQaPage(browser, emp);
   try {
-    await gotoReady(page, BASE, `/employer/candidates/${candRow.cid}`, 'text="Download Excel + CV"', 90_000);
+    await gotoReady(page, BASE, `/employer/candidates/${candRow.cid}?applicationId=${encodeURIComponent(app.id)}`, 'text="Download Excel + CV"', 90_000);
+    const sections = ['This application', 'Private notes', 'Timeline', 'Follow-up reminder'];
+    const missingSections = [];
+    for (const title of sections) {
+      const ok = await page.getByText(title, { exact: true }).first().waitFor({ state: 'visible', timeout: 20_000 }).then(() => true).catch(() => false);
+      if (!ok) missingSections.push(title);
+    }
+    check(!missingSections.length, `full-page sections missing: ${missingSections.join(', ')}`);
     const [download] = await Promise.all([
       page.waitForEvent('download', { timeout: 90_000 }),
       page.getByText('Download Excel + CV', { exact: true }).first().click(),
@@ -368,7 +375,7 @@ await runCase('TC-IS-09-020', async () => {
     const phoneAllowed = candRow.hide_phone_until_shortlist === false || ['interviewing', 'offered', 'hired', 'completed'].includes(app.status);
     const phoneShown = digits.length >= 10 && text.replace(/\D/g, '').includes(digits);
     check(phoneShown === phoneAllowed, `phone ${phoneShown ? 'shown' : 'hidden'} but application status ${app.status} means it should be ${phoneAllowed ? 'shown' : 'hidden'}`);
-    return `Download Excel + CV → ${name} with ${files.join(', ')}; sheets ${sheets.join(', ')}; phone ${phoneShown ? 'shown' : 'hidden'} for status ${app.status} (privacy rule held).`;
+    return `Full page shows ${sections.join(' / ')}; Download Excel + CV → ${name} with ${files.join(', ')}; sheets ${sheets.join(', ')}; phone ${phoneShown ? 'shown' : 'hidden'} for status ${app.status} (privacy rule held).`;
   } finally {
     await page.context().close();
   }
@@ -439,9 +446,10 @@ await runCase('TC-IS-12-011', async () => {
     ['candidate', cand, emp],
   ]) {
     const preArchived = await threadIds(login, true);
+    const preInbox = await threadIds(login, false);
     const page = await newQaPage(browser, login);
     try {
-      const inbox = await threadIds(login, false);
+      const inbox = preInbox;
       const otherBefore = await threadIds(other, false);
       await gotoReady(page, BASE, `/${role}/messages`, '.ip-cm-tab', 90_000);
       await tab(page, 'All');
@@ -453,7 +461,7 @@ await runCase('TC-IS-12-011', async () => {
         const archiveBtn = page.locator('button[title="Archive conversation"] >> visible=true').first();
         check(await clickUntil(page, page.locator(row).first(), () => archiveBtn.isVisible()), 'thread did not open');
         await archiveBtn.click();
-        await page.getByText('Conversation archived').waitFor({ timeout: 20_000 });
+        await page.getByText('Conversation archived').first().waitFor({ timeout: 20_000 });
         const moved = (await threadIds(login, true)).filter((id) => !preArchived.includes(id));
         check(moved.length === 1 && inbox.includes(moved[0]), `candidate archive moved ${moved.length} threads`);
         const otherAfter = await threadIds(other, false);
@@ -462,7 +470,7 @@ await runCase('TC-IS-12-011', async () => {
         const unBtn = page.locator('button[title="Unarchive conversation"] >> visible=true').first();
         check(await clickUntil(page, page.locator(row).first(), () => unBtn.isVisible()), 'archived thread did not open');
         await unBtn.click();
-        await page.getByText('Conversation unarchived').waitFor({ timeout: 20_000 });
+        await page.getByText('Conversation unarchived').first().waitFor({ timeout: 20_000 });
         check((await threadIds(login, false)).includes(moved[0]), 'candidate unarchive did not bring the thread back');
         await tab(page, 'All');
         await page.waitForTimeout(2000);
@@ -476,7 +484,7 @@ await runCase('TC-IS-12-011', async () => {
       const n = Number((label.match(/\((\d+)\)/) || [])[1]);
       check(/Archive Selected/.test(label) && n >= 2 && n <= inbox.length, `${role} button "${label}" (inbox ${inbox.length})`);
       await archiveBtn.click();
-      await page.getByText(new RegExp(`Archived ${n} conversation`)).waitFor({ timeout: 20_000 });
+      await page.getByText(new RegExp(`Archived ${n} conversation`)).first().waitFor({ timeout: 20_000 });
       const archivedNow = await threadIds(login, true);
       check(archivedNow.length >= preArchived.length + n, `${role} archived view has ${archivedNow.length}, expected +${n}`);
       const otherAfter = await threadIds(other, false);
@@ -488,7 +496,7 @@ await runCase('TC-IS-12-011', async () => {
       const unBtn = page.locator('.ip-cm-bulk button >> visible=true', { hasText: 'Unarchive Selected' }).first();
       const unLabel = await unBtn.innerText();
       await unBtn.click();
-      await page.getByText(/Unarchived \d+ conversation/).waitFor({ timeout: 20_000 });
+      await page.getByText(/Unarchived \d+ conversation/).first().waitFor({ timeout: 20_000 });
       const back = await threadIds(login, false);
       check(inbox.every((id) => back.includes(id)), `${role} unarchive did not bring every thread back`);
       await tab(page, 'All');
@@ -500,6 +508,11 @@ await runCase('TC-IS-12-011', async () => {
       await page.context().close();
       for (const id of preArchived) {
         await apiRequest(BASE, `/api/ip/messages/threads/${id}`, { method: 'PATCH', cookie: login.cookie, body: { archived: true } });
+      }
+      // A failure between Archive and Unarchive must not leave the inbox threads archived.
+      const nowArchived = await threadIds(login, true).catch(() => []);
+      for (const id of preInbox.filter((t) => nowArchived.includes(t))) {
+        await apiRequest(BASE, `/api/ip/messages/threads/${id}`, { method: 'PATCH', cookie: login.cookie, body: { archived: false } });
       }
     }
   }
@@ -978,6 +991,11 @@ await runCase('TC-IS-18-017', async () => {
   check(empList.status === 200 && (empList.data?.items || []).some((o) => o.id === offerId), 'employer GET /api/ip/offers does not list the offer');
   const remind = await as(emp, `/api/ip/offers/${offerId}/remind`, 'POST');
   check(remind.status === 200, `remind pending offer → ${remind.status} ${JSON.stringify(remind.data)}`);
+  const reminded = await db(
+    `SELECT id FROM ip_notifications WHERE user_id = $1 AND title = 'Reminder: offer awaiting your response' AND created_at >= $2`,
+    [candRow.uid, offerStart],
+  );
+  check(reminded.length > 0, 'candidate did not get the "Reminder: offer awaiting your response" notice');
   const again = await as(emp, `/api/ip/offers/${offerId}/remind`, 'POST');
   check(again.status === 429, `second remind straight away → ${again.status}`);
   const fake = await as(emp, '/api/ip/offers/ip_offer_does_not_exist/remind', 'POST');
@@ -990,7 +1008,7 @@ await runCase('TC-IS-18-017', async () => {
   } finally {
     await page.context().close();
   }
-  return `Employer sent a pending offer; GET /api/ip/offers lists it; remind → 200, immediate second remind → 429, unknown offer → 404, candidate → ${asCand.status}; /employer/offers shows the offer. (Remind on a non-pending offer is checked after acceptance in TC-IS-11-001.)`;
+  return `Employer sent a pending offer; GET /api/ip/offers lists it; remind → 200 and the candidate gets "Reminder: offer awaiting your response", immediate second remind → 429, unknown offer → 404, candidate → ${asCand.status}; /employer/offers shows the offer. (Remind on a non-pending offer is checked after acceptance in TC-IS-11-001.)`;
 });
 
 await runCase('TC-IS-11-005', async () => {
@@ -1108,9 +1126,12 @@ await runCase('TC-IS-12-004', async () => {
     await inbox.click();
     check((await inbox.getAttribute('aria-selected')) === 'true', 'aria-selected did not move back to Inbox');
     await page.getByRole('button', { name: 'Mark all as read' }).click();
-    const toast = page.locator('.ip-cn-toast[role="status"]');
+    // IpToast: visible box + a separate always-present role=status region that carries the same text.
+    const toast = page.locator('.ip-cn-toast');
     await toast.waitFor({ timeout: 20_000 });
-    const toastText = (await toast.innerText()).trim();
+    const toastText = (await toast.innerText()).replace(/×\s*$/, '').trim();
+    const announced = (await page.locator('[role="status"][aria-live="polite"]', { hasText: toastText }).count()) > 0;
+    check(announced, `toast "${toastText}" is not in a role=status live region`);
     await page.setViewportSize(MOBILE);
     await page.waitForTimeout(800);
     const searchBox = page.getByLabel('Search notifications');
@@ -1481,15 +1502,24 @@ await runCase('TC-IS-14-011', async () => {
 // ── TC-IS-14-014 / TC-IS-14-015 ─────────────────────────────────────────────
 const ghostEmail = `nobody.${TAG.toLowerCase()}@example.com`;
 await runCase('TC-IS-14-014', async () => {
+  const badPassStart = Date.now() - 2_000;
   const fail = await apiLogin(BASE, ghostEmail, 'Wrong-Pass-1!');
   check(!fail.ok, 'unknown email signed in');
+  const badPass = await apiLogin(BASE, cand.email, 'Wrong-Pass-1!');
+  check(!badPass.ok, 'test candidate signed in with a wrong password');
   const rep = await as(sa, '/api/ip/superadmin/login-report?range=24h&meta=1');
   check(rep.status === 200, `GET login-report → ${rep.status}`);
   const items = rep.data?.items || [];
   const ghost = items.find((e) => String(e.email).toLowerCase() === ghostEmail);
   check(ghost && ghost.success === false && ghost.failure_reason === 'Unknown account', `unknown-email event ${JSON.stringify(ghost)}`);
-  const ok = items.find((e) => String(e.email).toLowerCase() === cand.email.toLowerCase() && e.success === true);
-  check(ok && ok.role === 'candidate', `candidate success event ${JSON.stringify(ok && { role: ok.role, success: ok.success })}`);
+  const candEvents = items.filter((e) => String(e.email).toLowerCase() === cand.email.toLowerCase());
+  const bad = candEvents.find((e) => e.success === false && new Date(e.created_at).getTime() >= badPassStart);
+  check(
+    bad && bad.failure_reason === 'Bad Pass' && bad.auth_label === 'Password Form (Bad Pass)',
+    `wrong-password event ${JSON.stringify(bad && { reason: bad.failure_reason, label: bad.auth_label })}`,
+  );
+  const ok = candEvents.find((e) => e.success === true && e.auth_label === 'Password Form');
+  check(ok && ok.role === 'candidate', `candidate success event ${JSON.stringify(ok && { role: ok.role, success: ok.success, label: ok.auth_label })}`);
   const keys = ['email', 'role', 'success', 'ip_address', 'user_agent', 'failure_reason'];
   check(keys.every((k) => k in ghost), `event fields ${Object.keys(ghost)}`);
   const page = await newQaPage(browser, sa);
@@ -1514,7 +1544,7 @@ await runCase('TC-IS-14-014', async () => {
   } finally {
     await page.context().close();
   }
-  return 'Unknown-email sign-in logged (success false, failure_reason "Unknown account"); test candidate sign-in logged as candidate success; events carry email/role/success/ip_address/user_agent/failure_reason; Candidates and Employers tabs show only that role; Failed only + search finds the unknown-email row with its reason.';
+  return 'Unknown-email sign-in logged (success false, failure_reason "Unknown account"); test-candidate wrong password logged as "Password Form (Bad Pass)"; test candidate sign-in logged as candidate success ("Password Form"); events carry email/role/success/ip_address/user_agent/failure_reason; Candidates and Employers tabs show only that role; Failed only + search finds the unknown-email row with its reason.';
 });
 
 await runCase('TC-IS-14-015', async () => {

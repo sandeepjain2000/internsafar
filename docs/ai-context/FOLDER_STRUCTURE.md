@@ -128,7 +128,7 @@ src/
 
 | Area | Routes |
 |------|--------|
-| Public / auth | `/`, `/login`, `/register`, `/register/candidate`, `/register/employer`, `/forgot-password`, `/account`, `/app`, `/r/[code]`, `/unsubscribe` |
+| Public / auth | `/`, `/login`, `/register`, `/register/candidate`, `/register/employer`, `/forgot-password`, `/account`, `/app`, `/r/[code]`, `/r` (no code → `/register`), `/unsubscribe` |
 | Content | `/help`, `/ideas`, `/guidelines`, `/how-it-works` |
 | Candidate | `/candidate`, `/candidate/profile`, `/candidate/internships`, `/candidate/internships/[id]`, `/candidate/applications`, `/candidate/messages`, `/candidate/messages/[id]`, `/candidate/offers`, `/candidate/notifications`, `/candidate/referral` |
 | Employer | `/employer`, `/employer/profile`, `/employer/internships`, `/employer/internships/new`, `/employer/internships/[id]`, `/employer/internships/[id]/edit`, `/employer/candidates`, `/employer/candidates/[id]`, `/employer/messages`, `/employer/messages/[id]`, `/employer/offers`, `/employer/notifications`, `/employer/analytics`, `/employer/rejection-templates`, `/employer/referral`, `/employer/viral` (redirect → referral) |
@@ -201,7 +201,7 @@ scripts/
 │   ├── ipQaBrowser.mjs       # Playwright helpers for QA scripts (signed-in page, waits, captcha)
 │   ├── recordQaResults.mjs   # Record Pass/Fail/Blocked into test-cases/qa-results.json (+ workbook apply)
 │   └── ipTestAccountsConfig.js  # Test accounts list + core-account guard
-├── manual/               # One-off QA scripts (03-013, 03-015, 03-022, 06-007) — see manual/README.md
+├── manual/               # One-off QA scripts (03-013, 03-015, 06-007) — see manual/README.md
 ├── run-full-release-qa.mjs                 # npm run qa:all — every automated test + Excel apply + coverage
 ├── run-internsafar-qa.mjs                  # Checklist runner (API + browser + TC-IS)
 ├── report-internsafar-qa-coverage.py       # npm run qa:coverage (--write-map, --sync-automation)

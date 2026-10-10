@@ -109,7 +109,7 @@ export async function fetchLoginCaptcha(base) {
   };
 }
 
-export async function apiLogin(base, email, password) {
+export async function apiLogin(base, email, password, { rememberMe } = {}) {
   assertNotCoreForTesting(email);
   const { captchaToken, captchaAnswer, jar } = await fetchLoginCaptcha(base);
 
@@ -126,6 +126,7 @@ export async function apiLogin(base, email, password) {
     callbackUrl: `${base}/`,
     json: 'true',
   });
+  if (rememberMe !== undefined) body.append('rememberMe', rememberMe ? 'true' : 'false');
 
   const cb = await fetch(`${base}/api/auth/callback/credentials`, {
     method: 'POST',

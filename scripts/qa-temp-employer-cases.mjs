@@ -154,6 +154,8 @@ async function uploadDoc(emp, docType, docLabel) {
 }
 const status = async (emp) => (await db(`SELECT approval_status, rejection_reason FROM ip_employers WHERE id = $1`, [emp.eid]))[0];
 const notice = async (emp, title) => (await db(`SELECT 1 FROM ip_notifications WHERE user_id = $1 AND title = $2`, [emp.uid, title])).length > 0;
+const loginEvent = async (emp, reason) =>
+  (await db(`SELECT 1 FROM ip_login_events WHERE user_id = $1 AND success = false AND failure_reason = $2`, [emp.uid, reason])).length > 0;
 const post = (emp, st = 'published') =>
   emp.api('/api/ip/employer/internships', 'POST', {
     title: `${emp.persona.internshipTitle} — ${emp.persona.runTag}`,
@@ -278,6 +280,7 @@ try {
       check(await notice(A, 'Employer Account Suspended'), 'no "Employer Account Suspended" notice');
       const blocked = await A.login();
       check(!blocked.ok && /suspended/i.test(blocked.loginError || ''), `suspended login → ${blocked.loginError}`);
+      check(await loginEvent(A, 'Employer suspended'), 'login report has no "Employer suspended" event');
 
       row = await approvalsRow(page, A, 'Suspended');
       await row.getByRole('button', { name: 'Restore' }).click();
@@ -329,7 +332,7 @@ try {
     } finally {
       await page.context().close();
     }
-    return 'Suspend (row) → notice + suspended login message; Restore refused with "Review pending documents before Restore — Cannot restore <Company>: 1 document still waiting…" + Open Documents (row and Audit & Docs), stays Suspended; rejected doc does not block → Restore works, Restored notice, login + posting gate open (draft saved); Restore Selected restored the clean employer and named the blocked one; suspend on pending → 400 "Only approved employers can be suspended."';
+    return 'Suspend (row) → notice + suspended login message + "Employer suspended" in the login report; Restore refused with "Review pending documents before Restore — Cannot restore <Company>: 1 document still waiting…" + Open Documents (row and Audit & Docs), stays Suspended; rejected doc does not block → Restore works, Restored notice, login + posting gate open (draft saved); Restore Selected restored the clean employer and named the blocked one; suspend on pending → 400 "Only approved employers can be suspended."';
   });
 
   await runCase('TC-IS-14-027', async () => {
@@ -353,7 +356,8 @@ try {
     check(await notice(B, 'Employer Account Rejected'), 'no "Employer Account Rejected" notice');
     const login = await B.login();
     check(!login.ok && /registration was rejected/i.test(login.loginError || ''), `rejected login → ${login.loginError}`);
-    return 'Reject with preset Other + empty note → "Rejection reason is required" (no change); preset "Incorrect Company Details" → Rejected, reason stored, notice sent (mail send not checked here); login shows the rejected message.';
+    check(await loginEvent(B, 'Employer rejected'), 'login report has no "Employer rejected" event');
+    return 'Reject with preset Other + empty note → "Rejection reason is required" (no change); preset "Incorrect Company Details" → Rejected, reason stored, notice sent (mail send not checked here); login shows the rejected message and the login report logs "Employer rejected".';
   });
 
   await runCase('TC-IS-14-028', async () => {

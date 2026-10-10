@@ -5,7 +5,7 @@
  * 2) All Playwright specs (SUITE_FULL) + Excel apply
  * 3) Checklist runner (API + browser + TC-IS) + Excel apply, then workbench --live
  * 4) Deep node scripts: employer-reg-e2e + register-approve-post-apply
- * 4b) One-off scripts in scripts/manual (03-013, 03-022, 03-015), test-account cases and
+ * 4b) One-off scripts in scripts/manual (03-013, 03-015), test-account cases and
  *     throwaway-employer lifecycle cases + Excel apply
  * 5) Whole-workbook coverage (--strict): fails if any automated case was not run today
  *
@@ -113,7 +113,6 @@ if (deep2 !== 0) code = deep2;
 // TC-IS-06-007 is left out: it sends a real OTP email and needs a person to paste the code.
 const ONE_OFF_SCRIPTS = [
   'scripts/manual/run-tc-is-03-013-duplicate-employer.mjs',
-  'scripts/manual/run-tc-is-03-022-register-reject.mjs',
   'scripts/manual/run-tc-is-03-015-self-referral.mjs',
   'scripts/qa-test-account-cases.mjs',
   'scripts/qa-temp-employer-cases.mjs',

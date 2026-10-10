@@ -2,10 +2,10 @@
 setlocal
 REM Commit tracked changes and push to origin main.
 REM Usage:
-REM   scripts\git-push.bat
-REM   scripts\git-push.bat "Your commit message"
+REM   git-push.bat
+REM   git-push.bat "Your commit message"
 
-cd /d "%~dp0.."
+cd /d "%~dp0"
 if not exist ".git" (
   echo Not a git repository.
   exit /b 1

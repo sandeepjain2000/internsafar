@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-# scripts\ -> project root, regardless of current directory
-Set-Location (Resolve-Path (Join-Path $PSScriptRoot ".."))
+# Script lives in the project root; run from there regardless of current directory
+Set-Location $PSScriptRoot
 
 if (-not (Test-Path ".git")) {
     Write-Host "Not a git repository. Run this from intern safar after git init."

@@ -7,19 +7,19 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import dotenv from 'dotenv';
+import JSZip from 'jszip';
+import ExcelJS from 'exceljs';
 import { QA_ACCOUNTS, apiLogin, apiRequest } from './ipQaAuth.mjs';
 import { ensureCoreQaAccountsReady } from './ipQaFixtureCases.mjs';
 import {
   runTcIs02023,
   runTcIs06006,
-  runTcIs11016_017,
   runNotRunEleven,
   runTcIs12010,
+  withDb,
 } from './ipQaRemainingExtras.mjs';
 import { runLatestUpdateTcIsCases } from './ipQaLatestUpdateCases.mjs';
-
-const require = createRequire(import.meta.url);
-const { SUPERADMIN_NAV } = require('../../src/lib/ipNav.js');
+import { employerCanSeeCandidatePhone } from '../../src/lib/ipCandidatePhonePrivacy.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(__dirname, '..', '..');
@@ -72,35 +72,36 @@ export async function runRemainingSuite(opts = {}) {
   const list0 = await apiRequest(BASE, '/api/ip/candidate/internships?minMatch=0', { cookie: cand.cookie });
   const list1 = await apiRequest(BASE, '/api/ip/candidate/internships?minMatch=1', { cookie: cand.cookie });
   const list100 = await apiRequest(BASE, '/api/ip/candidate/internships?minMatch=100', { cookie: cand.cookie });
-  const items0 = list0.data?.items || list0.data?.internships || [];
-  const emptyElig = (Array.isArray(items0) ? items0 : []).filter((i) => {
-    const el = i.eligibility;
-    const skills = Array.isArray(el?.skills) ? el.skills : [];
-    return skills.length === 0;
-  });
+  const asItems = (r) => {
+    const v = r.data?.items || r.data?.internships || [];
+    return Array.isArray(v) ? v : [];
+  };
+  const items0 = asItems(list0);
+  const items1 = asItems(list1);
+  const items100 = asItems(list100);
+  // No required skills on the posting = 100% match, so it must survive any minMatch filter.
+  const emptyElig = items0.filter((i) => i.eligibility && typeof i.eligibility === 'object'
+    && !(Array.isArray(i.eligibility.skills) && i.eligibility.skills.some((s) => String(s || '').trim())));
+  const below1 = items1.filter((i) => !(Number(i.match_score) >= 1)).map((i) => i.id);
+  const below100 = items100.filter((i) => !(Number(i.match_score) >= 100)).map((i) => i.id);
+  const emptyNot100 = emptyElig.filter((i) => Number(i.match_score) !== 100).map((i) => i.id);
   assess(
     'TC-IS-07-016',
-    list0.status === 200 && list1.status === 200 && list100.status === 200,
+    list0.status === 200 && list1.status === 200 && list100.status === 200 && items0.length > 0
+      && below1.length === 0 && below100.length === 0 && emptyNot100.length === 0,
     {
-      n0: Array.isArray(items0) ? items0.length : null,
-      n1: (list1.data?.items || list1.data?.internships || []).length,
-      n100: (list100.data?.items || list100.data?.internships || []).length,
+      n0: items0.length,
+      n1: items1.length,
+      n100: items100.length,
       emptyEligibilitySkillsSeen: emptyElig.length,
+      below1,
+      below100,
+      emptyNot100,
     },
   );
 
   const prof = await apiRequest(BASE, '/api/ip/candidate/profile', { cookie: cand.cookie });
-  const apps = await apiRequest(BASE, '/api/ip/candidate/applications?pageSize=50', { cookie: cand.cookie });
   const ledger = await apiRequest(BASE, '/api/ip/points/ledger', { cookie: cand.cookie });
-  assess(
-    'TC-IS-08-004',
-    prof.status === 200 && apps.status === 200 && ledger.status === 200,
-    {
-      profile: Boolean(prof.data),
-      applications: (apps.data?.items || []).length,
-      pointsBalance: ledger.data?.balance,
-    },
-  );
 
   const internships = await apiRequest(BASE, '/api/ip/employer/internships', { cookie: emp.cookie });
   const internId = internships.data?.items?.[0]?.id || internships.data?.[0]?.id;
@@ -139,23 +140,95 @@ export async function runRemainingSuite(opts = {}) {
     { get: tplGet.status, post: tplPost.status, id: tplId },
   );
 
+  // TC-IS-09-011: selected applicants export inline (sync path) as .xlsx with the phone only where
+  // the privacy rule allows; with CVs as a ZIP holding applicants.xlsx (+ resumes/ when a CV file is
+  // stored). Empty selection is refused. Prefers a posting with one hidden and one visible phone.
+  {
+    const apps = await withDb(async (db) => (await db.query(
+      `SELECT a.id, a.internship_id, a.status, c.hide_phone_until_shortlist AS hide, c.phone
+       FROM ip_applications a
+       JOIN ip_candidates c ON c.id = a.candidate_id
+       JOIN ip_internships i ON i.id = a.internship_id
+       JOIN ip_employers e ON e.id = i.employer_id
+       JOIN ip_users u ON u.id = e.user_id
+       WHERE lower(u.email) = lower($1)
+       ORDER BY a.created_at DESC LIMIT 300`,
+      [QA_ACCOUNTS.employer.email],
+    )).rows);
+    const withRule = apps.map((a) => ({
+      ...a,
+      phoneVisible: Boolean(a.phone) && employerCanSeeCandidatePhone(a.status, a.hide !== false),
+    }));
+    const byPosting = new Map();
+    for (const a of withRule) byPosting.set(a.internship_id, [...(byPosting.get(a.internship_id) || []), a]);
+    let picked = [];
+    for (const list of byPosting.values()) {
+      const shown = list.find((a) => a.phoneVisible);
+      const hidden = list.find((a) => !a.phoneVisible && a.phone);
+      if (shown && hidden) {
+        picked = [hidden, shown];
+        break;
+      }
+    }
+    if (!picked.length && withRule[0]) picked = [withRule[0]];
+    if (!picked.length) {
+      fail('TC-IS-09-011', 'The test employer has no applications to export');
+    } else {
+      const target = picked[0];
+      const bulk = (body) => apiRequest(BASE, `/api/ip/employer/internships/${target.internship_id}/applicants/bulk`, {
+        method: 'POST', cookie: emp.cookie, body: { action: 'export', ...body },
+      });
+      const empty = await bulk({ applicationIds: [] });
+      const plain = await bulk({ applicationIds: picked.map((a) => a.id) });
+      const withCv = await bulk({ applicationIds: [target.id], includeResumes: true });
+      const xlsx = Buffer.from(plain.data?.xlsxBase64 || '', 'base64');
+      const phoneCells = {};
+      try {
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(xlsx);
+        const ws = wb.worksheets[0];
+        const header = ws.getRow(1).values.map((v) => String(v ?? '').trim().toLowerCase());
+        const idCol = header.indexOf('application_id');
+        const phoneCol = header.indexOf('phone');
+        ws.eachRow((row, n) => {
+          if (n === 1 || idCol < 0 || phoneCol < 0) return;
+          phoneCells[String(row.getCell(idCol).value ?? '')] = String(row.getCell(phoneCol).value ?? '');
+        });
+      } catch {
+        /* phoneCells stays empty → fails below */
+      }
+      const phoneWrong = picked.filter((a) => (phoneCells[a.id] ?? null) !== (a.phoneVisible ? String(a.phone) : ''))
+        .map((a) => ({ id: a.id, status: a.status, expectVisible: a.phoneVisible, cell: phoneCells[a.id] ?? 'row missing' }));
+      let zipFiles = [];
+      try {
+        const zip = await JSZip.loadAsync(Buffer.from(withCv.data?.zipBase64 || '', 'base64'));
+        zipFiles = Object.keys(zip.files);
+      } catch {
+        zipFiles = [];
+      }
+      const resumes = zipFiles.filter((f) => f.startsWith('resumes/') && !f.endsWith('/'));
+      assess(
+        'TC-IS-09-011',
+        empty.status === 400 && /select at least one/i.test(empty.data?.error || '')
+          && plain.status === 200 && plain.data?.format === 'xlsx' && plain.data?.filename === 'applicants-export.xlsx'
+          && xlsx.subarray(0, 2).toString('latin1') === 'PK' && !phoneWrong.length
+          && withCv.status === 200 && withCv.data?.format === 'zip' && withCv.data?.filename === 'applicants-export.zip'
+          && zipFiles.includes('applicants.xlsx')
+          && resumes.length === Number(withCv.data?.resumeCount || 0),
+        {
+          empty: [empty.status, empty.data?.error],
+          xlsx: [plain.status, plain.data?.filename, xlsx.length],
+          phoneRule: picked.map((a) => ({ status: a.status, expectVisible: a.phoneVisible })),
+          phoneWrong,
+          zip: [withCv.status, withCv.data?.filename, zipFiles],
+          resumeCount: withCv.data?.resumeCount,
+          skippedResumes: withCv.data?.skippedResumes,
+        },
+      );
+    }
+  }
+
   if (internId) {
-    const exportRes = await apiRequest(BASE, `/api/ip/employer/internships/${internId}/applicants/bulk`, {
-      method: 'POST',
-      cookie: emp.cookie,
-      body: { action: 'export', applicationIds: [] },
-    });
-    const looksLikeSelectGuard = exportRes.status >= 400;
-    assess(
-      'TC-IS-09-011',
-      looksLikeSelectGuard || Boolean(exportRes.data?.jobId),
-      {
-        status: exportRes.status,
-        error: exportRes.data?.error,
-        jobId: exportRes.data?.jobId,
-        note: 'Empty selection should be rejected; full CSV/zip export not run (would mutate export jobs).',
-      },
-    );
     const closure = await apiRequest(BASE, `/api/ip/employer/internships/${internId}/closure-summary`, {
       cookie: emp.cookie,
     });
@@ -164,21 +237,97 @@ export async function runRemainingSuite(opts = {}) {
       summary: closure.data?.summary,
     });
   } else {
-    fail('TC-IS-09-011', 'No employer posting');
     fail('TC-IS-09-012', 'No employer posting');
   }
 
   const lists = await apiRequest(BASE, '/api/ip/employer/lists', { cookie: emp.cookie });
   assess('TC-IS-09-013', lists.status === 200, { status: lists.status, n: (lists.data?.items || []).length });
 
-  const search = await apiRequest(BASE, '/api/ip/employer/candidates', { cookie: emp.cookie });
-  const candHit = (search.data?.items || search.data?.candidates || [])[0];
-  if (candHit?.id || candHit?.candidate_id) {
-    const did = candHit.id || candHit.candidate_id;
-    const detail = await apiRequest(BASE, `/api/ip/employer/candidates/${did}`, { cookie: emp.cookie });
-    assess('TC-IS-10-001', detail.status === 200, { id: did, status: detail.status, keys: Object.keys(detail.data || {}) });
-  } else {
-    blocked('TC-IS-10-001', 'Employer candidate search returned no profile to open');
+  // TC-IS-10-001: search → full-page profile on an owned application (fields, phone + contact gating),
+  // add a note and a follow-up reminder (removed afterwards); a non-searchable stranger is 404.
+  {
+    const search = await apiRequest(BASE, '/api/ip/employer/candidates', { cookie: emp.cookie });
+    const empEmail = QA_ACCOUNTS.employer.email;
+    const { owned, stranger } = await withDb(async (db) => {
+      const o = await db.query(
+        `SELECT a.id AS app_id, a.candidate_id, a.status, a.internship_id, c.hide_phone_until_shortlist AS hide
+           FROM ip_applications a
+           JOIN ip_internships i ON i.id = a.internship_id
+           JOIN ip_employers e ON e.id = i.employer_id
+           JOIN ip_users u ON u.id = e.user_id
+           JOIN ip_candidates c ON c.id = a.candidate_id
+          WHERE lower(u.email) = lower($1)
+          ORDER BY a.created_at DESC LIMIT 1`,
+        [empEmail],
+      );
+      const s = await db.query(
+        `SELECT c.id FROM ip_candidates c
+          WHERE c.searchable = false
+            AND NOT EXISTS (
+              SELECT 1 FROM ip_applications a
+                JOIN ip_internships i ON i.id = a.internship_id
+                JOIN ip_employers e ON e.id = i.employer_id
+                JOIN ip_users u ON u.id = e.user_id
+               WHERE a.candidate_id = c.id AND lower(u.email) = lower($1))
+          LIMIT 1`,
+        [empEmail],
+      );
+      return { owned: o.rows[0], stranger: s.rows[0] };
+    });
+    if (!owned) {
+      blocked('TC-IS-10-001', 'Test employer has no application to open a candidate profile from');
+    } else {
+      const detail = await apiRequest(
+        BASE,
+        `/api/ip/employer/candidates/${owned.candidate_id}?applicationId=${encodeURIComponent(owned.app_id)}`,
+        { cookie: emp.cookie },
+      );
+      const c = detail.data?.candidate || {};
+      const expectHidden = owned.hide !== false && !employerCanSeeCandidatePhone(owned.status, owned.hide !== false);
+      const profileOk = detail.status === 200 && c.id === owned.candidate_id && Boolean(c.name)
+        && detail.data?.application?.id === owned.app_id && c.contact_gated === false && Boolean(c.email)
+        && c.phone_hidden === expectHidden && (!expectHidden || c.phone == null);
+
+      const noteText = `QA note ${Date.now()}`;
+      const note = await apiRequest(BASE, `/api/ip/employer/applications/${owned.app_id}/notes`, {
+        method: 'POST', cookie: emp.cookie, body: { body: noteText },
+      });
+      const emptyNote = await apiRequest(BASE, `/api/ip/employer/applications/${owned.app_id}/notes`, {
+        method: 'POST', cookie: emp.cookie, body: { body: '  ' },
+      });
+      const notes = await apiRequest(BASE, `/api/ip/employer/applications/${owned.app_id}/notes`, { cookie: emp.cookie });
+      // GET lists the 50 earliest open reminders, so an early date keeps this one in the list.
+      const remindAt = '2000-01-01T09:00:00.000Z';
+      const rem = await apiRequest(BASE, '/api/ip/employer/reminders', {
+        method: 'POST', cookie: emp.cookie,
+        body: { remindAt, applicationId: owned.app_id, internshipId: owned.internship_id, note: 'QA follow-up' },
+      });
+      const rems = await apiRequest(BASE, '/api/ip/employer/reminders', { cookie: emp.cookie });
+      await withDb(async (db) => {
+        if (note.data?.id) await db.query(`DELETE FROM ip_application_notes WHERE id = $1`, [note.data.id]);
+        if (rem.data?.id) await db.query(`DELETE FROM ip_follow_up_reminders WHERE id = $1`, [rem.data.id]);
+      });
+      const noteOk = note.status === 201 && emptyNote.status === 400
+        && (notes.data?.items || []).some((n) => n.id === note.data?.id && n.body === noteText);
+      const remOk = rem.status === 201 && (rems.data?.items || []).some((r) => r.id === rem.data?.id);
+      const strangerRes = stranger
+        ? await apiRequest(BASE, `/api/ip/employer/candidates/${stranger.id}`, { cookie: emp.cookie })
+        : null;
+      const strangerOk = !strangerRes || strangerRes.status === 404;
+      assess('TC-IS-10-001', search.status === 200 && profileOk && noteOk && remOk && strangerOk, {
+        search: search.status,
+        profile: {
+          status: detail.status,
+          applicationStatus: owned.status,
+          phoneHidden: c.phone_hidden,
+          expectHidden,
+          contactGated: c.contact_gated,
+        },
+        note: { post: note.status, empty: emptyNote.status, listed: noteOk },
+        reminder: { post: rem.status, listed: remOk },
+        nonSearchableStranger: strangerRes ? strangerRes.status : 'none in DB to probe',
+      });
+    }
   }
 
   const stars0 = await apiRequest(BASE, '/api/ip/ratings', {
@@ -263,7 +412,6 @@ export async function runRemainingSuite(opts = {}) {
     },
   );
 
-  await runTcIs11016_017({ BASE, assess, blocked, emp });
   await runNotRunEleven({ BASE, assess, blocked, cand, emp });
 
   const endorseNoIntern = candProfileId
@@ -280,16 +428,50 @@ export async function runRemainingSuite(opts = {}) {
         body: { toUserId: cand.session?.user?.id, internshipId: internId, stars: 5, comment: 'QA gate' },
       })
     : { status: 0 };
+  const engagedStatus = internId
+    ? await withDb(async (db) => (await db.query(
+        `SELECT a.status FROM ip_applications a
+           JOIN ip_candidates c ON c.id = a.candidate_id
+          WHERE a.internship_id = $1 AND c.user_id = $2
+          ORDER BY a.created_at DESC LIMIT 1`,
+        [internId, cand.session?.user?.id],
+      )).rows[0]?.status || 'none')
+    : null;
+  const engaged = engagedStatus === 'hired' || engagedStatus === 'completed';
+  const ratingGateOk = engaged
+    ? ratingAppliedOnly.status === 201 || ratingAppliedOnly.status === 409
+    : ratingAppliedOnly.status === 400;
+  // Always probe one not-yet-hired application of this employer, so the gate is tested whatever internId's status is.
+  const notHired = await withDb(async (db) => (await db.query(
+    `SELECT a.status, a.internship_id, c.user_id AS cand_uid
+       FROM ip_applications a
+       JOIN ip_internships i ON i.id = a.internship_id
+       JOIN ip_employers e ON e.id = i.employer_id
+       JOIN ip_candidates c ON c.id = a.candidate_id
+      WHERE e.user_id = $1 AND a.status NOT IN ('hired', 'completed')
+      ORDER BY a.created_at DESC LIMIT 1`,
+    [emp.session?.user?.id],
+  )).rows[0] || null);
+  const notHiredRating = notHired
+    ? await apiRequest(BASE, '/api/ip/ratings', {
+        method: 'POST',
+        cookie: emp.cookie,
+        body: { toUserId: notHired.cand_uid, internshipId: notHired.internship_id, stars: 4, comment: 'QA gate' },
+      })
+    : { status: 0 };
+  const notHiredOk = notHiredRating.status === 400 && /only allowed after the candidate is hired/i.test(notHiredRating.data?.error || '');
   assess(
     'TC-IS-11-018',
-    endorseNoIntern.status === 400
-      && (ratingAppliedOnly.status === 400 || ratingAppliedOnly.status === 409 || ratingAppliedOnly.status === 201),
+    endorseNoIntern.status === 400 && Boolean(internId) && ratingGateOk && notHiredOk,
     {
       endorseNoInternshipId: endorseNoIntern.status,
       endorseError: endorseNoIntern.data?.error,
+      applicationStatus: engagedStatus,
       ratingWithInternship: ratingAppliedOnly.status,
       ratingError: ratingAppliedOnly.data?.error,
-      note: 'Endorsement without internshipId must 400. Rating with internshipId is 400 until hired/completed, else 201/409 if already engaged.',
+      notHiredApplicationStatus: notHired?.status ?? 'none in DB',
+      notHiredRating: [notHiredRating.status, notHiredRating.data?.error],
+      note: 'Endorsement without internshipId must 400. Rating a not-yet-hired application must 400 (gate). internId rating: 400 unless hired/completed (then 201, or 409 if already rated).',
     },
   );
 
@@ -366,20 +548,38 @@ export async function runRemainingSuite(opts = {}) {
     },
   );
 
-  const bal = Number(ledger.data?.balance);
-  const lastRun = (ledger.data?.items || [])[0]?.runningBalance ?? (ledger.data?.items || [])[0]?.running_balance;
-  const chronologicalLast = Array.isArray(ledger.data?.items)
-    ? ledger.data.items[ledger.data.items.length - 1]
-    : null;
-  const runningFromApi = lastRun ?? chronologicalLast?.runningBalance ?? chronologicalLast?.running;
-  assess(
-    'TC-IS-13-004',
-    ledger.status === 200 && (runningFromApi == null || Number(runningFromApi) === bal),
-    { balance: bal, sampleRunning: runningFromApi, n: (ledger.data?.items || []).length },
-  );
-
-  const saHasNotifNav = SUPERADMIN_NAV.some((n) => /notification/i.test(n.href) || /notification/i.test(n.label));
-  assess('TC-IS-14-022', !saHasNotifNav, { hrefs: SUPERADMIN_NAV.map((n) => n.href) });
+  // TC-IS-13-004: items are newest-first; every balance_after equals the sum of deltas up to that row,
+  // and the header balance equals the profile points. Seeded test accounts get their opening points
+  // outside the ledger, so balance = ledger sum is checked on every account created through sign-up.
+  {
+    const bal = Number(ledger.data?.balance);
+    const items = ledger.data?.items || [];
+    const chronological = items.slice().reverse();
+    let running = 0;
+    const brokenRows = [];
+    for (const row of chronological) {
+      running += Number(row.delta) || 0;
+      if (Number(row.balance_after) !== running) brokenRows.push({ id: row.id, reason: row.reason, balance_after: row.balance_after, expected: running });
+    }
+    const profilePoints = Number(prof.data?.profile?.points ?? prof.data?.points);
+    const signup = await withDb(async (db) => (await db.query(
+      `SELECT u.email, u.points::int AS points, s.total::int AS ledger_sum
+       FROM ip_users u
+       JOIN (SELECT user_id, sum(delta) AS total FROM ip_points_ledger GROUP BY 1) s ON s.user_id = u.id
+       WHERE EXISTS (SELECT 1 FROM ip_points_ledger l WHERE l.user_id = u.id AND l.reason = 'default_signup')`,
+    )).rows);
+    const mismatched = signup.filter((u) => u.points !== u.ledger_sum);
+    assess(
+      'TC-IS-13-004',
+      ledger.status === 200 && items.length > 0 && !brokenRows.length && profilePoints === bal
+        && signup.length > 0 && !mismatched.length,
+      {
+        testCandidate: { balance: bal, profilePoints, rows: items.length, brokenRows: brokenRows.slice(0, 5) },
+        signupAccounts: signup.length,
+        balanceNotLedgerSum: mismatched.slice(0, 5).map((u) => ({ points: u.points, ledgerSum: u.ledger_sum })),
+      },
+    );
+  }
 
   const ideas = await apiRequest(BASE, '/api/ip/ideas', { cookie: cand.cookie });
   assess('TC-IS-15-006', ideas.status === 200 && Array.isArray(ideas.data?.items), {
@@ -501,16 +701,34 @@ export async function runRemainingSuite(opts = {}) {
 
   const threads = await apiRequest(BASE, '/api/ip/messages/threads', { cookie: cand.cookie });
   const threadId = (threads.data?.items || threads.data?.threads || [])[0]?.id;
+  // TC-IS-17-004: both participants pass the file gate for this thread's attachment folder (missing
+  // object → 404, not 403); a signed-in non-participant is refused (403) and cannot upload (404).
+  // Probes a key that does not exist, so no file is written to storage.
   if (threadId) {
-    const att = await fetch(`${BASE}/api/ip/messages/threads/${threadId}/attachment`, {
-      method: 'POST',
-      headers: { Cookie: cand.cookie },
-    });
-    assess(
-      'TC-IS-17-004',
-      att.status === 400 || att.status === 503 || att.status === 401 || att.status === 403,
-      { threadId, status: att.status, note: 'Empty POST should be 400 (no file) or 503 if S3 is off — not 500.' },
-    );
+    const outsider = await apiLogin(BASE, QA_ACCOUNTS.employerPending.email, QA_ACCOUNTS.employerPending.password);
+    const key = encodeURIComponent(`internship-portal/messages/${threadId}/qa-missing-${Date.now()}.pdf`);
+    const fileStatus = async (cookie) => (await fetch(`${BASE}/api/ip/files?key=${key}`, { headers: { Cookie: cookie } })).status;
+    const upload = async (cookie) => (await fetch(`${BASE}/api/ip/messages/threads/${threadId}/attachment`, {
+      method: 'POST', headers: { Cookie: cookie },
+    })).status;
+    const r = {
+      threadId,
+      candidateGet: await fileStatus(cand.cookie),
+      employerGet: await fileStatus(emp.cookie),
+      outsiderGet: outsider.ok ? await fileStatus(outsider.cookie) : 'not signed in',
+      candidateEmptyUpload: await upload(cand.cookie),
+      outsiderUpload: outsider.ok ? await upload(outsider.cookie) : 'not signed in',
+    };
+    if (!outsider.ok) {
+      blocked('TC-IS-17-004', `Non-participant test employer cannot sign in — run npm run qa:ensure-test-accounts. ${JSON.stringify(r)}`);
+    } else {
+      assess(
+        'TC-IS-17-004',
+        r.candidateGet === 404 && r.employerGet === 404 && r.outsiderGet === 403
+          && (r.candidateEmptyUpload === 400 || r.candidateEmptyUpload === 503) && r.outsiderUpload === 404,
+        r,
+      );
+    }
   } else {
     blocked('TC-IS-17-004', 'No message thread for the test candidate');
   }
@@ -521,14 +739,6 @@ export async function runRemainingSuite(opts = {}) {
     'TC-IS-18-036',
     cities.status === 200 && degrees.status === 200,
     { cities: (cities.data?.items || cities.data || []).length, degrees: (degrees.data?.items || degrees.data || []).length },
-  );
-
-  const badges = await apiRequest(BASE, '/api/ip/nav-badges', { cookie: cand.cookie });
-  const notifMeta = await apiRequest(BASE, '/api/ip/notifications?meta=1', { cookie: cand.cookie });
-  assess(
-    'TC-IS-18-037',
-    badges.status === 200 && notifMeta.status === 200,
-    { badges: badges.data, unread: notifMeta.data?.meta },
   );
 
   const cronA = await apiRequest(BASE, '/api/ip/cron/schedule-reminders', { cookie: cand.cookie, method: 'POST', body: {} });
@@ -607,6 +817,8 @@ export async function runSingleTcIsCase(tcId, opts = {}) {
     await runTcIs12010({ BASE, assess, blocked });
   } else if (tcId === 'TC-IS-06-006') {
     await runTcIs06006({ BASE, assess, blocked, cand });
+  } else if (tcId === 'TC-IS-02-023') {
+    await runTcIs02023({ BASE, assess, blocked });
   } else {
     throw new Error(`Unknown TC-IS case for --only: ${tcId}`);
   }

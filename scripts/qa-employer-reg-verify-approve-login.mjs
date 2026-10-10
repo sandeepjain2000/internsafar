@@ -20,6 +20,7 @@
  *
  * Uses a throwaway employer it registers itself (never a core or shared test account)
  * and the SuperAdmin login. Workbook cases recorded per step into qa-results.json:
+ *   TC-IS-03-008 domain register (default path only): inbox message, pending queue, SuperAdmin notice
  *   TC-IS-03-030 password chosen at register, no temp-password mail
  *   TC-IS-03-026 verify link: first open verifies; reused + tampered links fail cleanly
  *   TC-IS-14-024 Final Approval docs gate: none / pending / only rejected / approved+rejected
@@ -91,7 +92,8 @@ ok('Persona', {
 });
 
 // 1) Register
-cases.begin('TC-IS-03-030', 'TC-IS-03-026');
+const DOMAIN_CASE = registrationPath === 'domain' ? ['TC-IS-03-008'] : [];
+cases.begin('TC-IS-03-030', 'TC-IS-03-026', ...DOMAIN_CASE);
 const cap = await fetchLoginCaptcha(BASE);
 const body = {
   path: registrationPath,
@@ -114,6 +116,9 @@ if (reg.data?.mode !== registrationPath) {
   fail(`Expected mode=${registrationPath}, got ${reg.data?.mode}`);
 }
 ok('Registered', { userId: reg.data.userId, mode: reg.data.mode, warning: reg.data.warning || null });
+if (!/Check your inbox to verify your email/i.test(String(reg.data?.message || ''))) {
+  fail(`Register message should tell the employer to verify by email, got ${JSON.stringify(reg.data?.message)}`);
+}
 
 if (!reg.data?.qaVerifyUrl) {
   fail(
@@ -235,6 +240,23 @@ const employer = (list.data?.items || []).find(
 );
 if (!employer?.id) fail(`Pending employer not found for ${persona.email}`);
 ok('Found on Approvals queue', { employerId: employer.id, source: employer.registration_source });
+
+if (DOMAIN_CASE.length) {
+  // A soft-flagged email (e.g. a domain with no mail server) gets the review title instead.
+  const wantTitle = reg.data?.softFail ? 'Employer register — review email' : 'New employer registered';
+  const saNotices = await apiRequest(BASE, '/api/ip/notifications', { cookie: sa.cookie });
+  const notice = (saNotices.data?.items || saNotices.data?.notifications || []).find(
+    (n) => n.title === wantTitle && String(n.body || '').toLowerCase().includes(persona.email.toLowerCase()),
+  );
+  if (saNotices.status !== 200 || !notice) {
+    fail(`SuperAdmin did not get "${wantTitle}" for ${persona.email} (status ${saNotices.status}, softFail ${Boolean(reg.data?.softFail)})`);
+  }
+  ok('SuperAdmin notified', { title: notice.title, softFail: Boolean(reg.data?.softFail) });
+  cases.pass(
+    'TC-IS-03-008',
+    `Pass: company-domain register (${persona.email}) → mode=domain, "Check your inbox to verify" message, pending on the Approvals queue (source ${employer.registration_source || 'n/a'}), SuperAdmin got "${wantTitle}" naming the email${reg.data?.softFail ? ' (email soft-flagged)' : ''}.`,
+  );
+}
 
 // 5) Docs-first gate — exact QA sequence from
 //    docs/employer-final-approval-documents-first.puml

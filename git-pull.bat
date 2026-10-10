@@ -2,7 +2,7 @@
 setlocal
 REM Pull origin main into this intern safar clone.
 
-cd /d "%~dp0.."
+cd /d "%~dp0"
 if not exist ".git" (
   echo Not a git repository.
   exit /b 1
