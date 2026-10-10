@@ -8,6 +8,7 @@ REM   git-push.bat "Your commit message"
 cd /d "%~dp0"
 if not exist ".git" (
   echo Not a git repository.
+  pause
   exit /b 1
 )
 
@@ -16,4 +17,7 @@ if "%~1"=="" (
 ) else (
   powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0git-push.ps1" -Message "%*"
 )
-exit /b %ERRORLEVEL%
+set ERR=%ERRORLEVEL%
+echo.
+pause
+exit /b %ERR%
