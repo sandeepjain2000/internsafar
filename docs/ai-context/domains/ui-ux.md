@@ -14,7 +14,7 @@ Restyle InternSafar pages **in place**; apply Gemini HTML / mobile handoffs; kee
 | `src/app/globals.css` | Global styles (can fight mock utilities) |
 | `.agents/skills/shadcn`, `frontend-design`, `tailwind-design-system`, `web-design-guidelines` | Mandatory UI skills |
 | Workspace `gemini-tsx-handoff/` | HTML mocks (source of truth) + assets |
-| Workspace `mobile csreens internsafar/` | Mobile HTML handoff |
+| Workspace `mobile csreens internsafar/` | Mobile HTML handoff; current phone-view reference = `FINAL_MOBILE_REFERENCE_UPDATED-2026-10-10/` (live as of 10 Oct, with live phone bugs listed) |
 | Workspace `mobile-prompt-test/` | Mobile prompt experiments |
 | Workspace `_local-backups-internship-portal/` | Compare/restore old UI only |
 | Workspace rule `gemini-tsx-handoff.mdc` | Sibling-only + CSS override trap |

@@ -15,7 +15,7 @@ Open the folders below only when the task needs them.
 | `aws deploy` | Guides, tarballs, PEM, problem notes; **AWS schema/backfill push plans** `AWS-PUSH-PLAN-SCHEMA-BACKFILL-<date>.md` (latest 2026-10-08) + read-only compare script `schema-check-2026-10-08/ro-prod-safety-check.mjs` | First-time setup / redeploy / AWS blank-fill planning |
 | `Aws deployment documents` | Formal runbook / setup / update DOCX | Human runbooks — summarize, don’t dump |
 | `gemini-tsx-handoff` | Gemini HTML mocks + assets/logo | UI redesign from mocks |
-| `mobile csreens internsafar` | Mobile HTML handoff package | Mobile UI redesign |
+| `mobile csreens internsafar` | Mobile HTML handoff package. `INTERNSAFAR_MOBILE_HANDOFF_PACKAGE/` = 4 Sep Gemini mocks (unchanged). `FINAL_MOBILE_REFERENCE_UPDATED-2026-10-10/` = 33 screens + patterns redrawn from the live phone views (≤767px), per-screen "Changed since 4 Sep" + "Live phone check" notes, README lists live phone bugs; rebuild with `node _build/build.mjs` | Mobile UI redesign / phone-view fixes |
 | `mobile-prompt-test` | Mobile prompt experiments | Mobile prompt/compare work |
 | `qa-samples-for-internsafar` | Sample QA / nested IP / Playwright bits | Sampling only — not the primary app |
 | `_local-backups-internship-portal` | Dated page/UI backups | Restore/compare old UI only |
