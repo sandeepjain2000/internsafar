@@ -16,6 +16,8 @@ import useIpCountryCatalog from '@/hooks/useIpCountryCatalog';
 import { experienceSummaryLabel } from '@/lib/ipCandidateExperience';
 import { IpTableFiltersShell } from '@/components/ip/IpTableFiltersShell';
 import { IpListEmpty, IpListError, IpListLoading } from '@/components/ip/IpListStatus';
+import IpUploadButton from '@/components/ip/IpUploadButton';
+import { resumeAcceptAttr } from '@/lib/ipFileUpload';
 import '@/components/ip/ip-employer-candidates-gemini.css';
 import '@/components/ip/ip-table-filters.css';
 
@@ -62,6 +64,11 @@ function availLabel(c) {
 
 function statusInfo(c) {
   const r = c.relationship || {};
+  if (r.offerState === 'accepted') return { label: 'Offer accepted', cls: 'is-green' };
+  if (r.offerState === 'pending') return { label: 'Offer sent', cls: 'is-blue' };
+  if (r.latestStatus === 'offered') return { label: 'Offer expired', cls: 'is-amber' };
+  if (r.latestStatus === 'declined_offer') return { label: 'Offer declined', cls: 'is-amber' };
+  if (r.latestStatus === 'interviewing') return { label: 'Interviewing', cls: 'is-blue' };
   if (r.shortlisted) return { label: 'Shortlisted', cls: 'is-green' };
   if (r.applied) return { label: 'Applied', cls: 'is-blue' };
   if (r.invited) return { label: 'Invitation sent', cls: 'is-amber' };
@@ -70,6 +77,8 @@ function statusInfo(c) {
 
 function relLine(c) {
   const r = c.relationship || {};
+  if (r.offerState === 'accepted') return 'Offer accepted — Make offer is closed for this candidate';
+  if (r.offerState === 'pending') return 'Offer already sent — waiting for the candidate';
   if (r.applied) return 'Existing application — avoid sending a duplicate invite';
   if (r.invited) return `Invitation sent${r.inviteInternshipTitle ? ` · ${r.inviteInternshipTitle}` : ''}`;
   if (r.shortlisted) return 'Already shortlisted · Contact details remain protected';
@@ -104,6 +113,7 @@ export default function CandidateSearchPage() {
   const [offerTarget, setOfferTarget] = useState(null);
   const [offerInternship, setOfferInternship] = useState('');
   const [offerMessage, setOfferMessage] = useState('');
+  const [letterName, setLetterName] = useState('');
   const [offerExtras, setOfferExtras] = useState({
     startDate: '', endDate: '', validUntil: '', letterUrl: '',
     onboardingInstructions: '', mentorName: '', hrContactEmail: '', hrContactPhone: '',
@@ -481,7 +491,7 @@ export default function CandidateSearchPage() {
             const skills = Array.isArray(c.skills) ? c.skills : [];
             const r = c.relationship || {};
             const canInvite = !r.applied && !r.invited;
-            const canOffer = Boolean(r.applied);
+            const canOffer = Boolean(r.applied) && r.offerState !== 'pending' && r.offerState !== 'accepted';
             return (
               <article key={c.id} className="ip-ec-card">
                 <div className="ip-ec-card-main">
@@ -533,6 +543,8 @@ export default function CandidateSearchPage() {
                         onClick={() => {
                           setOfferTarget(c);
                           setOfferInternship(matchInternshipId || '');
+                          setOfferExtras((f) => ({ ...f, letterUrl: '' }));
+                          setLetterName('');
                           setStatusMsg('');
                         }}
                       >
@@ -640,6 +652,29 @@ export default function CandidateSearchPage() {
               <input id="ip-ec-offer-start" type="date" value={offerExtras.startDate} onChange={(e) => setOfferExtras((f) => ({ ...f, startDate: e.target.value }))} />
               <label htmlFor="ip-ec-offer-valid">Valid until</label>
               <input id="ip-ec-offer-valid" type="date" value={offerExtras.validUntil} onChange={(e) => setOfferExtras((f) => ({ ...f, validUntil: e.target.value }))} />
+              <label htmlFor="ip-ec-offer-letter">Offer letter</label>
+              <p style={{ margin: '0 0 8px', fontSize: 12, color: '#667085' }}>
+                Upload a PDF or Word file, or paste an https link. The candidate can view and download it with the offer.
+              </p>
+              <IpUploadButton
+                endpoint="/api/ip/employer/offers/letter"
+                accept={resumeAcceptAttr()}
+                label={letterName ? 'Replace offer letter' : 'Upload offer letter'}
+                onUploaded={(data, file) => {
+                  setOfferExtras((f) => ({ ...f, letterUrl: data.fileUrl || '' }));
+                  setLetterName(file?.name || 'Offer letter');
+                }}
+              />
+              {letterName ? <p style={{ margin: '6px 0 0', fontSize: 12 }}>Attached: {letterName}</p> : null}
+              <input
+                id="ip-ec-offer-letter"
+                placeholder="Or paste an https link"
+                value={String(offerExtras.letterUrl || '').startsWith('/api/ip/files') ? '' : offerExtras.letterUrl}
+                onChange={(e) => {
+                  setLetterName('');
+                  setOfferExtras((f) => ({ ...f, letterUrl: e.target.value }));
+                }}
+              />
             </div>
             <div className="ip-ec-mact">
               <button type="button" className="ip-ec-sbtn" onClick={() => setOfferTarget(null)}>Cancel</button>

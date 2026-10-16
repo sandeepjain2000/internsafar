@@ -16,6 +16,27 @@ function trimOrNull(value) {
   return s || null;
 }
 
+function isAllowedOfferLetterUrl(url, userId) {
+  const value = String(url || '').trim();
+  if (!value) return true;
+  const marker = '/api/ip/files?key=';
+  if (value.startsWith(marker)) {
+    let key;
+    try {
+      key = decodeURIComponent(value.slice(marker.length).split('&')[0]);
+    } catch {
+      return false;
+    }
+    const prefix = `internship-portal/employers/${userId}/offer-letters/`;
+    return key.startsWith(prefix) && !key.includes('..');
+  }
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function optionalDate(value) {
   const s = trimOrNull(value);
   if (!s) return null;
@@ -145,12 +166,16 @@ export async function POST(request) {
       return jsonError('This application already has a pending offer. Remind the candidate instead.', 409);
     }
   }
+  const letter = trimOrNull(letterUrl);
+  if (letter && !isAllowedOfferLetterUrl(letter, session.user.id)) {
+    return jsonError('Offer letter must be an https link or a file you uploaded', 400);
+  }
   const offerValues = [
     roleTitle || row.title,
     stipendInr || null,
     startParsed?.value || null,
     untilParsed?.value || null,
-    trimOrNull(letterUrl),
+    letter,
     trimOrNull(message),
     endParsed?.value || null,
     trimOrNull(onboardingInstructions),

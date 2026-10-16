@@ -5,7 +5,7 @@ import { loadMessageThread } from '@/lib/ipMessageThreadQuery';
  * Whether the session may stream an S3 object via /api/ip/files.
  * Key shapes (from upload routes):
  *   internship-portal/candidates/{userId}/resume|photo/...
- *   internship-portal/employers/{userId}/documents|logo/...
+ *   internship-portal/employers/{userId}/documents|logo|offer-letters/...
  *   internship-portal/messages/{threadId}/...
  */
 export async function canAccessIpObject(session, rawKey) {
@@ -35,6 +35,10 @@ export async function canAccessIpObject(session, rawKey) {
     if (id === uid) return true;
     // Logos appear on internship cards for any signed-in user.
     if (sub === 'logo') return true;
+    // Offer letters: the candidate named on the offer that stores this file.
+    if (sub === 'offer-letters' && role === 'candidate') {
+      return candidateCanReadOfferLetter(uid, key);
+    }
     // Verification documents: owner + superadmin only.
     return false;
   }
@@ -45,6 +49,21 @@ export async function canAccessIpObject(session, rawKey) {
   }
 
   return false;
+}
+
+async function candidateCanReadOfferLetter(candidateUserId, key) {
+  const encoded = encodeURIComponent(key);
+  const result = await query(
+    `SELECT 1
+     FROM ip_offers o
+     JOIN ip_candidates c ON c.id = o.candidate_id
+     WHERE c.user_id = $1
+       AND o.letter_url IS NOT NULL
+       AND (position($2 in o.letter_url) > 0 OR position($3 in o.letter_url) > 0)
+     LIMIT 1`,
+    [candidateUserId, key, encoded],
+  );
+  return Boolean(result.rows[0]);
 }
 
 async function employerLinkedToCandidate(employerUserId, candidateUserId) {

@@ -439,17 +439,74 @@ export default function CandidateOffersPage() {
               <tr className="border-b text-left text-slate-500">
                 <th className="p-3">Role</th>
                 <th className="p-3">Employer</th>
+                <th className="p-3">Stipend</th>
+                <th className="p-3">Starts</th>
+                <th className="p-3">Expires</th>
                 <th className="p-3">Status</th>
+                <th className="p-3">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {pageItems.map((o) => (
-                <tr key={o.id} className="border-b">
-                  <td className="p-3">{o.role_title || o.title}</td>
-                  <td className="p-3">{o.company_name}</td>
-                  <td className="p-3">{o.display_status_label}</td>
-                </tr>
-              ))}
+              {pageItems.map((o) => {
+                const pending = o.display_status === 'action_required';
+                const accepted = o.display_status === 'accepted';
+                return (
+                  <tr key={o.id} className="border-b align-top">
+                    <td className="p-3">
+                      <div>{o.role_title || o.title}</div>
+                      {o.message ? <div className="text-xs text-slate-500">{o.message}</div> : null}
+                    </td>
+                    <td className="p-3">{o.company_name}</td>
+                    <td className="p-3">{o.stipend_label || '—'}</td>
+                    <td className="p-3">{o.start_date_label || '—'}</td>
+                    <td className="p-3">{o.expiry_date_label || o.days_remaining_label || '—'}</td>
+                    <td className="p-3">{o.display_status_label}</td>
+                    <td className="p-3">
+                      <div className="flex flex-wrap gap-1">
+                        {o.letter_url ? (
+                          <a className="ip-of-btn ip-of-btn--outline" href={o.letter_url} target="_blank" rel="noreferrer">
+                            View letter
+                          </a>
+                        ) : null}
+                        <button type="button" className="ip-of-btn ip-of-btn--ghost" onClick={() => { setPhoneNote(''); setShareFor(o); }}>
+                          Share
+                        </button>
+                        <Link href={messagesHref(o)} className="ip-of-btn ip-of-btn--ghost">Message</Link>
+                        {pending ? (
+                          <>
+                            <button
+                              type="button"
+                              className="ip-of-btn ip-of-btn--danger"
+                              disabled={busyId === o.id}
+                              onClick={() => setConfirm({ offer: o, action: 'declined' })}
+                            >
+                              Decline
+                            </button>
+                            <button
+                              type="button"
+                              className="ip-of-btn ip-of-btn--success"
+                              disabled={busyId === o.id}
+                              onClick={() => setConfirm({ offer: o, action: 'accepted' })}
+                            >
+                              Accept
+                            </button>
+                          </>
+                        ) : null}
+                        {accepted && o.employer_user_id ? (
+                          <button
+                            type="button"
+                            className="ip-of-btn ip-of-btn--outline"
+                            disabled={busyId === o.id}
+                            onClick={() => { setRateFor(o); setStars(5); }}
+                          >
+                            Rate employer
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         ) : (

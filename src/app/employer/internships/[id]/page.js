@@ -20,6 +20,8 @@ import { useListPrefsSync } from '@/hooks/useListPrefsSync';
 import { IpTableFiltersShell } from '@/components/ip/IpTableFiltersShell';
 import { StandardTableIconAction } from '@/components/ui/StandardTableIconAction';
 import { IpListEmpty, IpListLoading } from '@/components/ip/IpListStatus';
+import IpUploadButton from '@/components/ip/IpUploadButton';
+import { resumeAcceptAttr } from '@/lib/ipFileUpload';
 import { toTitleCaseLabel } from '@/lib/ipTitleCase';
 import { OFFERABLE_APPLICATION_STATUSES } from '@/lib/ipOfferPresentation';
 import { employerStatusTargets } from '@/lib/ipApplicationPresentation';
@@ -79,6 +81,7 @@ export default function ApplicantsPipelinePage() {
   const [compareIds, setCompareIds] = useState([]);
   const [offerFor, setOfferFor] = useState(null);
   const [offerBusy, setOfferBusy] = useState(false);
+  const [letterName, setLetterName] = useState('');
   const [offerError, setOfferError] = useState('');
   const [offerForm, setOfferForm] = useState({
     roleTitle: '', stipendInr: '', startDate: '', validUntil: '', letterUrl: '', message: '',
@@ -388,6 +391,7 @@ export default function ApplicantsPipelinePage() {
   function openOffer(a) {
     setOfferError('');
     setOfferFor(a);
+    setLetterName('');
     setOfferForm({
       roleTitle: internship?.title || '',
       stipendInr: internship?.stipend_inr || '',
@@ -545,6 +549,13 @@ export default function ApplicantsPipelinePage() {
         {employerStatusTargets(a.status).map((s) => (
           <StandardTableIconAction key={s} action={STATUS_ACTIONS[s] || 'edit'} tooltip={`Move to ${s}`} onClick={() => setStatus(a.id, s)} />
         ))}
+        {String(a.status || '').toLowerCase() === 'interviewing' ? (
+          <StandardTableIconAction
+            action="edit"
+            tooltip="Change time or meet link"
+            onClick={() => setStatus(a.id, 'interviewing')}
+          />
+        ) : null}
         {OFFERABLE_APPLICATION_STATUSES.includes(String(a.status || '').toLowerCase()) ? (
           <StandardTableIconAction action="offer" onClick={() => openOffer(a)} />
         ) : null}
@@ -985,7 +996,13 @@ export default function ApplicantsPipelinePage() {
 
       <Dialog open={Boolean(interviewFor)} onOpenChange={(open) => !open && setInterviewFor(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Schedule interview — {interviewFor?.name}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>
+              {String(interviewFor?.status || '').toLowerCase() === 'interviewing' ? 'Update interview' : 'Schedule interview'}
+              {' — '}
+              {interviewFor?.name}
+            </DialogTitle>
+          </DialogHeader>
           <Field><FieldLabel>When</FieldLabel><Input type="datetime-local" value={interviewAt} onChange={(e) => setInterviewAt(e.target.value)} /></Field>
           <Field><FieldLabel>Meet URL</FieldLabel><Input value={interviewMeetUrl} onChange={(e) => setInterviewMeetUrl(e.target.value)} /></Field>
           <DialogFooter><Button onClick={saveInterview}>Save</Button></DialogFooter>
@@ -999,6 +1016,28 @@ export default function ApplicantsPipelinePage() {
             <Field><FieldLabel>Role title</FieldLabel><Input value={offerForm.roleTitle} onChange={(e) => setOfferForm((f) => ({ ...f, roleTitle: e.target.value }))} /></Field>
             <Field><FieldLabel>Stipend (INR/mo)</FieldLabel><Input type="number" value={offerForm.stipendInr} onChange={(e) => setOfferForm((f) => ({ ...f, stipendInr: e.target.value }))} /></Field>
             <Field><FieldLabel>Message</FieldLabel><Textarea rows={3} value={offerForm.message} onChange={(e) => setOfferForm((f) => ({ ...f, message: e.target.value }))} /></Field>
+            <Field>
+              <FieldLabel>Offer letter</FieldLabel>
+              <p className="text-xs text-muted-foreground">Upload a PDF or Word file, or paste an https link. The candidate can view and download it with the offer.</p>
+              <IpUploadButton
+                endpoint="/api/ip/employer/offers/letter"
+                accept={resumeAcceptAttr()}
+                label={letterName ? 'Replace offer letter' : 'Upload offer letter'}
+                onUploaded={(data, file) => {
+                  setOfferForm((f) => ({ ...f, letterUrl: data.fileUrl || '' }));
+                  setLetterName(file?.name || 'Offer letter');
+                }}
+              />
+              {letterName ? <p className="text-xs">Attached: {letterName}</p> : null}
+              <Input
+                placeholder="Or paste an https link"
+                value={String(offerForm.letterUrl || '').startsWith('/api/ip/files') ? '' : offerForm.letterUrl}
+                onChange={(e) => {
+                  setLetterName('');
+                  setOfferForm((f) => ({ ...f, letterUrl: e.target.value }));
+                }}
+              />
+            </Field>
             {offerError ? (
               <Alert variant="destructive" data-testid="offer-send-error">
                 <AlertDescription>{offerError}</AlertDescription>

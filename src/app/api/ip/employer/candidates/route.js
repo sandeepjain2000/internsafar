@@ -3,6 +3,7 @@ import { requireSession, jsonOk } from '@/lib/apiAuth';
 import { skillMatchPercent } from '@/lib/skillMatch';
 import { ensureIpCandidateProfileSchema } from '@/lib/ensureIpCandidateProfileSchema';
 import { experienceYears } from '@/lib/ipCandidateExperience';
+import { offerIsExpired } from '@/lib/ipOfferPresentation';
 import { normalizeRegionList } from '@/lib/ipRegions';
 
 function availabilityBucket(row) {
@@ -123,21 +124,40 @@ export async function GET(request) {
   const relByCand = new Map();
   if (employerId && ids.length) {
     const rel = await query(
-      `SELECT a.candidate_id,
-              bool_or(a.status IN ('shortlisted','interviewing','offered','hired')) AS shortlisted,
-              bool_or(true) AS applied,
-              max(a.status) AS latest_status
+      `SELECT DISTINCT ON (a.candidate_id)
+              a.candidate_id,
+              a.status AS application_status,
+              o.status AS offer_status,
+              o.valid_until
        FROM ip_applications a
        JOIN ip_internships i ON i.id = a.internship_id
+       LEFT JOIN ip_offers o ON o.application_id = a.id
        WHERE i.employer_id = $1 AND a.candidate_id = ANY($2::text[])
-       GROUP BY a.candidate_id`,
+       ORDER BY a.candidate_id,
+         CASE
+           WHEN o.status = 'accepted' OR a.status IN ('hired', 'completed') THEN 0
+           WHEN o.status = 'pending' OR a.status = 'offered' THEN 1
+           WHEN a.status = 'interviewing' THEN 2
+           WHEN a.status = 'shortlisted' THEN 3
+           WHEN a.status IN ('applied', 'pending') THEN 4
+           ELSE 5
+         END,
+         a.updated_at DESC NULLS LAST`,
       [employerId, ids],
     );
     for (const row of rel.rows) {
+      const appStatus = String(row.application_status || '').toLowerCase();
+      const offerStatus = String(row.offer_status || '').toLowerCase();
+      const pendingOpen = offerStatus === 'pending'
+        && !offerIsExpired({ status: 'pending', valid_until: row.valid_until });
+      let offerState = null;
+      if (offerStatus === 'accepted' || appStatus === 'hired' || appStatus === 'completed') offerState = 'accepted';
+      else if (pendingOpen || (appStatus === 'offered' && pendingOpen)) offerState = 'pending';
       relByCand.set(row.candidate_id, {
         applied: true,
-        shortlisted: Boolean(row.shortlisted),
-        latestStatus: row.latest_status,
+        shortlisted: appStatus === 'shortlisted' && !offerState,
+        offerState,
+        latestStatus: appStatus,
       });
     }
     const invited = await query(
@@ -169,6 +189,7 @@ export async function GET(request) {
         applied: Boolean(rel.applied),
         invited: Boolean(rel.invited),
         shortlisted: Boolean(rel.shortlisted),
+        offerState: rel.offerState || null,
         inviteInternshipTitle: rel.inviteInternshipTitle || null,
         latestStatus: rel.latestStatus || null,
       },
