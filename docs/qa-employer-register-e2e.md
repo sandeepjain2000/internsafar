@@ -69,7 +69,7 @@ See also Cursor rule `qa-test-account-variety` and helper `scripts/lib/ipQaReali
 
 ✅ Fresh realistic persona per run (human name + believable company + role title)
 ✅ Never use core demo accounts in tests; use the test accounts (scripts/lib/ipTestAccountsConfig.js, qa/helpers/accounts.js)
-✅ Prefer .example company domains for Domain path; unique local-part tag for Free-email
+✅ Reuse alias1–alias5@placementhub.online for domain-employer checks, and placementhubsupport+qa-freemail@gmail.com for free-email checks. Save the account, run the test, put it back.
 ✅ Internship titles like “Data Analyst Intern”, not “QA Post mt140t02”
 ✅ Spread activity across several personas so SA / employer lists show variety
 ```

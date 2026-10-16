@@ -87,6 +87,7 @@ _tmp_*
 .mail-override-test-*
 .unsub-test-*/
 .local-qa-2fa-bypass-backup/
+scripts/.qa-alias-snapshots/
 .local/
 .tmp/
 .tmp/**

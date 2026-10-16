@@ -21,7 +21,8 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { apiLogin, apiRequest, ensureQaTestAccounts, fetchLoginCaptcha, requireQaLogin } from './lib/ipQaAuth.mjs';
-import { buildEmployerRegisterPersona, isCoreShowcaseEmail } from './lib/ipQaRealisticPersonas.mjs';
+import { ALIAS_EMAILS, ALIAS_WEBSITE, FREEMAIL_QA, buildEmployerRegisterPersona, isCoreShowcaseEmail } from './lib/ipQaRealisticPersonas.mjs';
+import { assertQaHost, borrowAlias, restoreAlias } from './lib/ipQaAliasSnapshot.mjs';
 import { applyQaResultsToWorkbook, createCaseRecorder } from './lib/recordQaResults.mjs';
 
 const require = createRequire(import.meta.url);
@@ -36,14 +37,28 @@ const BASE =
   process.env.IP_BASE ||
   'http://localhost:3000';
 const APPLY_EXCEL = args.includes('--apply-excel');
+assertQaHost(BASE);
 const cases = createCaseRecorder({ source: 'qa-register-approve-post-apply-smoke' });
+const aliasHandles = [];
+let finishing = false;
 
 const findings = [];
 function note(level, msg, extra) {
   findings.push({ level, msg, extra });
   console.log(`${String(level).padEnd(8)} ${msg}${extra !== undefined ? ` ${JSON.stringify(extra)}` : ''}`);
 }
-function finish(code) {
+async function finish(code) {
+  if (finishing) return;
+  finishing = true;
+  for (const handle of aliasHandles) {
+    try {
+      await restoreAlias(handle);
+    } catch (e) {
+      console.error(`RESTORE FAILED for ${handle.email}: ${e.message}. Run node scripts/qa-restore-alias-snapshots.mjs`);
+      code = 1;
+    }
+  }
+  aliasHandles.length = 0;
   cases.flush();
   if (APPLY_EXCEL) applyQaResultsToWorkbook();
   process.exit(code);
@@ -53,8 +68,13 @@ function fail(msg, extra) {
   console.error('\nFAILED — superficial skips are not allowed; see BLOCKER lines');
   cases.failOpen(extra !== undefined ? `${msg} ${JSON.stringify(extra)}` : msg);
   finish(1);
+  throw new Error(msg);
 }
-process.on('uncaughtException', (e) => fail(e?.message || String(e)));
+process.on('unhandledRejection', () => {});
+process.on('uncaughtException', (e) => {
+  console.error(e?.message || e);
+  finish(1);
+});
 ensureQaTestAccounts(BASE);
 
 function dbPool() {
@@ -84,7 +104,13 @@ async function assertSession(cookie, expectRole, label) {
 }
 
 async function registerEmployer(path) {
-  const persona = buildEmployerRegisterPersona(path);
+  const email = path === 'free_email' ? FREEMAIL_QA : ALIAS_EMAILS.domain;
+  aliasHandles.push(await borrowAlias(email, BASE));
+  const persona = buildEmployerRegisterPersona(path, {
+    email,
+    website: ALIAS_WEBSITE,
+    companyName: path === 'free_email' ? 'Freemail QA' : 'Lifecycle Register domain',
+  });
   if (isCoreShowcaseEmail(persona.email)) fail(`Core email used: ${persona.email}`);
   const cap = await fetchLoginCaptcha(BASE);
   const body = {
@@ -111,7 +137,7 @@ async function completeEmployerProfile(cookie, persona) {
     cookie,
     body: {
       company_name: persona.companyName,
-      website: persona.website || `https://${persona.companyName.toLowerCase().replace(/\s+/g, '-')}.example`,
+      website: persona.website || ALIAS_WEBSITE,
       work_email: persona.email,
       industry: persona.industry || 'Technology',
       hq_city: 'Pune',
@@ -490,6 +516,6 @@ console.log(
     2,
   ),
 );
-if (blockers.length) finish(1);
+if (blockers.length) await finish(1);
 console.log('\nPASS deep register → verify → pending login → docs → approve → post → candidate apply');
-finish(0);
+await finish(0);

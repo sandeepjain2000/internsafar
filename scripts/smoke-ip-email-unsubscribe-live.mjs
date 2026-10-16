@@ -59,9 +59,11 @@ const db = {
   query: (text, params) => client.query(text, params),
 };
 
-const smokeEmail = `unsub-smoke+${Date.now()}@example.com`;
+const smokeEmail = 'alias1@placementhub.online';
 
 try {
+  const priorTok = await client.query(`SELECT 1 FROM ip_email_unsubscribe_tokens WHERE email = $1`, [smokeEmail]);
+  const hadToken = priorTok.rows.length > 0;
   const token = await unsub.getOrCreateUnsubscribeToken(smokeEmail, undefined, db);
   assert.ok(format.isValidUnsubscribeToken(token), 'token format');
   const url = format.buildUnsubscribeUrl('http://localhost:3000', token);
@@ -82,13 +84,10 @@ try {
   const pending = await unsub.listPendingUnsubscribeRequests({ limit: 50 }, db);
   assert.ok(pending.some((r) => r.id === first.id && r.status === 'PENDING'));
 
-  // Cleanup smoke rows so shared DB stays tidy
-  await client.query(`DELETE FROM ip_email_unsubscribe_requests WHERE email = $1`, [
-    smokeEmail.toLowerCase(),
-  ]);
-  await client.query(`DELETE FROM ip_email_unsubscribe_tokens WHERE email = $1`, [
-    smokeEmail.toLowerCase(),
-  ]);
+  await client.query(`DELETE FROM ip_email_unsubscribe_requests WHERE id = $1`, [first.id]);
+  if (!hadToken) {
+    await client.query(`DELETE FROM ip_email_unsubscribe_tokens WHERE email = $1`, [smokeEmail.toLowerCase()]);
+  }
 
   console.log('OK: live unsubscribe token + PENDING create/de-dupe + list');
 } finally {

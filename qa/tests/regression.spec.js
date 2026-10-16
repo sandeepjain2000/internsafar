@@ -468,7 +468,7 @@ test.describe('InternSafar regression', () => {
 
   test('IS-068 employer manualRequest register API returns 410', async ({ request }) => {
     const res = await request.post('/api/ip/auth/register-employer', {
-      data: { manualRequest: true, email: 'qa.manual.retired@example.com', companyName: 'QA Retired' },
+      data: { manualRequest: true, email: 'alias1@placementhub.online', companyName: 'QA Retired' },
     });
     expect(res.status()).toBe(410);
     const body = await res.json().catch(() => ({}));
@@ -478,7 +478,7 @@ test.describe('InternSafar regression', () => {
   test('IS-069 employer register rejects missing company and short password', async ({ request }) => {
     const base = {
       path: 'free_email',
-      email: `qa.reg.validation.${Date.now()}@example.com`,
+      email: 'alias1@placementhub.online',
       companyName: 'QA Validation Co',
       contactName: 'QA Person',
       designation: 'HR',

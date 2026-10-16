@@ -82,25 +82,39 @@ export function pickPersona(index = Date.now()) {
   return PERSONAS[((Number(index) % PERSONAS.length) + PERSONAS.length) % PERSONAS.length];
 }
 
+/** Real mailboxes these QA scripts may register. Never invent @example.com. */
+export const ALIAS_EMAILS = {
+  request: 'alias1@placementhub.online',
+  unknown: 'alias2@placementhub.online',
+  mutate: 'alias3@placementhub.online',
+  lifecycleB: 'alias4@placementhub.online',
+  domain: 'alias5@placementhub.online',
+};
+export const LIFECYCLE_EMAILS = [
+  'alias3@placementhub.online',
+  'alias4@placementhub.online',
+  'alias5@placementhub.online',
+];
+export const FREEMAIL_QA = 'placementhubsupport+qa-freemail@gmail.com';
+export const ALIAS_WEBSITE = 'https://placementhub.online';
+
 /**
- * Build a unique employer register payload that still reads like a real company.
+ * Employer register payload for a mailbox the project already owns.
  * @param {'domain'|'free_email'} path
  */
 export function buildEmployerRegisterPersona(path = 'domain', opts = {}) {
+  const email = String(opts.email || '').trim().toLowerCase();
+  if (!email || !email.includes('@')) {
+    throw new Error('buildEmployerRegisterPersona requires opts.email (a real QA mailbox, not a dummy address)');
+  }
   const tag = String(opts.runTag || runTag());
   const persona = opts.persona || pickPersona(opts.index ?? Date.now());
-  const local = persona.contactName.toLowerCase().replace(/\s+/g, '.');
-  const email =
-    path === 'free_email'
-      ? `${local}.${tag}@outlook.com`
-      : `${local}@${persona.companySlug}.${tag}.example`;
-
   return {
     path,
     contactName: persona.contactName,
     designation: persona.designation,
-    companyName: persona.companyName,
-    website: path === 'domain' ? persona.website : undefined,
+    companyName: opts.companyName || persona.companyName,
+    website: path === 'domain' ? (opts.website || ALIAS_WEBSITE) : undefined,
     email,
     password: opts.password || 'Harborline#Ready92',
     businessEntityType: 'Private Limited',

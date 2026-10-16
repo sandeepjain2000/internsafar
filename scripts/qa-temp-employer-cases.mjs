@@ -2,7 +2,7 @@
 /**
  * SuperAdmin employer-lifecycle cases that change account state (suspend, reject, delete,
  * reset ethics, document supersede). They run on throwaway employers this script registers
- * and hard-deletes at the end — never on core accounts or the shared test employer.
+ * on alias3, alias4, and alias5. Each run saves those accounts and puts them back.
  *
  *   TC-IS-14-005 Posting blocked while pending; Final Approval → notice + posting unlocks
  *   TC-IS-18-019 Employer referral link keeps ?ref= to /register/employer; referrer +25 on verify
@@ -18,18 +18,16 @@
  * Requires server: IP_QA_EMPLOYER_EMAIL_VERIFY_TOKEN_IN_RESPONSE=1 (not Vercel production).
  * Usage: node scripts/qa-temp-employer-cases.mjs [baseUrl] [--apply-excel]
  */
-import { createRequire } from 'module';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import pg from 'pg';
 import { QA_ACCOUNTS, apiLogin, apiRequest, fetchLoginCaptcha, requireQaLogin } from './lib/ipQaAuth.mjs';
-import { buildEmployerRegisterPersona, isCoreShowcaseEmail, runTag } from './lib/ipQaRealisticPersonas.mjs';
+import { ALIAS_WEBSITE, LIFECYCLE_EMAILS, buildEmployerRegisterPersona, isCoreShowcaseEmail, runTag } from './lib/ipQaRealisticPersonas.mjs';
+import { assertQaHost, borrowAlias, restoreAlias } from './lib/ipQaAliasSnapshot.mjs';
 import { applyQaResultsToWorkbook, recordQaResults } from './lib/recordQaResults.mjs';
 import { gotoReady, launchQaBrowser, newQaPage } from './lib/ipQaBrowser.mjs';
 
-const require = createRequire(import.meta.url);
-const { hardDeleteIpUser } = require('./lib/hardDeleteIpUser.js');
 const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 dotenv.config({ path: resolve(appRoot, '.env.local'), quiet: true });
 dotenv.config({ path: resolve(appRoot, '.env'), quiet: true });
@@ -37,6 +35,7 @@ dotenv.config({ path: resolve(appRoot, '.env'), quiet: true });
 const args = process.argv.slice(2);
 const APPLY_EXCEL = args.includes('--apply-excel');
 const BASE = args.find((a) => /^https?:\/\//i.test(a)) || process.env.IP_BASE || 'http://localhost:3000';
+assertQaHost(BASE);
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL is required in .env.local.');
   process.exit(1);
@@ -45,7 +44,6 @@ const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { re
 const db = async (sql, params) => (await pool.query(sql, params)).rows;
 
 const results = {};
-const created = [];
 function check(cond, msg) {
   if (!cond) throw new Error(msg);
 }
@@ -73,9 +71,18 @@ try {
 const saApi = (path, method = 'GET', body) => apiRequest(BASE, path, { method, cookie: sa.cookie, body });
 
 const TAG = runTag();
+const aliasHandles = [];
+let aliasCursor = 0;
 async function createEmployer(label, { approve, referralCode }) {
-  const persona = buildEmployerRegisterPersona('domain', { runTag: `${TAG}${label[0].toLowerCase()}` });
-  persona.companyName = `${persona.companyName} ${label} ${TAG}`;
+  const email = LIFECYCLE_EMAILS[aliasCursor++];
+  check(email, `need ${aliasCursor} lifecycle aliases, have ${LIFECYCLE_EMAILS.length}`);
+  aliasHandles.push(await borrowAlias(email, BASE));
+  const persona = buildEmployerRegisterPersona('domain', {
+    email,
+    website: ALIAS_WEBSITE,
+    companyName: `Lifecycle ${label} ${TAG}`,
+    runTag: `${TAG}${label[0].toLowerCase()}`,
+  });
   check(!isCoreShowcaseEmail(persona.email), `core email ${persona.email}`);
   const cap = await fetchLoginCaptcha(BASE);
   const reg = await apiRequest(BASE, '/api/ip/auth/register-employer', {
@@ -99,7 +106,6 @@ async function createEmployer(label, { approve, referralCode }) {
   const ids = (
     await db(`SELECT u.id AS uid, e.id AS eid FROM ip_users u JOIN ip_employers e ON e.user_id = u.id WHERE lower(u.email) = lower($1)`, [persona.email])
   )[0];
-  created.push(ids.uid);
   const verify = await fetch(reg.data.qaVerifyUrl);
   check(/Email verified/i.test(await verify.text()), `verify ${label} failed`);
   const emp = { label, persona, ...ids, login: () => apiLogin(BASE, persona.email, persona.password) };
@@ -417,12 +423,12 @@ try {
   }
 } finally {
   await browser.close().catch(() => {});
-  const client = await pool.connect();
-  try {
-    for (const userId of created) await hardDeleteIpUser(client, { userId, allowSuperadmin: false });
-    console.log(`Hard-deleted ${created.length} throwaway employer(s).`);
-  } finally {
-    client.release();
+  for (const handle of aliasHandles) {
+    try {
+      await restoreAlias(handle);
+    } catch (err) {
+      console.error(`RESTORE FAILED for ${handle.email}: ${err.message}. Run node scripts/qa-restore-alias-snapshots.mjs`);
+    }
   }
   await pool.end();
 }

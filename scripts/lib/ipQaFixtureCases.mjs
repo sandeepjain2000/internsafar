@@ -17,6 +17,8 @@ import dotenv from 'dotenv';
 import { createRequire } from 'module';
 import { QA_ACCOUNTS, apiLogin as sharedApiLogin, apiRequest, fetchLoginCaptcha } from './ipQaAuth.mjs';
 import { qaRunLabel, qaDbId, qaReferralCode } from './ipQaNaming.mjs';
+import { ALIAS_EMAILS, ALIAS_WEBSITE, FREEMAIL_QA } from './ipQaRealisticPersonas.mjs';
+import { borrowAlias, restoreAlias, withAliasState } from './ipQaAliasSnapshot.mjs';
 
 const require = createRequire(import.meta.url);
 const { TEST_CANDIDATE_OTHER } = require('./ipTestAccountsConfig.js');
@@ -213,7 +215,7 @@ export async function ensureCoreQaAccountsReady() {
   });
 }
 
-async function runCaptchaAndRegistrationGapCases(ctx) {
+export async function runCaptchaAndRegistrationGapCases(ctx) {
   const { BASE, assess, blocked } = ctx;
   const apiLogin = ctx.apiLogin || sharedApiLogin;
   const run = (qaRunLabel().replace(/[^a-zA-Z0-9]/g, '').slice(-10) || String(Date.now()).slice(-8));
@@ -332,8 +334,8 @@ async function runCaptchaAndRegistrationGapCases(ctx) {
     apiRequest(BASE, '/api/ip/auth/register-employer', { method: 'POST', body });
   const employerBase = () => ({
     path: 'domain',
-    email: `hr.${run}@acme-example.com`,
-    website: 'https://acme-example.com',
+    email: ALIAS_EMAILS.request,
+    website: ALIAS_WEBSITE,
     companyName: 'Acme Example Pvt Ltd',
     contactName: 'Rohit Malhotra',
     designation: 'HR Manager',
@@ -363,8 +365,8 @@ async function runCaptchaAndRegistrationGapCases(ctx) {
     }
     if (!CAPTCHA_BYPASS_FOR_TESTING) {
       const badCaptcha = [
-        ['badCaptchaDomain', { ...employerBase(), email: `hr.badcap.${run}@acme-example.com` }],
-        ['badCaptchaFreeEmail', { ...employerBase(), path: 'free_email', website: '', email: `qa.badcap.${run}@gmail.com` }],
+        ['badCaptchaDomain', { ...employerBase(), email: ALIAS_EMAILS.request }],
+        ['badCaptchaFreeEmail', { ...employerBase(), path: 'free_email', website: '', email: FREEMAIL_QA }],
       ];
       for (const [key, body] of badCaptcha) {
         const cap = await fetchLoginCaptcha(BASE);
@@ -378,7 +380,7 @@ async function runCaptchaAndRegistrationGapCases(ctx) {
   }
 
   {
-    const r = await postEmployer({ ...employerBase(), email: `hr.pw7.${run}@acme-example.com`, password: 'Admin@1' });
+    const r = await postEmployer({ ...employerBase(), email: ALIAS_EMAILS.request, password: 'Admin@1' });
     const ok = r.status === 400 && /at least 8 characters/i.test(String(r.data?.error || ''));
     assess('TC-IS-03-018', ok, {
       status: r.status,
@@ -391,7 +393,7 @@ async function runCaptchaAndRegistrationGapCases(ctx) {
     const cap = await fetchLoginCaptcha(BASE);
     const r = await postEmployer({
       ...employerBase(),
-      email: `hr.noweb.${run}@acme-example.com`,
+      email: ALIAS_EMAILS.request,
       website: '',
       captchaToken: cap.captchaToken,
       captchaAnswer: cap.captchaAnswer,
@@ -412,17 +414,20 @@ async function runCaptchaAndRegistrationGapCases(ctx) {
       blocked('REG-E-2', 'Outbound mail override off — soft-flag probe would email a real inbox');
       blocked('TC-IS-03-009', 'Outbound mail override off — soft-flag probe would email a real inbox');
     } else {
-      const email = `qa.softflag.${run}@gmail.com`;
+      const email = FREEMAIL_QA;
+      const handle = await borrowAlias(email, BASE);
+      let row = null;
+      let r = { status: 0, data: {} };
+      try {
       const cap = await fetchLoginCaptcha(BASE);
-      const r = await postEmployer({
+      r = await postEmployer({
         ...employerBase(),
         email,
-        website: 'https://example.com',
+        website: ALIAS_WEBSITE,
         companyName: 'Softflag Example Pvt Ltd',
         captchaToken: cap.captchaToken,
         captchaAnswer: cap.captchaAnswer,
       });
-      let row = null;
       await withDb(async (db) => {
         const q = await db.query(
           `SELECT u.id AS user_id, e.approval_status, e.email_soft_fail, e.email_classification_reasons
@@ -431,8 +436,10 @@ async function runCaptchaAndRegistrationGapCases(ctx) {
           [email],
         );
         row = q.rows[0] || null;
-        if (row) await hardDeleteIpUser(db, { userId: row.user_id });
       });
+      } finally {
+        await restoreAlias(handle);
+      }
       const ok = r.status === 200 && row?.approval_status === 'pending' && row?.email_soft_fail === true;
       const evidence = {
         status: r.status,
@@ -451,17 +458,19 @@ async function runCaptchaAndRegistrationGapCases(ctx) {
   // (run-internsafar-qa.mjs). TC-IS-03-008 (Domain register) is recorded by qa-employer-reg-verify-approve-login.mjs.
 }
 
-export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, cand, emp, sa }) {
+export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, cand, emp, sa, onlyIds = null }) {
   // Readable uniqueness only (e.g. 20260827-1504) — never random base36 in emails/titles.
   const run = qaRunLabel();
   const cap = { captchaToken: 'x', captchaAnswer: '7' };
+  const allow = (id) => !onlyIds || onlyIds.has(id);
 
   await ensureCoreQaAccountsReady().catch(() => {});
 
   // Formerly blanket-Blocked registration/captcha gaps — exercised inline below.
-  await runCaptchaAndRegistrationGapCases({ BASE, assess, blocked, apiLogin });
+  if (!onlyIds) await runCaptchaAndRegistrationGapCases({ BASE, assess, blocked, apiLogin });
 
   async function tryCase(id, fn) {
+    if (!allow(id)) return;
     try {
       await fn();
     } catch (e) {
@@ -667,18 +676,24 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('EMP-I-3', async () => {
-    const email = `qa-zero-points-employer-${run}@example.com`;
-    let userId;
-    await withDb(async (db) => {
-      userId = await ensureUser(db, { email, role: 'employer', name: 'QA Zero Points Employer', points: 0, profileComplete: true });
-      await ensureEmployerRow(db, userId, email, `QA Zero Points Co ${run}`, 'approved');
+    const email = ALIAS_EMAILS.mutate;
+    await withAliasState(email, BASE, async () => {
+      await withDb(async (db) => {
+        const hash = await bcrypt.hash(PW, 10);
+        const u = await db.query(
+          `UPDATE ip_users SET points = 0, free_post_credits = 0, password_hash = $2, profile_complete = true
+            WHERE lower(email) = lower($1) RETURNING id`,
+          [email, hash],
+        );
+        if (!u.rows[0]) throw new Error(`${email} is not on this database`);
+      });
+      const login = await apiLogin(BASE, email, PW);
+      const r = await api('/api/ip/employer/internships', {
+        method: 'POST', cookie: login.cookie,
+        body: { title: 'Zero Publish Guard', status: 'published', workMode: 'Remote', description: `should fail ${run}` },
+      });
+      assess('EMP-I-3', r.status === 403, { status: r.status, error: r.data?.error });
     });
-    const login = await apiLogin(BASE, email, PW);
-    const r = await api('/api/ip/employer/internships', {
-      method: 'POST', cookie: login.cookie,
-      body: { title: 'Zero Publish Guard', status: 'published', description: `should fail ${run}` },
-    });
-    assess('EMP-I-3', r.status === 403, { status: r.status, error: r.data?.error });
   });
 
   await tryCase('EMP-I-7', async () => {
@@ -707,18 +722,24 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   });
 
   await tryCase('EMP-I-9', async () => {
-    const email = `qa-second-employer-${run}@example.com`;
-    await withDb(async (db) => {
-      const id = await ensureUser(db, { email, role: 'employer', name: 'QA Second Employer', points: 200, profileComplete: true });
-      await ensureEmployerRow(db, id, email, `QA Second Co ${run}`, 'approved');
+    const email = ALIAS_EMAILS.mutate;
+    await withAliasState(email, BASE, async () => {
+      await withDb(async (db) => {
+        const hash = await bcrypt.hash(PW, 10);
+        await db.query(`UPDATE ip_users SET password_hash = $2 WHERE lower(email) = lower($1)`, [email, hash]);
+      });
+      const other = await apiLogin(BASE, email, PW);
+      let victim = publishedId || draftId;
+      if (!victim) {
+        const list = await api('/api/ip/employer/internships', { cookie: emp.cookie });
+        victim = (list.data?.items || [])[0]?.id || '';
+      }
+      const r = victim
+        ? await api(`/api/ip/employer/internships/${victim}`, { cookie: other.cookie })
+        : { status: 0 };
+      assess('EMP-I-9', other.ok && (r.status === 404 || r.status === 403),
+        { otherOk: other.ok, status: r.status });
     });
-    const other = await apiLogin(BASE, email, PW);
-    const victim = publishedId || draftId;
-    const r = victim
-      ? await api(`/api/ip/employer/internships/${victim}`, { cookie: other.cookie })
-      : { status: 0 };
-    assess('EMP-I-9', other.ok && (r.status === 404 || r.status === 403),
-      { otherOk: other.ok, status: r.status });
   });
 
   await tryCase('CAND-B-2', async () => {
@@ -1148,16 +1169,13 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   }
 
   await tryCase('SA-A-2', async () => {
-    const email = `qa-suspend-employer-${run}@example.com`;
-    let empId;
-    await withDb(async (db) => {
-      const uid = await ensureUser(db, { email, role: 'employer', name: 'QA Suspend Employer', points: 50, profileComplete: true });
-      empId = await ensureEmployerRow(db, uid, email, `QA Suspend Co ${run}`, 'approved');
+    const email = ALIAS_EMAILS.mutate;
+    await withAliasState(email, BASE, async ({ employer }) => {
+      const r = await api(`/api/ip/superadmin/employers/${employer.id}`, {
+        method: 'PATCH', cookie: sa.cookie, body: { approvalStatus: 'suspended' },
+      });
+      assess('SA-A-2', r.status === 200, { status: r.status, empId: employer.id });
     });
-    const r = await api(`/api/ip/superadmin/employers/${empId}`, {
-      method: 'PATCH', cookie: sa.cookie, body: { approvalStatus: 'suspended' },
-    });
-    assess('SA-A-2', r.status === 200, { status: r.status, empId });
   });
 
   await tryCase('SA-L-2', async () => {

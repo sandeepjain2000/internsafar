@@ -14,6 +14,8 @@ import { chromium } from 'playwright';
 import { QA_ACCOUNTS, apiLogin, apiRequest, cookieJar } from './ipQaAuth.mjs';
 import { setTwoFactorFlag } from './ipQaFixtureCases.mjs';
 import { QA_ALIAS, QA_LABEL, qaRunLabel, qaDbId, qaReferralCode } from './ipQaNaming.mjs';
+import { ALIAS_EMAILS } from './ipQaRealisticPersonas.mjs';
+import { borrowAlias, restoreAlias } from './ipQaAliasSnapshot.mjs';
 import { scoreBand } from '../../src/lib/ipScoreBands.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -172,9 +174,12 @@ export async function runTcIs02023({ BASE, assess, blocked }) {
   });
 
   const loginStart = new Date(Date.now() - 30_000);
-  const unknownEmail = `qa-unknown-user-${run}@example.com`;
+  const unknownEmail = ALIAS_EMAILS.unknown;
+  const unknownHandle = await borrowAlias(unknownEmail, BASE);
+  let unknown;
+  try {
   const wrongPw = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, 'WRONG-password-xyz!');
-  const unknown = await apiLogin(BASE, unknownEmail, PW);
+  unknown = await apiLogin(BASE, unknownEmail, PW);
   const pending = await apiLogin(BASE, pendingEmail, PW);
   const inactive = await apiLogin(BASE, inactiveEmail, PW);
   const candOk = await apiLogin(BASE, QA_ACCOUNTS.candidate.email, QA_ACCOUNTS.candidate.password);
@@ -253,6 +258,9 @@ export async function runTcIs02023({ BASE, assess, blocked }) {
       : goodOtp.ok,
     captchaFailBranch: 'covered by TC-IS-02-022 (AUTH-4)',
   });
+  } finally {
+    await restoreAlias(unknownHandle);
+  }
 }
 
 /**

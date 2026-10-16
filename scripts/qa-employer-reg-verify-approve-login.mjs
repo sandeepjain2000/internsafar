@@ -36,7 +36,8 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { apiLogin, apiRequest, fetchLoginCaptcha, requireQaLogin } from './lib/ipQaAuth.mjs';
-import { buildEmployerRegisterPersona, isCoreShowcaseEmail } from './lib/ipQaRealisticPersonas.mjs';
+import { ALIAS_EMAILS, ALIAS_WEBSITE, buildEmployerRegisterPersona, isCoreShowcaseEmail } from './lib/ipQaRealisticPersonas.mjs';
+import { assertQaHost, borrowAlias, restoreAlias } from './lib/ipQaAliasSnapshot.mjs';
 import { applyQaResultsToWorkbook, createCaseRecorder } from './lib/recordQaResults.mjs';
 
 const require = createRequire(import.meta.url);
@@ -59,11 +60,33 @@ const BASE =
   'http://localhost:3000';
 
 const APPLY_EXCEL = args.includes('--apply-excel');
-const persona = buildEmployerRegisterPersona(registrationPath);
+assertQaHost(BASE);
+const aliasEmail = registrationPath === 'free_email'
+  ? 'placementhubsupport+qa-freemail@gmail.com'
+  : ALIAS_EMAILS.domain;
+const persona = buildEmployerRegisterPersona(registrationPath, {
+  email: aliasEmail,
+  website: ALIAS_WEBSITE,
+  companyName: `Lifecycle Register ${registrationPath}`,
+});
 const REG_PW = persona.password;
 const cases = createCaseRecorder({ source: 'qa-employer-reg-verify-approve-login' });
+let aliasHandle = null;
+let finishing = false;
 
-function finish(code) {
+async function finish(code) {
+  if (finishing) return;
+  finishing = true;
+  if (aliasHandle) {
+    const handle = aliasHandle;
+    aliasHandle = null;
+    try {
+      await restoreAlias(handle);
+    } catch (e) {
+      console.error(`RESTORE FAILED for ${handle.email}: ${e.message}. Run node scripts/qa-restore-alias-snapshots.mjs`);
+      code = 1;
+    }
+  }
   cases.flush();
   if (APPLY_EXCEL) applyQaResultsToWorkbook();
   process.exit(code);
@@ -73,8 +96,13 @@ function fail(msg) {
   console.error(`FAIL: ${msg}`);
   cases.failOpen(msg);
   finish(1);
+  throw new Error(msg);
 }
-process.on('uncaughtException', (e) => fail(e?.message || String(e)));
+process.on('unhandledRejection', () => {});
+process.on('uncaughtException', (e) => {
+  console.error(e?.message || e);
+  finish(1);
+});
 
 function ok(msg, extra) {
   console.log(`OK  ${msg}${extra !== undefined ? ` ${JSON.stringify(extra)}` : ''}`);
@@ -85,6 +113,7 @@ if (isCoreShowcaseEmail(persona.email)) {
 }
 
 ok(`Base ${BASE} path=${registrationPath}`);
+aliasHandle = await borrowAlias(persona.email, BASE);
 ok('Persona', {
   email: persona.email,
   company: persona.companyName,
@@ -403,4 +432,4 @@ console.log(
     2,
   ),
 );
-finish(0);
+await finish(0);

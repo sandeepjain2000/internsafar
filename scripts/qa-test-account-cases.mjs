@@ -33,7 +33,6 @@
  *   node scripts/qa-test-account-cases.mjs [baseUrl] [--only TC-IS-14-029,TC-IS-13-005] [--apply-excel]
  * If a test account cannot sign in, the script stops with how to fix it (npm run qa:ensure-test-accounts).
  */
-import { createRequire } from 'module';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { readFileSync } from 'fs';
@@ -42,12 +41,11 @@ import pg from 'pg';
 import JSZip from 'jszip';
 import ExcelJS from 'exceljs';
 import { apiLogin, apiRequest, ensureQaTestAccounts, requireQaLogin } from './lib/ipQaAuth.mjs';
-import { buildEmployerRegisterPersona, isCoreShowcaseEmail } from './lib/ipQaRealisticPersonas.mjs';
+import { ALIAS_EMAILS, FREEMAIL_QA, buildEmployerRegisterPersona, isCoreShowcaseEmail } from './lib/ipQaRealisticPersonas.mjs';
+import { borrowAlias, restoreAlias } from './lib/ipQaAliasSnapshot.mjs';
 import { applyQaResultsToWorkbook, recordQaResults } from './lib/recordQaResults.mjs';
 import { clickUntil, fillMathCaptcha, gotoReady, launchQaBrowser, newQaPage } from './lib/ipQaBrowser.mjs';
 
-const require = createRequire(import.meta.url);
-const { hardDeleteIpUser } = require('./lib/hardDeleteIpUser.js');
 const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 dotenv.config({ path: resolve(appRoot, '.env.local'), quiet: true });
 dotenv.config({ path: resolve(appRoot, '.env'), quiet: true });
@@ -632,7 +630,8 @@ await runCase('TC-IS-18-053', async () => {
 
 // ── TC-IS-03-027 ────────────────────────────────────────────────────────────
 await runCase('TC-IS-03-027', async () => {
-  const persona = buildEmployerRegisterPersona('free_email');
+  const handle = await borrowAlias(FREEMAIL_QA, BASE);
+  const persona = buildEmployerRegisterPersona('free_email', { email: FREEMAIL_QA, companyName: 'Freemail QA' });
   check(!isCoreShowcaseEmail(persona.email), `core email ${persona.email}`);
   const page = await newQaPage(browser);
   try {
@@ -667,7 +666,7 @@ await runCase('TC-IS-03-027', async () => {
     check(retry.status === 429 && Number(retry.data?.retryAfterSec) > 0, `immediate retry → ${retry.status} ${JSON.stringify(retry.data)}`);
     const unknown = await apiRequest(BASE, '/api/ip/auth/employer-email-verify/resend', {
       method: 'POST',
-      body: { email: `nobody.${TAG.toLowerCase()}@example.com` },
+      body: { email: ALIAS_EMAILS.unknown },
     });
     check(
       unknown.status === 200 && unknown.data?.message === 'If that email needs verification, a new link has been sent. Check your inbox.' && !unknown.data?.mailed,
@@ -676,15 +675,7 @@ await runCase('TC-IS-03-027', async () => {
     return `Register success: "Resend (${s1}s)" disabled and counting (${s1}→${s2}); after it unlocked, resend showed "If that email needs verification, a new link has been sent." and restarted at ${s3}s; immediate API retry → 429 retryAfterSec ${retry.data.retryAfterSec}; unknown email → same generic 200.`;
   } finally {
     await page.context().close();
-    const u = (await db(`SELECT id FROM ip_users WHERE lower(email) = lower($1)`, [persona.email]))[0];
-    if (u) {
-      const client = await pool.connect();
-      try {
-        await hardDeleteIpUser(client, { userId: u.id, allowSuperadmin: false });
-      } finally {
-        client.release();
-      }
-    }
+    await restoreAlias(handle);
   }
 });
 
@@ -1500,8 +1491,10 @@ await runCase('TC-IS-14-011', async () => {
 });
 
 // ── TC-IS-14-014 / TC-IS-14-015 ─────────────────────────────────────────────
-const ghostEmail = `nobody.${TAG.toLowerCase()}@example.com`;
+const ghostEmail = ALIAS_EMAILS.unknown;
 await runCase('TC-IS-14-014', async () => {
+  const ghostHandle = await borrowAlias(ghostEmail, BASE);
+  try {
   const badPassStart = Date.now() - 2_000;
   const fail = await apiLogin(BASE, ghostEmail, 'Wrong-Pass-1!');
   check(!fail.ok, 'unknown email signed in');
@@ -1545,6 +1538,9 @@ await runCase('TC-IS-14-014', async () => {
     await page.context().close();
   }
   return 'Unknown-email sign-in logged (success false, failure_reason "Unknown account"); test-candidate wrong password logged as "Password Form (Bad Pass)"; test candidate sign-in logged as candidate success ("Password Form"); events carry email/role/success/ip_address/user_agent/failure_reason; Candidates and Employers tabs show only that role; Failed only + search finds the unknown-email row with its reason.';
+  } finally {
+    await restoreAlias(ghostHandle);
+  }
 });
 
 await runCase('TC-IS-14-015', async () => {
