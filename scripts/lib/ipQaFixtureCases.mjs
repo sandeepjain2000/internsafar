@@ -56,6 +56,11 @@ async function withDb(fn) {
   }
 }
 
+async function deleteThrowawayUser(userId) {
+  if (!userId) return;
+  await withDb((db) => hardDeleteIpUser(db, { userId })).catch(() => {});
+}
+
 async function ensureUser(client, { email, role, name, points = 80, active = true, profileComplete = true, source = 'gmail_domain' }) {
   const existing = await client.query(`SELECT id FROM ip_users WHERE lower(email) = lower($1)`, [email]);
   const hash = await bcrypt.hash(PW, 10);
@@ -530,40 +535,53 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const pendingEmail = `lawsonlclintern+qa-auth-pending-${run}@gmail.com`;
     const rejectedEmail = `lawsonlclintern+qa-auth-rejected-${run}@gmail.com`;
     const inactiveEmail = `lawsonlclintern+qa-auth-inactive-${run}@gmail.com`;
-    await withDb(async (db) => {
-      const p = await ensureUser(db, { email: pendingEmail, role: 'candidate', name: 'QA Pending', active: false, source: 'form' });
-      await ensureCandidateRow(db, p, pendingEmail, 'QA Pending');
-      const rj = await ensureUser(db, { email: rejectedEmail, role: 'candidate', name: 'QA Rejected', active: false, source: 'form' });
-      await ensureCandidateRow(db, rj, rejectedEmail, 'QA Rejected');
-      const ina = await ensureUser(db, { email: inactiveEmail, role: 'candidate', name: 'QA Inactive', active: false });
-      await ensureCandidateRow(db, ina, inactiveEmail, 'QA Inactive');
-    });
-    const lp = await apiLogin(BASE, pendingEmail, PW);
-    const lr = await apiLogin(BASE, rejectedEmail, PW);
-    const li = await apiLogin(BASE, inactiveEmail, PW);
-    assess('AUTH-7', !lp.ok && !lr.ok && !li.ok, { pending: lp.ok, rejected: lr.ok, inactive: li.ok });
+    const ids = [];
+    try {
+      await withDb(async (db) => {
+        const p = await ensureUser(db, { email: pendingEmail, role: 'candidate', name: 'QA Pending', active: false, source: 'form' });
+        ids.push(p);
+        await ensureCandidateRow(db, p, pendingEmail, 'QA Pending');
+        const rj = await ensureUser(db, { email: rejectedEmail, role: 'candidate', name: 'QA Rejected', active: false, source: 'form' });
+        ids.push(rj);
+        await ensureCandidateRow(db, rj, rejectedEmail, 'QA Rejected');
+        const ina = await ensureUser(db, { email: inactiveEmail, role: 'candidate', name: 'QA Inactive', active: false });
+        ids.push(ina);
+        await ensureCandidateRow(db, ina, inactiveEmail, 'QA Inactive');
+      });
+      const lp = await apiLogin(BASE, pendingEmail, PW);
+      const lr = await apiLogin(BASE, rejectedEmail, PW);
+      const li = await apiLogin(BASE, inactiveEmail, PW);
+      assess('AUTH-7', !lp.ok && !lr.ok && !li.ok, { pending: lp.ok, rejected: lr.ok, inactive: li.ok });
+    } finally {
+      for (const id of ids) await deleteThrowawayUser(id);
+    }
   });
 
   await tryCase('AUTH-17', async () => {
     const email = `lawsonlclintern+qa-password-change-${run}@gmail.com`;
-    await withDb(async (db) => {
-      const id = await ensureUser(db, { email, role: 'candidate', name: 'QA PwChange' });
-      await ensureCandidateRow(db, id, email, 'QA PwChange');
-    });
-    const login = await apiLogin(BASE, email, PW);
-    const temp = 'TempQa@1234';
-    const ch = await api('/api/ip/auth/change-password', {
-      method: 'POST', cookie: login.cookie,
-      body: { currentPassword: PW, newPassword: temp },
-    });
-    const mid = await apiLogin(BASE, email, temp);
-    const back = await api('/api/ip/auth/change-password', {
-      method: 'POST', cookie: mid.cookie,
-      body: { currentPassword: temp, newPassword: PW },
-    });
-    const again = await apiLogin(BASE, email, PW);
-    assess('AUTH-17', ch.status === 200 && mid.ok && back.status === 200 && again.ok,
-      { change: ch.status, midOk: mid.ok, back: back.status, again: again.ok });
+    let userId = null;
+    try {
+      await withDb(async (db) => {
+        userId = await ensureUser(db, { email, role: 'candidate', name: 'QA PwChange' });
+        await ensureCandidateRow(db, userId, email, 'QA PwChange');
+      });
+      const login = await apiLogin(BASE, email, PW);
+      const temp = 'TempQa@1234';
+      const ch = await api('/api/ip/auth/change-password', {
+        method: 'POST', cookie: login.cookie,
+        body: { currentPassword: PW, newPassword: temp },
+      });
+      const mid = await apiLogin(BASE, email, temp);
+      const back = await api('/api/ip/auth/change-password', {
+        method: 'POST', cookie: mid.cookie,
+        body: { currentPassword: temp, newPassword: PW },
+      });
+      const again = await apiLogin(BASE, email, PW);
+      assess('AUTH-17', ch.status === 200 && mid.ok && back.status === 200 && again.ok,
+        { change: ch.status, midOk: mid.ok, back: back.status, again: again.ok });
+    } finally {
+      await deleteThrowawayUser(userId);
+    }
   });
 
   // ACCT-3 / TC-IS-05-003: one category's email switch persists without touching the others, then is restored.
@@ -628,7 +646,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
           && testCand.data?.shouldShow === false && testCand.data?.reason === 'complete',
         { firstLogin: r(first), afterShown: r(sameLogin), afterComplete: r(complete), completeTestCandidate: r(testCand) });
     } finally {
-      if (userId) await withDb((db) => hardDeleteIpUser(db, { userId })).catch(() => {});
+      await deleteThrowawayUser(userId);
     }
   });
 
@@ -767,21 +785,26 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
 
   await tryCase('CAND-B-5', async () => {
     const email = `lawsonlclintern+qa-incomplete-profile-${run}@gmail.com`;
-    await withDb(async (db) => {
-      const id = await ensureUser(db, { email, role: 'candidate', name: 'QA Incomplete Cand', points: 80, profileComplete: false });
-      await ensureCandidateRow(db, id, email, 'QA Incomplete Cand', { resume_url: null, college: null, phone: null });
-      await db.query(`UPDATE ip_users SET profile_complete=false WHERE id=$1`, [id]);
-    });
-    const login = await apiLogin(BASE, email, PW);
-    const prof = await api('/api/ip/candidate/profile', { cookie: login.cookie });
-    const internships = await api('/api/ip/candidate/internships', { cookie: login.cookie });
-    const target = publishedId || (internships.data?.items || internships.data?.internships || [])[0]?.id;
-    const apply = target
-      ? await api('/api/ip/candidate/applications', { method: 'POST', cookie: login.cookie, body: { internshipId: target } })
-      : { status: 0 };
-    const incomplete = Boolean(prof.data?.profile?.profile_complete === false || prof.data?.profile_complete === false);
-    assess('CAND-B-5', login.ok && internships.status === 200,
-      { login: login.ok, apply: apply.status, incomplete, note: 'API apply is not gated on profile_complete' });
+    let userId = null;
+    try {
+      await withDb(async (db) => {
+        userId = await ensureUser(db, { email, role: 'candidate', name: 'QA Incomplete Cand', points: 80, profileComplete: false });
+        await ensureCandidateRow(db, userId, email, 'QA Incomplete Cand', { resume_url: null, college: null, phone: null });
+        await db.query(`UPDATE ip_users SET profile_complete=false WHERE id=$1`, [userId]);
+      });
+      const login = await apiLogin(BASE, email, PW);
+      const prof = await api('/api/ip/candidate/profile', { cookie: login.cookie });
+      const internships = await api('/api/ip/candidate/internships', { cookie: login.cookie });
+      const target = publishedId || (internships.data?.items || internships.data?.internships || [])[0]?.id;
+      const apply = target
+        ? await api('/api/ip/candidate/applications', { method: 'POST', cookie: login.cookie, body: { internshipId: target } })
+        : { status: 0 };
+      const incomplete = Boolean(prof.data?.profile?.profile_complete === false || prof.data?.profile_complete === false);
+      assess('CAND-B-5', login.ok && internships.status === 200,
+        { login: login.ok, apply: apply.status, incomplete, note: 'API apply is not gated on profile_complete' });
+    } finally {
+      await deleteThrowawayUser(userId);
+    }
   });
 
   await tryCase('CAND-A-4', async () => {
@@ -809,10 +832,12 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
 
   await tryCase('CAND-A-5', async () => {
     const email = `lawsonlclintern+qa-zero-points-${run}@gmail.com`;
+    let userId = null;
+    try {
     await withDb(async (db) => {
-      const id = await ensureUser(db, { email, role: 'candidate', name: 'QA Zero Cand', points: 0, profileComplete: true });
-      await ensureCandidateRow(db, id, email, 'QA Zero Cand');
-      await db.query(`UPDATE ip_users SET points=0 WHERE id=$1`, [id]);
+      userId = await ensureUser(db, { email, role: 'candidate', name: 'QA Zero Cand', points: 0, profileComplete: true });
+      await ensureCandidateRow(db, userId, email, 'QA Zero Cand');
+      await db.query(`UPDATE ip_users SET points=0 WHERE id=$1`, [userId]);
     });
     const login = await apiLogin(BASE, email, PW);
     // Prefer a no-questions listing so screening does not mask the points gate.
@@ -836,6 +861,9 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
       ? await api('/api/ip/candidate/applications', { method: 'POST', cookie: login.cookie, body: { internshipId: target } })
       : { status: 0 };
     assess('CAND-A-5', apply.status === 403, { status: apply.status, error: apply.data?.error });
+    } finally {
+      await deleteThrowawayUser(userId);
+    }
   });
 
   let applyId = '';
@@ -944,11 +972,13 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
 
   await tryCase('CAND-O-2', async () => {
     const email = `lawsonlclintern+qa-offer-decline-${run}@gmail.com`;
+    let userId = null;
     let candId;
     let internId = publishedId;
+    try {
     await withDb(async (db) => {
-      const uid = await ensureUser(db, { email, role: 'candidate', name: 'QA Decline', points: 80 });
-      candId = await ensureCandidateRow(db, uid, email, 'QA Decline');
+      userId = await ensureUser(db, { email, role: 'candidate', name: 'QA Decline', points: 80 });
+      candId = await ensureCandidateRow(db, userId, email, 'QA Decline');
       const empRow = await db.query(`SELECT e.id FROM ip_employers e JOIN ip_users u ON u.id=e.user_id WHERE lower(u.email)=lower($1)`, [QA_ACCOUNTS.employer.email]);
       internId = internId || (await db.query(`SELECT i.id FROM ip_internships i WHERE i.employer_id=$1 AND i.status='published' LIMIT 1`, [empRow.rows[0]?.id])).rows[0]?.id;
       const appId = nid('ip_app');
@@ -997,14 +1027,19 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
       offer: mine?.id,
       ...after,
     });
+    } finally {
+      await deleteThrowawayUser(userId);
+    }
   });
 
   await tryCase('CAND-O-3', async () => {
     const email = `lawsonlclintern+qa-offer-expire-${run}@gmail.com`;
+    let userId = null;
     let oid;
+    try {
     await withDb(async (db) => {
-      const uid = await ensureUser(db, { email, role: 'candidate', name: 'QA Expired', points: 80 });
-      const candId = await ensureCandidateRow(db, uid, email, 'QA Expired');
+      userId = await ensureUser(db, { email, role: 'candidate', name: 'QA Expired', points: 80 });
+      const candId = await ensureCandidateRow(db, userId, email, 'QA Expired');
       const empRow = await db.query(`SELECT e.id FROM ip_employers e JOIN ip_users u ON u.id=e.user_id WHERE lower(u.email)=lower($1)`, [QA_ACCOUNTS.employer.email]);
       const intern = await db.query(`SELECT i.id FROM ip_internships i WHERE i.employer_id=$1 LIMIT 1`, [empRow.rows[0]?.id]);
       const internId = intern.rows[0]?.id;
@@ -1024,6 +1059,9 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const login = await apiLogin(BASE, email, PW);
     const r = await api(`/api/ip/offers/${oid}`, { method: 'PATCH', cookie: login.cookie, body: { status: 'accepted' } });
     assess('CAND-O-3', r.status === 400, { status: r.status, error: r.data?.error });
+    } finally {
+      await deleteThrowawayUser(userId);
+    }
   });
 
   await tryCase('CAND-O-7', async () => {
