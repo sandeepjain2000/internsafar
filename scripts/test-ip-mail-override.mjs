@@ -130,10 +130,29 @@ try {
     'unsubscribe URL must not expose the recipient email',
   );
 
-  // Multi-recipient callers (e.g. offers notify candidate + employer) keep everyone.
+  // A reserved test domain on a mixed send is dropped before the provider call.
   setEnv({ flag: 'true', overrideAddress: SUPPORT });
-  await mail.sendMail({ to: `${REAL_USER}, employer@example.com`, subject: 'Offer', html: '<p>x</p>' });
-  assert.deepEqual(sentAddresses(), [REAL_USER, 'employer@example.com', SUPPORT]);
+  const beforeDrop = captured.length;
+  const mixed = await mail.sendMail({ to: `${REAL_USER}, employer@example.com`, subject: 'Offer', html: '<p>x</p>' });
+  assert.equal(captured.length, beforeDrop + 1);
+  assert.deepEqual(sentAddresses(), [REAL_USER, SUPPORT]);
+  assert.equal(mixed.droppedTo, 'employer@example.com');
+  assert.equal(mixed.sentTo, REAL_USER);
+
+  // Only reserved test domains: do not call the provider at all (no hard bounce).
+  setEnv({ flag: 'true', overrideAddress: SUPPORT });
+  const beforeSkip = captured.length;
+  const skipped = await mail.sendMail({
+    to: 'hr.run@example.com, owner@acme-example.com, hr@folio-creative.261007a1.example',
+    subject: 'Verify',
+    html: '<p>x</p>',
+  });
+  assert.equal(captured.length, beforeSkip, 'reserved test domains must not reach the provider');
+  assert.equal(skipped.ok, true);
+  assert.equal(skipped.skipped, true);
+  assert.equal(skipped.reason, 'reserved-test-domain');
+  assert.equal(mail.isReservedTestEmail('person@example.org'), true);
+  assert.equal(mail.isReservedTestEmail(REAL_USER), false);
 
   // Support address is not duplicated when it is already the real recipient.
   setEnv({ flag: 'true', overrideAddress: SUPPORT });

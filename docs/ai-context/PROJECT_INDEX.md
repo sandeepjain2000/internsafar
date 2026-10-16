@@ -48,7 +48,7 @@ If a task says “Internship Portal / InternSafar / IP”, it means the **siblin
 | Auth | NextAuth (`src/lib/auth.js`). **No** `middleware.js`. APIs enforce auth. |
 | DB | Postgres via `pg` (`src/lib/db.js`). Migrations: `db/migrations/` (prefer `*ip*`; latest numbered `050_ip_employer_docs_reminders.sql`; apply order in `scripts/MIGRATION_MANIFEST.txt`) |
 | Files | AWS S3 (`src/lib/s3.js`), object prefix `internship-portal/…`; download authz helper `src/lib/ipFileAccess.js` |
-| Mail | ZeptoMail / SMTP (`src/lib/mail.js`, `zeptomail.js`); outbound footers can append unsubscribe via `src/lib/ipEmailUnsubscribe.js` |
+| Mail | ZeptoMail / SMTP (`src/lib/mail.js`, `zeptomail.js`); outbound footers can append unsubscribe via `src/lib/ipEmailUnsubscribe.js`. Reserved test domains are dropped before either provider (`sendMail`, 2026-10-16) |
 | Help chat LLM | NVIDIA NIM helpers (`src/lib/nvidiaLlm.js`, `/api/ip/help-chat`) |
 | Deploy | Vercel from sibling; AWS EC2 via workspace handoff packs |
 | QA | Playwright under `qa/` (smoke / regression with journeys / full:release / `qa:e2e:aws` for EC2) + Excel workbook `test-cases/InternSafar-Test-Cases.xlsx` |

@@ -1,7 +1,7 @@
 # Stable project decisions (InternSafar)
 
 Only confirmed, durable decisions. Not a chat diary.  
-Last pack refresh: 2026-10-07.
+Last pack refresh: 2026-10-16.
 
 | Decision | Domain | Status | Evidence |
 |----------|--------|--------|----------|
@@ -23,6 +23,7 @@ Last pack refresh: 2026-10-07.
 | Bare `qa:e2e` does not force google-auth+regression; use `qa:e2e:regression` / `--suite=regression` | Testing | Confirmed | `qa/runners/run-internsafar.mjs`, `package.json` |
 | `PRODUCT.md` / `DESIGN.md` named in `AGENTS.md` but missing — use `AGENTS.md` UI block + skills | UI | Confirmed gap | Live tree 2026-09-15 |
 | Email unsubscribe link creates a **PENDING** SuperAdmin request only; does **not** stop mail delivery yet; URL uses `token` only (no email in query) | Mail / SuperAdmin | Confirmed | Migration `041_*`, `ipEmailUnsubscribe.js`, `/unsubscribe`, `mail.js` footers |
+| Reserved test domains never reach the mail provider. `sendMail` drops `@example.com`, `@example.org`, `@example.net`, `@acme-example.com`, their subdomains, and any domain that is `example` or ends in `.example`. If no deliverable recipient remains, the provider is not called (`reason: 'reserved-test-domain'`) and the caller still gets success so signup can keep the verification link. A real address on the same send is still delivered | Mail | Confirmed 2026-10-16 | `src/lib/mail.js` `isReservedTestEmail`, `scripts/test-ip-mail-override.mjs` |
 | Shared client list paging uses `IpListPager` (+ `ip-list-pager.css`) on candidate/employer list surfaces | UI | Confirmed | `IpListPager.jsx`; internships/offers/notifications/messages |
 | v3 code-review prompts omit Accessibility (FE-ACC / a11y) from review + remediation | Process | Confirmed | `prompt-test-extract/…/code-review-prompt_version3.txt`, user 2026-09-18 |
 | 2026-09-18 review remediation: Valid **Critical** + Valid **High** (non-a11y) fixed on sibling and deployed to Vercel preview; **Medium/Low** + all a11y remain open | Process / Quality | Confirmed | GPT triage DOCX + sibling working tree + Vercel deploy 2026-09-18 |

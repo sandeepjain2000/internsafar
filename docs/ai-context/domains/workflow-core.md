@@ -20,7 +20,7 @@ Cross-role hire pipeline: applications, messaging threads, offers/onboarding, no
 
 ## Mail + unsubscribe (cross-cutting)
 
-Outbound mail may append an unsubscribe footer (`src/lib/mail.js` → `ipEmailUnsubscribe*`). Clicking `/unsubscribe?token=…` records a **PENDING** request only — delivery continues until SuperAdmin processes it. Token URLs must not embed the recipient email.
+Outbound mail may append an unsubscribe footer (`src/lib/mail.js` → `ipEmailUnsubscribe*`). Clicking `/unsubscribe?token=…` records a **PENDING** request only — delivery continues until SuperAdmin processes it. Token URLs must not embed the recipient email. `sendMail` drops reserved test domains before ZeptoMail or SMTP (`@example.com`, `@example.org`, `@example.net`, `@acme-example.com`, subdomains of those, and any domain that is `example` or ends in `.example`). If nothing deliverable remains, the provider is not called (`skipped: true`, `reason: 'reserved-test-domain'`). A real address on the same send still goes out.
 
 ## Notifications folders + nav badges (2026-09-28)
 

@@ -111,6 +111,36 @@ function normalizeRecipients(to) {
   return out;
 }
 
+/** Domains that are not real inboxes. Mail to these must not reach the provider. */
+const RESERVED_TEST_DOMAINS = new Set([
+  'example.com',
+  'example.org',
+  'example.net',
+  'acme-example.com',
+]);
+
+/**
+ * True for RFC 2606 test domains and the QA company domain used by throwaway
+ * employers (`@example.com`, `*.example`, `@acme-example.com`).
+ */
+export function isReservedTestEmail(address) {
+  const email = String(address || '').trim().toLowerCase();
+  const at = email.lastIndexOf('@');
+  if (at < 1) return false;
+  const domain = email.slice(at + 1);
+  if (!domain || domain.includes(' ')) return false;
+  if (RESERVED_TEST_DOMAINS.has(domain)) return true;
+  if (domain === 'example' || domain.endsWith('.example')) return true;
+  for (const reserved of RESERVED_TEST_DOMAINS) {
+    if (domain.endsWith(`.${reserved}`)) return true;
+  }
+  return false;
+}
+
+function withoutReservedTestEmails(list) {
+  return list.filter((address) => !isReservedTestEmail(address));
+}
+
 async function persistUnsubscribeToken(email, preferredToken) {
   try {
     const { getOrCreateUnsubscribeToken } = await import('@/lib/ipEmailUnsubscribe');
@@ -211,8 +241,11 @@ function withRedirectNote(opts, intended, deliveredTo, reason) {
 
 /**
  * Send to the intended recipient. When OUTBOUND_EMAIL_OVERRIDE is active, the
- * support/QA inbox is added as an extra recipient of the same send — the real
+ * support/QA inbox is added as an extra recipient of the same send — a real
  * recipient is never dropped.
+ * Reserved test domains (`@example.com`, `*.example`, `@acme-example.com`, and
+ * the other RFC 2606 example domains) are removed before any provider call. If
+ * nothing deliverable remains, the provider is not called.
  * If delivery fails, optionally retry IP_MAIL_TEST_FALLBACK.
  *
  * @param {{ to: string|string[], subject: string, html?: string, text?: string, skipUnsubscribe?: boolean }} opts
@@ -222,20 +255,37 @@ export async function sendMail(opts) {
   const intended = intendedList.join(', ');
   if (!intended) throw new Error('sendMail: to is required');
 
-  if (!opts?.skipUnsubscribe && intendedList.length === 1) {
+  const deliverable = withoutReservedTestEmails(intendedList);
+  const dropped = intendedList.filter((address) => !deliverable.includes(address));
+  if (deliverable.length === 0) {
+    console.warn(`[mail] skipped reserved test domain: ${intended}`);
+    return {
+      ok: true,
+      skipped: true,
+      reason: 'reserved-test-domain',
+      intendedTo: intended,
+      sentTo: '',
+      droppedTo: dropped.join(', '),
+    };
+  }
+
+  const deliverableTo = deliverable.join(', ');
+
+  if (!opts?.skipUnsubscribe && deliverable.length === 1) {
     const { isEmailUnsubscribed } = await import('@/lib/ipEmailUnsubscribe');
-    if (await isEmailUnsubscribed(intendedList[0])) {
+    if (await isEmailUnsubscribed(deliverable[0])) {
       return { ok: true, skipped: true, reason: 'unsubscribed', intendedTo: intended };
     }
   }
 
-  const mailOpts = await withUnsubscribeFooter(opts, intendedList);
+  const mailOpts = await withUnsubscribeFooter(opts, deliverable);
 
   const override = getOutboundEmailOverride();
-  if (override && !intendedList.includes(override)) {
-    const recipients = [...intendedList, override];
+  const copyTo = override && !isReservedTestEmail(override) ? override : null;
+  if (copyTo && !deliverable.includes(copyTo)) {
+    const recipients = [...deliverable, copyTo];
     const result = await sendMailOnce({
-      ...withSupportCopyNote(mailOpts, intended, override, 'OUTBOUND_EMAIL_OVERRIDE'),
+      ...withSupportCopyNote(mailOpts, deliverableTo, copyTo, 'OUTBOUND_EMAIL_OVERRIDE'),
       to: recipients,
     });
     return {
@@ -243,26 +293,30 @@ export async function sendMail(opts) {
       ok: true,
       usedOverride: true,
       intendedTo: intended,
-      sentTo: intended,
-      copiedTo: override,
+      sentTo: deliverableTo,
+      copiedTo: copyTo,
+      droppedTo: dropped.join(', '),
       recipients,
     };
   }
 
   try {
-    return await sendMailOnce({ ...mailOpts, to: intendedList });
+    const result = await sendMailOnce({ ...mailOpts, to: deliverable });
+    return dropped.length
+      ? { ...result, intendedTo: intended, sentTo: deliverableTo, droppedTo: dropped.join(', ') }
+      : result;
   } catch (primaryErr) {
     const fallback = getMailTestFallback();
-    if (!fallback || intendedList.includes(fallback)) {
+    if (!fallback || deliverable.includes(fallback) || isReservedTestEmail(fallback)) {
       throw primaryErr;
     }
 
     console.warn(
-      `[mail] Primary send to ${intended} failed (${primaryErr.message}); retrying test fallback ${fallback}`,
+      `[mail] Primary send to ${deliverableTo} failed (${primaryErr.message}); retrying test fallback ${fallback}`,
     );
 
     const result = await sendMailOnce(
-      withRedirectNote(mailOpts, intended, fallback, `primary failed: ${String(primaryErr.message || '').slice(0, 120)}`),
+      withRedirectNote(mailOpts, deliverableTo, fallback, `primary failed: ${String(primaryErr.message || '').slice(0, 120)}`),
     );
 
     return {
