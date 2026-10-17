@@ -22,6 +22,7 @@ import { borrowAlias, restoreAlias, withAliasState } from './ipQaAliasSnapshot.m
 
 const require = createRequire(import.meta.url);
 const { TEST_CANDIDATE_OTHER } = require('./ipTestAccountsConfig.js');
+const { getCorePasswordForEmail } = require('./ipCoreSampleConfig.js');
 const { hardDeleteIpUser } = require('./hardDeleteIpUser.js');
 const { companyNameForLabel } = require('./ipCompanyCatalog.js');
 const demoText = require('./ipDemoText.js');
@@ -697,15 +698,14 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
     const email = ALIAS_EMAILS.mutate;
     await withAliasState(email, BASE, async () => {
       await withDb(async (db) => {
-        const hash = await bcrypt.hash(PW, 10);
         const u = await db.query(
-          `UPDATE ip_users SET points = 0, free_post_credits = 0, password_hash = $2, profile_complete = true
+          `UPDATE ip_users SET points = 0, free_post_credits = 0, profile_complete = true
             WHERE lower(email) = lower($1) RETURNING id`,
-          [email, hash],
+          [email],
         );
         if (!u.rows[0]) throw new Error(`${email} is not on this database`);
       });
-      const login = await apiLogin(BASE, email, PW);
+      const login = await apiLogin(BASE, email, getCorePasswordForEmail(email));
       const r = await api('/api/ip/employer/internships', {
         method: 'POST', cookie: login.cookie,
         body: { title: 'Zero Publish Guard', status: 'published', workMode: 'Remote', description: `should fail ${run}` },
@@ -742,11 +742,7 @@ export async function runFixtureCases({ api, apiLogin, BASE, assess, blocked, ca
   await tryCase('EMP-I-9', async () => {
     const email = ALIAS_EMAILS.mutate;
     await withAliasState(email, BASE, async () => {
-      await withDb(async (db) => {
-        const hash = await bcrypt.hash(PW, 10);
-        await db.query(`UPDATE ip_users SET password_hash = $2 WHERE lower(email) = lower($1)`, [email, hash]);
-      });
-      const other = await apiLogin(BASE, email, PW);
+      const other = await apiLogin(BASE, email, getCorePasswordForEmail(email));
       let victim = publishedId || draftId;
       if (!victim) {
         const list = await api('/api/ip/employer/internships', { cookie: emp.cookie });

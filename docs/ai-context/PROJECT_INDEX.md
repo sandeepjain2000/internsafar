@@ -77,7 +77,7 @@ Deleting or resetting users on local/Vercel affects both of those hosts. It does
 | UI / Gemini restyle | `domains/ui-ux.md` | `src/app/**`, `src/components/ip/`, workspace `gemini-tsx-handoff/` |
 | Messages / apps / offers | `domains/workflow-core.md` | `api/ip/messages`, `offers`, applications routes + libs |
 | AWS / deploy | `domains/deployment.md` | `AGENTS.md` AWS block + workspace handoff folders |
-| Testing / regression | `domains/testing.md` (runner map; open "Coverage gaps to-do (found 2026-10-10)" list — tick rows off with a date when done); every case → runner: `domains/testing-case-map.md` (generated) | `test-cases/`, `qa/`, `npm run qa:*` |
+| Testing / regression | `domains/testing.md` (runner map; open "Coverage gaps to-do (found 2026-10-10)" list — tick rows off with a date when done; **2026-10-17:** offer-pipeline regression TC-IS-11-021 / IS-088 passed locally; not run on Vercel); every case → runner: `domains/testing-case-map.md` (generated) | `test-cases/`, `qa/`, `npm run qa:*` |
 
 Full route/API inventory (large): `ISM_ROUTE_INVENTORY.md` — open only when you need exhaustive route lists.
 

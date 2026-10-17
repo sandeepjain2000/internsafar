@@ -5,6 +5,7 @@ const { candidate, employer, superadmin } = require('../helpers/accounts');
 const { openWithSession, signOut, apiLogin } = require('../helpers/login');
 const { openTableFilters } = require('../helpers/ipTableFilters');
 const { testEmployerPublishedPostingIds } = require('../helpers/testPostings');
+const { isOfferPipelineHost, prepareOfferPipeline } = require('../helpers/offerPipelineFixture');
 
 /**
  * InternSafar regression smoke (IS-* ids) applied into
@@ -1149,6 +1150,116 @@ test.describe('InternSafar regression', () => {
       await expect(page.locator('#email')).toBeVisible({ timeout: 20_000 });
     } finally {
       await browser.close();
+    }
+  });
+
+  test('IS-088 offer pipeline keeps interview edit, letter link, offers list, and search label in step', async ({ page }) => {
+    test.setTimeout(360_000);
+    const base = process.env.IP_BASE || process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
+    test.skip(!isOfferPipelineHost(base), 'Offer pipeline uses an alias posting on local or Vercel only');
+
+    const letterUrl = 'https://placementhub.online/qa/offer-letter-neha.pdf';
+    const meetFirst = 'https://meet.google.com/internsafar-offer-a';
+    const meetNext = 'https://meet.google.com/internsafar-offer-b';
+    const alerts = [];
+    page.on('dialog', async (dialog) => {
+      alerts.push(dialog.message());
+      await dialog.accept();
+    });
+
+    const fx = await prepareOfferPipeline(base);
+    try {
+      const logged = await apiLogin(base, fx.candidateEmail);
+      expect(logged.ok, `API login failed for ${fx.candidateEmail}`).toBeTruthy();
+      const cookie = logged.cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+      const applied = await fetch(`${base}/api/ip/candidate/applications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: cookie },
+        body: JSON.stringify({ internshipId: fx.internshipId }),
+      });
+      const appliedBody = await applied.json().catch(() => ({}));
+      expect(applied.ok, appliedBody.error || 'apply failed').toBeTruthy();
+
+      await openWithSession(page, fx.employerEmail, `/employer/internships/${fx.internshipId}`);
+      await page.getByLabel('Search Applicants').fill(fx.candidateName);
+      await page.getByRole('button', { name: 'Apply', exact: true }).click();
+      const row = page.getByRole('row').filter({ hasText: fx.candidateName });
+      await expect(row).toContainText('Applied', { timeout: 45_000 });
+
+      await row.getByRole('button', { name: 'Shortlist — Move to shortlisted' }).click();
+      await expect(row).toContainText('Shortlisted');
+
+      await row.getByRole('button', { name: 'Review — Move to interviewing' }).click();
+      const schedule = page.getByRole('dialog');
+      await expect(schedule.getByRole('heading', { name: /Schedule interview/ })).toBeVisible();
+      await schedule.getByLabel('When').fill('2026-11-02T10:30');
+      await schedule.getByLabel('Meet URL').fill(meetFirst);
+      await schedule.getByRole('button', { name: 'Save' }).click();
+      await expect(schedule).toBeHidden();
+      await expect(row).toContainText('Interviewing');
+
+      await row.getByRole('button', { name: 'Edit — Change time or meet link' }).click();
+      const update = page.getByRole('dialog');
+      await expect(update.getByRole('heading', { name: /Update interview/ })).toBeVisible();
+      await expect(update.getByLabel('Meet URL')).toHaveValue(meetFirst);
+      await update.getByLabel('When').fill('2026-11-03T11:00');
+      await update.getByLabel('Meet URL').fill(meetNext);
+      await update.getByRole('button', { name: 'Save' }).click();
+      await expect(update).toBeHidden();
+      await expect(row).toContainText('Interviewing');
+
+      await row.getByRole('button', { name: 'Edit — Change time or meet link' }).click();
+      const reopened = page.getByRole('dialog');
+      await expect(reopened.getByLabel('Meet URL')).toHaveValue(meetNext);
+      await reopened.getByRole('button', { name: 'Close' }).click();
+      await expect(reopened).toBeHidden();
+
+      await row.getByRole('button', { name: 'Offer', exact: true }).click();
+      const offer = page.getByRole('dialog');
+      await expect(offer.getByRole('heading', { name: `Send offer to ${fx.candidateName}` })).toBeVisible();
+      await expect(offer.getByRole('button', { name: 'Upload offer letter' })).toBeVisible();
+      await offer.getByPlaceholder('Or paste an https link').fill(letterUrl);
+      await offer.getByRole('button', { name: 'Send offer' }).click();
+      await expect(offer).toBeHidden();
+      expect(alerts, 'no status or offer alert').toEqual([]);
+
+      await page.goto('/employer/candidates', { waitUntil: 'domcontentloaded' });
+      await page.getByLabel('Search candidates').fill(fx.candidateName);
+      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      const card = page.locator('.ip-ec-card', { hasText: fx.candidateName });
+      await expect(card).toBeVisible({ timeout: 45_000 });
+      await expect(card).toContainText('Offer sent');
+      await expect(card.getByRole('button', { name: 'Make offer' })).toHaveCount(0);
+
+      await openWithSession(page, fx.candidateEmail, '/candidate/offers');
+      await page.getByRole('group', { name: 'View mode' }).getByRole('button', { name: 'List' }).click();
+      for (const header of ['Stipend', 'Starts', 'Expires', 'Actions']) {
+        await expect(page.getByRole('columnheader', { name: header })).toBeVisible();
+      }
+      const offerRow = page.getByRole('row').filter({ hasText: fx.companyName });
+      await expect(offerRow.getByRole('link', { name: 'View letter' })).toHaveAttribute('href', letterUrl);
+      await expect(offerRow.getByRole('button', { name: 'Share' })).toBeVisible();
+      await expect(offerRow.getByRole('link', { name: 'Message' })).toBeVisible();
+      await expect(offerRow.getByRole('button', { name: 'Accept', exact: true })).toBeVisible();
+      await expect(offerRow.getByRole('button', { name: 'Decline', exact: true })).toBeVisible();
+      await offerRow.getByRole('button', { name: 'Accept', exact: true }).click();
+      await page.getByRole('button', { name: 'Confirm Acceptance' }).click();
+      await expect(offerRow).toContainText('Offer Accepted');
+
+      await openWithSession(page, fx.employerEmail, '/employer/candidates');
+      await page.getByLabel('Search candidates').fill(fx.candidateName);
+      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      const acceptedCard = page.locator('.ip-ec-card', { hasText: fx.candidateName });
+      await expect(acceptedCard).toContainText('Offer accepted');
+      await expect(acceptedCard.getByRole('button', { name: 'Make offer' })).toHaveCount(0);
+
+      await page.goto(`/employer/internships/${fx.internshipId}`, { waitUntil: 'domcontentloaded' });
+      await page.getByLabel('Search Applicants').fill(fx.candidateName);
+      await page.getByRole('button', { name: 'Apply', exact: true }).click();
+      await expect(page.getByRole('row').filter({ hasText: fx.candidateName })).toContainText('Hired', { timeout: 45_000 });
+      expect(alerts, 'no status or offer alert').toEqual([]);
+    } finally {
+      await fx.cleanup();
     }
   });
 });

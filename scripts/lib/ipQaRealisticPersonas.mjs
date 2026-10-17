@@ -7,6 +7,12 @@
  * no `user12345` / random digit dumps as the primary identity.
  */
 
+import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
+
+const require = createRequire(fileURLToPath(import.meta.url));
+const { getCorePasswordForEmail, isAliasQaEmail } = require('./ipCoreSampleConfig.js');
+
 const PERSONAS = [
   {
     contactName: 'Meera Iyer',
@@ -116,7 +122,7 @@ export function buildEmployerRegisterPersona(path = 'domain', opts = {}) {
     companyName: opts.companyName || persona.companyName,
     website: path === 'domain' ? (opts.website || ALIAS_WEBSITE) : undefined,
     email,
-    password: opts.password || 'Harborline#Ready92',
+    password: opts.password || (isAliasQaEmail(email) ? getCorePasswordForEmail(email) : 'Harborline#Ready92'),
     businessEntityType: 'Private Limited',
     internshipTitle: persona.internshipTitle,
     industry: persona.industry,

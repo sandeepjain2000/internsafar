@@ -2,7 +2,7 @@
  * Shared NextAuth credentials login for IP QA scripts (API cookie jar).
  * Candidate / employers are the disposable test accounts (ipTestAccountsConfig.js) — core demo
  * accounts are never used for testing. Passwords come from .env.local (IP_QA_CORE_PASSWORD /
- * IP_QA_SUPERADMIN_PASSWORD) via ipCoreSampleConfig.
+ * IP_QA_SUPERADMIN_PASSWORD, and IP_QA_ALIAS_PASSWORD for alias1–alias5) via ipCoreSampleConfig.
  */
 import { createRequire } from 'module';
 import { dirname, join } from 'path';

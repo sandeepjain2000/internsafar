@@ -2,7 +2,8 @@
  * Candidate / employers are the disposable test accounts (scripts/lib/ipTestAccountsConfig.js),
  * re-created by qa/global-setup.js. Core demo accounts are never used for testing; the one
  * SuperAdmin is shared and only acts on test accounts.
- * Passwords: .env.local IP_QA_CORE_PASSWORD / IP_QA_SUPERADMIN_PASSWORD via ipCoreSampleConfig.
+ * Passwords: .env.local IP_QA_CORE_PASSWORD / IP_QA_SUPERADMIN_PASSWORD /
+ * IP_QA_ALIAS_PASSWORD (alias1–alias5) via ipCoreSampleConfig.
  * AWS/production packs use coreaccountspass.json in the handoff extract.
  */
 const {

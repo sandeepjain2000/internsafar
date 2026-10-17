@@ -27,11 +27,21 @@ const {
 
 /**
  * QA sign-in passwords are never in git. Candidates and employers share IP_QA_CORE_PASSWORD;
- * SuperAdmin uses IP_QA_SUPERADMIN_PASSWORD. Lookup order: process.env → <app>/.env.local →
- * coreaccountspass.json (AWS / production handoff packs). Quote values containing `#` in .env.local.
+ * SuperAdmin uses IP_QA_SUPERADMIN_PASSWORD. alias1–alias5 use IP_QA_ALIAS_PASSWORD.
+ * Lookup order: process.env → <app>/.env.local → coreaccountspass.json for the first two
+ * (the alias password is env-only). Quote values containing `#` in .env.local.
  */
 const CORE_PASSWORD_ENV = 'IP_QA_CORE_PASSWORD';
 const SUPERADMIN_PASSWORD_ENV = 'IP_QA_SUPERADMIN_PASSWORD';
+const ALIAS_PASSWORD_ENV = 'IP_QA_ALIAS_PASSWORD';
+/** alias1–alias5 share one sign-in password. It is not the disposable QA password. */
+const ALIAS_QA_EMAILS = new Set([
+  'alias1@placementhub.online',
+  'alias2@placementhub.online',
+  'alias3@placementhub.online',
+  'alias4@placementhub.online',
+  'alias5@placementhub.online',
+]);
 const ENV_LOCAL_PATH = path.resolve(__dirname, '..', '..', '.env.local');
 
 function readEnvLocal(key) {
@@ -66,12 +76,25 @@ function qaPassword(envKey, role) {
 const coreQaPassword = () => qaPassword(CORE_PASSWORD_ENV, 'candidate');
 const superadminQaPassword = () => qaPassword(SUPERADMIN_PASSWORD_ENV, 'superadmin');
 
+function aliasQaPassword() {
+  const value = process.env[ALIAS_PASSWORD_ENV] || readEnvLocal(ALIAS_PASSWORD_ENV);
+  if (value) return value;
+  throw new Error(
+    `${ALIAS_PASSWORD_ENV} is not set. Add the alias1–alias5 sign-in password to internship-portal/.env.local (never commit it).`,
+  );
+}
+
 function isSuperadminEmail(email) {
   const e = String(email || '').trim().toLowerCase();
   return e === SUPERADMIN_EMAIL || e === LEGACY_SUPERADMIN_EMAIL;
 }
 
+function isAliasQaEmail(email) {
+  return ALIAS_QA_EMAILS.has(String(email || '').trim().toLowerCase());
+}
+
 function getCorePasswordForEmail(email) {
+  if (isAliasQaEmail(email)) return aliasQaPassword();
   return isSuperadminEmail(email) ? superadminQaPassword() : coreQaPassword();
 }
 
@@ -80,6 +103,7 @@ function getCorePasswordForRole(role) {
 }
 
 function getCorePasswordForEmailOrRole(email, role) {
+  if (isAliasQaEmail(email)) return aliasQaPassword();
   return isSuperadminEmail(email) || role === 'superadmin' ? superadminQaPassword() : coreQaPassword();
 }
 
@@ -230,11 +254,13 @@ module.exports = {
   isProtectedEmail,
   allCoreSampleEmails,
   pendingCastEmployer,
+  isAliasQaEmail,
   getCorePasswordForEmail,
   getCorePasswordForRole,
   getCorePasswordForEmailOrRole,
   CORE_PASSWORD_ENV,
   SUPERADMIN_PASSWORD_ENV,
+  ALIAS_PASSWORD_ENV,
   loadCoreAccountPasswords,
   corePasswordsFilePath,
 };

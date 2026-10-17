@@ -79,6 +79,7 @@ const TITLE_TO_TC = [
   [/IS-085/, ['TC-IS-08-001', 'TC-IS-08-002']],
   [/IS-086/, ['TC-IS-05-007']],
   [/IS-087/, ['TC-IS-02-030']],
+  [/IS-088/, ['TC-IS-11-021']],
   [/Posting Share Rewards|\/superadmin\/promotions/, ['TC-IS-14-012']],
   [/JOURNEY-SA-01|same-status publish|skips change/, ['TC-IS-14-023']],
   [/candidate register Google reaches Google OAuth|matching redirect_uri/, ['TC-IS-02-024']],

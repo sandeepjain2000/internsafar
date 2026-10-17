@@ -52,6 +52,7 @@ Defined for local `.env.local` only (also documented in `.env.example`). **Never
 | `IP_QA_EMPLOYER_EMAIL_VERIFY_TOKEN_IN_RESPONSE` | `1` → employer register JSON includes `qaVerifyUrl` + `qaOutboundMails` (always off when `VERCEL_ENV=production`) |
 | `IP_QA_CORE_PASSWORD` | Candidate / employer QA sign-in password (`scripts/lib/ipCoreSampleConfig.js`; env → `.env.local` → core-password CSV; throws if unset). Quote if it contains `#` |
 | `IP_QA_SUPERADMIN_PASSWORD` | SuperAdmin QA sign-in password (same lookup). No QA password literals in tracked files (2026-10-08) |
+| `IP_QA_ALIAS_PASSWORD` | Sign-in password for alias1–alias5@placementhub.online. Env / `.env.local` only. Runners sign in with it and do not replace the hash. Quote if it contains `#` |
 
 CI: skip OTP success assertions when codes unset, or use bypass. QA sign-ins use the disposable test accounts (§7), never the core candidate / employer.
 
@@ -120,6 +121,28 @@ Product hygiene (edit/obsolete/add cases vs live `src/`): `npm run qa:sync-xlsx-
   - Other hosts (AWS `internsafar.com`) have their own DB: run `npm run qa:ensure-test-accounts` there before testing.
 - Guard: `assertNotCoreForTesting()` (in `ipTestAccountsConfig.js`) makes `qa/helpers/login.js` (`apiLogin`, `signInOnHome`) and `scripts/lib/ipQaAuth.mjs` (`apiLogin`) throw on the core candidate / employer email.
 - Tests that open, apply to or moderate a posting pick from the test employer's postings (`qa/helpers/testPostings.js` → `testEmployerPublishedPostingIds()`): IS-061, IS-065, IS-066, JOURNEY-CAND-01, JOURNEY-SA-01.
+
+### Plan 2026-10-17 — offer pipeline regression (IS-088 passed locally)
+
+Manual evidence: `manual-testing/2026-10-16-employer-candidate-offer-acceptance-before-fixes/` (29 shots). That pass happened to use alias2 **Qubelyra Testworks**, posting **Business Consulting Intern**, candidate **Priya Sharma**. The automated case does not have to repeat that company. Do not sign in as Priya or as the core candidate `lawsonlclintern+1@gmail.com`.
+
+**Employer.** Any of alias1–alias5 that already has a published posting with no screening questions and an open apply window. The run picks the first of alias1, alias3, alias4, alias5, then alias2. It does not create a company or a `.example` address, and it does not delete the employer or the posting. It signs in with `IP_QA_ALIAS_PASSWORD` and does not change that password. Do not run it at the same time as another script that is borrowing that same alias (unknown-login removes alias2 for the length of that check).
+
+**Candidate.** One stable plus-address of the core Gmail, created when the case runs and reused: `lawsonlclintern+qa-offerflow@gmail.com` (Neha Kulkarni, Vishwakarma Institute of Technology). Password is `IP_QA_CORE_PASSWORD` and is written in the workbook only as `<IP_QA_CORE_PASSWORD>`. Not a dated address. The case deletes only this candidate’s application, offer, and messages when it finishes. It does not delete the posting or anyone else’s applications.
+
+**Case.** Workbook row **TC-IS-11-021** on sheet `11 Offers Ratings Completions` (`scripts/sync-internsafar-xlsx-2026-10-17-offer-pipeline.py`). Playwright **IS-088** in `qa/tests/regression.spec.js`, mapped in `scripts/apply-playwright-regression-xlsx.mjs`, so it is inside `qa:all` when that suite runs. Setup is `qa/helpers/offerPipelineFixture.js`. Local or `*.vercel.app` only. The test skips on any other host, including AWS. IS-088 passed once on local `localhost:3000` on 2026-10-17 (workbook TC-IS-11-021 Pass). The case limit is 6 minutes. The first employer page and the search / hired checks are the slow steps. The case is the flow (apply, shortlist, interview, offer, accept, both sides see the same record). The four bugs are the done checks inside that flow. A status-only walk would still pass if Search Candidates kept **Make offer**, the Offers list stayed thin, the meet link could not be edited, or the letter could not be attached. The prompts ask for one case per journey, with those visible results as the done criteria, not a separate case per screen and not a vague “it worked.”
+
+Walk the same pipeline as the screenshots, in the browser:
+
+1. Candidate applies. Employer sees **Applied**, then shortlists.
+2. Employer opens **Schedule interview**, saves a meet link, and the row becomes **Interviewing**.
+3. While the row is still Interviewing, the pencil opens **Update interview** with the saved time and meet link. Change both and save. Status stays Interviewing. The test must not move the row to Shortlisted to reach that box.
+4. **Send offer** shows **Upload offer letter** and an https link box. Send with an https letter link (file upload only if S3 is configured; the link is the check that always runs).
+5. Candidate **Offers → List** shows stipend, start, expiry, and View letter, Share, Message, Accept, Decline. Those were missing in shot 19.
+6. After the offer is sent, Search Candidates shows **Offer sent** and no **Make offer**. After the candidate accepts, the badge is **Offer accepted** and **Make offer** is still absent. Shot 24 failed this (still Shortlisted, Make offer visible).
+7. Employer applicants row is **Hired**. Candidate can open the letter link.
+
+Out of scope: the colored bulk **Shortlist** button in shot 07, endorse, rate, and a full `qa:all` run. When a run is asked for, run IS-088 only, on a fresh `npm run dev`, and record TC-IS-11-021. Do not clear older workbook results. Local pass recorded 2026-10-17. Not run on Vercel.
 
 **Incident that set this rule:** 2026-09-29 Nova Labs was suspended and restored while following manual test steps, then rejected the same evening; employer login was blocked on 2026-09-30 (~11:54–12:15 IST) until it was re-approved. Testing had also spent posting points on Nova Labs.
 

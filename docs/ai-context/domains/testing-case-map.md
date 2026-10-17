@@ -157,6 +157,7 @@ Every runner listed here writes its result to the workbook; "needs setup" rows o
 | TC-IS-11-018 | 11 Offers Ratings Completions | checklist runner | Pass | 2026-10-10 |
 | TC-IS-11-019 | 11 Offers Ratings Completions | checklist runner | Pass | 2026-10-10 |
 | TC-IS-11-020 | 11 Offers Ratings Completions | checklist runner | Pass | 2026-10-10 |
+| TC-IS-11-021 | 11 Offers Ratings Completions | Playwright | Pass | 2026-10-17 |
 | TC-IS-12-001 | 12 Messages | `scripts/qa-test-account-cases.mjs` | Pass | 2026-10-10 |
 | TC-IS-12-002 | 12 Messages | `scripts/qa-test-account-cases.mjs` | Pass | 2026-10-10 |
 | TC-IS-12-003 | 12 Messages | checklist runner (as CAND-N-1) | Pass | 2026-10-10 |
