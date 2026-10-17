@@ -6,6 +6,29 @@ InternSafar automated QA, regression, manual test-case creation, and results wor
 
 ## Resolved policies (do not re-open unless the owner changes them)
 
+### Bulk automated testing hold (2026-10-17)
+
+No bulk automated testing until the owner has had a discussion about testing and then removes this section from the context pack.
+
+Bulk means `npm run qa:all`, a full Playwright run, the checklist runner, a deep-register sweep, workbench `--live`, or any “run all tests” / multi-runner pass. Stop and ask first. Do not start the run while waiting. A yes has to be in the message that asks for that run.
+
+One case the user names in that message is still allowed (for example “run IS-088 only”).
+
+This hold overrides §8 below and PROJECT_INDEX hard constraint 10 while this section is present. When the discussion is done, the owner removes this section. Until then, do not treat “test everything” as permission to run `qa:all`.
+
+### No dummy accounts (2026-10-17)
+
+Do not create a dummy account. A dummy account is a non-real person with a fake email. Those addresses bounce.
+
+Never insert a user whose email is `@example.com`, `@example.org`, `@example.net`, `@acme-example.com`, a domain that is `example` or ends in `.example`, a made-up Outlook address, or any other mailbox the project does not own. `sendMail` dropping those domains is only a backstop. The account must not be created in the first place.
+
+Use an alias of a real mailbox the project already owns:
+
+- Employer checks: `alias1@placementhub.online` through `alias5@placementhub.online`. Save that account and put it back. Do not leave it deleted.
+- Free-email checks: `placementhubsupport+qa-freemail@gmail.com`.
+- Candidate checks: a plus-address of the existing core Gmail already used by QA (`lawsonlclintern+qa…`). A dated plus-address used for one case is hard-deleted after that case records its result.
+- Do not sign in as, or change, the three core accounts. That rule is unchanged (PROJECT_INDEX hard constraint 9).
+
 ### 1) Workbook source of truth
 
 | File | Role |
@@ -147,6 +170,8 @@ Out of scope: the colored bulk **Shortlist** button in shot 07, endorse, rate, a
 **Incident that set this rule:** 2026-09-29 Nova Labs was suspended and restored while following manual test steps, then rejected the same evening; employer login was blocked on 2026-09-30 (~11:54–12:15 IST) until it was re-approved. Testing had also spent posting points on Nova Labs.
 
 ### 8) "Test everything" = whole workbook, one command, one coverage report (owner rule 2026-10-07)
+
+**Paused by the 2026-10-17 bulk-testing hold** at the top of this file. Do not run the command below until that section is removed. Stop and ask first.
 
 Tests live in several runners — unit scripts, Playwright (`qa/tests`), checklist runner (`run-internsafar-qa.mjs`), deep register scripts, workbench — each with its own case list. None of them alone is "all tests", and a runner's own count (e.g. "250 results") is **not** the workbook total.
 

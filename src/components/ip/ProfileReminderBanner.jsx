@@ -1,27 +1,46 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
+export const IP_PROFILE_SAVED_EVENT = 'ip-profile-saved';
+
 /**
  * Throttled incomplete-profile reminder (DOCX §26.1).
  * Shown only on login milestones / 3-day cooldown — not every visit.
+ * A completed profile save hides it immediately. A later reminder fetch
+ * must not put it back.
  */
 export default function ProfileReminderBanner() {
   const [state, setState] = useState(null);
   const [hiding, setHiding] = useState(false);
+  const completedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     fetch('/api/ip/profile-reminder')
       .then((r) => r.json())
       .then((d) => {
-        if (!cancelled) setState(d);
+        if (!cancelled && !completedRef.current) setState(d);
       })
       .catch(() => {});
     return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    function onSaved(event) {
+      if (!event.detail?.profileComplete) return;
+      completedRef.current = true;
+      setState((current) => ({
+        ...(current || {}),
+        profileComplete: true,
+        shouldShow: false,
+      }));
+    }
+    window.addEventListener(IP_PROFILE_SAVED_EVENT, onSaved);
+    return () => window.removeEventListener(IP_PROFILE_SAVED_EVENT, onSaved);
   }, []);
 
   async function dismiss() {

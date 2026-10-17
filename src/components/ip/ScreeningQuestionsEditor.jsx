@@ -21,7 +21,11 @@ function blankQuestion() {
   };
 }
 
-/** Employer MCQ builder: prompt → required → options → optional disable toggle → trigger answers. */
+function isWritten(question) {
+  return question?.type === 'text' || question?.type === 'textarea';
+}
+
+/** Employer question builder: multiple choice or a written answer. */
 export default function ScreeningQuestionsEditor({ questions = [], onChange }) {
   const list = Array.isArray(questions) ? questions : [];
 
@@ -66,6 +70,26 @@ export default function ScreeningQuestionsEditor({ questions = [], onChange }) {
     update(qIdx, { options });
   }
 
+  function setAnswerType(idx, type) {
+    const q = list[idx];
+    if (type === 'text') {
+      update(idx, {
+        type: 'text',
+        disableApplicationOnAnswers: false,
+        disableTriggerOptionIds: [],
+        options: (q.options || []).map((o) => ({ ...o, disablesApplication: false })),
+      });
+      return;
+    }
+    const options = Array.isArray(q.options) && q.options.length >= 2
+      ? q.options
+      : [
+        { id: `opt_${Date.now()}_a`, label: '', disablesApplication: false },
+        { id: `opt_${Date.now()}_b`, label: '', disablesApplication: false },
+      ];
+    update(idx, { type: 'mcq', options });
+  }
+
   function setDisableToggle(qIdx, enabled) {
     const q = list[qIdx];
     const options = (q.options || []).map((o) => ({
@@ -82,9 +106,9 @@ export default function ScreeningQuestionsEditor({ questions = [], onChange }) {
   return (
     <div className="grid gap-4">
       <p className="text-sm text-muted-foreground">
-        Optional screening questions for candidates (not an exam). They pick one option each.
-        Optional questions may be skipped. You can mark specific answers so those applications are
-        flagged in your applicant table — they are still inspectable.
+        Optional screening questions (not an exam). Choose multiple choice or a written answer.
+        Optional questions may be skipped. On a multiple-choice question you can flag specific
+        answers in your applicant table — those applications are still inspectable.
       </p>
       {list.map((q, idx) => (
         <div key={q.id || idx} className="rounded-md border p-3 space-y-3">
@@ -102,17 +126,35 @@ export default function ScreeningQuestionsEditor({ questions = [], onChange }) {
               placeholder="e.g. Which city will you work from?"
             />
           </Field>
-          <Field>
-            <FieldLabel>Required?</FieldLabel>
-            <select
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-              value={q.required === false ? 'optional' : 'required'}
-              onChange={(e) => update(idx, { required: e.target.value === 'required' })}
-            >
-              <option value="required">Mandatory</option>
-              <option value="optional">Optional</option>
-            </select>
-          </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field>
+              <FieldLabel>Required?</FieldLabel>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                value={q.required === false ? 'optional' : 'required'}
+                onChange={(e) => update(idx, { required: e.target.value === 'required' })}
+              >
+                <option value="required">Mandatory</option>
+                <option value="optional">Optional</option>
+              </select>
+            </Field>
+            <Field>
+              <FieldLabel>Answer type</FieldLabel>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                value={isWritten(q) ? 'text' : 'mcq'}
+                onChange={(e) => setAnswerType(idx, e.target.value)}
+              >
+                <option value="mcq">Multiple choice</option>
+                <option value="text">Written answer</option>
+              </select>
+            </Field>
+          </div>
+          {isWritten(q) ? (
+            <p className="text-sm text-muted-foreground">
+              Candidates type their own answer. No options are shown.
+            </p>
+          ) : (
           <div className="space-y-2">
             <FieldLabel>Answer options</FieldLabel>
             {(q.options || []).map((o, oIdx) => (
@@ -142,26 +184,29 @@ export default function ScreeningQuestionsEditor({ questions = [], onChange }) {
               Add option
             </Button>
           </div>
-          <Field>
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="mt-1"
-                checked={Boolean(q.disableApplicationOnAnswers)}
-                onChange={(e) => setDisableToggle(idx, e.target.checked)}
-              />
-              <span>
-                <span className="font-medium">Disable / grey-out application at source based on response</span>
-                <FieldDescription className="mt-1">
-                  When enabled, select one or more trigger answers above. Candidates who pick a trigger
-                  answer still submit an application; it appears greyed out in your applicant table and
-                  remains filterable. This works for any question topic — only the options you mark as
-                  triggers matter.
-                </FieldDescription>
-              </span>
-            </label>
-          </Field>
-          {q.disableApplicationOnAnswers ? (
+          )}
+          {!isWritten(q) ? (
+            <Field>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={Boolean(q.disableApplicationOnAnswers)}
+                  onChange={(e) => setDisableToggle(idx, e.target.checked)}
+                />
+                <span>
+                  <span className="font-medium">Disable / grey-out application at source based on response</span>
+                  <FieldDescription className="mt-1">
+                    When enabled, select one or more trigger answers above. Candidates who pick a trigger
+                    answer still submit an application; it appears greyed out in your applicant table and
+                    remains filterable. This works for any question topic — only the options you mark as
+                    triggers matter.
+                  </FieldDescription>
+                </span>
+              </label>
+            </Field>
+          ) : null}
+          {!isWritten(q) && q.disableApplicationOnAnswers ? (
             <Alert>
               <AlertTitle>Before you publish</AlertTitle>
               <AlertDescription>

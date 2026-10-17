@@ -14,6 +14,7 @@ import { phoneDialOptionsFor, validateRequiredPhone } from '@/lib/ipPhoneValidat
 import { toSafeClientError } from '@/lib/ipSafeClientError';
 import { toTitleCaseLabel } from '@/lib/ipTitleCase';
 import '@/components/ip/ip-employer-profile-gemini.css';
+import { IP_PROFILE_SAVED_EVENT } from '@/components/ip/ProfileReminderBanner';
 
 const DOC_TYPES = ['Shop Act', 'LLP registration', 'Business PAN', 'Other'];
 
@@ -216,6 +217,9 @@ export default function EmployerProfilePage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      window.dispatchEvent(new CustomEvent(IP_PROFILE_SAVED_EVENT, {
+        detail: { profileComplete: Boolean(data.profileComplete) },
+      }));
       if (data.profileComplete) {
         setMessage('Profile saved — complete! (Company fields + all Guidelines & Ethics accepted.)');
       } else if (!data.ethicsComplete) {

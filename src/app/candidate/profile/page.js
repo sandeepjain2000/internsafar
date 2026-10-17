@@ -26,6 +26,7 @@ import { MAX_COMMITMENT_NOTE_LENGTH, firstSetupFieldError } from '@/lib/ipProfil
 import { fetchErrorMessage, fetchJsonWithRetry } from '@/lib/fetchJsonWithRetry';
 import { signOutAndEndSession } from '@/lib/ipClientSignOut';
 import IpUploadButton from '@/components/ip/IpUploadButton';
+import { IP_PROFILE_SAVED_EVENT } from '@/components/ip/ProfileReminderBanner';
 import { IpListLoading } from '@/components/ip/IpListStatus';
 import SearchableMultiSelect from '@/components/ip/SearchableMultiSelect';
 import SearchableSelect from '@/components/ip/SearchableSelect';
@@ -507,6 +508,9 @@ export default function CandidateProfilePage() {
       setDraftNotOnAccount(false);
       setServerProfile(savedForm);
       serverFingerprintRef.current = profileDraftFingerprint(savedForm, academicsForFingerprint, orderedExperiences);
+      window.dispatchEvent(new CustomEvent(IP_PROFILE_SAVED_EVENT, {
+        detail: { profileComplete: Boolean(data.profileComplete) },
+      }));
       setMessage(
         data.profileComplete
           ? 'Profile saved — applications unlocked. All profile tabs stay open.'

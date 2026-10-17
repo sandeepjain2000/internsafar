@@ -23,7 +23,7 @@ Employer dashboard, profile/docs, internship postings, candidate search/workbenc
 | `/employer/internships` | Postings list |
 | `/employer/internships/new` | Create posting (stipend min–max via `stipend_inr` + `stipend_inr_max`; Back to Postings) |
 | `/employer/internships/[id]` | Posting detail / workbench |
-| `/employer/internships/[id]/edit` | Edit posting — same tabs as create (Details incl. Show company identity, Schedule, Hours & engagement, Compensation, Eligibility, Screening); Eligibility saves `eligibility` JSON `{ skills[], degree, degrees[], minCgpa }` via `PUT`, keeping other stored keys (2026-10-01) |
+| `/employer/internships/[id]/edit` | Edit posting — same tabs as create (Details incl. Show company identity, Schedule, Hours & engagement, Compensation, Eligibility, Screening); Eligibility saves `eligibility` JSON `{ skills[], degree, degrees[], minCgpa }` via `PUT`, keeping other stored keys (2026-10-01). Screening (`ScreeningQuestionsEditor`) is multiple choice or a written answer (`type: mcq` or `text`); written answers have no options and cannot grey-out an application (2026-10-17) |
 
 Posting working hours (new + edit, "Hours & Engagement" tab): 12-hour time box (type `9:30`, `930`, `6:45 pm` or `18:45` — 24-hour input flips to PM) + AM/PM toggle + clock popover (hour / 5-minute grid) in `src/components/ip/WorkTime12hInput.jsx`; invalid text shows red and sends blank. Still stored as 24-hour `HH:MM` text in `work_hours_start` / `work_hours_end` (no schema change); candidate internship page and employer Excel export show 12-hour via `src/lib/ipWorkHours.js` (2026-10-01).
 | `/employer/candidates`, `/employer/candidates/[id]` | Search / detail |

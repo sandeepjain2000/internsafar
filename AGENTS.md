@@ -115,7 +115,7 @@ Do not report a task complete just because the code compiles.
 2. Check callers and consumers of anything you touched (API contracts, shared components, libs, other roles).
 3. Run `npm run lint` (at least on changed files). Run `npm run build` before reporting a feature complete
    and always before a push/deploy. New migration SQL → `npm run db:check-migration-safety`.
-4. Run relevant QA when the area has it (see `docs/ai-context/domains/testing.md` for `npm run qa:*`).
+4. Run relevant QA when the area has it (see `docs/ai-context/domains/testing.md` for `npm run qa:*`). While the 2026-10-17 bulk-testing hold in that file is present, do not start a bulk or all-tests run; stop and ask first. One named case the user just asked for is still allowed.
 5. Fix errors caused by the change, then re-validate. Do not suppress or ignore errors.
 6. UI changes: check desktop and mobile layout and the affected user flow.
    API/DB changes: check input validation, error handling, auth/role checks, existing rows, and existing consumers.

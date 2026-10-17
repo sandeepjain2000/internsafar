@@ -361,7 +361,7 @@ export default function IpSignInLanding() {
                       {emailVerifyNeeded && !otpStep ? (
                         <button
                           type="button"
-                          className="ip-gemini-link-btn self-start text-left text-sm font-medium underline underline-offset-2 disabled:opacity-60"
+                          className="ip-gemini-link"
                           disabled={resendBusy || resendCooldown > 0 || !email.trim()}
                           onClick={resendEmployerVerify}
                         >

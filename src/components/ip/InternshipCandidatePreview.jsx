@@ -34,7 +34,7 @@ export default function InternshipCandidatePreview({ internship, onClose }) {
                 <CardTitle className="text-xl">{internship.title}</CardTitle>
                 <CardDescription>{placeLine || '—'}</CardDescription>
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={onClose}>Close preview</Button>
+              <Button type="button" size="sm" className="shrink-0" onClick={onClose}>Close preview</Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
