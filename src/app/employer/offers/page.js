@@ -378,6 +378,45 @@ export default function EmployerOffersPage() {
     }
   }
 
+  function canFinishInternship(o) {
+    return displayStatus(o).key === 'accepted'
+      && o.application_id
+      && String(o.application_status || '').toLowerCase() === 'hired'
+      && !o.application_completed_at;
+  }
+
+  async function finishInternship(o) {
+    const name = o.candidate_name || 'this candidate';
+    if (!window.confirm(`Mark the internship as finished for ${name}? The status changes from Hired to Completed.`)) return;
+    setBusyId(o.id);
+    setStatusMsg('');
+    try {
+      const res = await fetch('/api/ip/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applicationId: o.application_id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatusOk(false);
+        setStatusMsg(data.error || 'Could not mark this internship finished');
+        return;
+      }
+      setStatusOk(true);
+      setStatusMsg(`Internship marked finished for ${name}.`);
+      setItems((prev) => prev.map((row) => (
+        row.id === o.id
+          ? { ...row, application_status: 'completed', application_completed_at: new Date().toISOString() }
+          : row
+      )));
+    } catch {
+      setStatusOk(false);
+      setStatusMsg('Could not mark this internship finished');
+    } finally {
+      setBusyId('');
+    }
+  }
+
   function openLetter(o) {
     if (o.letter_url) {
       window.open(o.letter_url, '_blank', 'noopener,noreferrer');
@@ -419,6 +458,16 @@ export default function EmployerOffersPage() {
         ) : null}
         {st.key === 'accepted' ? (
           <>
+            {canFinishInternship(o) ? (
+              <button
+                type="button"
+                className="ip-eo-btn-ghost"
+                disabled={busyId === o.id}
+                onClick={() => finishInternship(o)}
+              >
+                {busyId === o.id ? 'Finishing…' : 'Finish internship'}
+              </button>
+            ) : null}
             <button
               type="button"
               className="ip-eo-btn-ghost"

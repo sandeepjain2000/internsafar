@@ -78,10 +78,12 @@ export async function GET() {
   const emp = await query(`SELECT id FROM ip_employers WHERE user_id = $1`, [session.user.id]);
   const result = await query(
     `SELECT o.*, i.title, c.name as candidate_name, c.college as candidate_college,
-            c.user_id as candidate_user_id
+            c.user_id as candidate_user_id,
+            a.status AS application_status, a.completed_at AS application_completed_at
      FROM ip_offers o
      JOIN ip_internships i ON i.id = o.internship_id
      JOIN ip_candidates c ON c.id = o.candidate_id
+     LEFT JOIN ip_applications a ON a.id = o.application_id
      WHERE o.employer_id = $1 ORDER BY o.created_at DESC`,
     [emp.rows[0]?.id || ''],
   );
