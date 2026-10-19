@@ -185,8 +185,8 @@ const BASICS_REQUIRED = [
   { key: 'last_name', label: 'Last Name' },
   { key: 'phone', label: 'Mobile phone' },
   { key: 'country', label: 'Country' },
-  { key: 'city', label: 'Current City' },
   { key: 'state', label: 'State / Union Territory' },
+  { key: 'city', label: 'Current City' },
   { key: 'preferred_work_mode', label: 'Preferred Work Mode' },
   { key: 'availability_date', label: 'Earliest Availability / Start Date' },
   { key: 'resume_url', label: 'Resume / CV' },
@@ -977,15 +977,6 @@ export default function CandidateProfilePage() {
                 </Field>
                 {!inIndia ? (
                   <>
-                    <Field label="Current City" required invalid={isMissing('city')}>
-                      <input
-                        className="ip-cp-input"
-                        value={form.city || ''}
-                        onChange={(e) => set('city', e.target.value)}
-                        placeholder={`City in ${form.country}`}
-                        aria-label="Current city"
-                      />
-                    </Field>
                     <Field label="State / Province" required invalid={isMissing('state')}>
                       <input
                         className="ip-cp-input"
@@ -995,9 +986,37 @@ export default function CandidateProfilePage() {
                         aria-label="State or province"
                       />
                     </Field>
+                    <Field label="Current City" required invalid={isMissing('city')}>
+                      <input
+                        className="ip-cp-input"
+                        value={form.city || ''}
+                        onChange={(e) => set('city', e.target.value)}
+                        placeholder={`City in ${form.country}`}
+                        aria-label="Current city"
+                      />
+                    </Field>
                   </>
                 ) : (
                 <>
+                <Field label="State / Union Territory" required invalid={isMissing('state')}>
+                  <SearchableSelect
+                    options={stateOptions}
+                    value={form.state || ''}
+                    loading={citiesLoading && !(stateOptions || []).length}
+                    onChange={(state) => {
+                      setForm((f) => {
+                        const hit = findCity(f.city);
+                        const cityStillValid =
+                          !state
+                          || !f.city
+                          || (hit && String(hit.state || '').toLowerCase() === String(state).toLowerCase());
+                        return { ...f, state, city: cityStillValid ? f.city : '' };
+                      });
+                    }}
+                    placeholder="Search states…"
+                    ariaLabel="State or union territory"
+                  />
+                </Field>
                 <Field label="Current City" required invalid={isMissing('city')}>
                   <CitySelectWithOther
                     options={cityChoices}
@@ -1016,25 +1035,6 @@ export default function CandidateProfilePage() {
                     inputClassName="ip-cp-input"
                     placeholder="Search cities…"
                     ariaLabel="Current city"
-                  />
-                </Field>
-                <Field label="State / Union Territory" required invalid={isMissing('state')}>
-                  <SearchableSelect
-                    options={stateOptions}
-                    value={form.state || ''}
-                    loading={citiesLoading && !(stateOptions || []).length}
-                    onChange={(state) => {
-                      setForm((f) => {
-                        const hit = findCity(f.city);
-                        const cityStillValid =
-                          !state
-                          || !f.city
-                          || (hit && String(hit.state || '').toLowerCase() === String(state).toLowerCase());
-                        return { ...f, state, city: cityStillValid ? f.city : '' };
-                      });
-                    }}
-                    placeholder="Search states…"
-                    ariaLabel="State or union territory"
                   />
                 </Field>
                 </>
