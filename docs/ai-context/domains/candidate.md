@@ -78,7 +78,7 @@ Candidate profile location/phone update path: `src/lib/ipCandidateProfileUpdate.
 - Profile `resume_url` / `photo_url` accept only the candidate's own upload key (`internship-portal/candidates/<userId>/…`, `isOwnCandidateUploadUrl` in `ipCandidateProfileUpdate.js`); blank clears; any other value is ignored (existing external photo URLs untouched). Employer CV download/export also check the owner prefix before reading S3.
 - Withdraw button is labelled **Withdraw application** and asks for confirmation first.
 - One-time bonuses (`awardPointsOnce`) use an advisory transaction lock; viral share rewards claim atomically — no double award.
-- `POST /api/ip/completions` only marks **hired** applications complete (409 otherwise).
+- `POST /api/ip/completions` only marks **hired** applications complete (409 otherwise). The employer button is **Finish internship** on the posting’s applicant row (`/employer/internships/[id]`). No date job sets `completed`.
 
 ## Constraints
 

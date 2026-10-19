@@ -75,6 +75,10 @@ function statusInfo(c) {
   return { label: 'Available', cls: 'is-gray' };
 }
 
+function internshipAvailabilityLabel(c) {
+  return c.currentlyHired ? 'Currently hired' : 'Available for an offer';
+}
+
 function relLine(c) {
   const r = c.relationship || {};
   if (r.offerState === 'accepted') return 'Offer accepted — Make offer is closed for this candidate';
@@ -471,6 +475,7 @@ export default function CandidateSearchPage() {
                     <th className="p-3">Candidate</th>
                     <th className="p-3">College</th>
                     <th className="p-3">Status</th>
+                    <th className="p-3">Current internship</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -481,6 +486,7 @@ export default function CandidateSearchPage() {
                       </td>
                       <td className="p-3">{c.college || '—'}</td>
                       <td className="p-3">{statusInfo(c).label}</td>
+                      <td className="p-3">{internshipAvailabilityLabel(c)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -528,6 +534,7 @@ export default function CandidateSearchPage() {
                     </b>
                     <span>Relevant experience</span>
                   </div>
+                  <div className="ip-ec-fact"><b>{internshipAvailabilityLabel(c)}</b><span>Current internship</span></div>
                   <div className="ip-ec-fact"><b>{availLabel(c)}</b><span>Availability</span></div>
                   <div className="ip-ec-fact"><b>{c.preferred_work_mode || '—'}</b><span>Work preference</span></div>
                   <div className="ip-ec-fact"><b>{relativeUpdated(c.updated_at)}</b><span>Profile activity</span></div>

@@ -330,6 +330,22 @@ export default function ApplicantsPipelinePage() {
     downloadExportPayload(res);
   }
 
+  async function finishInternship(applicant) {
+    const name = applicant?.name || 'this candidate';
+    if (!window.confirm(`Mark the internship as finished for ${name}? The status changes from Hired to Completed.`)) return;
+    const res = await fetch('/api/ip/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ applicationId: applicant.id }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      window.alert(data.error || 'Could not mark this internship finished');
+      return;
+    }
+    await load();
+  }
+
   async function setStatus(appId, next) {
     if (next === 'interviewing') {
       const row = applicants.find((a) => a.id === appId);
@@ -558,6 +574,11 @@ export default function ApplicantsPipelinePage() {
         ) : null}
         {OFFERABLE_APPLICATION_STATUSES.includes(String(a.status || '').toLowerCase()) ? (
           <StandardTableIconAction action="offer" onClick={() => openOffer(a)} />
+        ) : null}
+        {String(a.status || '').toLowerCase() === 'hired' ? (
+          <Button size="sm" variant="outline" onClick={() => finishInternship(a)}>
+            Finish internship
+          </Button>
         ) : null}
         <Button
           size="sm"

@@ -26,7 +26,7 @@ Employer dashboard, profile/docs, internship postings, candidate search/workbenc
 | `/employer/internships/[id]/edit` | Edit posting — same tabs as create (Details incl. Show company identity, Schedule, Hours & engagement, Compensation, Eligibility, Screening); Eligibility saves `eligibility` JSON `{ skills[], degree, degrees[], minCgpa }` via `PUT`, keeping other stored keys (2026-10-01). Screening (`ScreeningQuestionsEditor`) is multiple choice or a written answer (`type: mcq` or `text`); written answers have no options and cannot grey-out an application (2026-10-17) |
 
 Posting working hours (new + edit, "Hours & Engagement" tab): 12-hour time box (type `9:30`, `930`, `6:45 pm` or `18:45` — 24-hour input flips to PM) + AM/PM toggle + clock popover (hour / 5-minute grid) in `src/components/ip/WorkTime12hInput.jsx`; invalid text shows red and sends blank. Still stored as 24-hour `HH:MM` text in `work_hours_start` / `work_hours_end` (no schema change); candidate internship page and employer Excel export show 12-hour via `src/lib/ipWorkHours.js` (2026-10-01).
-| `/employer/candidates`, `/employer/candidates/[id]` | Search / detail |
+| `/employer/candidates`, `/employer/candidates/[id]` | Search / detail. Each result includes `currentlyHired`: true when that person has any application with `status = hired` and `completed_at` null (any employer, company name not shown). The list column and card fact read **Currently hired** or **Available for an offer**. |
 | `/employer/messages`, `/employer/messages/[id]` | Messaging |
 | `/employer/offers` | Offers |
 | `/employer/notifications` | Notifications |
@@ -52,7 +52,9 @@ Publishing (confirmed 2026-10-03): `POST /api/ip/employer/internships` validates
 
 ## Application status changes (confirmed 2026-10-03)
 
-`EMPLOYER_STATUS_TRANSITIONS` in `src/lib/ipApplicationPresentation.js` decides which status buttons show (`employerStatusTargets`) and what `PATCH /api/ip/employer/applications/[id]` accepts (`employerCanSetStatus`, 409 otherwise). `offered` is set only by sending an offer; `withdrawn` / `completed` are locked; a hire that came from an **accepted offer** cannot be changed (409). Manual hire is allowed from shortlisted/interviewing. Bulk shortlist/reject/interview skips rows the map refuses and returns `skipped` (UI shows the count).
+`EMPLOYER_STATUS_TRANSITIONS` in `src/lib/ipApplicationPresentation.js` decides which status buttons show (`employerStatusTargets`) and what `PATCH /api/ip/employer/applications/[id]` accepts (`employerCanSetStatus`, 409 otherwise). `offered` is set only by sending an offer; `withdrawn` / `completed` are locked on that PATCH; a hire that came from an **accepted offer** cannot be changed (409). Manual hire is allowed from shortlisted/interviewing. Bulk shortlist/reject/interview skips rows the map refuses and returns `skipped` (UI shows the count).
+
+**Finish internship (2026-10-19):** on `/employer/internships/[id]`, a Hired row shows **Finish internship**. It confirms, then `POST /api/ip/completions` with that application id. The API still accepts only `hired` (409 otherwise) and sets `status = completed` plus `completed_at`. The internship end date does not do this. The posting Status filter can show the word completed; it does not set the status.
 
 Single and bulk status changes share `applyEmployerApplicationStatus` (`src/lib/ipApplicationStatusChange.js`). Interview times are sent as ISO (`interview_at` is timestamptz); emails/reminders format in IST via `formatIstDateTime` (`src/lib/ipIstTime.js`). Create-posting dates are converted to ISO on the client (`localInputToIso`). Dashboard "interviews today" compares the IST date.
 

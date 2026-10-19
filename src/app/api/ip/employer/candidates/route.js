@@ -121,6 +121,18 @@ export async function GET(request) {
   );
 
   const ids = result.rows.map((r) => r.id);
+  const hiredIds = new Set();
+  if (ids.length) {
+    const hired = await query(
+      `SELECT DISTINCT candidate_id
+       FROM ip_applications
+       WHERE candidate_id = ANY($1::text[])
+         AND lower(status) = 'hired'
+         AND completed_at IS NULL`,
+      [ids],
+    );
+    for (const row of hired.rows) hiredIds.add(row.candidate_id);
+  }
   const relByCand = new Map();
   if (employerId && ids.length) {
     const rel = await query(
@@ -185,6 +197,7 @@ export async function GET(request) {
       ...row,
       experience_years: years,
       availability_bucket: availabilityBucket(row),
+      currentlyHired: hiredIds.has(row.id),
       relationship: {
         applied: Boolean(rel.applied),
         invited: Boolean(rel.invited),

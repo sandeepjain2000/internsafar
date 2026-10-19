@@ -54,7 +54,7 @@ When AWS lacks columns that local/Vercel already have:
 4. Delete the temp runner after run.
 5. **Forbidden:** `email_verify_required=false` (or similar) so code “ignores blanks.”
 
-Workspace plan for next AWS push (outside app tree): `aws deploy/AWS-PUSH-PLAN-SCHEMA-BACKFILL-2026-10-08.md` (049 + 050, no blank-fill; **executed 2026-10-08** — AWS schema now matches local/Vercel again). General steps: `domains/deployment.md` → "General runbook".
+Last schema-touching AWS plan (outside app tree): `aws deploy/AWS-PUSH-PLAN-SCHEMA-BACKFILL-2026-10-08.md` (049 + 050, no blank-fill; **executed 2026-10-08**). **2026-10-17 Path B** (`aws deploy/AWS-PUSH-PLAN-2026-10-17.md`, code `f6c7802`): read-only compare found no missing RDS column and no blank to fill. The only local-only table is unused `ip_schema_flags` (do not create it on RDS). General steps: `domains/deployment.md` → "General runbook".
 
 ## Environments ↔ database
 
