@@ -29,6 +29,14 @@ Use an alias of a real mailbox the project already owns:
 - Candidate checks: a plus-address of the existing core Gmail already used by QA (`lawsonlclintern+qa…`). A dated plus-address used for one case is hard-deleted after that case records its result.
 - Do not sign in as, or change, the three core accounts. That rule is unchanged (PROJECT_INDEX hard constraint 9).
 
+### No bounce-causing mail (2026-10-21)
+
+Never run a test, script, or manual step that sends mail to an address that will bounce. InternSafar and PlacementHub share one ZeptoMail account, so a PlacementHub bounce hurts InternSafar too.
+
+InternSafar employer registration still sends a verification email before that new account can sign in. That send must use an alias of a real mailbox (the list above). Do not run a register or resend against a fake inbox.
+
+PlacementHub sign-in does not send mail. `src/lib/auth.js` only checks that `email_verified_at` is already stored. The 20 AWS core accounts already have that timestamp, so they can sign in without a message. A new PlacementHub registration does send a verification email and blocks sign-in until the link is used. Do not change the 20 core accounts for sign-in. Do not run PlacementHub forgot-password, welcome, apply, offer, interview, bulk-notify, or college-create steps that deliver to a bounce address. Known bounce deliveries: `arjun.verma@iitm.edu`, `test-notifications@nitt.edu`, `qa-create-check@placementhub.online`, and `@campus-placement.work`. The other 18 core accounts deliver to `sandeepjain200019@gmail.com` (a real inbox). Details: Placement Hub Cortex `08-quality/README.md`.
+
 ### 1) Workbook source of truth
 
 | File | Role |

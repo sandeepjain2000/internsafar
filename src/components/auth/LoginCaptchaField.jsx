@@ -13,6 +13,22 @@ import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
+/** Expiry stored in the signed question. Null when the token has none. */
+function captchaExpiresAt(token) {
+  const raw = String(token || '');
+  const sep = raw.lastIndexOf('~') >= 0 ? raw.lastIndexOf('~') : raw.lastIndexOf('.');
+  if (sep <= 0) return null;
+  const body = raw.slice(0, sep);
+  try {
+    const pad = body.length % 4 === 0 ? '' : '='.repeat(4 - (body.length % 4));
+    const json = atob(`${body.replace(/-/g, '+').replace(/_/g, '/')}${pad}`);
+    const payload = JSON.parse(json);
+    return typeof payload.exp === 'number' ? payload.exp : null;
+  } catch {
+    return null;
+  }
+}
+
 const ANTI_AUTOFILL = {
   autoComplete: 'off',
   autoCorrect: 'off',
@@ -200,6 +216,18 @@ const LoginCaptchaField = forwardRef(function LoginCaptchaField(
   useEffect(() => {
     loadChallengeRef.current = loadChallenge;
   }, [loadChallenge]);
+
+  // A question left open past its stored expiry is replaced when the person comes back to this tab.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const exp = captchaExpiresAt(tokenRef.current);
+      if (exp == null || Date.now() <= exp) return;
+      void loadChallengeRef.current?.();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   useEffect(() => {
     void loadChallenge();
