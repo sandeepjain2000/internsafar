@@ -14,6 +14,40 @@ import {
 } from '@/lib/ipMessageResponseState';
 import { MAX_ACTIVE_APPLICATIONS_PER_POSTING } from '@/lib/ipApplicationCapacity';
 import { summarizeMcqResponses } from '@/lib/ipMcqAnalytics';
+import {
+  attachLiveMatchScores,
+  filterByMinMatch,
+  paginateRows,
+} from '@/lib/ipLiveMatchScore';
+
+function sortApplicantRows(rows, sort) {
+  const list = [...(rows || [])];
+  if (sort === 'newest') {
+    list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    return list;
+  }
+  if (sort === 'name') {
+    list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
+    return list;
+  }
+  if (sort === 'status') {
+    list.sort((a, b) => {
+      const s = String(a.status || '').localeCompare(String(b.status || ''));
+      if (s !== 0) return s;
+      return (b.match_score ?? -1) - (a.match_score ?? -1);
+    });
+    return list;
+  }
+  // default: match — screening_disabled first, then match desc, then oldest apply
+  list.sort((a, b) => {
+    const dis = Number(Boolean(a.screening_disabled)) - Number(Boolean(b.screening_disabled));
+    if (dis !== 0) return dis;
+    const m = (b.match_score ?? -1) - (a.match_score ?? -1);
+    if (m !== 0) return m;
+    return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+  });
+  return list;
+}
 
 export async function GET(request, { params }) {
   const { session, error } = await requireSession(['employer']);
@@ -23,7 +57,10 @@ export async function GET(request, { params }) {
   await ensureIpWorkbenchSchema();
   const { id } = await params;
   const emp = await query(`SELECT id FROM ip_employers WHERE user_id = $1`, [session.user.id]);
-  const owns = await query(`SELECT id, questions FROM ip_internships WHERE id = $1 AND employer_id = $2`, [id, emp.rows[0]?.id]);
+  const owns = await query(
+    `SELECT id, questions, eligibility FROM ip_internships WHERE id = $1 AND employer_id = $2`,
+    [id, emp.rows[0]?.id],
+  );
   if (!owns.rows[0]) return jsonError('Not found', 404);
 
   const { searchParams } = new URL(request.url);
@@ -47,10 +84,6 @@ export async function GET(request, { params }) {
   const minHistOngoing = Number(searchParams.get('minHistOngoing') || 0);
   const includeMcqSummary = searchParams.get('mcqSummary') === '1';
   const sort = searchParams.get('sort') || 'match';
-  let orderBy = 'a.screening_disabled ASC, a.match_score DESC NULLS LAST, a.created_at ASC';
-  if (sort === 'newest') orderBy = 'a.created_at DESC';
-  if (sort === 'name') orderBy = 'lower(c.name) ASC';
-  if (sort === 'status') orderBy = 'a.status ASC, a.match_score DESC NULLS LAST';
 
   const qParams = [id];
   const where = ['a.internship_id = $1'];
@@ -63,10 +96,7 @@ export async function GET(request, { params }) {
     qParams.push(`%${q}%`);
     where.push(`(lower(c.name) LIKE $${qParams.length} OR lower(c.college) LIKE $${qParams.length} OR lower(c.degree) LIKE $${qParams.length})`);
   }
-  if (minMatch) {
-    qParams.push(minMatch);
-    where.push(`COALESCE(a.match_score,0) >= $${qParams.length}`);
-  }
+  // minMatch applied in memory after live scores (not a.match_score)
   if (screeningDisabled === '1') {
     where.push(`a.screening_disabled = true`);
   } else if (screeningDisabled === '0') {
@@ -143,17 +173,7 @@ export async function GET(request, { params }) {
     )`);
   }
 
-  const countRes = await query(
-    `SELECT count(*)::int AS n
-     FROM ip_applications a JOIN ip_candidates c ON c.id = a.candidate_id
-     WHERE ${where.join(' AND ')}`,
-    qParams,
-  );
-  const total = Number(countRes.rows[0]?.n || 0);
-  const offset = (page - 1) * pageSize;
-  qParams.push(pageSize);
-  qParams.push(offset);
-
+  // Fetch all rows matching non-score filters, then live-score → filter → sort → page
   const result = await query(
     `SELECT a.*, c.name, c.email, c.college, c.degree, c.city, c.skills, c.resume_url, c.linkedin_url,
             c.user_id as candidate_user_id, c.phone, c.whatsapp_opt_in,
@@ -167,11 +187,14 @@ export async function GET(request, { params }) {
             (SELECT string_agg(l.name, ', ') FROM ip_employer_list_members lm
               JOIN ip_employer_lists l ON l.id = lm.list_id WHERE lm.application_id = a.id) AS list_names
      FROM ip_applications a JOIN ip_candidates c ON c.id = a.candidate_id
-     WHERE ${where.join(' AND ')}
-     ORDER BY ${orderBy}
-     LIMIT $${qParams.length - 1} OFFSET $${qParams.length}`,
+     WHERE ${where.join(' AND ')}`,
     qParams,
   );
+
+  attachLiveMatchScores(result.rows, owns.rows[0].eligibility || {});
+  const filtered = filterByMinMatch(result.rows, minMatch);
+  const sorted = sortApplicantRows(filtered, sort);
+  const paged = paginateRows(sorted, page, pageSize);
 
   const caps = await query(
     `SELECT
@@ -181,7 +204,7 @@ export async function GET(request, { params }) {
     [id],
   );
 
-  const items = result.rows.map((row) => {
+  const items = paged.items.map((row) => {
     const hide = row.hide_phone_until_shortlist !== false;
     const reveal = employerCanSeeCandidatePhone(row.status, hide);
     const hist = decorateHistoryFields(row);
@@ -209,9 +232,9 @@ export async function GET(request, { params }) {
 
   return jsonOk({
     items,
-    total,
-    page,
-    pageSize,
+    total: paged.total,
+    page: paged.page,
+    pageSize: paged.pageSize,
     capacity: {
       active: caps.rows[0]?.active || 0,
       historical: caps.rows[0]?.historical || 0,

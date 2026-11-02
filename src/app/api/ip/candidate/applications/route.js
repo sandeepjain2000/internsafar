@@ -19,6 +19,8 @@ import { withApplicationCapacityLock } from '@/lib/ipApplicationCapacity';
 import { candidateFacingCompany, maskEmployerIdentityForCandidate } from '@/lib/ipEmployerIdentity';
 import { escapeHtml } from '@/lib/escapeHtml';
 import { ensureIpInternshipStipendRangeSchema } from '@/lib/ensureIpInternshipStipendRangeSchema';
+import { liveMatchScore, paginateRows } from '@/lib/ipLiveMatchScore';
+import { skillMatchPercent } from '@/lib/skillMatch';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,6 +56,9 @@ export async function GET(request) {
     const page = Math.max(1, Number(searchParams.get('page') || 1));
     const pageSize = Math.min(200, Math.max(1, Number(searchParams.get('pageSize') || 50)));
 
+    const candSkills = await query(`SELECT skills FROM ip_candidates WHERE id = $1`, [candidateId]);
+    const skills = candSkills.rows[0]?.skills || [];
+
     const params = [candidateId];
     const where = ['a.candidate_id = $1'];
     if (q) {
@@ -62,49 +67,47 @@ export async function GET(request) {
         OR (coalesce(i.show_employer_identity, true) AND lower(coalesce(e.company_name,'')) LIKE $${params.length}))`);
     }
 
-    let orderBy = 'a.created_at DESC NULLS LAST';
-    if (sort === 'oldest') orderBy = 'a.created_at ASC NULLS LAST';
-    else if (sort === 'status') orderBy = 'a.status ASC, a.created_at DESC';
-    else if (sort === 'match') orderBy = 'a.match_score DESC NULLS LAST';
-
-    const countRes = await query(
-      `SELECT count(*)::int AS n
+    // Live scores before match sort/pagination — never ORDER BY a.match_score
+    const result = await query(
+      `SELECT a.id, a.internship_id, a.candidate_id, a.status, a.match_score, a.created_at, a.updated_at,
+              a.interview_at, a.interview_meet_url,
+              i.title, i.stipend_inr, i.stipend_inr_max, i.stipend_type, i.work_mode, i.location, i.show_employer_identity,
+              i.status AS internship_status, i.apply_ends_at, i.eligibility,
+              e.id AS employer_id, e.company_name, e.approval_status, e.user_id AS employer_user_id
        FROM ip_applications a
        LEFT JOIN ip_internships i ON i.id = a.internship_id
        LEFT JOIN ip_employers e ON e.id = i.employer_id
        WHERE ${where.join(' AND ')}`,
       params,
     );
-    const total = Number(countRes.rows[0]?.n || 0);
-    const offset = (page - 1) * pageSize;
-    params.push(pageSize, offset);
 
-    const result = await query(
-      `SELECT a.id, a.internship_id, a.candidate_id, a.status, a.match_score, a.created_at, a.updated_at,
-              a.interview_at, a.interview_meet_url,
-              i.title, i.stipend_inr, i.stipend_inr_max, i.stipend_type, i.work_mode, i.location, i.show_employer_identity,
-              i.status AS internship_status, i.apply_ends_at,
-              e.id AS employer_id, e.company_name, e.approval_status, e.user_id AS employer_user_id
-       FROM ip_applications a
-       LEFT JOIN ip_internships i ON i.id = a.internship_id
-       LEFT JOIN ip_employers e ON e.id = i.employer_id
-       WHERE ${where.join(' AND ')}
-       ORDER BY ${orderBy}
-       LIMIT $${params.length - 1} OFFSET $${params.length}`,
-      params,
+    let rows = result.rows.map((row) => ({
+      ...row,
+      match_score: liveMatchScore(skills, row.eligibility),
+      employer_id: row.employer_id || null,
+      employer_user_id: row.employer_user_id || null,
+    }));
+
+    if (sort === 'oldest') {
+      rows.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+    } else if (sort === 'status') {
+      rows.sort((a, b) => {
+        const s = String(a.status || '').localeCompare(String(b.status || ''));
+        if (s !== 0) return s;
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      });
+    } else if (sort === 'match') {
+      rows.sort((a, b) => (b.match_score ?? -1) - (a.match_score ?? -1));
+    } else {
+      rows.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    }
+
+    const paged = paginateRows(rows, page, pageSize);
+    const items = paged.items.map((row) =>
+      decorateCandidateApplication(maskEmployerIdentityForCandidate(row)),
     );
 
-    const items = result.rows.map((row) =>
-      decorateCandidateApplication(
-        maskEmployerIdentityForCandidate({
-          ...row,
-          employer_id: row.employer_id || null,
-          employer_user_id: row.employer_user_id || null,
-        }),
-      ),
-    );
-
-    return jsonOk({ items, total, page, pageSize });
+    return jsonOk({ items, total: paged.total, page: paged.page, pageSize: paged.pageSize });
   } catch (e) {
     console.error('[ip/candidate/applications GET]', e);
     return jsonError(e.message || 'Failed to load applications', 500);
@@ -185,14 +188,7 @@ export async function POST(request) {
   }
 
   const skills = cand.rows[0].skills || [];
-  const eligSkills = internship.rows[0].eligibility?.skills;
-  let matchScore = 100;
-  if (Array.isArray(eligSkills) && eligSkills.length) {
-    const have = new Set(skills.map((s) => String(s).toLowerCase()));
-    matchScore = Math.round(
-      (eligSkills.filter((s) => have.has(String(s).toLowerCase())).length / eligSkills.length) * 100,
-    );
-  }
+  const matchScore = skillMatchPercent(skills, internship.rows[0].eligibility || {});
 
   let id;
   try {

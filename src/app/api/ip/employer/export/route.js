@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError } from '@/lib/apiAuth';
 import { workbookToBuffer } from '@/lib/ipXlsxWorkbook';
 import { formatWorkTime12h } from '@/lib/ipWorkHours';
+import { liveMatchScore } from '@/lib/ipLiveMatchScore';
 
 function safeFilePart(name) {
   return String(name || 'data')
@@ -30,7 +31,7 @@ export async function GET() {
       [emp.rows[0].id],
     ),
     query(
-      `SELECT a.id, a.status, a.match_score, a.created_at, i.title, c.name, c.college, c.degree, c.city
+      `SELECT a.id, a.status, a.created_at, i.title, i.eligibility, c.name, c.college, c.degree, c.city, c.skills
        FROM ip_applications a
        JOIN ip_internships i ON i.id = a.internship_id
        JOIN ip_candidates c ON c.id = a.candidate_id
@@ -85,7 +86,7 @@ export async function GET() {
     degree: a.degree,
     city: a.city,
     status: a.status,
-    match_score: a.match_score,
+    match_score: liveMatchScore(a.skills, a.eligibility || {}),
     created_at: a.created_at,
   }));
 

@@ -37,6 +37,8 @@
         "test:profile-contact": "node scripts/test-ip-profile-contact.mjs",
         "test:profile-setup": "node scripts/test-ip-profile-setup.mjs",
     "test:employer-docs-reminder": "node scripts/test-ip-employer-docs-reminder.mjs",
+        "test:applicant-export-filename": "node scripts/test-ip-applicant-export-filename.mjs",
+        "test:skill-match": "node scripts/test-ip-skill-match.mjs",
         "ip:core-account": "node scripts/ip-core-account.mjs",
     "ip:docs-reminder": "node scripts/ip-docs-reminder-contact.mjs",
         "audit:demo-consistency": "node scripts/audit-demo-consistency.mjs",

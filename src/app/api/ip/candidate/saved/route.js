@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { requireSession, jsonError, jsonOk } from '@/lib/apiAuth';
 import { newId } from '@/lib/ids';
 import { maskEmployerIdentityForCandidate } from '@/lib/ipEmployerIdentity';
+import { skillMatchPercent } from '@/lib/skillMatch';
 
 /** List saved internships for the candidate. */
 export async function GET() {
@@ -19,19 +20,11 @@ export async function GET() {
     [cand.rows[0].id],
   );
   const skills = cand.rows[0].skills || [];
-  const items = result.rows.map((r) => {
-    const elig = r.eligibility?.skills;
-    let match_score = 100;
-    if (Array.isArray(elig) && elig.length) {
-      const have = new Set(skills.map((s) => String(s).toLowerCase()));
-      match_score = Math.round((elig.filter((s) => have.has(String(s).toLowerCase())).length / elig.length) * 100);
-    }
-    return {
-      ...maskEmployerIdentityForCandidate(r),
-      match_score,
-      saved: true,
-    };
-  });
+  const items = result.rows.map((r) => ({
+    ...maskEmployerIdentityForCandidate(r),
+    match_score: skillMatchPercent(skills, r.eligibility || {}),
+    saved: true,
+  }));
   return jsonOk({ items });
 }
 

@@ -8,8 +8,11 @@ import { employerCanSeeCandidatePhone } from '@/lib/ipCandidatePhonePrivacy';
 import { experienceExportText } from '@/lib/ipCandidateExperience';
 import { workbookToBuffer } from '@/lib/ipXlsxWorkbook';
 import { commitmentLabel, dayString, textList } from '@/lib/ipCandidateProfileDisplay';
+import { buildApplicantExportFilename } from '@/lib/ipApplicantExportFilename';
+import { liveMatchScore } from '@/lib/ipLiveMatchScore';
 
 export { shouldUseBackgroundJob, SYNC_EXPORT_THRESHOLD };
+export { buildApplicantExportFilename, sanitizeExportNamePart } from '@/lib/ipApplicantExportFilename';
 
 function safeName(name) {
   return String(name || 'candidate')
@@ -105,6 +108,23 @@ async function fetchResumeBuffer(resumeUrl, ownerUserId) {
   return null;
 }
 
+/** Posting + employer labels for export filenames (ownership-scoped). */
+export async function loadExportPostingMeta(employerId, internshipId) {
+  const result = await query(
+    `SELECT e.company_name AS employer_name, i.title AS internship_title
+     FROM ip_internships i
+     JOIN ip_employers e ON e.id = i.employer_id
+     WHERE i.employer_id = $1 AND i.id = $2
+     LIMIT 1`,
+    [employerId, internshipId],
+  );
+  const row = result.rows[0];
+  return {
+    employerName: row?.employer_name || '',
+    postingTitle: row?.internship_title || '',
+  };
+}
+
 export async function loadAppsForExport(employerId, internshipId, applicationIds) {
   const result = await query(
     `SELECT a.id, a.status, a.match_score, a.screening_disabled, a.created_at,
@@ -116,10 +136,12 @@ export async function loadAppsForExport(employerId, internshipId, applicationIds
             c.preferred_locations, to_jsonb(c) -> 'preferred_roles' AS preferred_roles, c.personal_website,
             c.linkedin_url, c.github_url, c.portfolio_url,
             c.has_wired_broadband, c.has_dedicated_laptop,
-            c.hide_phone_until_shortlist, c.phone, c.user_id AS candidate_user_id
+            c.hide_phone_until_shortlist, c.phone, c.user_id AS candidate_user_id,
+            i.title AS internship_title, i.eligibility, e.company_name AS employer_name
      FROM ip_applications a
      JOIN ip_candidates c ON c.id = a.candidate_id
      JOIN ip_internships i ON i.id = a.internship_id
+     JOIN ip_employers e ON e.id = i.employer_id
      WHERE i.employer_id = $1 AND a.internship_id = $2 AND a.id = ANY($3::text[])
      ORDER BY a.created_at ASC`,
     [employerId, internshipId, applicationIds],
@@ -129,6 +151,7 @@ export async function loadAppsForExport(employerId, internshipId, applicationIds
     const revealPhone = employerCanSeeCandidatePhone(row.status, hide);
     return {
       ...row,
+      match_score: liveMatchScore(row.skills, row.eligibility || {}),
       phone: revealPhone ? row.phone : '',
     };
   });
@@ -195,9 +218,13 @@ function applicantSheetRows(rows) {
 /**
  * Build XLSX (+ optional ZIP of resumes the employer is allowed to see).
  * Phone-hidden rules: still allow resume if URL present (resume is already on applicant row).
- * `csv` kept for legacy job clients; prefer `xlsxBase64` / zip with applicants.xlsx.
+ * `csv` kept for legacy job clients; prefer `xlsxBase64` / zip with named xlsx inside.
+ * Filename stamp is generated here (actual package build time), not at job request time.
  */
-export async function buildApplicantExportPackage(rows, { includeResumes = false, onProgress } = {}) {
+export async function buildApplicantExportPackage(
+  rows,
+  { includeResumes = false, onProgress, employerName, postingTitle } = {},
+) {
   const csv = applicationsToCsv(rows);
   const sheetRows = applicantSheetRows(rows);
   const xlsxBuffer = await workbookToBuffer([
@@ -212,14 +239,25 @@ export async function buildApplicantExportPackage(rows, { includeResumes = false
   let zipBase64 = null;
   let resumeCount = 0;
   let skipped = 0;
-  let filename = 'applicants-export.xlsx';
+
+  const fromRow = rows?.[0] || {};
+  const empName = employerName != null && employerName !== '' ? employerName : fromRow.employer_name;
+  const postTitle = postingTitle != null && postingTitle !== '' ? postingTitle : fromRow.internship_title;
+  const generatedAt = new Date();
+  const xlsxFilename = buildApplicantExportFilename({
+    employerName: empName,
+    postingTitle: postTitle,
+    generatedAt,
+    extension: 'xlsx',
+  });
+  let filename = xlsxFilename;
 
   if (includeResumes) {
     const zip = new JSZip();
-    zip.file('applicants.xlsx', xlsxBuffer);
+    zip.file(xlsxFilename, xlsxBuffer);
     zip.file(
       'README.txt',
-      'InternSafar applicant export.\napplicants.xlsx = full profile fields the employer is allowed to see.\nresumes/ = CV files when available.\nPhone is included only when shortlist/privacy rules allow.\n',
+      `InternSafar applicant export.\n${xlsxFilename} = full profile fields the employer is allowed to see.\nresumes/ = CV files when available.\nPhone is included only when shortlist/privacy rules allow.\n`,
     );
     let i = 0;
     for (const row of rows) {
@@ -239,7 +277,12 @@ export async function buildApplicantExportPackage(rows, { includeResumes = false
     }
     const buf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
     zipBase64 = buf.toString('base64');
-    filename = 'applicants-export.zip';
+    filename = buildApplicantExportFilename({
+      employerName: empName,
+      postingTitle: postTitle,
+      generatedAt,
+      extension: 'zip',
+    });
   }
 
   return { csv, xlsxBase64, zipBase64, filename, resumeCount, skipped };
@@ -297,8 +340,11 @@ export async function processExportJob(jobId) {
       ids,
     );
     const rows = await loadAppsForExport(job.employer_id, job.internship_id, liveIds);
+    const meta = await loadExportPostingMeta(job.employer_id, job.internship_id);
     const pack = await buildApplicantExportPackage(rows, {
       includeResumes: job.include_resumes,
+      employerName: meta.employerName,
+      postingTitle: meta.postingTitle,
       onProgress: async (done, total) => {
         await query(
           `UPDATE ip_export_jobs SET progress = $2, total = $3, updated_at = now() WHERE id = $1`,

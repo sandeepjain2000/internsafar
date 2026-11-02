@@ -3,6 +3,7 @@ import { ensureIpCandidateProfileSchema } from '@/lib/ensureIpCandidateProfileSc
 import { dayString, resumeLinkList, textList } from '@/lib/ipCandidateProfileDisplay';
 import { offerIsExpired } from '@/lib/ipOfferPresentation';
 import { registrationPathLabel } from '@/lib/ipRegistrationPathLabel';
+import { liveMatchScore } from '@/lib/ipLiveMatchScore';
 
 /** SuperAdmin Candidates list loads every candidate once; the page filters/sorts/pages client-side. */
 export const SA_CANDIDATE_LIST_CAP = 5000;
@@ -348,8 +349,9 @@ export async function getSuperadminCandidateDetail(userId) {
       : [],
     candidateId
       ? rowsOrEmpty(
-          `SELECT a.id, a.status, a.match_score, a.created_at, a.updated_at, a.internship_id,
-                  i.title, i.employer_id, to_jsonb(i)->>'show_employer_identity' AS show_identity
+          `SELECT a.id, a.status, a.created_at, a.updated_at, a.internship_id,
+                  i.title, i.employer_id, i.eligibility,
+                  to_jsonb(i)->>'show_employer_identity' AS show_identity
            FROM ip_applications a
            JOIN ip_internships i ON i.id = a.internship_id
            WHERE a.candidate_id = $1
@@ -412,7 +414,7 @@ export async function getSuperadminCandidateDetail(userId) {
       postingId: a.internship_id,
       postingTitle: text(a.title) || 'Untitled posting',
       status: String(a.status || '').toLowerCase(),
-      matchScore: a.match_score != null ? Number(a.match_score) : null,
+      matchScore: liveMatchScore(cand?.skills, a.eligibility || {}),
       appliedAt: iso(a.created_at),
       updatedAt: iso(a.updated_at) || iso(a.created_at),
       nameHidden: nameHiddenOnPosting(a.show_identity),

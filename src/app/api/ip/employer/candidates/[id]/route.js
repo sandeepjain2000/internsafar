@@ -9,6 +9,7 @@ import {
 } from '@/lib/ipCandidateInternshipHistory';
 import { loadEmployerCandidateSections } from '@/lib/ipCandidateFullExport';
 import { commitmentLabel, resumeLinkList, textList } from '@/lib/ipCandidateProfileDisplay';
+import { liveMatchScore } from '@/lib/ipLiveMatchScore';
 
 /**
  * Employer-visible candidate profile. Discovery fields always (if searchable or they applied).
@@ -41,7 +42,7 @@ export async function GET(request, { params }) {
   let application = null;
   if (applicationId) {
     const app = await query(
-      `SELECT a.*, i.title AS internship_title, i.id AS internship_id
+      `SELECT a.*, i.title AS internship_title, i.id AS internship_id, i.eligibility
        FROM ip_applications a
        JOIN ip_internships i ON i.id = a.internship_id
        WHERE a.id = $1 AND a.candidate_id = $2 AND i.employer_id = $3`,
@@ -51,7 +52,7 @@ export async function GET(request, { params }) {
   }
   if (!application) {
     const any = await query(
-      `SELECT a.*, i.title AS internship_title, i.id AS internship_id
+      `SELECT a.*, i.title AS internship_title, i.id AS internship_id, i.eligibility
        FROM ip_applications a
        JOIN ip_internships i ON i.id = a.internship_id
        WHERE a.candidate_id = $1 AND i.employer_id = $2
@@ -132,7 +133,7 @@ export async function GET(request, { params }) {
       internship_id: application.internship_id,
       internship_title: application.internship_title,
       status: application.status,
-      match_score: application.match_score,
+      match_score: liveMatchScore(candidate.skills, application.eligibility || {}),
       answers: application.answers,
       questions_snapshot: application.questions_snapshot,
       screening_disabled: application.screening_disabled,

@@ -60,6 +60,10 @@ Single and bulk status changes share `applyEmployerApplicationStatus` (`src/lib/
 
 Medium audit (2026-10-03): applicant export jobs are claimed atomically (pending, or processing stale > 2 min), so concurrent polls cannot double-process; `POST /api/ip/employer/documents` accepts only the employer's own upload key, `/sample-docs/…`, or an `https:` URL (400 otherwise).
 
+**Applicant export filenames (2026-11-02):** sync and background packages from `buildApplicantExportPackage` (`src/lib/ipApplicantExport.js`) use `{Employer10}_{Posting10}_{YYYYMMDD}_{HHmm}.xlsx|.zip` via `src/lib/ipApplicantExportFilename.js`. Employer/posting parts are the first 10 ASCII alphanumeric characters of `ip_employers.company_name` / `ip_internships.title` (spaces/specials stripped; missing → `Unknown`). Stamp is Asia/Kolkata at **package build** time (`formatIstExportStamp` in `ipIstTime.js`), not job request time — same helper for sync bulk export, `processExportJob`, and cron. ZIP stores the Excel under the matching `.xlsx` name. Meta comes from `loadExportPostingMeta` (always) plus the same columns on `loadAppsForExport` rows. Saved on jobs as `ip_export_jobs.result_filename`. Unit: `npm run test:applicant-export-filename`.
+
+**Live match scores (2026-11-02):** Display, sort, filter, pagination, analytics, and exports must **not** treat `ip_applications.match_score` as authoritative. Shared logic: `src/lib/skillMatch.js` (normalize + explicit `SKILL_ALIASES`, no fuzzy) and `src/lib/ipLiveMatchScore.js`. Employer applicant list (`GET …/applicants`) loads eligibility once, scores every filtered row in memory, then `minMatch` / sort / page. Analytics `matchFit`, dashboard recent apps, employer workbook export, applicant Excel/ZIP (`loadAppsForExport`), candidate detail application card, and SuperAdmin candidate apps all recompute from current `c.skills` + `i.eligibility`. Column may still be written on apply as a snapshot. Unit: `npm run test:skill-match`.
+
 ## Documents — Hybrid E (confirmed 2026-09-26)
 
 - One **active** row per doc type (Shop Act / LLP / Business PAN / Other + `doc_label`).

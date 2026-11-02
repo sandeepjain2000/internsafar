@@ -4,6 +4,7 @@ import { POINTS_PER_POST } from '@/lib/pointsEconomy';
 import { processAutoRejectExpiredApplications } from '@/lib/ipAutoRejectExpiredApplications';
 import { ensureIpApplicationInterviewSchema } from '@/lib/ensureIpApplicationInterviewSchema';
 import { ensureIpEmployerDocumentSlotsSchema } from '@/lib/ipEmployerDocuments';
+import { liveMatchScore } from '@/lib/ipLiveMatchScore';
 
 /** Employer home aggregates — recent apps + week delta (no new tables). */
 export async function GET() {
@@ -57,8 +58,8 @@ export async function GET() {
 
   const recentApps = await query(
     `SELECT a.id, a.status, a.match_score, a.created_at, a.internship_id,
-            i.title as internship_title,
-            c.name as candidate_name, c.college, c.cgpa, c.resume_url
+            i.title as internship_title, i.eligibility,
+            c.name as candidate_name, c.college, c.cgpa, c.resume_url, c.skills
      FROM ip_applications a
      JOIN ip_internships i ON i.id = a.internship_id
      JOIN ip_candidates c ON c.id = a.candidate_id
@@ -165,6 +166,9 @@ export async function GET() {
       documentsPending,
     },
     postings: published.slice(0, 5),
-    recentApplications: recentApps.rows,
+    recentApplications: recentApps.rows.map((row) => ({
+      ...row,
+      match_score: liveMatchScore(row.skills, row.eligibility || {}),
+    })),
   });
 }

@@ -159,6 +159,43 @@ Hard rules for agents:
 8. Full write-up: handoff `PATH-B-NO-DB-MIGRATE.txt`. Cursor rule: `.cursor/rules/db-migration-no-wipe.mdc`.
 <!-- END:aws-db-script-routing -->
 
+<!-- BEGIN:local-backup-before-edit -->
+# Local backup before modifying any file
+
+Before editing **any** file in this project, take a local backup of the original.
+
+## Backup location
+
+```
+C:\Users\place\Work\UIUX Migration\internship-portal-local-backups\
+```
+
+This folder sits **next to** (not inside) the app folder so backups are never committed or deployed.
+
+## How
+
+```powershell
+$stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+Copy-Item "<full path to file>" "C:\Users\place\Work\UIUX Migration\internship-portal-local-backups\<filename>.$stamp.bak"
+```
+
+Example — backing up `AGENTS.md` before editing it:
+
+```powershell
+$stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+Copy-Item "C:\Users\place\Work\UIUX Migration\internship-portal\AGENTS.md" `
+          "C:\Users\place\Work\UIUX Migration\internship-portal-local-backups\AGENTS.md.$stamp.bak"
+```
+
+## Rules
+
+1. **One backup per file per edit session** — copy before the first change to that file in a task; you do not need to re-copy if you edit the same file a second time in the same task.
+2. **Temp / scratch files** (prefixed `tmp-`) do not need a backup — they are throwaway scripts created and deleted in the same task.
+3. **Never back up `.env`, `.env.local`, `.env.*.local`** — those files must not leave the app folder or be copied anywhere. The existing env-safety rule already covers them.
+4. The backup folder is local only — never commit, push, or deploy its contents.
+5. Name the backup `<original-filename>.<yyyyMMdd-HHmmss>.bak` so the source file and timestamp are clear.
+<!-- END:local-backup-before-edit -->
+
 <!-- BEGIN:ui-quality-standard -->
 # UI Quality Standard: v0-Level by Default
 

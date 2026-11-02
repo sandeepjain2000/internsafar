@@ -1,5 +1,6 @@
 import { query } from '@/lib/db';
 import { requireSession, jsonOk } from '@/lib/apiAuth';
+import { liveMatchScore } from '@/lib/ipLiveMatchScore';
 
 export async function GET() {
   const { session, error } = await requireSession(['employer']);
@@ -42,14 +43,21 @@ export async function GET() {
      WHERE i.employer_id = $1 GROUP BY c.specialization ORDER BY candidates DESC LIMIT 10`,
     [empId],
   );
-  const matchFit = await query(
-    `SELECT round(avg(a.match_score)::numeric,1) as avg_match,
-            count(*) FILTER (WHERE a.match_score >= 70) as strong_fit,
-            count(*) as total
-     FROM ip_applications a JOIN ip_internships i ON i.id = a.internship_id
+  const matchRows = await query(
+    `SELECT c.skills, i.eligibility
+     FROM ip_applications a
+     JOIN ip_internships i ON i.id = a.internship_id
+     JOIN ip_candidates c ON c.id = a.candidate_id
      WHERE i.employer_id = $1`,
     [empId],
   );
+  const scores = matchRows.rows.map((r) => liveMatchScore(r.skills, r.eligibility || {}));
+  const total = scores.length;
+  const strongFit = scores.filter((s) => s >= 70).length;
+  const avgMatch = total
+    ? Math.round((scores.reduce((sum, s) => sum + s, 0) / total) * 10) / 10
+    : null;
+  const matchFit = { avg_match: avgMatch, strong_fit: strongFit, total };
 
   return jsonOk({
     funnel: Object.fromEntries(funnel.rows.map((r) => [r.status, Number(r.count)])),
@@ -58,7 +66,7 @@ export async function GET() {
     education: education.rows,
     geography: geography.rows,
     specialization: specialization.rows,
-    matchFit: matchFit.rows[0],
+    matchFit,
     postings: postings.rows[0],
   });
 }

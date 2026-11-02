@@ -60,6 +60,8 @@ const UNIT_SCRIPTS = [
   'scripts/test-ip-profile-contact.mjs',
   'scripts/test-ip-profile-setup.mjs',
   'scripts/test-ip-employer-docs-reminder.mjs',
+  'scripts/test-ip-applicant-export-filename.mjs',
+  'scripts/test-ip-skill-match.mjs',
 ];
 
 console.log(describeSuite('full', SUITE_FULL));

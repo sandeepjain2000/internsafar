@@ -30,6 +30,8 @@ Candidate dashboard, profile, browse/apply internships, applications, messages, 
 
 Nav order: `src/lib/ipNav.js` → `CANDIDATE_NAV`.
 
+**Live match scores (2026-11-02):** Browse and saved lists already used / now use `skillMatchPercent` (`src/lib/skillMatch.js` — aliases + normalize). My Applications GET recomputes from current profile skills + each posting’s eligibility before match sort/pagination (`ipLiveMatchScore.js`). Apply still stores a snapshot in `ip_applications.match_score` but reads for display/sort use the live value. Unit: `npm run test:skill-match`.
+
 ## List UX (confirmed 2026-09-18)
 
 Several candidate list surfaces use shared `IpListPager` (`src/components/ip/IpListPager.jsx`): internships browse, offers, notifications, and message panes. Prefer that component over inventing a second pager.

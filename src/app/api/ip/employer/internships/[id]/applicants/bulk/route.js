@@ -272,6 +272,7 @@ export async function POST(request, { params }) {
       processExportJob,
       shouldUseBackgroundJob,
       loadAppsForExport,
+      loadExportPostingMeta,
       buildApplicantExportPackage,
       partitionExportApplicationIds,
     } = await import('@/lib/ipApplicantExport');
@@ -300,7 +301,12 @@ export async function POST(request, { params }) {
       applicationIds,
     );
     const fullRows = await loadAppsForExport(emp.rows[0].id, internshipId, liveIds);
-    const pack = await buildApplicantExportPackage(fullRows, { includeResumes });
+    const meta = await loadExportPostingMeta(emp.rows[0].id, internshipId);
+    const pack = await buildApplicantExportPackage(fullRows, {
+      includeResumes,
+      employerName: meta.employerName,
+      postingTitle: meta.postingTitle,
+    });
     if (liveIds[0]) {
       await query(
         `INSERT INTO ip_application_events (id, application_id, actor_user_id, event_type, payload)

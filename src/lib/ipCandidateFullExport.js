@@ -13,6 +13,7 @@ import {
   resumeLinkList,
   textList,
 } from '@/lib/ipCandidateProfileDisplay';
+import { liveMatchScore } from '@/lib/ipLiveMatchScore';
 
 const PROFILE_HEADERS = {
   name: '',
@@ -219,10 +220,11 @@ async function loadApplications(candidateId, { employerId = null } = {}) {
     employerClause = ` AND i.employer_id = $${params.length}`;
   }
   const r = await query(
-    `SELECT i.title, e.company_name, a.status, a.match_score, a.created_at
+    `SELECT i.title, i.eligibility, e.company_name, a.status, a.created_at, c.skills
      FROM ip_applications a
      JOIN ip_internships i ON i.id = a.internship_id
      JOIN ip_employers e ON e.id = i.employer_id
+     JOIN ip_candidates c ON c.id = a.candidate_id
      WHERE a.candidate_id = $1${employerClause}
      ORDER BY a.created_at DESC`,
     params,
@@ -231,7 +233,7 @@ async function loadApplications(candidateId, { employerId = null } = {}) {
     title: row.title || '',
     company_name: row.company_name || '',
     status: row.status || '',
-    match_score: row.match_score ?? '',
+    match_score: liveMatchScore(row.skills, row.eligibility || {}),
     created_at: row.created_at || '',
   }));
 }
