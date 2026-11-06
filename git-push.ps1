@@ -21,16 +21,15 @@ git add -A
 
 $status = git status --porcelain
 if (-not $status) {
-    Write-Host "No changes to commit."
-    exit 0
+    Write-Host "No local changes to commit. Pushing current branch..."
+} else {
+    Write-Host "Changes to commit:"
+    git status --short
+    Write-Host ""
+
+    git commit -m $Message
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
-Write-Host "Changes to commit:"
-git status --short
-Write-Host ""
-
-git commit -m $Message
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-git push origin main
+git push -u origin main
 exit $LASTEXITCODE
