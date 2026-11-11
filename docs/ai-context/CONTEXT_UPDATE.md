@@ -61,7 +61,7 @@ When giving the zip to another AI:
 2. Tell the recipient: start at `README.md`, then `PROJECT_INDEX.md`, then `FOLDER_STRUCTURE.md`.
 3. Remind them the app source is **not** inside the zip — they need sibling `internship-portal/` to edit code.
 
-Last zip rebuild: **2026-11-02** (match-score live + aliases).
+Last zip rebuild: **2026-11-11** (added `work/2026-11-11-security-findings-remediation/` plan; no product code change).
 
 ## Skills
 

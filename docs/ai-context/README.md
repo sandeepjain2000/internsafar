@@ -15,7 +15,7 @@ It is **not** the application source. It is a map so an AI (or human) can orient
 | App to edit | Sibling folder `internship-portal/` (same repo root as this `docs/` tree) |
 | Do not edit | `campus-placement-multiuser/internship-portal/` (frozen nested copy) |
 | Last pack refresh | 2026-09-28 |
-| Last zip rebuild | 2026-09-28 |
+| Last zip rebuild | 2026-11-11 |
 
 ## If you only received a zip of this folder
 
@@ -50,6 +50,7 @@ Do **not** load every domain file or every skill up front.
 | `DECISIONS.md` | Stable confirmed decisions only |
 | `CONTEXT_UPDATE.md` | When to refresh this pack |
 | `domains/*.md` | Auth, DB, roles, UI, workflow, deploy, testing |
+| `work/` | Dated work plans (e.g. security verification). Not product runtime docs |
 
 ## Source-of-truth order
 

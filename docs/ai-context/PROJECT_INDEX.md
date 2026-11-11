@@ -130,6 +130,7 @@ Full route/API inventory (large): `ISM_ROUTE_INVENTORY.md` — open only when yo
 | Skills discovery | `SKILLS_MAP.md` |
 | Flow-trace skills (employer onboarding, apply→offer, Hybrid E docs, AWS Path B schema gap) | `.agents/skills/ip-trace-*/SKILL.md` — listed in `SKILLS_MAP.md` (added 2026-09-30) |
 | Stable decisions | `DECISIONS.md` |
+| Security findings verification 2026-11-11 (plan only; no fixes yet) | `work/2026-11-11-security-findings-remediation/Implementation Plan.md` |
 
 ---
 
